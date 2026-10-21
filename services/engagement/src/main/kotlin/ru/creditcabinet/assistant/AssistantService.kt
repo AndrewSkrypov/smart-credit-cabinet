@@ -38,6 +38,13 @@ class AssistantService(
         val facts = applicationId?.let { applications.facts(it, authorization) }
         val articles = Knowledge.relevant(question)
         val sources = articles.map { it.title } + listOfNotNull(facts?.let { "Заявка № ${it.number}" })
+        // Questions about the client's own application (why refused, the offer, documents, the
+        // status) are answered from its facts by rules: a small model was seen to give wrong
+        // advice there. The model explains terms and products, where only the reference counts.
+        RuleAnswers.aboutApplication(question, facts)?.let { factsAnswer ->
+            val explanation = articles.take(1).joinToString("\n\n") { it.text }
+            return Answer(listOf(factsAnswer, explanation).filter { it.isNotBlank() }.joinToString("\n\n"), AnswerMode.RULES, sources)
+        }
         val messages = prompt(question, facts, articles, history)
         model.chat(messages)?.let { reply ->
             val text = plainText(reply)
@@ -126,29 +133,28 @@ object Grounding {
 
 /** Answers without a model: the matching article and the facts of the application, put together by rules. */
 object RuleAnswers {
-    fun answer(question: String, facts: ApplicationFacts?, articles: List<Article>): String {
+    /** The answer from the application's facts, when the question is about them; null otherwise. */
+    fun aboutApplication(question: String, facts: ApplicationFacts?): String? {
+        facts ?: return null
         val text = question.lowercase()
-        val parts = mutableListOf<String>()
-        if (facts != null) {
-            when {
-                ("отказ" in text || "почему" in text) && facts.refusal.isNotEmpty() ->
-                    parts += "По заявке № ${facts.number} банк отказал.\n" + facts.refusal.joinToString("\n") { "— $it" }
-                ("предлож" in text || "услови" in text || "ставк" in text || "платеж" in text || "платёж" in text) && facts.offer != null ->
-                    parts += "${facts.offer}."
-                ("документ" in text || "загруз" in text) && facts.missingDocuments.isNotEmpty() ->
-                    parts +=
-                        "Для заявки № ${facts.number} нужны: ${facts.missingDocuments.joinToString("; ")}" + (facts.deadline?.let { ". Срок — до $it." } ?: ".")
-                articles.isEmpty() || STATUS_WORDS.any { it in text } ->
-                    parts += "Заявка № ${facts.number}: ${facts.status}."
-            }
+        return when {
+            ("отказ" in text || "почему" in text || "отклон" in text) && facts.refusal.isNotEmpty() ->
+                "По заявке № ${facts.number} банк отказал.\n" + facts.refusal.joinToString("\n") { "— $it" }
+            OFFER_WORDS.any { it in text } && facts.offer != null -> "${facts.offer}."
+            ("документ" in text || "загруз" in text) && facts.missingDocuments.isNotEmpty() ->
+                "Для заявки № ${facts.number} нужны: ${facts.missingDocuments.joinToString("; ")}" + (facts.deadline?.let { ". Срок — до $it." } ?: ".")
+            STATUS_WORDS.any { it in text } -> "Заявка № ${facts.number}: ${facts.status}."
+            else -> null
         }
-        parts += articles.take(2).map { it.text }
-        if (parts.isEmpty()) {
-            parts += "Я подскажу, как устроены продукты и рассмотрение заявки, что означает статус, предложение или отказ банка и какие нужны документы. " +
-                "Например: «Чем овердрафт отличается от кредита?», «Почему мне предложили меньшую сумму?», «Какие документы загрузить?»."
-        }
-        return parts.joinToString("\n\n")
     }
 
+    fun answer(question: String, facts: ApplicationFacts?, articles: List<Article>): String {
+        val parts = listOfNotNull(aboutApplication(question, facts)) + articles.take(2).map { it.text }
+        if (parts.isNotEmpty()) return parts.joinToString("\n\n")
+        return "Я подскажу, как устроены продукты и рассмотрение заявки, что означает статус, предложение или отказ банка и какие нужны документы. " +
+            "Например: «Чем овердрафт отличается от кредита?», «Почему мне предложили меньшую сумму?», «Какие документы загрузить?»."
+    }
+
+    private val OFFER_WORDS = listOf("предлож", "услови", "ставк", "платеж", "платёж", "меньш", "друг")
     private val STATUS_WORDS = listOf("статус", "что с заявк", "что дальше", "сколько ждать", "когда")
 }

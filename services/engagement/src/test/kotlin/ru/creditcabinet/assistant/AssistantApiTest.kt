@@ -65,13 +65,24 @@ class AssistantApiTest {
     }
 
     @Test
+    fun `a question about the refusal is answered from the facts even when a model runs`() {
+        whenever(model.available()).thenReturn(true)
+        whenever(model.chat(any())).thenReturn("Увеличьте сумму до 150% и снизьте ставку до 18%")
+        whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
+        val answer = mapper.readTree(ask("Почему мне отказали?").getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue(answer["text"].asText().contains("— Долговая нагрузка: платежи — 64% выручки"), answer["text"].asText())
+        verify(model, org.mockito.kotlin.never()).chat(any())
+    }
+
+    @Test
     fun `with a model the prompt holds the rules, the reference and the facts, and the model answers`() {
         whenever(model.available()).thenReturn(true)
-        whenever(model.chat(any())).thenReturn("## Ответ\n**Банк отказал** из-за высокой нагрузки.\n1. Уменьшите сумму")
+        whenever(model.chat(any())).thenReturn("## Ответ\n**Нагрузка** — доля выручки на платежи.\n1. Считаются все кредиты")
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
-        val answer = mapper.readTree(ask("Что такое долговая нагрузка и почему отказ?").getContentAsString(Charsets.UTF_8))
+        val answer = mapper.readTree(ask("Что такое долговая нагрузка?").getContentAsString(Charsets.UTF_8))
         assertEquals("MODEL", answer["mode"].asText())
-        assertEquals("Ответ\nБанк отказал из-за высокой нагрузки.\n— Уменьшите сумму", answer["text"].asText(), "markup is turned into plain text")
+        assertEquals("Ответ\nНагрузка — доля выручки на платежи.\n— Считаются все кредиты", answer["text"].asText(), "markup is turned into plain text")
         val messages = argumentCaptor<List<ChatMessage>>().also { verify(model).chat(it.capture()) }.firstValue
         assertEquals("system", messages.first().role)
         assertTrue(messages.first().content.contains("Не придумывай суммы"))
@@ -82,11 +93,11 @@ class AssistantApiTest {
     @Test
     fun `an answer with a figure that is in no data is replaced by the rules answer`() {
         whenever(model.available()).thenReturn(true)
-        whenever(model.chat(any())).thenReturn("Уменьшите сумму на 500 000 ₽ и возьмите срок 18 месяцев.")
+        whenever(model.chat(any())).thenReturn("Нагрузка считается от суммы 500 000 ₽ за 18 месяцев.")
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
-        val answer = mapper.readTree(ask("Почему отказали?").getContentAsString(Charsets.UTF_8))
+        val answer = mapper.readTree(ask("Что такое долговая нагрузка?").getContentAsString(Charsets.UTF_8))
         assertEquals("RULES", answer["mode"].asText())
-        assertTrue(answer["text"].asText().contains("64% выручки"))
+        assertTrue(answer["text"].asText().startsWith("Долговая нагрузка — доля месячной выручки"), answer["text"].asText())
     }
 
     @Test

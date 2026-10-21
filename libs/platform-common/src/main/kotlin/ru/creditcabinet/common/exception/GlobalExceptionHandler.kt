@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -34,6 +35,18 @@ class GlobalExceptionHandler {
                 status = exception.httpStatus.value(),
                 error = exception.httpStatus.reasonPhrase,
                 message = exception.message,
+                path = request.requestURI,
+            ),
+        )
+
+    /** Two changes of the same object at once: the second one lost and must look at the current state. */
+    @ExceptionHandler(OptimisticLockingFailureException::class)
+    fun handleConcurrentChange(exception: OptimisticLockingFailureException, request: HttpServletRequest): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ErrorResponse(
+                status = HttpStatus.CONFLICT.value(),
+                error = HttpStatus.CONFLICT.reasonPhrase,
+                message = "Данные только что изменились — обновите страницу и повторите действие",
                 path = request.requestURI,
             ),
         )

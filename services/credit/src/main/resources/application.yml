@@ -17,6 +17,10 @@ spring:
       ddl-auto: validate
   flyway:
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
 
 springdoc:
   api-docs:
@@ -33,3 +37,7 @@ cabinet:
     title: "Кабинет предпринимателя: заявки, кредитный конвейер и решения"
   auth:
     jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}
+  storage:
+    # Documents of applications: a docker volume mounted at /app/uploads under compose.
+    local-dir: ${UPLOAD_DIR:./uploads}
+    max-size-bytes: ${UPLOAD_MAX_SIZE_BYTES:20971520}

@@ -5,3 +5,7 @@ plugins {
     id("cabinet.service-conventions")
     id("cabinet.jpa-conventions")
 }
+
+dependencies {
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
+}

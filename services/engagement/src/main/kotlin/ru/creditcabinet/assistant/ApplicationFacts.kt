@@ -61,11 +61,11 @@ class CreditApplications(
         val offerNode = process["offer"].takeIf { it != null && !it.isNull }
         val offer = offerNode?.let {
             val kind = if (it["kind"].asText() == "COUNTER") "контрпредложение" else "одобрение на запрошенных условиях"
-            val changes = it["changes"].map(JsonNode::asText).takeIf { list -> list.isNotEmpty() }?.joinToString("; ", prefix = ", изменения: ") ?: ""
-            "Предложение банка ($kind): ${it["productName"].asText()}, ${rub(
-                it["amount"].asLong(),
-            )}, ${it["termMonths"].asInt()} мес., ставка ${it["rate"].asText()}%, " +
-                "платёж ${it["monthlyPayment"].asText()} ₽ в месяц, действует до ${date(it["validUntil"].asText())}$changes"
+            val changes = it["changes"].map { change -> change.asText().trimEnd('.') }.takeIf { list -> list.isNotEmpty() }
+                ?.joinToString("; ", prefix = "; изменения: ") ?: ""
+            "Предложение банка ($kind): ${it["productName"].asText()}, ${rub(it["amount"].asLong())}, ${it["termMonths"].asInt()} мес., " +
+                "ставка ${percent(it["rate"].asText())}, платёж ${kopecks(it["monthlyPayment"].asText())} в месяц, " +
+                "действует до ${date(it["validUntil"].asText())}$changes"
         }
         // The explanation usually starts with the title itself: then the title is not repeated.
         val refusal = process["outcome"].takeIf { it != null && !it.isNull }?.let { outcome ->
@@ -84,7 +84,7 @@ class CreditApplications(
             )
             app["estimate"].takeIf {
                 it != null && !it.isNull
-            }?.let { add("Ориентировочный платёж по базовой ставке ${it["rate"].asText()}%: ${it["monthlyPayment"].asText()} ₽ в месяц") }
+            }?.let { add("Ориентировочный платёж по базовой ставке ${percent(it["rate"].asText())}: ${kopecks(it["monthlyPayment"].asText())} в месяц") }
             if (requested.isNotEmpty()) add("Банк запросил: ${requested.joinToString("; ")}; срок ответа до ${date(request!!["deadline"].asText())}")
             if (app["status"].asText() == "DRAFT" && missingRequired.isNotEmpty()) add("Для отправки нужны документы: ${missingRequired.joinToString("; ")}")
             app["submissionProblems"].map(JsonNode::asText).takeIf { it.isNotEmpty() }?.let { add("Что мешает отправить: ${it.joinToString("; ")}") }
@@ -96,7 +96,8 @@ class CreditApplications(
         }
         return ApplicationFacts(
             number = app["number"].asText(),
-            status = STATUS[app["status"].asText()] ?: app["status"].asText(),
+            status = (STATUS[app["status"].asText()] ?: app["status"].asText()) +
+                (app["closeReason"]?.takeIf { !it.isNull }?.let { reason -> CLOSE_REASONS[reason.asText()]?.let { ": $it" } } ?: ""),
             lines = lines,
             offer = offer,
             refusal = refusal,
@@ -107,11 +108,22 @@ class CreditApplications(
 
     private fun rub(amount: Long) = "%,d ₽".format(Locale.ROOT, amount).replace(',', ' ')
 
+    /** «99 761,88 ₽»: the way the cabinet writes money, so the figures match what the client sees. */
+    private fun kopecks(amount: String) =
+        amount.toBigDecimalOrNull()?.let { "%,.2f ₽".format(Locale.ROOT, it).replace(',', ' ').replace('.', ',') } ?: "$amount ₽"
+
+    private fun percent(rate: String) = (rate.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: rate).replace('.', ',') + "%"
+
     private fun date(iso: String) = runCatching { DATE.format(java.time.Instant.parse(iso).atZone(MOSCOW)) }.getOrDefault(iso)
 
     private companion object {
         val MOSCOW: ZoneId = ZoneId.of("Europe/Moscow")
         val DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMMM, HH:mm", Locale.forLanguageTag("ru"))
+        val CLOSE_REASONS = mapOf(
+            "INFO_EXPIRED" to "банк не получил запрошенные данные в срок",
+            "OFFER_DECLINED" to "клиент отказался от предложения банка",
+            "OFFER_EXPIRED" to "срок предложения истёк",
+        )
         val STATUS = mapOf(
             "DRAFT" to "черновик, ещё не отправлена",
             "SUBMITTED" to "принята, банк проверяет полноту данных",

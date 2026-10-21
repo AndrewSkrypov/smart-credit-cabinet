@@ -160,6 +160,8 @@ class AssistantApiTest {
         verify(model, org.mockito.kotlin.never()).chat(any())
         assertTrue(!RuleAnswers.isAboutOwnApplication("Что такое контрпредложение?"))
         assertTrue(!RuleAnswers.isAboutOwnApplication("Сколько рассматривается заявка?"))
+        assertTrue(RuleAnswers.isAboutOwnApplication("Что сейчас с моей заявкой?"))
+        assertEquals(listOf("load"), Knowledge.relevant("Что такое долговая нагрузка?").map { it.id }, "«долговая» is not «долго»")
     }
 
     @Test

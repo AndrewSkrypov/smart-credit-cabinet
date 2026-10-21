@@ -190,7 +190,7 @@ object RuleAnswers {
             OFFER_WORDS.any { it in text } && facts.offer != null -> "${facts.offer}."
             ("документ" in text || "загруз" in text) && facts.missingDocuments.isNotEmpty() ->
                 "Для заявки № ${facts.number} нужны: ${facts.missingDocuments.joinToString("; ")}" + (facts.deadline?.let { ". Срок — до $it." } ?: ".")
-            STATUS_WORDS.any { it in text } -> "Заявка № ${facts.number}: ${facts.status}."
+            isAboutStatus(text) -> "Заявка № ${facts.number}: ${facts.status}."
             else -> null
         }
     }
@@ -200,8 +200,10 @@ object RuleAnswers {
         val words = question.lowercase().split(Regex("[^а-яё]+"))
         val personal = words.any { it in PERSONAL }
         val text = question.lowercase()
-        return personal && (OWN_TOPICS.any { it in text } || STATUS_WORDS.any { it in text })
+        return personal && (OWN_TOPICS.any { it in text } || isAboutStatus(text))
     }
+
+    private fun isAboutStatus(text: String): Boolean = STATUS_WORDS.any { it in text } || ("заявк" in text && STATUS_HINTS.any { it in text })
 
     fun openTheApplication(articles: List<Article>): String =
         listOf(
@@ -219,5 +221,6 @@ object RuleAnswers {
     private val OFFER_WORDS = listOf("предлож", "услови", "ставк", "платеж", "платёж", "меньш", "друг")
     private val PERSONAL = setOf("мне", "меня", "мой", "моя", "мою", "моей", "моего", "нам", "нас", "наш", "наша", "нашу", "нашей")
     private val OWN_TOPICS = listOf("отказ", "отклон", "одобр", "предлож", "услови", "документ")
+    private val STATUS_HINTS = listOf("сейчас", "что с ", "что там", "на каком этапе", "где ")
     private val STATUS_WORDS = listOf("статус", "что с заявк", "что дальше", "сколько ждать", "когда")
 }

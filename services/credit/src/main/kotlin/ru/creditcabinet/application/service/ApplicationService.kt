@@ -34,6 +34,9 @@ class ApplicationService(
     private val companies: CompanyDirectory,
     private val products: ProductCatalog,
     private val clock: Clock,
+    private val transitions: Transitions,
+    private val infoRequests: ru.creditcabinet.application.domain.InfoRequests,
+    private val documents: ru.creditcabinet.document.domain.DocumentRepository,
 ) {
     /** T1: a draft for the caller's company. One application in progress per company and product. */
     @Transactional
@@ -90,6 +93,25 @@ class ApplicationService(
         return saved
     }
 
+    /**
+     * T5: the client did what the bank asked. Every requested document must have been uploaded
+     * after the request, and questions need an answer; then the completeness check runs again.
+     */
+    @Transactional
+    fun provideInfo(id: UUID, answer: String?): LoanApplication {
+        val (claims, application) = own(id)
+        val request = infoRequests.open(application.id) ?: throw ConflictException("Банк сейчас ничего не запрашивал")
+        val fresh = documents.list(application.id).filter { !it.uploadedAt.isBefore(request.createdAt) }.map { it.type }.toSet()
+        val missing = request.items.mapNotNull { it.documentType }.filter { it !in fresh }
+        require(missing.isEmpty()) { "Загрузите: ${missing.joinToString(", ") { it.title.lowercase() }}" }
+        require(!request.hasQuestions || !answer.isNullOrBlank()) { "Ответьте на вопросы банка" }
+        val now = clock.instant()
+        infoRequests.resolve(request.id, now, answer?.take(MAX_COMMENT))
+        val saved = commit(application.move(ApplicationEvent.INFO_PROVIDED, actorOf(claims), now, comment = answer?.take(MAX_COMMENT)))
+        jobs.enqueue(saved.id, PipelineStep.DATA_CHECK, now)
+        return saved
+    }
+
     fun get(id: UUID): LoanApplication {
         val claims = CurrentCaller.claims()
         return applications.find(id)?.takeIf { claims.canSee(it) } ?: throw notFound()
@@ -121,12 +143,7 @@ class ApplicationService(
         return claims to application
     }
 
-    /** Saves the moved application and its journal entry in the caller's transaction. */
-    fun commit(transition: Transition): LoanApplication {
-        val saved = applications.save(transition.application)
-        journal.append(transition.entry)
-        return saved
-    }
+    fun commit(transition: Transition): LoanApplication = transitions.commit(transition)
 
     private fun actorOf(claims: TokenClaims) = claims.toActor() ?: throw ConflictException("Это действие недоступно для вашей роли")
 

@@ -94,6 +94,10 @@ services:
       ENGAGEMENT_URL: http://engagement:8080
       EXTERNAL_SIM_URL: http://external-sim:8080
       SIM_API_KEY: ${SIM_API_KEY:-dev-sim-api-key}
+      # Demo timings: a whole scenario, expiry included, fits into minutes.
+      INFO_REQUEST_TTL: ${INFO_REQUEST_TTL:-PT30M}
+      OFFER_TTL: ${OFFER_TTL:-PT30M}
+      SOURCE_TIMEOUT: ${SOURCE_TIMEOUT:-PT3M}
     volumes:
       - cabinet-documents:/app/uploads
     depends_on:

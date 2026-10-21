@@ -23,11 +23,23 @@ interface ApplicationJournal {
 /** Steps of the credit pipeline, written in the transaction of the transition that needs them. */
 enum class PipelineStep { DATA_CHECK, ENRICHMENT, SCORING, DISBURSEMENT, EXPIRE_INFO_REQUEST, EXPIRE_OFFER }
 
+data class PipelineJob(val id: UUID, val applicationId: UUID, val step: PipelineStep, val attempts: Int)
+
 interface PipelineJobs {
+    /** Adds a step; a step already pending or running for the application is not added twice. */
     fun enqueue(applicationId: UUID, step: PipelineStep, runAt: Instant)
 
     /** Pending steps of a withdrawn application are not run. */
     fun cancelPending(applicationId: UUID)
+
+    /**
+     * Takes up to [limit] due jobs for this worker until [leaseUntil]: pending ones whose time has
+     * come and running ones whose worker died. Other workers skip the rows taken here.
+     */
+    fun claim(now: Instant, leaseUntil: Instant, limit: Int): List<PipelineJob>
+    fun complete(id: UUID)
+    fun retry(id: UUID, runAt: Instant, error: String?)
+    fun fail(id: UUID, error: String?)
 }
 
 interface IdempotencyKeys {

@@ -7,5 +7,6 @@ plugins {
 }
 
 dependencies {
+    implementation(libs.resilience4j.circuitbreaker)
     testImplementation(libs.mockito.kotlin)
 }

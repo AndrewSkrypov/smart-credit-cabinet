@@ -22,16 +22,25 @@ import org.springframework.web.bind.annotation.RequestPart
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
+import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationStateMachine
 import ru.creditcabinet.application.domain.ApplicationStatus
+import ru.creditcabinet.application.domain.InfoRequests
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.application.service.toActor
+import ru.creditcabinet.assessment.domain.DecisionRepository
+import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.document.DocumentService
 import ru.creditcabinet.document.domain.DocumentRequirements
 import ru.creditcabinet.document.domain.DocumentType
+import ru.creditcabinet.offer.Loans
+import ru.creditcabinet.offer.OfferKind
+import ru.creditcabinet.offer.OfferService
+import ru.creditcabinet.offer.SigningSessions
+import ru.creditcabinet.product.domain.Calculation
 import ru.creditcabinet.product.domain.LoanMath
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -42,6 +51,11 @@ import java.util.UUID
 class ApplicationController(
     private val service: ApplicationService,
     private val documents: DocumentService,
+    private val offers: OfferService,
+    private val infoRequests: InfoRequests,
+    private val decisions: DecisionRepository,
+    private val signing: SigningSessions,
+    private val loans: Loans,
 ) {
     @Operation(summary = "Заявки: клиенту — его компании, сотрудникам банка — очередь без черновиков")
     @GetMapping
@@ -74,6 +88,41 @@ class ApplicationController(
     fun withdraw(@PathVariable id: UUID, @Valid @RequestBody(required = false) request: WithdrawRequest?): ApplicationResponse =
         detail(service.withdraw(id, request?.comment))
 
+    @Operation(summary = "Ответить на запрос банка: документы загружены, на вопросы дан ответ (T5)")
+    @PostMapping("/{id}/info-provided")
+    fun provideInfo(@PathVariable id: UUID, @Valid @RequestBody(required = false) request: ProvideInfoRequest?): ApplicationResponse =
+        detail(service.provideInfo(id, request?.answer?.trim()?.takeIf { it.isNotEmpty() }))
+
+    @Operation(summary = "Принять предложение банка (T16); сразу выпускается код подписи")
+    @PostMapping("/{id}/offer/accept")
+    fun acceptOffer(@PathVariable id: UUID): ApplicationResponse = detail(offers.accept(id))
+
+    @Operation(summary = "Отказаться от предложения банка (T17)")
+    @PostMapping("/{id}/offer/decline")
+    fun declineOffer(@PathVariable id: UUID, @Valid @RequestBody(required = false) request: DeclineRequest?): ApplicationResponse =
+        detail(offers.decline(id, request?.comment))
+
+    @Operation(summary = "Получить новый код подписи")
+    @PostMapping("/{id}/signing/code")
+    fun signingCode(@PathVariable id: UUID): ApplicationResponse {
+        offers.requestCode(id)
+        return detail(service.get(id))
+    }
+
+    @Operation(summary = "Подписать договор кодом (T18)")
+    @PostMapping("/{id}/sign")
+    fun sign(@PathVariable id: UUID, @Valid @RequestBody request: SignRequest): ApplicationResponse = detail(offers.sign(id, request.code))
+
+    @Operation(summary = "График платежей по выданному кредиту или по предложению банка")
+    @GetMapping("/{id}/schedule")
+    fun schedule(@PathVariable id: UUID): Calculation {
+        val application = service.get(id)
+        val loan = loans.find(application.id)
+        val offer = offers.current(application.id) ?: throw NotFoundException("Графика пока нет: банк ещё не сделал предложение")
+        val product = service.product(offer.productCode)
+        return LoanMath.calculate(loan?.amount ?: offer.amount, loan?.rate ?: offer.rate, loan?.termMonths ?: offer.termMonths, product.revolving)
+    }
+
     @Operation(summary = "Журнал заявки: история для клиента, аудит для банка")
     @GetMapping("/{id}/events")
     fun events(@PathVariable id: UUID): List<JournalEntryView> {
@@ -102,6 +151,37 @@ class ApplicationController(
             .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(document.fileName, StandardCharsets.UTF_8).build().toString())
             .header("X-Content-Type-Options", "nosniff")
             .body(InputStreamResource(file.content))
+    }
+
+    private fun process(application: LoanApplication, isOwnClient: Boolean): ProcessView {
+        val offer = offers.current(application.id)
+        // What changed against the request: the rules' notes for an automatic counter offer, the underwriter's comment for theirs.
+        val offerDecision = offer?.let { decisions.find(it.decisionId) }
+        val changes = when {
+            offer?.kind != OfferKind.COUNTER || offerDecision == null -> emptyList()
+            offerDecision.decidedByType == ActorType.SYSTEM -> offerDecision.recommendation?.notes.orEmpty()
+            else -> listOfNotNull(offerDecision.comment)
+        }
+        val decision = decisions.latest(application.id)
+        return ProcessView(
+            infoRequest = infoRequests.open(application.id)?.let(InfoRequestView::of),
+            offer = offer?.let {
+                OfferView.of(
+                    it,
+                    service.product(it.productCode).name,
+                    if (decision?.decidedByType ==
+                        ActorType.SYSTEM
+                    ) {
+                        changes
+                    } else {
+                        listOfNotNull(decision?.comment)
+                    },
+                )
+            },
+            signing = signing.latest(application.id)?.toView(showCode = isOwnClient && CurrentCaller.claims().canSign),
+            loan = loans.find(application.id)?.let(LoanView::of),
+            outcome = decision?.takeIf { application.status == ApplicationStatus.REJECTED }?.let(OutcomeView::of),
+        )
     }
 
     private fun summary(application: LoanApplication): ApplicationSummary {
@@ -166,6 +246,7 @@ class ApplicationController(
             },
             documents = uploaded.map(DocumentView::of),
             estimate = estimate,
+            process = process(application, isOwnClient),
         )
     }
 }

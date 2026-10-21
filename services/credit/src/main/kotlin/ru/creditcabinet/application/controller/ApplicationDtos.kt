@@ -99,6 +99,7 @@ data class ApplicationResponse(
     val requiredDocuments: List<RequiredDocumentView>,
     val documents: List<DocumentView>,
     val estimate: EstimateView?,
+    val process: ProcessView,
 )
 
 data class ApplicationSummary(

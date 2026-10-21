@@ -41,3 +41,15 @@ cabinet:
     # Documents of applications: a docker volume mounted at /app/uploads under compose.
     local-dir: ${UPLOAD_DIR:./uploads}
     max-size-bytes: ${UPLOAD_MAX_SIZE_BYTES:20971520}
+  # External systems (the external-sim service locally): registries, tax service, bureau, bank
+  # data, signing, core banking.
+  external:
+    url: ${EXTERNAL_SIM_URL:}
+    api-key: ${SIM_API_KEY:dev-sim-api-key}
+    read-timeout: ${EXTERNAL_READ_TIMEOUT:PT5S}
+  # Timings of the pipeline; production values by default (docs/process-model.md, section 8).
+  pipeline:
+    enabled: ${PIPELINE_ENABLED:true}
+    info-request-ttl: ${INFO_REQUEST_TTL:P14D}
+    offer-ttl: ${OFFER_TTL:P5D}
+    source-timeout: ${SOURCE_TIMEOUT:PT1H}

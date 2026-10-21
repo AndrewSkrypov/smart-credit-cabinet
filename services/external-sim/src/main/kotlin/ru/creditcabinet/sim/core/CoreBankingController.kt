@@ -21,7 +21,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
 
 data class LoanRequest(
     /** The application the loan comes from: one application, one loan, however often this is repeated. */
@@ -52,20 +51,20 @@ data class LoanRecord(
 @RestController
 @RequestMapping("/ext/core/v1")
 class CoreBankingController(private val faults: Faults) {
-    // Kept in memory: the cabinet stores the contract number it gets back, the simulator does not need to.
+    // Kept in memory: the cabinet stores what it gets back. Numbers are derived from the
+    // application, so they stay unique and the same for a repeated request even after a restart.
     private val loans = ConcurrentHashMap<UUID, LoanRecord>()
-    private val sequence = AtomicLong(1000)
 
     @Operation(summary = "Открыть ссудный счёт и зачислить средства; повтор по той же заявке возвращает тот же кредит")
     @PostMapping("/loans")
     fun disburse(@Valid @RequestBody request: LoanRequest): LoanRecord {
         faults.enter(Source.CORE)
         return loans.computeIfAbsent(request.applicationId) {
-            val number = sequence.incrementAndGet()
+            val number = request.applicationId.mostSignificantBits.ushr(1) % 1_000_000_000_000L
             val now = Instant.now()
             LoanRecord(
                 applicationId = request.applicationId,
-                contractNumber = "КД-${LocalDate.now().year}-%06d".format(number),
+                contractNumber = "КД-${LocalDate.now().year}-%012d".format(number),
                 loanAccount = "45206810" + "%012d".format(number),
                 settlementAccount = "40702810" + request.companyInn.padStart(12, '0'),
                 amount = request.amount,

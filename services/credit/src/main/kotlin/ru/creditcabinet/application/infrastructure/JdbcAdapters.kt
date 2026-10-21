@@ -10,6 +10,7 @@ import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.IdempotencyKeys
 import ru.creditcabinet.application.domain.JournalEntry
+import ru.creditcabinet.application.domain.PipelineJob
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
 import java.sql.Timestamp
@@ -45,7 +46,7 @@ class JdbcApplicationJournal(
 
     override fun list(applicationId: UUID): List<JournalEntry> =
         jdbc.query(
-            "select * from application_events where application_id = :application order by occurred_at, id",
+            "select * from application_events where application_id = :application order by seq",
             mapOf("application" to applicationId),
         ) { rs, _ ->
             JournalEntry(
@@ -75,6 +76,7 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
             """
             insert into pipeline_jobs (id, application_id, step, status, attempts, run_at, created_at, updated_at)
             values (:id, :application, :step, 'PENDING', 0, :runAt, :now, :now)
+            on conflict (application_id, step) where status in ('PENDING', 'RUNNING') do nothing
             """.trimIndent(),
             mapOf("id" to UUID.randomUUID(), "application" to applicationId, "step" to step.name, "runAt" to Timestamp.from(runAt), "now" to now),
         )
@@ -84,6 +86,47 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
         jdbc.update(
             "update pipeline_jobs set status = 'CANCELLED', updated_at = now() where application_id = :application and status = 'PENDING'",
             mapOf("application" to applicationId),
+        )
+    }
+
+    override fun claim(now: Instant, leaseUntil: Instant, limit: Int): List<PipelineJob> =
+        jdbc.query(
+            """
+            update pipeline_jobs set status = 'RUNNING', locked_until = :leaseUntil, attempts = attempts + 1, updated_at = :now
+            where id in (
+                select id from pipeline_jobs
+                where (status = 'PENDING' and run_at <= :now) or (status = 'RUNNING' and locked_until < :now)
+                order by run_at
+                limit :limit
+                for update skip locked
+            )
+            returning id, application_id, step, attempts
+            """.trimIndent(),
+            mapOf("now" to Timestamp.from(now), "leaseUntil" to Timestamp.from(leaseUntil), "limit" to limit),
+        ) { rs, _ ->
+            PipelineJob(
+                id = rs.getObject("id", UUID::class.java),
+                applicationId = rs.getObject("application_id", UUID::class.java),
+                step = PipelineStep.valueOf(rs.getString("step")),
+                attempts = rs.getInt("attempts"),
+            )
+        }
+
+    override fun complete(id: UUID) {
+        jdbc.update("update pipeline_jobs set status = 'DONE', locked_until = null, updated_at = now() where id = :id", mapOf("id" to id))
+    }
+
+    override fun retry(id: UUID, runAt: Instant, error: String?) {
+        jdbc.update(
+            "update pipeline_jobs set status = 'PENDING', run_at = :runAt, locked_until = null, last_error = :error, updated_at = now() where id = :id",
+            mapOf("id" to id, "runAt" to Timestamp.from(runAt), "error" to error?.take(2000)),
+        )
+    }
+
+    override fun fail(id: UUID, error: String?) {
+        jdbc.update(
+            "update pipeline_jobs set status = 'FAILED', locked_until = null, last_error = :error, updated_at = now() where id = :id",
+            mapOf("id" to id, "error" to error?.take(2000)),
         )
     }
 }

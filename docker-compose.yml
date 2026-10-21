@@ -1,0 +1,169 @@
+# The whole cabinet on one machine: docker compose up --build, then http://localhost:8080.
+# Memory: about 3 GB without the assistant model, see README for the "ai" profile.
+# A fixed project name: the default comes from the folder name, which may not be ASCII.
+name: smart-credit-cabinet
+
+x-service: &service
+  build:
+    context: .
+    dockerfile: docker/service/Dockerfile
+  mem_limit: 640m
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
+    interval: 10s
+    timeout: 5s
+    retries: 30
+  networks:
+    - cabinet
+
+x-service-env: &service-env
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_USER: ${POSTGRES_USER:-cabinet}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:-cabinet}
+  JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-32bytes+}
+
+services:
+  postgres:
+    image: postgres:16.10-alpine
+    environment:
+      POSTGRES_DB: cabinet
+      POSTGRES_USER: ${POSTGRES_USER:-cabinet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cabinet}
+    volumes:
+      - cabinet-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cabinet} -d cabinet"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - cabinet
+
+  # One database per service on the shared local Postgres. The official image runs init
+  # scripts only on an empty volume, so this runs at every start and is idempotent.
+  db-init:
+    image: postgres:16.10-alpine
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-cabinet}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-cabinet}
+      PGDATABASE: cabinet
+    command:
+      - sh
+      - -c
+      - |
+        for db in identity credit engagement; do
+          psql -tAc "select 1 from pg_database where datname = '$$db'" | grep -q 1 || psql -c "create database $$db"
+        done
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cabinet
+
+  identity:
+    <<: *service
+    build:
+      context: .
+      dockerfile: docker/service/Dockerfile
+      args:
+        SERVICE: identity
+    environment:
+      <<: *service-env
+      DB_NAME: identity
+      DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-true}
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  credit:
+    <<: *service
+    build:
+      context: .
+      dockerfile: docker/service/Dockerfile
+      args:
+        SERVICE: credit
+    environment:
+      <<: *service-env
+      DB_NAME: credit
+      IDENTITY_URL: http://identity:8080
+      ENGAGEMENT_URL: http://engagement:8080
+      EXTERNAL_SIM_URL: http://external-sim:8080
+    volumes:
+      - cabinet-documents:/app/uploads
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  engagement:
+    <<: *service
+    build:
+      context: .
+      dockerfile: docker/service/Dockerfile
+      args:
+        SERVICE: engagement
+    environment:
+      <<: *service-env
+      DB_NAME: engagement
+      IDENTITY_URL: http://identity:8080
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  external-sim:
+    <<: *service
+    build:
+      context: .
+      dockerfile: docker/service/Dockerfile
+      args:
+        SERVICE: external-sim
+    mem_limit: 512m
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-32bytes+}
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    mem_limit: 128m
+    restart: unless-stopped
+    networks:
+      - cabinet
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui:v5.17.14
+    mem_limit: 128m
+    environment:
+      BASE_URL: /swagger
+      URLS: >-
+        [{"url":"/v3/api-docs/identity","name":"identity"},
+        {"url":"/v3/api-docs/credit","name":"credit"},
+        {"url":"/v3/api-docs/engagement","name":"engagement"},
+        {"url":"/v3/api-docs/external-sim","name":"external-sim"}]
+    networks:
+      - cabinet
+
+  gateway:
+    image: nginx:1.28-alpine
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+    volumes:
+      - ./docker/gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - identity
+      - credit
+      - engagement
+      - external-sim
+      - swagger-ui
+    networks:
+      - cabinet
+
+volumes:
+  cabinet-postgres-data:
+  cabinet-documents:
+
+networks:
+  cabinet:

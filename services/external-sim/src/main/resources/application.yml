@@ -1,0 +1,25 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: external-sim
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs/external-sim
+  swagger-ui:
+    path: /swagger-ui.html
+
+cabinet:
+  # identity inside the network: tokens revoked by a password change or a block are refused.
+  # Empty = only signature and expiry are checked.
+  identity:
+    url: ${IDENTITY_URL:}
+  openapi:
+    title: "Симуляторы внешних систем: ЕГРЮЛ/ЕГРИП, ФНС, БКИ, подписание, АБС"
+  auth:
+    jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}

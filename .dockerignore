@@ -1,0 +1,13 @@
+.git
+.gradle
+.kotlin
+**/build
+**/.gradle
+frontend/dist/.vite
+frontend/node_modules
+e2e
+docs
+**/.idea
+**/*.iml
+**/.DS_Store
+*.pdf

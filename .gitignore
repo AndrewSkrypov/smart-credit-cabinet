@@ -1,0 +1,22 @@
+.gradle/
+.kotlin/
+build/
+frontend/dist/
+frontend/node_modules/
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+*.iml
+.idea/
+.DS_Store
+.env
+.env.local
+npm-debug.log*
+services/*/uploads/
+
+# Case materials of the organisers: not ours to redistribute.
+*.pdf
+
+# Local tool settings, not part of the project.
+CLAUDE.md
+.claude/

@@ -1,0 +1,41 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: identity
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:identity}
+    username: ${DB_USER:cabinet}
+    password: ${DB_PASSWORD:cabinet}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+    placeholders:
+      # "false" blocks the seeded demo accounts, whose password is published in the README.
+      demo-accounts: ${DEMO_ACCOUNTS:true}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs/identity
+  swagger-ui:
+    path: /swagger-ui.html
+
+cabinet:
+  # Served without a signed-in user; everything else requires a valid token.
+  security:
+    public-endpoints:
+      - "POST /api/v1/auth/sign-in"
+      - "POST /api/v1/auth/sign-up"
+      - "GET /api/v1/auth/options"
+  openapi:
+    title: "Кабинет предпринимателя: пользователи, компании и вход"
+  auth:
+    jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}
+    jwt-ttl-hours: ${JWT_TTL_HOURS:12}

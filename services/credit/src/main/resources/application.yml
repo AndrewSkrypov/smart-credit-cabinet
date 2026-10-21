@@ -1,0 +1,35 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: credit
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:credit}
+    username: ${DB_USER:cabinet}
+    password: ${DB_PASSWORD:cabinet}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs/credit
+  swagger-ui:
+    path: /swagger-ui.html
+
+cabinet:
+  # identity inside the network: tokens revoked by a password change or a block are refused.
+  # Empty = only signature and expiry are checked.
+  identity:
+    url: ${IDENTITY_URL:}
+  openapi:
+    title: "Кабинет предпринимателя: заявки, кредитный конвейер и решения"
+  auth:
+    jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}

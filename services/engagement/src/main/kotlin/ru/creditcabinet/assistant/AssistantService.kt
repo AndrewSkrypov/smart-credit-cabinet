@@ -50,6 +50,9 @@ class AssistantService(
             val explanation = articles.take(1).joinToString("\n\n") { it.text }
             return Answer(listOf(factsAnswer, explanation).filter { it.isNotBlank() }.joinToString("\n\n"), AnswerMode.RULES, sources)
         }
+        articles.firstOrNull()?.takeIf { it.exact }?.let { article ->
+            return Answer(article.text, AnswerMode.RULES, sources)
+        }
         val messages = prompt(question, facts, articles, history)
         model.chat(messages)?.let { reply ->
             val text = withoutPromptEcho(plainText(reply))
@@ -67,7 +70,8 @@ class AssistantService(
             .joinToString("\n\n") { "${it.title}: ${it.text}" }
         val context = buildString {
             append("Справка:\n").append(reference)
-            append("\n\nДанные заявки:\n").append(facts?.asText() ?: "Заявка не выбрана — отвечай в общем виде.")
+            // With no application the block is left out: a small model repeated a placeholder line word for word.
+            facts?.let { append("\n\nДанные заявки:\n").append(it.asText()) }
             append("\n\nВопрос клиента: ").append(question)
         }
         return listOf(ChatMessage("system", SYSTEM)) +
@@ -126,7 +130,13 @@ class AssistantService(
 /** Whether an answer stays with what the model was given: its figures and the reference's statements. */
 object Grounding {
     /** Claims that are false whatever the question: no product of the bank is free, no decision is promised. */
-    private val ALWAYS_FALSE = listOf(Regex("гарантир\\S*\\s+(\\S+\\s+)?одобрен"), Regex("одобрени\\S*\\s+гарантир"))
+    private val ALWAYS_FALSE = listOf(
+        Regex("бесплатн"),
+        Regex("не\\s+платн"),
+        // "Банк не гарантирует одобрения" is true; only the promise is false.
+        Regex("(?<!не\\s)гарантир\\S*\\s+(\\S+\\s+)?одобрен"),
+        Regex("одобрени\\S*\\s+гарантир"),
+    )
 
     // Letters of scripts other than Cyrillic and Latin: a small model sometimes slips into Chinese mid-sentence.
     private val FOREIGN_SCRIPT = Regex("[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}\\p{IsHangul}\\p{IsArabic}]")

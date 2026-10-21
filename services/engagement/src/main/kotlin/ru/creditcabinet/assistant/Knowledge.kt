@@ -3,7 +3,9 @@ package ru.creditcabinet.assistant
 /**
  * One article of the assistant's reference: what a term means for the client, in plain words.
  * [falseClaims] are statements that contradict the article and that a small model was seen to
- * make; an answer containing one is not shown.
+ * make; an answer containing one is not shown. An [exact] article holds rules with thresholds
+ * and steps (documents, payment, signing): retold by a small model they came out wrong, so it is
+ * given as written.
  */
 data class Article(
     val id: String,
@@ -11,6 +13,7 @@ data class Article(
     val keywords: List<String>,
     val text: String,
     val falseClaims: List<Regex> = emptyList(),
+    val exact: Boolean = false,
 )
 
 /**
@@ -31,7 +34,6 @@ object Knowledge {
                 Regex("не\\s+(начисля|взима|бер[её]т|плат)\\S*\\s+(\\S+\\s+){0,2}процент"),
                 Regex("процент\\S*\\s+(\\S+\\s+){0,2}не\\s+(начисля|взима|плат)"),
                 Regex("без\\s+процент"),
-                Regex("бесплатн"),
             ),
         ),
         Article(
@@ -62,6 +64,7 @@ object Knowledge {
             "Аннуитетный платёж одинаков каждый месяц. В начале в нём больше процентов, к концу — больше основного долга. Переплата — это " +
                 "сумма всех платежей минус сумма кредита. " +
                 "График платежей виден в заявке после предложения банка.",
+            exact = true,
         ),
         Article(
             "rate",
@@ -70,6 +73,7 @@ object Knowledge {
             "В карточке продукта указана базовая ставка. Итоговая ставка зависит от оценки заявки: для лучшего рейтинга — базовая, для " +
                 "остальных — с надбавкой. " +
                 "Итоговая ставка есть в предложении банка.",
+            exact = true,
         ),
         Article(
             "counter-offer",
@@ -110,6 +114,7 @@ object Knowledge {
             "Набор документов зависит от продукта и суммы: декларация — при сумме больше 3 млн ₽, бухгалтерская отчётность — для " +
                 "организаций при той же сумме, счёт на оборудование — для инвестиционного кредита, " +
                 "выписка из другого банка — если у компании нет счёта в банке и сумма больше 1 млн ₽. Подходят PDF, JPG, PNG, Word и Excel до 20 МБ.",
+            exact = true,
         ),
         Article(
             "stages",
@@ -119,6 +124,7 @@ object Knowledge {
                 "оценивает заявку. Обычно это несколько секунд. " +
                 "Нестандартные заявки рассматривает специалист — до одного рабочего дня. Затем приходит предложение, его подписывают кодом " +
                 "в кабинете, и деньги зачисляются на счёт.",
+            exact = true,
         ),
         Article(
             "signing",
@@ -127,6 +133,7 @@ object Knowledge {
             "Договор подписывается простой электронной подписью: одноразовым кодом из 6 цифр. В этом прототипе код показывается прямо в " +
                 "кабинете вместо SMS. " +
                 "Подписать может только представитель компании с правом подписи. Код действует 5 минут, новый можно запросить кнопкой.",
+            exact = true,
         ),
         Article(
             "approval",

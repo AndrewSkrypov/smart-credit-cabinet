@@ -121,6 +121,8 @@ class AssistantApiTest {
         assertEquals(1, Grounding.falseClaims("Проценты по овердрафту не начисляются").size)
         assertEquals(1, Grounding.falseClaims("Это бесплатный лимит").size)
         assertEquals(1, Grounding.falseClaims("Одобрение гарантировано").size)
+        assertEquals(1, Grounding.falseClaims("Кредит — не платный").size)
+        assertEquals(emptyList(), Grounding.falseClaims("Банк не гарантирует одобрение заранее."))
         assertEquals(emptyList(), Grounding.falseClaims("Проценты начисляются на использованную часть лимита за каждый день."))
         assertEquals(emptyList(), Grounding.falseClaims("Банк не обещает одобрения: решение принимается после оценки."))
     }
@@ -132,10 +134,20 @@ class AssistantApiTest {
         assertEquals(emptyList(), Grounding.problems("Договор подписывается кодом из 6 цифр в кабинете.", ""))
 
         whenever(model.available()).thenReturn(true)
-        whenever(model.chat(any())).thenReturn("Справка:\n— Код действует несколько минут.\n\nДанные заявки: Заявка не выбрана.")
-        val answer = mapper.readTree(ask("Как подписать договор?", application = null).getContentAsString(Charsets.UTF_8))
+        whenever(model.chat(any())).thenReturn("Справка:\n— Бюро хранит сведения о кредитах.\n\nДанные заявки: Заявка не выбрана.")
+        val answer = mapper.readTree(ask("Зачем банку бюро кредитных историй?", application = null).getContentAsString(Charsets.UTF_8))
         assertEquals("MODEL", answer["mode"].asText())
-        assertEquals("— Код действует несколько минут.", answer["text"].asText())
+        assertEquals("— Бюро хранит сведения о кредитах.", answer["text"].asText())
+    }
+
+    @Test
+    fun `rules with thresholds and steps are given as the reference writes them`() {
+        whenever(model.available()).thenReturn(true)
+        whenever(model.chat(any())).thenReturn("Отчётность нужна от 1 до 3 млн ₽.")
+        val answer = mapper.readTree(ask("Какие документы понадобятся?", application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue(answer["text"].asText().startsWith("Набор документов зависит от продукта и суммы"), answer["text"].asText())
+        verify(model, org.mockito.kotlin.never()).chat(any())
     }
 
     @Test

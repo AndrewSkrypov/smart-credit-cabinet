@@ -67,12 +67,11 @@ class CreditApplications(
             )}, ${it["termMonths"].asInt()} мес., ставка ${it["rate"].asText()}%, " +
                 "платёж ${it["monthlyPayment"].asText()} ₽ в месяц, действует до ${date(it["validUntil"].asText())}$changes"
         }
-        // The title and the first line of the explanation often say the same: each line once.
+        // The explanation usually starts with the title itself: then the title is not repeated.
         val refusal = process["outcome"].takeIf { it != null && !it.isNull }?.let { outcome ->
-            (listOfNotNull(outcome["reasonTitle"]?.takeIf { !it.isNull }?.asText()) + outcome["explanation"].flatMap { it.asText().split("\n") })
-                .map { it.trim().removeSuffix(".") }
-                .filter { it.isNotEmpty() }
-                .distinct()
+            val lines = outcome["explanation"].flatMap { it.asText().split("\n") }.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+            val title = outcome["reasonTitle"]?.takeIf { !it.isNull }?.asText()
+            if (title == null || lines.any { it.startsWith(title) }) lines else listOf(title) + lines
         }.orEmpty()
         val request = process["infoRequest"].takeIf { it != null && !it.isNull }
         val requested = request?.get("items")?.map { it["title"].asText() }.orEmpty()

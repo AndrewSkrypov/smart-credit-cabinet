@@ -141,6 +141,20 @@ class AssistantApiTest {
     }
 
     @Test
+    fun `a retold reference and the repeated question are cut down to the answer`() {
+        whenever(model.available()).thenReturn(true)
+        whenever(model.chat(any())).thenReturn(
+            "Зачем банку бюро кредитных историй?\nБюро кредитных историй: хранит сведения о кредитах.\n\nОтвет на вопрос клиента:\nЧтобы увидеть, как компания платит по долгам.",
+        )
+        val answer = mapper.readTree(ask("Зачем банку бюро кредитных историй?", application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("Чтобы увидеть, как компания платит по долгам.", answer["text"].asText())
+
+        whenever(model.chat(any())).thenReturn("Зачем банку бюро кредитных историй?\nБюро кредитных историй: хранит сведения о кредитах компании.")
+        val retold = mapper.readTree(ask("Зачем банку бюро кредитных историй?", application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("Бюро кредитных историй — хранит сведения о кредитах компании.", retold["text"].asText())
+    }
+
+    @Test
     fun `rules with thresholds and steps are given as the reference writes them`() {
         whenever(model.available()).thenReturn(true)
         whenever(model.chat(any())).thenReturn("Отчётность нужна от 1 до 3 млн ₽.")

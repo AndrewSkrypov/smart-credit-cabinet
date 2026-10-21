@@ -55,7 +55,7 @@ class AssistantService(
         }
         val messages = prompt(question, facts, articles, history)
         model.chat(messages)?.let { reply ->
-            val text = withoutPromptEcho(plainText(reply))
+            val text = withoutPromptEcho(plainText(reply), question)
             // A small model can still invent a figure, contradict the reference, slip into another
             // script or ramble; such an answer is not shown, the rules answer is.
             val problems = Grounding.problems(text, messages.joinToString("\n") { it.content })
@@ -79,10 +79,28 @@ class AssistantService(
             ChatMessage("user", context)
     }
 
-    /** A small model sometimes repeats the labels of its prompt («Справка:», «Заявка не выбрана»); they mean nothing to the client. */
-    internal fun withoutPromptEcho(answer: String): String =
-        answer.lines().filterNot { line -> PROMPT_LABELS.any { line.trim().trimStart('—', ' ').startsWith(it) } }
+    /**
+     * A small model sometimes repeats its prompt: the labels («Справка:», «Заявка не выбрана»), the
+     * question itself, or the reference article by article before «Ответ:». None of it is for the
+     * client: only the answer stays, without the article titles put in front of lines.
+     */
+    internal fun withoutPromptEcho(answer: String, question: String = ""): String =
+        (ANSWER_LABEL.findAll(answer).lastOrNull()?.let { answer.substring(it.range.last + 1).trimStart() } ?: answer)
+            .lines()
+            .filterNot { line -> line.trim().trimEnd('?', '.') == question.trim().trimEnd('?', '.') && line.isNotBlank() }
+            .filterNot { line -> PROMPT_LABELS.any { line.trim().trimStart('—', ' ').startsWith(it) } }
+            .map { line -> Knowledge.articles.fold(line, ::withoutTitlePrefix) }
             .joinToString("\n").replace(Regex("\n{3,}"), "\n\n").trim()
+
+    /** «Овердрафт: Овердрафт — лимит…» → «Овердрафт — лимит…»; «Бюро: хранит…» → «Бюро — хранит…». */
+    private fun withoutTitlePrefix(line: String, article: Article): String {
+        val rest = line.removePrefix("${article.title}: ")
+        return when {
+            rest.length == line.length -> line
+            rest.startsWith(article.title.substringBefore(' '), ignoreCase = true) -> rest
+            else -> "${article.title} — $rest"
+        }
+    }
 
     /** The interface shows answers as text: markup a model still writes would show as stray symbols. */
     internal fun plainText(answer: String): String =
@@ -108,6 +126,7 @@ class AssistantService(
         const val MAX_QUESTION = 500
         private const val MAX_TEXT = 1000
         private val PROMPT_LABELS = listOf("Справка", "Данные заявки", "Вопрос клиента", "Заявка не выбрана")
+        private val ANSWER_LABEL = Regex("Ответ(?: на вопрос клиента)?:", RegexOption.IGNORE_CASE)
         private const val MAX_HISTORY = 4
         private const val MAX_QUESTIONS = 20
         private val WINDOW: Duration = Duration.ofMinutes(10)

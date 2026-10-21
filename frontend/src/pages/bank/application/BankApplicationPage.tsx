@@ -14,6 +14,14 @@ import { DecisionPanel, outcomeTitles } from './DecisionPanel';
 
 const REFRESH_MS = 10000;
 
+const offerStatusTitles: Record<string, string> = {
+  ISSUED: 'ждёт ответа клиента',
+  ACCEPTED: 'принято',
+  DECLINED: 'отклонено клиентом',
+  EXPIRED: 'срок истёк',
+  WITHDRAWN: 'отозвано'
+};
+
 export function BankApplicationPage() {
   const { id = '' } = useParams();
   const [application, setApplication] = useState<Application | null>(null);
@@ -95,7 +103,7 @@ export function BankApplicationPage() {
                 <Typography variant="h6" component="h2" gutterBottom>Предложение клиенту</Typography>
                 <Typography>{offer.kind === 'COUNTER' ? 'Другие условия' : 'Запрошенные условия'} · {offer.productName}</Typography>
                 <Typography>{rub(offer.amount)} · {months(offer.termMonths)} · {percent(offer.rate)} · {rubExact(offer.monthlyPayment)} в месяц</Typography>
-                <Typography variant="body2" color="text.secondary">Статус: {offer.status} · до {formatDateTime(offer.validUntil)}</Typography>
+                <Typography variant="body2" color="text.secondary">{offerStatusTitles[offer.status] ?? offer.status} · действует до {formatDateTime(offer.validUntil)}</Typography>
               </Paper>
             )}
             {application.process.loan && (

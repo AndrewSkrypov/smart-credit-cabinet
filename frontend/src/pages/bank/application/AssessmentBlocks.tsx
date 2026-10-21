@@ -1,5 +1,6 @@
-import { Alert, Box, Chip, Grid, List, ListItem, ListItemText, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Grid, List, ListItem, ListItemText, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from '@mui/material';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
+import { Fragment, useState } from 'react';
 import { applicationsApi } from '../../../api/client';
 import { HBar } from '../../../components/HBar';
 import { useApi } from '../../../hooks/useApi';
@@ -69,14 +70,14 @@ export function DiscrepanciesBlock({ assessment }: { assessment: AssessmentView 
 
 function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
   return (
-    <Stack spacing={0.5}>
+    <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'minmax(96px, 2fr) 3fr', columnGap: 2, rowGap: 1 }}>
       {rows.map(([label, value]) => (
-        <Stack key={label} direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0, sm: 2 }}>
-          <Typography color="text.secondary" sx={{ minWidth: 180 }}>{label}</Typography>
-          <Typography component="div">{value}</Typography>
-        </Stack>
+        <Fragment key={label}>
+          <Typography component="dt" variant="body2" color="text.secondary">{label}</Typography>
+          <Typography component="dd" variant="body2" sx={{ m: 0, minWidth: 0, overflowWrap: 'anywhere' }}>{value}</Typography>
+        </Fragment>
       ))}
-    </Stack>
+    </Box>
   );
 }
 
@@ -180,23 +181,40 @@ export function SourcesBlock({ assessment }: { assessment: AssessmentView }) {
   );
 }
 
+/** The journal keeps a source's raw answer for the audit; on screen only the words before it are useful. */
+export function readableComment(comment: string | null): string | null {
+  if (!comment) return null;
+  const text = comment.replace(/\s*:?\s*"?[{[][\s\S]*$/, '').trim();
+  return text.length > 0 ? text : null;
+}
+
+const JOURNAL_PREVIEW = 8;
+
 /** Every event of the application with who caused it: the audit trail. */
 export function AuditBlock({ applicationId, version }: { applicationId: string; version: string }) {
   const { data } = useApi(() => applicationsApi.events(applicationId), [applicationId, version]);
+  const [expanded, setExpanded] = useState(false);
   if (!data) return null;
+  const entries = [...data].reverse();
+  const shown = expanded ? entries : entries.slice(0, JOURNAL_PREVIEW);
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
       <Typography variant="h6" component="h2">Журнал</Typography>
       <List dense>
-        {[...data].reverse().map((entry) => (
+        {shown.map((entry) => (
           <ListItem key={entry.id} disableGutters>
             <ListItemText
               primary={`${eventText(entry)}${entry.reasonCode ? ` · ${entry.reasonCode}` : ''}`}
-              secondary={[formatDateTime(entry.occurredAt), actorTitles[entry.actorType], entry.comment].filter(Boolean).join(' · ')}
+              secondary={[formatDateTime(entry.occurredAt), actorTitles[entry.actorType], readableComment(entry.comment)].filter(Boolean).join(' · ')}
             />
           </ListItem>
         ))}
       </List>
+      {entries.length > JOURNAL_PREVIEW && (
+        <Button variant="outlined" size="small" onClick={() => setExpanded(!expanded)}>
+          {expanded ? 'Свернуть' : `Показать все события (${entries.length})`}
+        </Button>
+      )}
     </Paper>
   );
 }

@@ -2,7 +2,6 @@ import { AppBar, Box, Button, Container, Stack, Tab, Tabs, Toolbar, Typography }
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { roleLabels } from '../shared/labels';
-import { tokens } from '../theme/theme';
 import { BrandMark } from './BrandMark';
 import { AssistantPanel } from './AssistantPanel';
 import { NotificationBell } from './NotificationBell';
@@ -24,11 +23,11 @@ export function AppShell() {
   const section = [...bankSections].reverse().find((item) => location.pathname.startsWith(item.path))?.path ?? false;
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppBar position="sticky" color="inherit" elevation={0} sx={{ borderBottom: `1px solid ${tokens.line}` }}>
+      <AppBar position="sticky" color="inherit" elevation={0}>
         <Container maxWidth="lg" disableGutters>
         <Toolbar sx={{ gap: 2, minHeight: { xs: 64, md: 72 } }}>
           <Box sx={{ flexGrow: 1 }}>
-            <BrandMark to={roleHome[user.role]} compact />
+            <BrandMark to={roleHome[user.role]} compact label={bank ? 'Рабочее место банка' : 'Кабинет предпринимателя'} />
           </Box>
           <Stack sx={{ display: { xs: 'none', sm: 'flex' }, textAlign: 'right' }}>
             <Typography variant="body2" fontWeight={500}>{user.fullName}</Typography>

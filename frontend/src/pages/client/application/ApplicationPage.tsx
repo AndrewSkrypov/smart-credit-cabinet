@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { ErrorState } from '../../../components/ErrorState';
 import { LoadingBlock } from '../../../components/LoadingBlock';
 import { PageHeader } from '../../../components/PageHeader';
 import { explainStatus, SYSTEM_STATUSES, statusTitle, statusTone } from '../../../shared/applicationText';
-import { months, rub } from '../../../shared/format';
+import { formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
 import { Application } from '../../../types';
 import { DocumentsBlock } from './DocumentsBlock';
 import { DraftForm } from './DraftForm';
@@ -17,6 +17,15 @@ import { LoanBlock } from './LoanBlock';
 import { OfferBlock } from './OfferBlock';
 import { SigningBlock } from './SigningBlock';
 import { StageStepper } from './StageStepper';
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <Box>
+      <Typography variant="body2" color="text.secondary">{label}</Typography>
+      <Typography fontWeight={500}>{value}</Typography>
+    </Box>
+  );
+}
 
 /** While the bank works the card refreshes every 2 seconds; otherwise every 15, to catch an underwriter's decision. */
 const FAST_REFRESH_MS = 2000;
@@ -65,53 +74,74 @@ export function ApplicationPage() {
         subtitle={`${application.product.name} · ${rub(application.amount)} · ${months(application.termMonths)}`}
         actions={<Chip label={statusTitle(application.status)} color={tone === 'default' ? 'default' : tone} sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }} />}
       />
-      <Stack spacing={3}>
-        <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
-          <StageStepper status={application.status} />
-          <Box sx={{ mt: 2 }} aria-live="polite">
-            <Typography fontWeight={600}>Что сейчас происходит</Typography>
-            <Typography color="text.secondary">{explanation.now}</Typography>
-            {explanation.action && (
-              <>
-                <Typography fontWeight={600} sx={{ mt: 1.5 }}>Что нужно от вас</Typography>
-                <Typography>{explanation.action}</Typography>
-              </>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={8}>
+          <Stack spacing={3}>
+            <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+              <StageStepper status={application.status} />
+              <Box sx={{ mt: 2 }} aria-live="polite">
+                <Typography fontWeight={600}>Что сейчас происходит</Typography>
+                <Typography color="text.secondary">{explanation.now}</Typography>
+                {explanation.action && (
+                  <>
+                    <Typography fontWeight={600} sx={{ mt: 1.5 }}>Что нужно от вас</Typography>
+                    <Typography>{explanation.action}</Typography>
+                  </>
+                )}
+              </Box>
+            </Paper>
+
+            {error && <Alert severity="warning">{error}</Alert>}
+
+            {application.status === 'DRAFT' && application.editable && (
+              <DraftForm application={application} onSaved={setApplication} onSubmitted={setApplication} />
             )}
-          </Box>
-        </Paper>
+            {application.status === 'INFO_REQUESTED' && application.process.infoRequest && (
+              <InfoRequestBlock application={application} onChanged={load} onSent={setApplication} />
+            )}
+            {application.process.offer && ['OFFER_ISSUED', 'SIGNING', 'DISBURSING', 'DISBURSED'].includes(application.status) && (
+              <OfferBlock application={application} onChanged={setApplication} />
+            )}
+            {application.status === 'SIGNING' && <SigningBlock application={application} onChanged={setApplication} />}
+            {application.status === 'DISBURSED' && application.process.loan && <LoanBlock application={application} />}
+            {outcome && (
+              <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'error.main' }}>
+                <Typography variant="h6" component="h2">{outcome.reasonTitle ?? 'Банк не может выдать кредит'}</Typography>
+                <Stack component="ul" spacing={0.5} sx={{ pl: 2.5, mb: 0 }}>
+                  {outcome.explanation.flatMap((text) => text.split('\n')).map((line) => <Typography component="li" key={line}>{line}</Typography>)}
+                </Stack>
+                <Button component={RouterLink} to="/client/new" variant="outlined" sx={{ mt: 2 }}>Подобрать другой вариант</Button>
+              </Paper>
+            )}
 
-        {error && <Alert severity="warning">{error}</Alert>}
+            <DocumentsBlock application={application} onChanged={load} />
+            <HistoryBlock applicationId={application.id} version={`${application.status}-${application.documents.length}`} />
+          </Stack>
+        </Grid>
 
-        {application.status === 'DRAFT' && application.editable && (
-          <DraftForm application={application} onSaved={setApplication} onSubmitted={setApplication} />
-        )}
-        {application.status === 'INFO_REQUESTED' && application.process.infoRequest && (
-          <InfoRequestBlock application={application} onChanged={load} onSent={setApplication} />
-        )}
-        {application.process.offer && ['OFFER_ISSUED', 'SIGNING', 'DISBURSING', 'DISBURSED'].includes(application.status) && (
-          <OfferBlock application={application} onChanged={setApplication} />
-        )}
-        {application.status === 'SIGNING' && <SigningBlock application={application} onChanged={setApplication} />}
-        {application.status === 'DISBURSED' && application.process.loan && <LoanBlock application={application} />}
-        {outcome && (
-          <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'error.main' }}>
-            <Typography variant="h6" component="h2">{outcome.reasonTitle ?? 'Банк не может выдать кредит'}</Typography>
-            <Stack component="ul" spacing={0.5} sx={{ pl: 2.5, mb: 0 }}>
-              {outcome.explanation.flatMap((text) => text.split('\n')).map((line) => <Typography component="li" key={line}>{line}</Typography>)}
+        <Grid item xs={12} md={4}>
+          <Paper variant="outlined" component="aside" aria-label="Параметры заявки" sx={{ p: { xs: 2, md: 3 }, position: { md: 'sticky' }, top: { md: 96 } }}>
+            <Typography variant="body2" color="text.secondary">{application.product.name}</Typography>
+            <Typography variant="h5" component="p" sx={{ mt: 0.5 }}>{rub(application.amount)}</Typography>
+            <Typography color="text.secondary">на {months(application.termMonths)}</Typography>
+            {application.estimate && application.status !== 'DRAFT' && !application.process.offer && (
+              <Box sx={{ mt: 2, p: 2, borderRadius: '16px', bgcolor: 'background.default' }}>
+                <Typography variant="body2" color="text.secondary">Платёж по базовой ставке {percent(application.estimate.rate)}</Typography>
+                <Typography variant="subtitle1" component="p" fontWeight={700}>{rubExact(application.estimate.monthlyPayment)} в месяц</Typography>
+              </Box>
+            )}
+            <Divider sx={{ my: 2 }} />
+            <Stack spacing={1.5}>
+              <Fact label="Цель" value={application.purposeTitle} />
+              <Fact label="Компания" value={application.company.name ?? `ИНН ${application.company.inn}`} />
+              <Fact label={application.submittedAt ? 'Отправлена' : 'Создана'} value={formatDateTime(application.submittedAt ?? application.createdAt)} />
             </Stack>
-            <Button component={RouterLink} to="/client/new" variant="outlined" sx={{ mt: 2 }}>Подобрать другой вариант</Button>
+            {canWithdraw && (
+              <Button color="error" onClick={() => setWithdrawing(true)} sx={{ mt: 2, ml: -1 }}>Отозвать заявку</Button>
+            )}
           </Paper>
-        )}
-
-        <DocumentsBlock application={application} onChanged={load} />
-        <HistoryBlock applicationId={application.id} version={`${application.status}-${application.documents.length}`} />
-
-        {canWithdraw && (
-          <Box>
-            <Button color="error" onClick={() => setWithdrawing(true)}>Отозвать заявку</Button>
-          </Box>
-        )}
-      </Stack>
+        </Grid>
+      </Grid>
 
       <Dialog open={withdrawing} onClose={() => setWithdrawing(false)} fullWidth maxWidth="sm">
         <DialogTitle>Отозвать заявку?</DialogTitle>

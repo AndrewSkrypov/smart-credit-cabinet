@@ -99,10 +99,12 @@ export const cabinetTheme = createTheme({
       defaultProps: { elevation: 0 },
       styleOverrides: {
         rounded: { borderRadius: 24 },
-        outlined: { borderColor: tokens.line }
+        // White cards on the grey page carry no frame; `borderColor` in place marks a block that needs attention.
+        outlined: { border: '1px solid transparent' }
       }
     },
     MuiCard: { styleOverrides: { root: { borderRadius: 16 } } },
+    MuiCardActionArea: { styleOverrides: { focusHighlight: { backgroundColor: tokens.ink } } },
     MuiChip: {
       styleOverrides: {
         root: {

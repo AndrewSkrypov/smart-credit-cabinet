@@ -10,6 +10,7 @@ import { MoneyField } from '../../components/MoneyField';
 import { PageHeader } from '../../components/PageHeader';
 import { useApi } from '../../hooks/useApi';
 import { months, rub, rubExact } from '../../shared/format';
+import { tokens } from '../../theme/theme';
 import { FinancingPurpose, ProductMatch } from '../../types';
 
 const TERMS = [3, 6, 12, 18, 24, 36, 48, 60];
@@ -67,7 +68,7 @@ export function NeedsWizardPage() {
           <Grid container spacing={1.5}>
             {purposes.data.map((item) => (
               <Grid item xs={12} sm={6} md={4} key={item.code}>
-                <Card variant="outlined" sx={{ height: '100%', borderColor: purpose === item.code ? 'primary.main' : undefined, borderWidth: purpose === item.code ? 2 : 1 }}>
+                <Card elevation={0} sx={{ height: '100%', bgcolor: purpose === item.code ? '#fff' : tokens.inputFill, boxShadow: purpose === item.code ? `inset 0 0 0 2px ${tokens.red}` : 'none' }}>
                   <CardActionArea sx={{ height: '100%', p: 2 }} aria-pressed={purpose === item.code} onClick={() => { setPurpose(item.code); setMatches(null); }}>
                     <Typography fontWeight={600}>{item.title}</Typography>
                   </CardActionArea>

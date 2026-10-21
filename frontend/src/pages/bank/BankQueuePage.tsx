@@ -1,4 +1,4 @@
-import { Box, Chip, Paper, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Typography } from '@mui/material';
+import { Box, ButtonBase, Chip, Paper, Stack, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { applicationsApi } from '../../api/client';
@@ -26,6 +26,7 @@ const REFRESH_MS = 10000;
 
 export function BankQueuePage() {
   const navigate = useNavigate();
+  const narrow = useMediaQuery(useTheme().breakpoints.down('md'));
   const { data, loading, error, reload } = useApi(applicationsApi.list);
   const [tab, setTab] = useState('review');
 
@@ -56,6 +57,10 @@ export function BankQueuePage() {
           <Box sx={{ p: 3 }}>
             <EmptyState title="Здесь пусто" description={tab === 'review' ? 'Заявок на ручном рассмотрении нет — всё решено автоматически.' : 'Заявок в этом состоянии нет.'} />
           </Box>
+        ) : narrow ? (
+          <Stack component="ul" aria-label={group.title} sx={{ m: 0, p: 0, listStyle: 'none' }}>
+            {rows.map((item) => <QueueCard key={item.id} item={item} onOpen={() => navigate(`/bank/applications/${item.id}`)} />)}
+          </Stack>
         ) : (
           <Box sx={{ overflowX: 'auto' }}>
             <Table aria-label={group.title}>
@@ -79,9 +84,35 @@ export function BankQueuePage() {
   );
 }
 
+const isOverdue = (item: ApplicationSummary) => item.status === 'MANUAL_REVIEW' && hoursSince(item.statusChangedAt) > REVIEW_SLA_HOURS;
+
+/** On a phone a row of five columns does not fit: the same facts as a card. */
+function QueueCard({ item, onOpen }: { item: ApplicationSummary; onOpen: () => void }) {
+  const tone = statusTone(item.status);
+  const overdue = isOverdue(item);
+  return (
+    <Box component="li" sx={{ '& + &': { borderTop: 1, borderColor: 'divider' } }}>
+      <ButtonBase onClick={onOpen} sx={{ display: 'block', width: '100%', textAlign: 'left', p: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={1}>
+          <Typography fontWeight={700}>№ {item.number}</Typography>
+          <Typography variant="body2" color={overdue ? 'error' : 'text.secondary'} fontWeight={overdue ? 700 : 400}>
+            {waitingFor(item.statusChangedAt)}{overdue ? ` · дольше ${REVIEW_SLA_HOURS} ч` : ''}
+          </Typography>
+        </Stack>
+        <Typography sx={{ mt: 0.5 }}>{item.companyName ?? '—'}</Typography>
+        <Typography variant="body2" color="text.secondary">ИНН {item.companyInn} · {item.productName}</Typography>
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+          <Typography fontWeight={600}>{rub(item.amount)} · {months(item.termMonths)}</Typography>
+          <Chip size="small" label={statusTitle(item.status)} color={tone === 'default' ? 'default' : tone} />
+        </Stack>
+      </ButtonBase>
+    </Box>
+  );
+}
+
 function QueueRow({ item, onOpen }: { item: ApplicationSummary; onOpen: () => void }) {
   const tone = statusTone(item.status);
-  const overdue = item.status === 'MANUAL_REVIEW' && hoursSince(item.statusChangedAt) > REVIEW_SLA_HOURS;
+  const overdue = isOverdue(item);
   return (
     <TableRow hover onClick={onOpen} onKeyDown={(event) => event.key === 'Enter' && onOpen()} tabIndex={0} sx={{ cursor: 'pointer' }}>
       <TableCell>

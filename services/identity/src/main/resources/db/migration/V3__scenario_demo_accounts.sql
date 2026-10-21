@@ -1,0 +1,41 @@
+-- A demo client for every scenario company of the simulators (external-sim dataset), so each
+-- outcome of the pipeline can be checked without registering. Password "Demo2026", as in V2.
+insert into companies (id, inn, name, created_at) values
+('6f1d4c1e-0b8e-4c55-9a51-000000000002', '0001001014', 'ООО «Северная мебель»', '2026-10-01T09:00:00Z'),
+('6f1d4c1e-0b8e-4c55-9a51-000000000003', '0001001021', 'ООО «Вектор Логистик»', '2026-10-01T09:00:00Z'),
+('6f1d4c1e-0b8e-4c55-9a51-000000000004', '0001001039', 'ООО «Ромашка-Трейд»', '2026-10-01T09:00:00Z'),
+('6f1d4c1e-0b8e-4c55-9a51-000000000005', '000100020145', 'ИП Громов Павел Андреевич', '2026-10-01T09:00:00Z'),
+('6f1d4c1e-0b8e-4c55-9a51-000000000006', '000100020219', 'ИП Белова Анна Викторовна', '2026-10-01T09:00:00Z'),
+('6f1d4c1e-0b8e-4c55-9a51-000000000007', '0001001046', 'ООО «Технопарк Плюс»', '2026-10-01T09:00:00Z'),
+('6f1d4c1e-0b8e-4c55-9a51-000000000008', '0001001053', 'ООО «Дальний Восток Агро»', '2026-10-01T09:00:00Z'),
+('6f1d4c1e-0b8e-4c55-9a51-000000000009', '000100020392', 'ИП Новиков Артём Игоревич', '2026-10-01T09:00:00Z'),
+('6f1d4c1e-0b8e-4c55-9a51-000000000010', '0001001060', 'ООО «СтройГрад»', '2026-10-01T09:00:00Z');
+
+insert into users (id, full_name, email, role, status, company_id, can_sign, password_hash, created_at) values
+('9b2f0c4a-6d1e-4f2a-8c3b-000000000002', 'Олег Лебедев', 'mebel@demo.test', 'CLIENT',
+    case when '${demo-accounts}' = 'true' then 'ACTIVE' else 'BLOCKED' end,
+    '6f1d4c1e-0b8e-4c55-9a51-000000000002', true, '$2a$10$QAS4QGFj5n0t4bOUdzhGq.2R1di2Knm8WRphHGDFiVElZ/NKZBTCO', '2026-10-01T09:00:00Z'),
+('9b2f0c4a-6d1e-4f2a-8c3b-000000000003', 'Денис Соколов', 'logistic@demo.test', 'CLIENT',
+    case when '${demo-accounts}' = 'true' then 'ACTIVE' else 'BLOCKED' end,
+    '6f1d4c1e-0b8e-4c55-9a51-000000000003', true, '$2a$10$QAS4QGFj5n0t4bOUdzhGq.2R1di2Knm8WRphHGDFiVElZ/NKZBTCO', '2026-10-01T09:00:00Z'),
+('9b2f0c4a-6d1e-4f2a-8c3b-000000000004', 'Игорь Петров', 'romashka@demo.test', 'CLIENT',
+    case when '${demo-accounts}' = 'true' then 'ACTIVE' else 'BLOCKED' end,
+    '6f1d4c1e-0b8e-4c55-9a51-000000000004', true, '$2a$10$QAS4QGFj5n0t4bOUdzhGq.2R1di2Knm8WRphHGDFiVElZ/NKZBTCO', '2026-10-01T09:00:00Z'),
+('9b2f0c4a-6d1e-4f2a-8c3b-000000000005', 'Павел Громов', 'gromov@demo.test', 'CLIENT',
+    case when '${demo-accounts}' = 'true' then 'ACTIVE' else 'BLOCKED' end,
+    '6f1d4c1e-0b8e-4c55-9a51-000000000005', true, '$2a$10$QAS4QGFj5n0t4bOUdzhGq.2R1di2Knm8WRphHGDFiVElZ/NKZBTCO', '2026-10-01T09:00:00Z'),
+('9b2f0c4a-6d1e-4f2a-8c3b-000000000006', 'Анна Белова', 'belova@demo.test', 'CLIENT',
+    case when '${demo-accounts}' = 'true' then 'ACTIVE' else 'BLOCKED' end,
+    '6f1d4c1e-0b8e-4c55-9a51-000000000006', true, '$2a$10$QAS4QGFj5n0t4bOUdzhGq.2R1di2Knm8WRphHGDFiVElZ/NKZBTCO', '2026-10-01T09:00:00Z'),
+('9b2f0c4a-6d1e-4f2a-8c3b-000000000007', 'Светлана Орлова', 'technopark@demo.test', 'CLIENT',
+    case when '${demo-accounts}' = 'true' then 'ACTIVE' else 'BLOCKED' end,
+    '6f1d4c1e-0b8e-4c55-9a51-000000000007', true, '$2a$10$QAS4QGFj5n0t4bOUdzhGq.2R1di2Knm8WRphHGDFiVElZ/NKZBTCO', '2026-10-01T09:00:00Z'),
+('9b2f0c4a-6d1e-4f2a-8c3b-000000000008', 'Виктор Ткаченко', 'agro@demo.test', 'CLIENT',
+    case when '${demo-accounts}' = 'true' then 'ACTIVE' else 'BLOCKED' end,
+    '6f1d4c1e-0b8e-4c55-9a51-000000000008', true, '$2a$10$QAS4QGFj5n0t4bOUdzhGq.2R1di2Knm8WRphHGDFiVElZ/NKZBTCO', '2026-10-01T09:00:00Z'),
+('9b2f0c4a-6d1e-4f2a-8c3b-000000000009', 'Артём Новиков', 'novikov@demo.test', 'CLIENT',
+    case when '${demo-accounts}' = 'true' then 'ACTIVE' else 'BLOCKED' end,
+    '6f1d4c1e-0b8e-4c55-9a51-000000000009', true, '$2a$10$QAS4QGFj5n0t4bOUdzhGq.2R1di2Knm8WRphHGDFiVElZ/NKZBTCO', '2026-10-01T09:00:00Z'),
+('9b2f0c4a-6d1e-4f2a-8c3b-000000000010', 'Глеб Морозов', 'stroygrad@demo.test', 'CLIENT',
+    case when '${demo-accounts}' = 'true' then 'ACTIVE' else 'BLOCKED' end,
+    '6f1d4c1e-0b8e-4c55-9a51-000000000010', true, '$2a$10$QAS4QGFj5n0t4bOUdzhGq.2R1di2Knm8WRphHGDFiVElZ/NKZBTCO', '2026-10-01T09:00:00Z');

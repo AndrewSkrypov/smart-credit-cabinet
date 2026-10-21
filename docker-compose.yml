@@ -74,6 +74,8 @@ services:
       <<: *service-env
       DB_NAME: identity
       DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-true}
+      REGISTRY_URL: http://external-sim:8080
+      SIM_API_KEY: ${SIM_API_KEY:-dev-sim-api-key}
     depends_on:
       db-init:
         condition: service_completed_successfully
@@ -91,6 +93,7 @@ services:
       IDENTITY_URL: http://identity:8080
       ENGAGEMENT_URL: http://engagement:8080
       EXTERNAL_SIM_URL: http://external-sim:8080
+      SIM_API_KEY: ${SIM_API_KEY:-dev-sim-api-key}
     volumes:
       - cabinet-documents:/app/uploads
     depends_on:
@@ -122,6 +125,8 @@ services:
     mem_limit: 512m
     environment:
       JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-32bytes+}
+      SIM_API_KEY: ${SIM_API_KEY:-dev-sim-api-key}
+      SIM_CONTROL_ENABLED: ${SIM_CONTROL_ENABLED:-true}
 
   frontend:
     build:

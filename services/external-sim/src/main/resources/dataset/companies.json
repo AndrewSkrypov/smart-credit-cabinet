@@ -1,0 +1,637 @@
+[
+  {
+    "inn": "000100000004",
+    "ogrn": "315000000000206",
+    "legalForm": "ENTREPRENEUR",
+    "fullName": "Индивидуальный предприниматель Котова Ирина Сергеевна",
+    "shortName": "ИП Котова Ирина Сергеевна",
+    "status": "ACTIVE",
+    "registeredMonthsAgo": 72,
+    "okved": {
+      "code": "56.10",
+      "name": "Деятельность ресторанов и услуги по доставке продуктов питания"
+    },
+    "director": {
+      "fullName": "Котова Ирина Сергеевна",
+      "position": "Индивидуальный предприниматель"
+    },
+    "founders": [],
+    "address": "г. Казань, ул. Примерная, д. 7",
+    "unreliableAddress": false,
+    "unreliableDirector": false,
+    "fns": {
+      "revenue": 14400000,
+      "expenses": 12600000,
+      "taxesPaid": 864000,
+      "taxDebt": 0,
+      "averageHeadcount": 6,
+      "taxRegime": "USN",
+      "massAddress": false
+    },
+    "bureau": {
+      "obligations": [
+        {
+          "creditor": "Банк «Пример»",
+          "type": "LOAN",
+          "limit": 900000,
+          "balance": 520000,
+          "monthlyPayment": 30000,
+          "openedMonthsAgo": 20,
+          "currentOverdueDays": 0
+        }
+      ],
+      "worstOverdueDays24m": 0,
+      "inquiries30d": 1
+    },
+    "bank": {
+      "client": true,
+      "turnoverCv": 0.15
+    },
+    "scenario": {
+      "code": "AUTO_APPROVE",
+      "title": "Автоодобрение",
+      "expected": "Рейтинг A, нагрузка в норме — оффер на запрошенных условиях",
+      "request": {
+        "productCode": "WORKING_CAPITAL",
+        "purpose": "WORKING_CAPITAL",
+        "amount": 1000000,
+        "termMonths": 12,
+        "declaredRevenue12m": 14400000
+      }
+    }
+  },
+  {
+    "inn": "0001001014",
+    "ogrn": "1150000001018",
+    "legalForm": "LEGAL_ENTITY",
+    "fullName": "Общество с ограниченной ответственностью «Северная мебель»",
+    "shortName": "ООО «Северная мебель»",
+    "status": "ACTIVE",
+    "registeredMonthsAgo": 50,
+    "okved": {
+      "code": "31.01",
+      "name": "Производство мебели для офисов и предприятий торговли"
+    },
+    "director": {
+      "fullName": "Лебедев Олег Николаевич",
+      "position": "Генеральный директор"
+    },
+    "founders": [
+      {
+        "name": "Лебедев Олег Николаевич",
+        "sharePercent": 70
+      },
+      {
+        "name": "Лебедева Марина Петровна",
+        "sharePercent": 30
+      }
+    ],
+    "address": "г. Архангельск, пр. Условный, д. 15",
+    "unreliableAddress": false,
+    "unreliableDirector": false,
+    "fns": {
+      "revenue": 36000000,
+      "expenses": 33100000,
+      "taxesPaid": 2100000,
+      "taxDebt": 0,
+      "averageHeadcount": 35,
+      "taxRegime": "OSN",
+      "massAddress": false
+    },
+    "bureau": {
+      "obligations": [
+        {
+          "creditor": "Банк «Пример»",
+          "type": "LOAN",
+          "limit": 14000000,
+          "balance": 9000000,
+          "monthlyPayment": 600000,
+          "openedMonthsAgo": 26,
+          "currentOverdueDays": 0
+        },
+        {
+          "creditor": "Лизинговая компания «Демо-Лизинг»",
+          "type": "LEASING",
+          "limit": 8000000,
+          "balance": 6000000,
+          "monthlyPayment": 350000,
+          "openedMonthsAgo": 14,
+          "currentOverdueDays": 0
+        }
+      ],
+      "worstOverdueDays24m": 0,
+      "inquiries30d": 1
+    },
+    "bank": {
+      "client": true,
+      "turnoverCv": 0.15
+    },
+    "scenario": {
+      "code": "COUNTER_OFFER",
+      "title": "Контрпредложение",
+      "expected": "Рейтинг B, но высокая долговая нагрузка — банк предложит меньшую сумму на больший срок",
+      "request": {
+        "productCode": "WORKING_CAPITAL",
+        "purpose": "WORKING_CAPITAL",
+        "amount": 5000000,
+        "termMonths": 12,
+        "declaredRevenue12m": 36000000
+      }
+    }
+  },
+  {
+    "inn": "0001001021",
+    "ogrn": "1150000001029",
+    "legalForm": "LEGAL_ENTITY",
+    "fullName": "Общество с ограниченной ответственностью «Вектор Логистик»",
+    "shortName": "ООО «Вектор Логистик»",
+    "status": "ACTIVE",
+    "registeredMonthsAgo": 30,
+    "okved": {
+      "code": "49.41",
+      "name": "Деятельность автомобильного грузового транспорта"
+    },
+    "director": {
+      "fullName": "Соколов Денис Алексеевич",
+      "position": "Генеральный директор"
+    },
+    "founders": [
+      {
+        "name": "Соколов Денис Алексеевич",
+        "sharePercent": 100
+      }
+    ],
+    "address": "г. Екатеринбург, ул. Тестовая, д. 3",
+    "unreliableAddress": false,
+    "unreliableDirector": false,
+    "fns": {
+      "revenue": 15000000,
+      "expenses": 14200000,
+      "taxesPaid": 610000,
+      "taxDebt": 50000,
+      "averageHeadcount": 12,
+      "taxRegime": "USN",
+      "massAddress": false
+    },
+    "bureau": {
+      "obligations": [
+        {
+          "creditor": "Банк «Тест-Кредит»",
+          "type": "LOAN",
+          "limit": 1200000,
+          "balance": 640000,
+          "monthlyPayment": 40000,
+          "openedMonthsAgo": 18,
+          "currentOverdueDays": 0
+        }
+      ],
+      "worstOverdueDays24m": 20,
+      "inquiries30d": 4
+    },
+    "bank": {
+      "client": true,
+      "turnoverCv": 0.35
+    },
+    "scenario": {
+      "code": "MANUAL_REVIEW",
+      "title": "Ручное рассмотрение",
+      "expected": "Рейтинг C (серая зона) — заявку рассматривает андеррайтер",
+      "request": {
+        "productCode": "WORKING_CAPITAL",
+        "purpose": "WORKING_CAPITAL",
+        "amount": 3000000,
+        "termMonths": 24,
+        "declaredRevenue12m": 15000000
+      }
+    }
+  },
+  {
+    "inn": "0001001039",
+    "ogrn": "1150000001030",
+    "legalForm": "LEGAL_ENTITY",
+    "fullName": "Общество с ограниченной ответственностью «Ромашка-Трейд»",
+    "shortName": "ООО «Ромашка-Трейд»",
+    "status": "LIQUIDATING",
+    "registeredMonthsAgo": 58,
+    "okved": {
+      "code": "46.90",
+      "name": "Торговля оптовая неспециализированная"
+    },
+    "director": {
+      "fullName": "Ликвидатор Петров Игорь Семёнович",
+      "position": "Ликвидатор"
+    },
+    "founders": [
+      {
+        "name": "Петров Игорь Семёнович",
+        "sharePercent": 100
+      }
+    ],
+    "address": "г. Самара, ул. Демонстрационная, д. 21",
+    "unreliableAddress": false,
+    "unreliableDirector": false,
+    "fns": {
+      "revenue": 9000000,
+      "expenses": 9400000,
+      "taxesPaid": 180000,
+      "taxDebt": 0,
+      "averageHeadcount": 4,
+      "taxRegime": "OSN",
+      "massAddress": false
+    },
+    "bureau": {
+      "obligations": [],
+      "worstOverdueDays24m": 0,
+      "inquiries30d": 2
+    },
+    "bank": {
+      "client": true,
+      "turnoverCv": 0.4
+    },
+    "scenario": {
+      "code": "STOP_LIQUIDATION",
+      "title": "Отказ: компания ликвидируется",
+      "expected": "Стоп-фактор SF_STATUS по данным ЕГРЮЛ",
+      "request": {
+        "productCode": "WORKING_CAPITAL",
+        "purpose": "WORKING_CAPITAL",
+        "amount": 1000000,
+        "termMonths": 12,
+        "declaredRevenue12m": 9000000
+      }
+    }
+  },
+  {
+    "inn": "000100020145",
+    "ogrn": "315000000002015",
+    "legalForm": "ENTREPRENEUR",
+    "fullName": "Индивидуальный предприниматель Громов Павел Андреевич",
+    "shortName": "ИП Громов Павел Андреевич",
+    "status": "ACTIVE",
+    "registeredMonthsAgo": 44,
+    "okved": {
+      "code": "45.20",
+      "name": "Техническое обслуживание и ремонт автотранспортных средств"
+    },
+    "director": {
+      "fullName": "Громов Павел Андреевич",
+      "position": "Индивидуальный предприниматель"
+    },
+    "founders": [],
+    "address": "г. Воронеж, ул. Образцовая, д. 9",
+    "unreliableAddress": false,
+    "unreliableDirector": false,
+    "fns": {
+      "revenue": 7200000,
+      "expenses": 6500000,
+      "taxesPaid": 430000,
+      "taxDebt": 0,
+      "averageHeadcount": 3,
+      "taxRegime": "PSN",
+      "massAddress": false
+    },
+    "bureau": {
+      "obligations": [
+        {
+          "creditor": "Банк «Тест-Кредит»",
+          "type": "LOAN",
+          "limit": 800000,
+          "balance": 610000,
+          "monthlyPayment": 35000,
+          "openedMonthsAgo": 30,
+          "currentOverdueDays": 120
+        }
+      ],
+      "worstOverdueDays24m": 120,
+      "inquiries30d": 3
+    },
+    "bank": {
+      "client": false,
+      "turnoverCv": null
+    },
+    "scenario": {
+      "code": "STOP_OVERDUE",
+      "title": "Отказ: просрочка больше 90 дней",
+      "expected": "Стоп-фактор SF_OVERDUE_90 по данным БКИ",
+      "request": {
+        "productCode": "OVERDRAFT",
+        "purpose": "CASH_GAP",
+        "amount": 500000,
+        "termMonths": 12,
+        "declaredRevenue12m": 7200000
+      }
+    }
+  },
+  {
+    "inn": "000100020219",
+    "ogrn": "315000000002026",
+    "legalForm": "ENTREPRENEUR",
+    "fullName": "Индивидуальный предприниматель Белова Анна Викторовна",
+    "shortName": "ИП Белова Анна Викторовна",
+    "status": "ACTIVE",
+    "registeredMonthsAgo": 14,
+    "okved": {
+      "code": "47.71",
+      "name": "Торговля розничная одеждой в специализированных магазинах"
+    },
+    "director": {
+      "fullName": "Белова Анна Викторовна",
+      "position": "Индивидуальный предприниматель"
+    },
+    "founders": [],
+    "address": "г. Ростов-на-Дону, ул. Учебная, д. 4",
+    "unreliableAddress": false,
+    "unreliableDirector": false,
+    "fns": {
+      "revenue": 4800000,
+      "expenses": 4700000,
+      "taxesPaid": 96000,
+      "taxDebt": 150000,
+      "averageHeadcount": 2,
+      "taxRegime": "USN",
+      "massAddress": false
+    },
+    "bureau": {
+      "obligations": [
+        {
+          "creditor": "Банк «Пример»",
+          "type": "CARD",
+          "limit": 300000,
+          "balance": 290000,
+          "monthlyPayment": 45000,
+          "openedMonthsAgo": 10,
+          "currentOverdueDays": 0
+        },
+        {
+          "creditor": "МФО «Демо-Займ»",
+          "type": "LOAN",
+          "limit": 400000,
+          "balance": 380000,
+          "monthlyPayment": 75000,
+          "openedMonthsAgo": 4,
+          "currentOverdueDays": 0
+        }
+      ],
+      "worstOverdueDays24m": 45,
+      "inquiries30d": 7
+    },
+    "bank": {
+      "client": true,
+      "turnoverCv": 0.7
+    },
+    "scenario": {
+      "code": "REJECT_SCORE",
+      "title": "Отказ: высокий риск",
+      "expected": "Рейтинг E — отказ с объяснением главных факторов",
+      "request": {
+        "productCode": "WORKING_CAPITAL",
+        "purpose": "WORKING_CAPITAL",
+        "amount": 1500000,
+        "termMonths": 12,
+        "declaredRevenue12m": 4800000
+      }
+    }
+  },
+  {
+    "inn": "0001001046",
+    "ogrn": "1150000001040",
+    "legalForm": "LEGAL_ENTITY",
+    "fullName": "Общество с ограниченной ответственностью «Технопарк Плюс»",
+    "shortName": "ООО «Технопарк Плюс»",
+    "status": "ACTIVE",
+    "registeredMonthsAgo": 80,
+    "okved": {
+      "code": "62.01",
+      "name": "Разработка компьютерного программного обеспечения"
+    },
+    "director": {
+      "fullName": "Орлова Светлана Михайловна",
+      "position": "Генеральный директор"
+    },
+    "founders": [
+      {
+        "name": "Орлова Светлана Михайловна",
+        "sharePercent": 60
+      },
+      {
+        "name": "Ким Артур Валерьевич",
+        "sharePercent": 40
+      }
+    ],
+    "address": "г. Новосибирск, ул. Пробная, д. 30",
+    "unreliableAddress": false,
+    "unreliableDirector": false,
+    "fns": {
+      "revenue": 40000000,
+      "expenses": 34000000,
+      "taxesPaid": 3900000,
+      "taxDebt": 0,
+      "averageHeadcount": 48,
+      "taxRegime": "OSN",
+      "massAddress": false
+    },
+    "bureau": {
+      "obligations": [],
+      "worstOverdueDays24m": 0,
+      "inquiries30d": 1
+    },
+    "bank": {
+      "client": false,
+      "turnoverCv": null
+    },
+    "scenario": {
+      "code": "INFO_REQUESTED",
+      "title": "Запрос документов",
+      "expected": "Нет счёта в банке и сумма больше 3 млн ₽ — банк запросит декларацию, отчётность и выписку; после загрузки — одобрение",
+      "request": {
+        "productCode": "WORKING_CAPITAL",
+        "purpose": "WORKING_CAPITAL",
+        "amount": 4000000,
+        "termMonths": 12,
+        "declaredRevenue12m": 40000000
+      }
+    }
+  },
+  {
+    "inn": "0001001053",
+    "ogrn": "1150000001051",
+    "legalForm": "LEGAL_ENTITY",
+    "fullName": "Общество с ограниченной ответственностью «Дальний Восток Агро»",
+    "shortName": "ООО «Дальний Восток Агро»",
+    "status": "ACTIVE",
+    "registeredMonthsAgo": 96,
+    "okved": {
+      "code": "01.11",
+      "name": "Выращивание зерновых культур"
+    },
+    "director": {
+      "fullName": "Ткаченко Виктор Иванович",
+      "position": "Генеральный директор"
+    },
+    "founders": [
+      {
+        "name": "Ткаченко Виктор Иванович",
+        "sharePercent": 100
+      }
+    ],
+    "address": "Приморский край, с. Условное, ул. Полевая, д. 1",
+    "unreliableAddress": false,
+    "unreliableDirector": false,
+    "fns": {
+      "revenue": 22000000,
+      "expenses": 19000000,
+      "taxesPaid": 900000,
+      "taxDebt": 0,
+      "averageHeadcount": 20,
+      "taxRegime": "ESHN",
+      "massAddress": false
+    },
+    "bureau": {
+      "obligations": [
+        {
+          "creditor": "Банк «Пример»",
+          "type": "LOAN",
+          "limit": 3000000,
+          "balance": 1500000,
+          "monthlyPayment": 110000,
+          "openedMonthsAgo": 22,
+          "currentOverdueDays": 0
+        }
+      ],
+      "worstOverdueDays24m": 0,
+      "inquiries30d": 1
+    },
+    "bank": {
+      "client": true,
+      "turnoverCv": 0.3
+    },
+    "faults": {
+      "BUREAU": "DOWN"
+    },
+    "scenario": {
+      "code": "SOURCE_UNAVAILABLE",
+      "title": "БКИ не отвечает",
+      "expected": "Запрос в БКИ повторяется с паузами, заявка ждёт; по истечении времени — ручное рассмотрение",
+      "request": {
+        "productCode": "WORKING_CAPITAL",
+        "purpose": "WORKING_CAPITAL",
+        "amount": 2000000,
+        "termMonths": 12,
+        "declaredRevenue12m": 22000000
+      }
+    }
+  },
+  {
+    "inn": "000100020392",
+    "ogrn": "315000000002037",
+    "legalForm": "ENTREPRENEUR",
+    "fullName": "Индивидуальный предприниматель Новиков Артём Игоревич",
+    "shortName": "ИП Новиков Артём Игоревич",
+    "status": "ACTIVE",
+    "registeredMonthsAgo": 1,
+    "okved": {
+      "code": "47.91",
+      "name": "Торговля розничная по почте или по информационно-коммуникационной сети Интернет"
+    },
+    "director": {
+      "fullName": "Новиков Артём Игоревич",
+      "position": "Индивидуальный предприниматель"
+    },
+    "founders": [],
+    "address": "г. Тула, ул. Шаблонная, д. 2",
+    "unreliableAddress": false,
+    "unreliableDirector": false,
+    "fns": null,
+    "bureau": {
+      "obligations": [],
+      "worstOverdueDays24m": 0,
+      "inquiries30d": 2
+    },
+    "bank": {
+      "client": false,
+      "turnoverCv": null
+    },
+    "scenario": {
+      "code": "STOP_TOO_YOUNG",
+      "title": "Отказ: бизнесу меньше 3 месяцев",
+      "expected": "Стоп-фактор SF_TOO_YOUNG; ФНС ещё не получала отчётность",
+      "request": {
+        "productCode": "BUSINESS_CARD",
+        "purpose": "CURRENT_EXPENSES",
+        "amount": 200000,
+        "termMonths": 12,
+        "declaredRevenue12m": 600000
+      }
+    }
+  },
+  {
+    "inn": "0001001060",
+    "ogrn": "1150000001062",
+    "legalForm": "LEGAL_ENTITY",
+    "fullName": "Общество с ограниченной ответственностью «СтройГрад»",
+    "shortName": "ООО «СтройГрад»",
+    "status": "ACTIVE",
+    "registeredMonthsAgo": 64,
+    "okved": {
+      "code": "41.20",
+      "name": "Строительство жилых и нежилых зданий"
+    },
+    "director": {
+      "fullName": "Морозов Глеб Сергеевич",
+      "position": "Генеральный директор"
+    },
+    "founders": [
+      {
+        "name": "Морозов Глеб Сергеевич",
+        "sharePercent": 51
+      },
+      {
+        "name": "Зайцев Илья Романович",
+        "sharePercent": 49
+      }
+    ],
+    "address": "г. Краснодар, ул. Модельная, д. 18",
+    "unreliableAddress": false,
+    "unreliableDirector": false,
+    "fns": {
+      "revenue": 60000000,
+      "expenses": 55000000,
+      "taxesPaid": 3100000,
+      "taxDebt": 0,
+      "averageHeadcount": 70,
+      "taxRegime": "OSN",
+      "massAddress": false
+    },
+    "bureau": {
+      "obligations": [
+        {
+          "creditor": "Банк «Тест-Кредит»",
+          "type": "LOAN",
+          "limit": 10000000,
+          "balance": 4000000,
+          "monthlyPayment": 300000,
+          "openedMonthsAgo": 30,
+          "currentOverdueDays": 0
+        }
+      ],
+      "worstOverdueDays24m": 0,
+      "inquiries30d": 2
+    },
+    "bank": {
+      "client": true,
+      "turnoverCv": 0.2
+    },
+    "scenario": {
+      "code": "HIGH_RISK_INDUSTRY",
+      "title": "Отрасль высокого риска",
+      "expected": "Хороший рейтинг, но строительство — заявка уходит андеррайтеру",
+      "request": {
+        "productCode": "WORKING_CAPITAL",
+        "purpose": "WORKING_CAPITAL",
+        "amount": 3000000,
+        "termMonths": 12,
+        "declaredRevenue12m": 60000000
+      }
+    }
+  }
+]

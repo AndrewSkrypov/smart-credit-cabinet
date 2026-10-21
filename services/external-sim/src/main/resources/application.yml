@@ -15,11 +15,23 @@ springdoc:
     path: /swagger-ui.html
 
 cabinet:
-  # identity inside the network: tokens revoked by a password change or a block are refused.
-  # Empty = only signature and expiry are checked.
-  identity:
-    url: ${IDENTITY_URL:}
+  security:
+    # The simulated systems are called with a system key (ApiKeyFilter), not a user token;
+    # the control panel is a demo tool (see SIM_CONTROL_ENABLED).
+    public-endpoints:
+      - "GET /ext/**"
+      - "POST /ext/**"
+      - "GET /sim/**"
+      - "PUT /sim/control/**"
+      - "POST /sim/control/**"
   openapi:
-    title: "Симуляторы внешних систем: ЕГРЮЛ/ЕГРИП, ФНС, БКИ, подписание, АБС"
+    title: "Симуляторы внешних систем: ЕГРЮЛ/ЕГРИП, ФНС, БКИ, данные банка, подписание, АБС"
   auth:
     jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}
+  sim:
+    api-key: ${SIM_API_KEY:dev-sim-api-key}
+    control-enabled: ${SIM_CONTROL_ENABLED:true}
+    # A realistic answer time of every source; SLOW mode answers after slow-delay-ms, longer
+    # than the clients' read timeout.
+    latency-ms: ${SIM_LATENCY_MS:200}
+    slow-delay-ms: ${SIM_SLOW_DELAY_MS:8000}

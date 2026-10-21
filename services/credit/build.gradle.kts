@@ -7,5 +7,5 @@ plugins {
 }
 
 dependencies {
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
+    testImplementation(libs.mockito.kotlin)
 }

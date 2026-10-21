@@ -7,7 +7,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import kotlin.test.Test
 
-/** The service starts with its configuration and, until a path is made public, refuses callers without a token. */
+/** The service starts and the simulated systems refuse callers without the system key. */
 @SpringBootTest
 @AutoConfigureMockMvc
 class ServiceStartsTest {
@@ -15,8 +15,8 @@ class ServiceStartsTest {
     private lateinit var mockMvc: MockMvc
 
     @Test
-    fun `health is up and the API is closed by default`() {
+    fun `health is up and the simulated systems want a key`() {
         mockMvc.get("/actuator/health").andExpect { status { isOk() } }
-        mockMvc.get("/sim/registry").andExpect { status { isUnauthorized() } }
+        mockMvc.get("/ext/registry/v1/companies/000100000004").andExpect { status { isUnauthorized() } }
     }
 }

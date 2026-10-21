@@ -36,6 +36,10 @@ cabinet:
       - "GET /api/v1/auth/options"
   openapi:
     title: "Кабинет предпринимателя: пользователи, компании и вход"
+  # ЕГРЮЛ/ЕГРИП: the company name at sign-up. Empty = sign-up without the registry.
+  registry:
+    url: ${REGISTRY_URL:}
+    api-key: ${SIM_API_KEY:dev-sim-api-key}
   auth:
     jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}
     jwt-ttl-hours: ${JWT_TTL_HOURS:12}

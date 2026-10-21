@@ -6,12 +6,15 @@ import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.auth.dto.SignInRequest
 import ru.creditcabinet.auth.dto.SignUpRequest
 import ru.creditcabinet.auth.dto.UserSessionResponse
+import ru.creditcabinet.common.exception.BadRequestException
 import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.exception.UnauthorizedException
 import ru.creditcabinet.common.model.Inn
 import ru.creditcabinet.company.domain.Company
 import ru.creditcabinet.company.domain.CompanyDataPort
+import ru.creditcabinet.company.domain.CompanyRegistry
+import ru.creditcabinet.company.domain.RegistryAnswer
 import ru.creditcabinet.user.domain.User
 import ru.creditcabinet.user.domain.UserDataPort
 import ru.creditcabinet.user.domain.UserRole
@@ -23,6 +26,7 @@ import java.time.Instant
 class AuthService(
     private val users: UserDataPort,
     private val companies: CompanyDataPort,
+    private val registry: CompanyRegistry,
     private val jwtService: JwtService,
     private val signInThrottle: SignInThrottle,
     private val consentLog: ConsentLog,
@@ -47,7 +51,8 @@ class AuthService(
      * Registers a business and the person who connects it. That person represents the company
      * and may sign for it; colleagues are added by them later. A company is connected once:
      * a second sign-up with the same ИНН is refused, so nobody joins someone else's company
-     * by knowing its ИНН.
+     * by knowing its ИНН. The name comes from ЕГРЮЛ/ЕГРИП, so the client does not type it; a ИНН
+     * the registry does not know is refused, a registry outage does not stop the sign-up.
      */
     @Transactional
     fun signUp(request: SignUpRequest): UserSessionResponse {
@@ -57,7 +62,12 @@ class AuthService(
         val email = request.email.trim().lowercase()
         if (users.findByEmail(email) != null) throw ConflictException("Пользователь с таким email уже зарегистрирован")
         if (companies.findByInn(inn) != null) throw ConflictException(COMPANY_TAKEN)
-        val company = companies.save(Company(inn = inn))
+        val name = when (val answer = registry.lookup(inn)) {
+            is RegistryAnswer.Found -> answer.shortName
+            RegistryAnswer.NotFound -> throw BadRequestException("Компания с таким ИНН не найдена в ЕГРЮЛ и ЕГРИП — проверьте номер")
+            RegistryAnswer.Unavailable -> null
+        }
+        val company = companies.save(Company(inn = inn, name = name))
         val user = try {
             users.save(
                 User(fullName = request.fullName.trim(), email = email, role = UserRole.CLIENT, companyId = company.id, canSign = true),

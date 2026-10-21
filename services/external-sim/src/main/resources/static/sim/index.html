@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Пульт симуляторов</title>
+<style>
+  :root { color-scheme: light; --ink: #1f2a44; --muted: #5b6475; --line: #dde1e8; --ok: #1e7a46; --slow: #a86400; --down: #b42318; }
+  body { margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; color: var(--ink); background: #f5f6f8; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 32px 0 12px; }
+  p.lead { color: var(--muted); margin: 0 0 16px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .sources { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .source { display: flex; flex-direction: column; gap: 10px; }
+  .mode { font-weight: 600; }
+  .mode.OK { color: var(--ok); } .mode.SLOW { color: var(--slow); } .mode.DOWN { color: var(--down); }
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { min-height: 44px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 13px; color: var(--muted); font-weight: 600; }
+  code { font: 14px ui-monospace, SFMono-Regular, monospace; }
+  .scroll { overflow-x: auto; }
+  .error { color: var(--down); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Пульт симуляторов</h1>
+  <p class="lead">Внешние системы кабинета работают локально на синтетических данных. Здесь можно сделать источник медленным
+    (отвечает дольше, чем ждёт кабинет) или недоступным — и увидеть, что заявка не падает, а ждёт и повторяет запрос.</p>
+  <p id="error" class="error" role="alert"></p>
+
+  <h2>Источники</h2>
+  <div id="sources" class="sources"></div>
+  <p><button id="reset" type="button">Вернуть всё в норму</button></p>
+
+  <h2>Тестовые компании</h2>
+  <p class="lead">Войдите в кабинет под учётной записью компании из README или зарегистрируйте её по ИНН — и подайте заявку с указанными параметрами.</p>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>ИНН</th><th>Компания</th><th>Сценарий</th><th>Заявка для проверки</th></tr></thead>
+      <tbody id="companies"></tbody>
+    </table>
+  </div>
+</main>
+<script>
+  const modes = { OK: 'Работает', SLOW: 'Медленно', DOWN: 'Недоступен' };
+  const rub = (v) => new Intl.NumberFormat('ru-RU').format(v) + ' ₽';
+
+  function el(tag, attrs = {}, ...children) {
+    const node = document.createElement(tag);
+    Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+    children.forEach((child) => node.append(child));
+    return node;
+  }
+
+  async function call(method, url, body) {
+    const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Ошибка ' + response.status);
+    return data;
+  }
+
+  function render(state) {
+    document.getElementById('error').textContent = '';
+    const sources = document.getElementById('sources');
+    sources.replaceChildren(...state.sources.map((source) => {
+      const buttons = el('div', { class: 'buttons' }, ...Object.keys(modes).map((mode) => {
+        const button = el('button', { type: 'button', 'aria-pressed': String(source.mode === mode) }, modes[mode]);
+        button.addEventListener('click', () => call('PUT', 'control/sources/' + source.source, { mode }).then(render).catch(show));
+        return button;
+      }));
+      return el('div', { class: 'card source' }, el('strong', {}, source.title), el('span', { class: 'mode ' + source.mode }, modes[source.mode]), buttons);
+    }));
+    const rows = state.companies.map((company) => {
+      const s = company.scenario;
+      const request = s ? `${s.request.productCode}, ${rub(s.request.amount)}, ${s.request.termMonths} мес., выручка ${rub(s.request.declaredRevenue12m)}` : '';
+      return el('tr', {},
+        el('td', {}, el('code', {}, company.inn)),
+        el('td', {}, company.name),
+        el('td', {}, el('strong', {}, s ? s.title : ''), el('br'), s ? s.expected : ''),
+        el('td', {}, request));
+    });
+    document.getElementById('companies').replaceChildren(...rows);
+  }
+
+  function show(error) { document.getElementById('error').textContent = error.message; }
+
+  document.getElementById('reset').addEventListener('click', () => call('POST', 'control/reset').then(render).catch(show));
+  call('GET', 'control').then(render).catch(show);
+</script>
+</body>
+</html>

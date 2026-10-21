@@ -1,15 +1,21 @@
 package ru.creditcabinet.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import ru.creditcabinet.common.security.JwtVerifier
+import ru.creditcabinet.company.domain.CompanyRegistry
+import ru.creditcabinet.company.domain.RegistryAnswer
 import kotlin.random.Random
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -28,6 +34,14 @@ class AuthIntegrationTest {
 
     @Autowired
     private lateinit var mapper: ObjectMapper
+
+    @MockitoBean
+    private lateinit var registry: CompanyRegistry
+
+    @BeforeTest
+    fun registryKnowsEveryone() {
+        whenever(registry.lookup(any())).thenReturn(RegistryAnswer.Found("ИП Тестов Т. Т."))
+    }
 
     private fun signUp(inn: String, email: String = "owner-${Random.nextLong()}@example.test", consent: Boolean = true, password: String = "Secret2026") =
         mockMvc.post("/api/v1/auth/sign-up") {
@@ -53,6 +67,22 @@ class AuthIntegrationTest {
         assertEquals("CLIENT", claims.role)
         assertNotNull(claims.companyId)
         assertTrue(claims.canSign)
+    }
+
+    @Test
+    fun `the company name comes from the registry, an unknown INN is refused, an outage does not stop sign-up`() {
+        val inn = randomInn12()
+        val token = tokenOf(signUp(inn).getContentAsString(Charsets.UTF_8))
+        mockMvc.get("/api/v1/companies/me") { header("Authorization", "Bearer $token") }
+            .andExpect { jsonPath("$.name") { value("ИП Тестов Т. Т.") } }
+
+        whenever(registry.lookup(any())).thenReturn(RegistryAnswer.NotFound)
+        val unknown = signUp(randomInn12())
+        assertEquals(400, unknown.status)
+        assertEquals("Компания с таким ИНН не найдена в ЕГРЮЛ и ЕГРИП — проверьте номер", message(unknown.getContentAsString(Charsets.UTF_8)))
+
+        whenever(registry.lookup(any())).thenReturn(RegistryAnswer.Unavailable)
+        assertEquals(200, signUp(randomInn12()).status)
     }
 
     @Test

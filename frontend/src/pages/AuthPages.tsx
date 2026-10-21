@@ -3,6 +3,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Link as RouterLink, Navigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api/client';
 import { roleHome, useAuth } from '../auth/AuthProvider';
+import { BrandMark } from '../components/BrandMark';
+import { tokens } from '../theme/theme';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { generateTestInn, isValidInn } from '../shared/inn';
 
@@ -15,15 +17,43 @@ const demoAccounts = [
   { email: 'risk@demo.test', label: 'Риск-администратор' }
 ];
 
+const promises = [
+  'Решение по небольшим суммам — за минуты, без участия сотрудника',
+  'Сведения о компании банк получит сам: из реестра, налоговой и бюро',
+  'Предложение и подписание договора — онлайн, в этом же кабинете'
+];
+
+/** Sign-in and sign-up share one frame: what the cabinet gives on the left, the form on the right. */
 function AuthFrame({ title, children }: { title: string; children: React.ReactNode }) {
   usePageTitle(title);
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: 'background.default', px: 2, py: 4 }}>
-      <Paper variant="outlined" sx={{ width: '100%', maxWidth: 440, p: { xs: 3, sm: 4 } }}>
-        <Typography variant="overline" color="text.secondary">Кабинет предпринимателя</Typography>
-        <Typography variant="h5" component="h1" fontWeight={700} sx={{ mb: 3 }}>{title}</Typography>
-        {children}
-      </Paper>
+    <Box sx={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, bgcolor: 'background.default' }}>
+      <Box component="aside" sx={{ display: { xs: 'none', md: 'flex' }, flexDirection: 'column', justifyContent: 'space-between', bgcolor: tokens.dark, color: '#fff', p: 6 }}>
+        <BrandMark inverted />
+        <Box>
+          <Typography variant="h4" component="p" fontWeight={700} sx={{ maxWidth: 420 }}>Кредит для бизнеса онлайн</Typography>
+          <Stack component="ul" spacing={2} sx={{ mt: 4, p: 0, listStyle: 'none' }}>
+            {promises.map((text) => (
+              <Stack component="li" key={text} direction="row" spacing={1.5} alignItems="flex-start">
+                <Box aria-hidden sx={{ mt: '7px', width: 8, height: 8, borderRadius: '99px', bgcolor: tokens.red, flexShrink: 0 }} />
+                <Typography sx={{ color: 'rgba(255,255,255,0.8)' }}>{text}</Typography>
+              </Stack>
+            ))}
+          </Stack>
+        </Box>
+        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.56)' }}>Прототип: все данные синтетические.</Typography>
+      </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', px: 2, py: { xs: 2, md: 4 } }}>
+        <Box sx={{ display: { xs: 'block', md: 'none' }, mb: 3 }}>
+          <BrandMark />
+        </Box>
+        <Box sx={{ flexGrow: 1, display: 'grid', placeItems: 'center' }}>
+          <Paper sx={{ width: '100%', maxWidth: 440, p: { xs: 3, sm: 5 }, borderRadius: '24px' }}>
+            <Typography variant="h5" component="h1" fontWeight={700} sx={{ mb: 3 }}>{title}</Typography>
+            {children}
+          </Paper>
+        </Box>
+      </Box>
     </Box>
   );
 }

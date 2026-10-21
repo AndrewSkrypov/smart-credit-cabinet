@@ -29,6 +29,15 @@ springdoc:
     path: /swagger-ui.html
 
 cabinet:
+  # The product line, the needs wizard and the calculator are public: the landing page shows
+  # them before sign-in, and they carry no personal data. Everything else requires a token.
+  security:
+    public-endpoints:
+      - "GET /api/v1/products"
+      - "GET /api/v1/products/purposes"
+      - "GET /api/v1/products/*"
+      - "GET /api/v1/products/*/calculation"
+      - "POST /api/v1/products/match"
   # identity inside the network: tokens revoked by a password change or a block are refused.
   # Empty = only signature and expiry are checked.
   identity:

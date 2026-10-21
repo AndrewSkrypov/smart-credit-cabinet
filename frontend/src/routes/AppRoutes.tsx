@@ -1,5 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
-import { roleHome, useAuth } from '../auth/AuthProvider';
+import { Route, Routes } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { RoleGuard } from '../components/RoleGuard';
 import { SignInPage, SignUpPage } from '../pages/AuthPages';
@@ -7,21 +6,17 @@ import { AnalyticsPage } from '../pages/bank/AnalyticsPage';
 import { BankApplicationPage } from '../pages/bank/application/BankApplicationPage';
 import { BankQueuePage } from '../pages/bank/BankQueuePage';
 import { RulesPage } from '../pages/bank/RulesPage';
+import { LandingPage } from '../pages/landing/LandingPage';
 import { ClientHomePage } from '../pages/ClientHomePage';
 import { ApplicationPage } from '../pages/client/application/ApplicationPage';
 import { NeedsWizardPage } from '../pages/client/NeedsWizardPage';
 import { AccessDeniedPage, NotFoundPage } from '../pages/SystemPages';
 import { bankRoles } from '../shared/labels';
 
-function Home() {
-  const { session } = useAuth();
-  return <Navigate to={session ? roleHome[session.user.role] : '/sign-in'} replace />;
-}
-
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/sign-up" element={<SignUpPage />} />
       <Route element={<RoleGuard roles={['CLIENT']} />}>

@@ -256,3 +256,141 @@ export interface ApplicationInput {
   declaredMonthlyDebtPayments?: number | null;
   bureauConsent: boolean;
 }
+
+export type Rating = 'A' | 'B' | 'C' | 'D' | 'E';
+
+export interface FactorScore {
+  factor: string;
+  title: string;
+  value: string;
+  points: number;
+  maxPoints: number;
+  hint: string | null;
+}
+
+export interface OfferTerms {
+  productCode: string;
+  amount: number;
+  termMonths: number;
+  rate: number;
+  monthlyPayment: number;
+  totalPayment: number;
+}
+
+export interface Recommendation {
+  outcome: 'APPROVE' | 'COUNTER_OFFER' | 'MANUAL_REVIEW' | 'REJECT' | 'REQUEST_INFO';
+  terms: OfferTerms | null;
+  rejectReason: string | null;
+  notes: string[];
+}
+
+export interface DecisionView {
+  id: string;
+  decidedByType: string;
+  decidedBy: string | null;
+  ruleSetVersion: number;
+  score: number | null;
+  rating: Rating | null;
+  stopFactors: Array<{ code: string; title: string }>;
+  factors: FactorScore[];
+  outcome: Recommendation['outcome'];
+  reasonCode: string | null;
+  manualReasons: Array<{ code: string; title: string }>;
+  recommendation: Recommendation | null;
+  comment: string | null;
+  createdAt: string;
+}
+
+export interface RegistryInfo {
+  inn: string;
+  ogrn: string;
+  fullName: string;
+  shortName: string;
+  status: string;
+  statusTitle: string;
+  registrationDate: string;
+  okvedCode: string;
+  okvedName: string;
+  directorName: string;
+  address: string;
+  unreliableAddress: boolean;
+  unreliableDirector: boolean;
+}
+
+export interface TaxInfo {
+  hasReports: boolean;
+  reportingYear: number | null;
+  revenue: number | null;
+  expenses: number | null;
+  taxDebt: number;
+  averageHeadcount: number | null;
+  taxRegime: string | null;
+  massAddress: boolean;
+}
+
+export interface BureauInfo {
+  obligations: Array<{ creditor: string; type: string; limit: number; balance: number; monthlyPayment: number; currentOverdueDays: number }>;
+  monthlyPaymentsTotal: number;
+  currentOverdueDaysMax: number;
+  worstOverdueDays24m: number;
+  inquiries30d: number;
+}
+
+export interface BankInfo {
+  client: boolean;
+  settlementAccount: string | null;
+  monthlyInflows: number[];
+}
+
+export interface Discrepancy {
+  field: string;
+  declared: string;
+  source: string;
+  actual: string;
+  differencePercent: number | null;
+}
+
+export type UnderwritingAction = 'APPROVE' | 'COUNTER_OFFER' | 'REQUEST_INFO' | 'REJECT';
+
+export interface AssessmentView {
+  applicationId: string;
+  status: ApplicationStatus;
+  registry: RegistryInfo | null;
+  tax: TaxInfo | null;
+  bureau: BureauInfo | null;
+  bank: BankInfo | null;
+  turnoverVariation: number | null;
+  discrepancies: Discrepancy[];
+  automaticDecision: DecisionView | null;
+  latestDecision: DecisionView | null;
+  actions: UnderwritingAction[];
+}
+
+export interface RuleParams {
+  maxLoad: number;
+  revenueMismatch: number;
+  ratingCutoffs: Record<'A' | 'B' | 'C' | 'D', number>;
+  ratingMargins: Record<'A' | 'B' | 'C' | 'D', number>;
+  lowRiskOkved: string[];
+  highRiskOkved: string[];
+  weakAmountShare: number;
+  weakRevenueShare: number;
+}
+
+export interface RulesResponse {
+  version: number;
+  params: RuleParams;
+  versions: Array<{ version: number; createdAt: string; createdBy: string | null; comment: string | null }>;
+}
+
+export interface Analytics {
+  from: string;
+  to: string;
+  funnel: Array<{ code: string; title: string; applications: number }>;
+  stageTimes: Array<{ status: string; title: string; transitions: number; averageMinutes: number | null; medianMinutes: number | null }>;
+  automaticOutcomes: Array<{ outcome: string; decisions: number }>;
+  manualOutcomes: Array<{ outcome: string; decisions: number }>;
+  manualOverrides: number;
+  disbursedAmount: number;
+  currentStatuses: Record<string, number>;
+}

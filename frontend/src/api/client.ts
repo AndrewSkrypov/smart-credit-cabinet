@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { clearSession, readSession } from '../auth/session';
 import {
+  Analytics,
   Application,
+  AssessmentView,
   ApplicationDocument,
   ApplicationInput,
   ApplicationSummary,
@@ -12,6 +14,8 @@ import {
   JournalEntry,
   Product,
   ProductMatch,
+  RuleParams,
+  RulesResponse,
   Purpose,
   SignUpInput,
   UserSession
@@ -123,4 +127,28 @@ export const applicationsApi = {
   requestCode: (id: string) => post<Application>(`/applications/${id}/signing/code`),
   sign: (id: string, code: string) => post<Application>(`/applications/${id}/sign`, { code }),
   schedule: (id: string) => get<Calculation>(`/applications/${id}/schedule`)
+};
+
+export interface RequestedItem {
+  documentType?: DocumentType;
+  question?: string;
+}
+
+/** The underwriter's card and decisions (T13–T15); a manager may only ask for information. */
+export const underwritingApi = {
+  assessment: (id: string) => get<AssessmentView>(`/underwriting/applications/${id}`),
+  approve: (id: string, comment?: string) => post<{ status: string }>(`/underwriting/applications/${id}/approve`, { comment }),
+  counterOffer: (id: string, body: { productCode?: string; amount: number; termMonths: number; comment?: string }) =>
+    post<{ status: string }>(`/underwriting/applications/${id}/counter-offer`, body),
+  requestInfo: (id: string, items: RequestedItem[], comment?: string) => post<{ status: string }>(`/underwriting/applications/${id}/request-info`, { items, comment }),
+  reject: (id: string, comment: string) => post<{ status: string }>(`/underwriting/applications/${id}/reject`, { comment })
+};
+
+export const rulesApi = {
+  current: () => get<RulesResponse>('/rules'),
+  save: (params: RuleParams, comment: string) => post<RulesResponse>('/rules', { params, comment })
+};
+
+export const analyticsApi = {
+  funnel: (from?: string, to?: string) => get<Analytics>('/analytics/funnel', { from, to })
 };

@@ -23,6 +23,7 @@ import ru.creditcabinet.assessment.domain.Rating
 import ru.creditcabinet.assessment.domain.Recommendation
 import ru.creditcabinet.assessment.domain.RegistryInfo
 import ru.creditcabinet.assessment.domain.RuleSet
+import ru.creditcabinet.assessment.domain.RuleSetVersion
 import ru.creditcabinet.assessment.domain.RuleSets
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.assessment.domain.StopFactor
@@ -77,6 +78,27 @@ class JdbcRuleSets(private val jdbc: NamedParameterJdbcTemplate, private val map
     override fun current(): RuleSet = jdbc.query("select * from rule_sets order by version desc limit 1", rowMapper).first()
 
     override fun find(version: Int): RuleSet? = jdbc.query("select * from rule_sets where version = :v", mapOf("v" to version), rowMapper).firstOrNull()
+
+    override fun history(): List<RuleSetVersion> =
+        jdbc.query("select version, created_at, created_by, comment from rule_sets order by version desc", emptyMap<String, Any>()) { rs, _ ->
+            RuleSetVersion(rs.getInt("version"), rs.instant("created_at")!!, rs.uuid("created_by"), rs.getString("comment"))
+        }
+
+    override fun create(rules: RuleSet, createdBy: UUID, comment: String): RuleSet {
+        val params =
+            with(rules) { Params(maxLoad, revenueMismatch, ratingCutoffs, ratingMargins, lowRiskOkved, highRiskOkved, weakAmountShare, weakRevenueShare) }
+        // The primary key settles two administrators saving at once: the second insert fails and is retried by them.
+        val version = jdbc.queryForObject(
+            """
+            insert into rule_sets (version, params, created_by, comment)
+            values ((select coalesce(max(version), 0) + 1 from rule_sets), cast(:params as jsonb), :by, :comment)
+            returning version
+            """.trimIndent(),
+            mapOf("params" to mapper.writeValueAsString(params), "by" to createdBy, "comment" to comment),
+            Int::class.java,
+        )!!
+        return rules.copy(version = version)
+    }
 }
 
 @Component

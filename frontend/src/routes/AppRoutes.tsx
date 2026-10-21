@@ -3,7 +3,10 @@ import { roleHome, useAuth } from '../auth/AuthProvider';
 import { AppShell } from '../components/AppShell';
 import { RoleGuard } from '../components/RoleGuard';
 import { SignInPage, SignUpPage } from '../pages/AuthPages';
-import { BankHomePage } from '../pages/BankHomePage';
+import { AnalyticsPage } from '../pages/bank/AnalyticsPage';
+import { BankApplicationPage } from '../pages/bank/application/BankApplicationPage';
+import { BankQueuePage } from '../pages/bank/BankQueuePage';
+import { RulesPage } from '../pages/bank/RulesPage';
 import { ClientHomePage } from '../pages/ClientHomePage';
 import { ApplicationPage } from '../pages/client/application/ApplicationPage';
 import { NeedsWizardPage } from '../pages/client/NeedsWizardPage';
@@ -30,7 +33,10 @@ export function AppRoutes() {
       </Route>
       <Route element={<RoleGuard roles={bankRoles} />}>
         <Route element={<AppShell />}>
-          <Route path="/bank" element={<BankHomePage />} />
+          <Route path="/bank" element={<BankQueuePage />} />
+          <Route path="/bank/applications/:id" element={<BankApplicationPage />} />
+          <Route path="/bank/analytics" element={<AnalyticsPage />} />
+          <Route path="/bank/rules" element={<RulesPage />} />
         </Route>
       </Route>
       <Route path="/access-denied" element={<AccessDeniedPage />} />

@@ -25,6 +25,29 @@ data class RuleSet(
 ) {
     fun ratingOf(score: Int): Rating = listOf(Rating.A, Rating.B, Rating.C, Rating.D).firstOrNull { score >= ratingCutoffs.getValue(it) } ?: Rating.E
 
+    /** What makes this set unusable, in words the risk administrator can act on; empty when it is fine. */
+    fun problems(): List<String> =
+        buildList {
+            if (maxLoad !in 0.1..0.8) add("Предельная нагрузка — от 10% до 80% выручки")
+            if (revenueMismatch !in 0.05..1.0) add("Допустимое расхождение выручки — от 5% до 100%")
+            val cutoffs = listOf(Rating.A, Rating.B, Rating.C, Rating.D).map { ratingCutoffs[it] }
+            if (cutoffs.any { it == null || it !in 1..100 }) {
+                add("Границы рейтингов A–D — баллы от 1 до 100")
+            } else if (cutoffs.zipWithNext().any { (higher, lower) -> higher!! <= lower!! }) {
+                add("Граница каждого рейтинга должна быть выше следующего: A > B > C > D")
+            }
+            val margins = listOf(Rating.A, Rating.B, Rating.C, Rating.D).map { ratingMargins[it] }
+            if (margins.any { it == null || it !in 0.0..20.0 }) {
+                add("Надбавки к ставке — от 0 до 20 п.п.")
+            } else if (margins.zipWithNext().any { (better, worse) -> better!! > worse!! }) {
+                add("Надбавка для худшего рейтинга не может быть меньше, чем для лучшего")
+            }
+            val okved = lowRiskOkved + highRiskOkved
+            if (okved.any { !it.matches(OKVED_CLASS) }) add("Классы ОКВЭД — две цифры, например 62")
+            if (lowRiskOkved.intersect(highRiskOkved).isNotEmpty()) add("Класс ОКВЭД не может быть одновременно низкого и высокого риска")
+            if (weakAmountShare !in 0.0..1.0 || weakRevenueShare !in 0.0..1.0) add("Доли для рейтинга D — от 0 до 100%")
+        }
+
     fun industryRisk(okvedCode: String): IndustryRisk {
         val group = okvedCode.take(2)
         return when (group) {
@@ -35,9 +58,17 @@ data class RuleSet(
     }
 }
 
+private val OKVED_CLASS = Regex("\\d{2}")
+
 enum class IndustryRisk(val title: String) { LOW("низкий"), MEDIUM("средний"), HIGH("высокий") }
+
+data class RuleSetVersion(val version: Int, val createdAt: java.time.Instant, val createdBy: java.util.UUID?, val comment: String?)
 
 interface RuleSets {
     fun current(): RuleSet
     fun find(version: Int): RuleSet?
+    fun history(): List<RuleSetVersion>
+
+    /** Stores [rules] as the next version and returns it; earlier versions stay for the decisions made with them. */
+    fun create(rules: RuleSet, createdBy: java.util.UUID, comment: String): RuleSet
 }

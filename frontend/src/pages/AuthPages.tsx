@@ -4,6 +4,7 @@ import { Link as RouterLink, Navigate, useSearchParams } from 'react-router-dom'
 import { authApi } from '../api/client';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { generateTestInn, isValidInn } from '../shared/inn';
 
 const DEMO_PASSWORD = 'Demo2026';
 
@@ -86,6 +87,11 @@ export function SignInPage() {
 
 export function SignUpPage() {
   const { session, signUp } = useAuth();
+  const [demo, setDemo] = useState(false);
+
+  useEffect(() => {
+    authApi.options().then((options) => setDemo(options.demoAccounts)).catch(() => setDemo(false));
+  }, []);
   const [form, setForm] = useState({ fullName: '', email: '', password: '', inn: '', personalDataConsent: false });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -93,9 +99,12 @@ export function SignUpPage() {
   if (session) return <Navigate to={roleHome[session.user.role]} replace />;
 
   const innDigits = form.inn.replace(/\D/g, '');
-  const innHint = innDigits.length === 0 || innDigits.length === 10 || innDigits.length === 12
+  const innComplete = innDigits.length === 10 || innDigits.length === 12;
+  const innHint = innDigits.length === 0
     ? '10 цифр для организации, 12 — для ИП'
-    : `Сейчас ${innDigits.length} цифр — нужно 10 или 12`;
+    : !innComplete
+      ? `Сейчас ${innDigits.length} цифр — нужно 10 или 12`
+      : isValidInn(innDigits) ? 'Название подтянем из ЕГРЮЛ/ЕГРИП' : 'Похоже на опечатку: не сходится контрольная цифра';
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -114,7 +123,17 @@ export function SignUpPage() {
       <Stack component="form" spacing={2} onSubmit={submit} noValidate>
         {error && <Alert severity="error">{error}</Alert>}
         <TextField label="ИНН компании или ИП" inputMode="numeric" value={form.inn} helperText={innHint}
+          error={innComplete && !isValidInn(innDigits)}
           onChange={(event) => setForm({ ...form, inn: event.target.value })} required />
+        {demo && (
+          <Typography variant="body2" color="text.secondary">
+            Демо: синтетический ИНН для{' '}
+            <Link component="button" type="button" onClick={() => setForm({ ...form, inn: generateTestInn(true) })}>организации</Link>
+            {' '}или{' '}
+            <Link component="button" type="button" onClick={() => setForm({ ...form, inn: generateTestInn(false) })}>ИП</Link>
+            {' '}— такого региона нет, данные не совпадут с реальным бизнесом.
+          </Typography>
+        )}
         <TextField label="Ваше имя" autoComplete="name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} required />
         <TextField label="Email" type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required />
         <TextField label="Пароль" type="password" autoComplete="new-password" value={form.password} helperText="От 8 символов, буквы и цифры"

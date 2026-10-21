@@ -1,6 +1,21 @@
 import axios from 'axios';
 import { clearSession, readSession } from '../auth/session';
-import { Company, SignUpInput, UserSession } from '../types';
+import {
+  Application,
+  ApplicationDocument,
+  ApplicationInput,
+  ApplicationSummary,
+  Calculation,
+  Company,
+  DocumentType,
+  FinancingPurpose,
+  JournalEntry,
+  Product,
+  ProductMatch,
+  Purpose,
+  SignUpInput,
+  UserSession
+} from '../types';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
@@ -66,4 +81,46 @@ export const authApi = {
 
 export const companyApi = {
   mine: () => get<Company>('/companies/me')
+};
+
+export const productsApi = {
+  list: () => get<Product[]>('/products'),
+  purposes: () => get<Purpose[]>('/products/purposes'),
+  match: (purpose: FinancingPurpose, amount: number, termMonths: number) => post<ProductMatch[]>('/products/match', { purpose, amount, termMonths })
+};
+
+export const applicationsApi = {
+  list: () => get<ApplicationSummary[]>('/applications'),
+  get: (id: string) => get<Application>(`/applications/${id}`),
+  create: (input: ApplicationInput) => post<Application>('/applications', input),
+  update: (id: string, input: ApplicationInput) => put<Application>(`/applications/${id}`, input),
+  /** The key makes a repeated click or a retry after a timeout return the first result. */
+  submit: async (id: string, idempotencyKey: string) =>
+    (await api.post<Application>(`/applications/${id}/submit`, {}, { headers: { 'Idempotency-Key': idempotencyKey } })).data,
+  withdraw: (id: string, comment?: string) => post<Application>(`/applications/${id}/withdraw`, { comment }),
+  events: (id: string) => get<JournalEntry[]>(`/applications/${id}/events`),
+  uploadDocument: async (id: string, type: DocumentType, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return (await api.post<ApplicationDocument>(`/applications/${id}/documents`, form, { params: { type }, headers: { 'Content-Type': 'multipart/form-data' } })).data;
+  },
+  deleteDocument: async (id: string, documentId: string) => {
+    await api.delete(`/applications/${id}/documents/${documentId}`);
+  },
+  /** Downloads with the caller's token: a plain link would not carry it. */
+  downloadDocument: async (id: string, documentId: string, fileName: string) => {
+    const response = await api.get<Blob>(`/applications/${id}/documents/${documentId}`, { responseType: 'blob' });
+    const url = URL.createObjectURL(response.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
+  provideInfo: (id: string, answer?: string) => post<Application>(`/applications/${id}/info-provided`, { answer }),
+  acceptOffer: (id: string) => post<Application>(`/applications/${id}/offer/accept`),
+  declineOffer: (id: string, comment?: string) => post<Application>(`/applications/${id}/offer/decline`, { comment }),
+  requestCode: (id: string) => post<Application>(`/applications/${id}/signing/code`),
+  sign: (id: string, code: string) => post<Application>(`/applications/${id}/sign`, { code }),
+  schedule: (id: string) => get<Calculation>(`/applications/${id}/schedule`)
 };

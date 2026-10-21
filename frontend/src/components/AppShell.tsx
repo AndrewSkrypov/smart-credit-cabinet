@@ -2,6 +2,7 @@ import { AppBar, Box, Button, Container, Stack, Toolbar, Typography } from '@mui
 import { Link as RouterLink, Outlet } from 'react-router-dom';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { roleLabels } from '../shared/labels';
+import { tokens } from '../theme/theme';
 
 /** Frame of every signed-in page: product name, who is signed in, sign-out. */
 export function AppShell() {
@@ -10,19 +11,20 @@ export function AppShell() {
   const { user } = session;
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppBar position="sticky" color="primary" elevation={0}>
-        <Toolbar sx={{ gap: 2 }}>
-          <Typography component={RouterLink} to={roleHome[user.role]} variant="h6" sx={{ color: 'inherit', textDecoration: 'none', fontWeight: 700, flexGrow: 1 }}>
-            Кабинет предпринимателя
-          </Typography>
-          <Stack sx={{ display: { xs: 'none', sm: 'flex' }, textAlign: 'right' }}>
-            <Typography variant="body2" fontWeight={600}>{user.fullName}</Typography>
-            <Typography variant="caption" sx={{ opacity: 0.8 }}>{roleLabels[user.role]}</Typography>
+      <AppBar position="sticky" color="inherit" elevation={0}>
+        <Toolbar sx={{ gap: 2, minHeight: { xs: 64, md: 72 } }}>
+          <Stack component={RouterLink} to={roleHome[user.role]} aria-label="Кабинет предпринимателя — на главную" direction="row" spacing={1.5} alignItems="center" sx={{ color: 'inherit', textDecoration: 'none', flexGrow: 1 }}>
+            <Box aria-hidden sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: tokens.red, display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 700 }}>К</Box>
+            <Typography variant="subtitle1" component="span" fontWeight={700} sx={{ display: { xs: 'none', sm: 'inline' } }}>Кабинет предпринимателя</Typography>
           </Stack>
-          <Button color="inherit" variant="outlined" onClick={signOut}>Выйти</Button>
+          <Stack sx={{ display: { xs: 'none', sm: 'flex' }, textAlign: 'right' }}>
+            <Typography variant="body2" fontWeight={500}>{user.fullName}</Typography>
+            <Typography variant="caption" color="text.secondary">{roleLabels[user.role]}</Typography>
+          </Stack>
+          <Button variant="outlined" onClick={signOut}>Выйти</Button>
         </Toolbar>
       </AppBar>
-      <Container component="main" maxWidth="lg" sx={{ py: { xs: 3, md: 4 } }}>
+      <Container component="main" maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
         <Outlet />
       </Container>
     </Box>

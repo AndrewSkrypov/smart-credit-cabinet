@@ -18,12 +18,12 @@ import kotlin.test.assertEquals
 class EngagementNotificationsClientTest {
     private val item =
         PlatformNotification(
-            UUID.randomUUID(),
-            PlatformNotification.ACTION_REQUIRED,
-            "Нужны документы",
-            "Загрузите декларацию",
-            "/client/applications/1",
-            "info-requested:1",
+            recipientId = UUID.randomUUID(),
+            type = PlatformNotification.ACTION_REQUIRED,
+            title = "Нужны документы",
+            body = "Загрузите декларацию",
+            link = "/client/applications/1",
+            dedupKey = "info-requested:1",
         )
     private val requests = AtomicInteger()
 

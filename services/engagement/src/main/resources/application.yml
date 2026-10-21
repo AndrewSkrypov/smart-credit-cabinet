@@ -29,6 +29,15 @@ cabinet:
   # Empty = only signature and expiry are checked.
   identity:
     url: ${IDENTITY_URL:}
+  # The assistant reads applications from credit with the caller's token.
+  credit:
+    url: ${CREDIT_URL:}
+  assistant:
+    # Ollama with a model of open weights (docker compose --profile ai). Empty or not running:
+    # the assistant answers by rules from the same reference and application facts.
+    ollama-url: ${OLLAMA_URL:}
+    model: ${ASSISTANT_MODEL:qwen2.5:1.5b}
+    answer-timeout: ${ASSISTANT_TIMEOUT:PT90S}
   openapi:
     title: "Кабинет предпринимателя: уведомления и помощник"
   auth:

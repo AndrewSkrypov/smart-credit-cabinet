@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.auth.application.AuthService
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.user.domain.UserDataPort
+import ru.creditcabinet.user.domain.UserRole
 import ru.creditcabinet.user.dto.UserResponse
 import java.util.UUID
 
@@ -35,9 +36,11 @@ class InternalUserController(private val users: UserDataPort) {
     fun list(
         @RequestParam(required = false) ids: List<UUID>?,
         @RequestParam(required = false) companyId: UUID?,
+        @RequestParam(required = false) role: UserRole?,
     ): List<UserResponse> {
         val found = when {
             companyId != null -> users.findByCompany(companyId)
+            role != null -> users.findByRole(role)
             else -> users.findByIds(ids.orEmpty().distinct().take(MAX_IDS))
         }
         return found.map(UserResponse::of)

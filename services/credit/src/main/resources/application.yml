@@ -33,6 +33,9 @@ cabinet:
   # Empty = only signature and expiry are checked.
   identity:
     url: ${IDENTITY_URL:}
+  # Notifications under the bell; empty = they are only logged.
+  engagement:
+    url: ${ENGAGEMENT_URL:}
   openapi:
     title: "Кабинет предпринимателя: заявки, кредитный конвейер и решения"
   auth:

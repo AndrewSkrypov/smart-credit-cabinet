@@ -115,6 +115,10 @@ services:
       <<: *service-env
       DB_NAME: engagement
       IDENTITY_URL: http://identity:8080
+      CREDIT_URL: http://credit:8080
+      # The assistant uses the model when the "ai" profile runs, and answers by rules otherwise.
+      OLLAMA_URL: http://ollama:11434
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-qwen2.5:1.5b}
     depends_on:
       db-init:
         condition: service_completed_successfully
@@ -138,6 +142,34 @@ services:
       dockerfile: frontend/Dockerfile
     mem_limit: 128m
     restart: unless-stopped
+    networks:
+      - cabinet
+
+  # The assistant's language model with open weights: docker compose --profile ai up -d.
+  # About 1 GB of weights is downloaded once into the volume; answers take seconds on a CPU.
+  ollama:
+    image: ollama/ollama:0.6.8
+    profiles: ["ai"]
+    mem_limit: 4g
+    volumes:
+      - cabinet-ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks:
+      - cabinet
+
+  ollama-pull:
+    image: ollama/ollama:0.6.8
+    profiles: ["ai"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "${ASSISTANT_MODEL:-qwen2.5:1.5b}"]
+    depends_on:
+      ollama:
+        condition: service_healthy
     networks:
       - cabinet
 
@@ -173,6 +205,7 @@ services:
 volumes:
   cabinet-postgres-data:
   cabinet-documents:
+  cabinet-ollama:
 
 networks:
   cabinet:

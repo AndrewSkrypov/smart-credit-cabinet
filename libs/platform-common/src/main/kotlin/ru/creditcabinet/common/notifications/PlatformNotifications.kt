@@ -16,9 +16,15 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-/** One notification for the bell in the header; stored and shown by engagement. */
+/**
+ * One notification for the bell in the header; stored and shown by engagement. Addressed to one
+ * person, to everyone of a company, or to everyone with a bank role: exactly one is set, and
+ * engagement turns the address into people.
+ */
 data class PlatformNotification(
-    val recipientId: UUID,
+    val recipientId: UUID? = null,
+    val recipientCompanyId: UUID? = null,
+    val recipientRole: String? = null,
     /** One of engagement's notification types, e.g. [APPLICATION_STATUS]. */
     val type: String,
     val title: String,
@@ -28,12 +34,19 @@ data class PlatformNotification(
     /** The same key for the same event: a repeated delivery is stored once. */
     val dedupKey: String,
 ) {
+    init {
+        require(listOfNotNull(recipientId, recipientCompanyId, recipientRole).size == 1) { "A notification has exactly one address" }
+    }
+
     companion object {
         /** The application moved to another stage; nothing is required from the client. */
         const val APPLICATION_STATUS = "APPLICATION_STATUS"
 
         /** The client has to do something: add documents, accept an offer, sign. */
         const val ACTION_REQUIRED = "ACTION_REQUIRED"
+
+        /** Bank: an application waits for a manual decision. */
+        const val NEW_REVIEW = "NEW_REVIEW"
     }
 }
 

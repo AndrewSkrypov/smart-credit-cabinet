@@ -3,6 +3,8 @@ import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { roleLabels } from '../shared/labels';
 import { tokens } from '../theme/theme';
+import { AssistantPanel } from './AssistantPanel';
+import { NotificationBell } from './NotificationBell';
 
 /** Frame of every signed-in page: product name, who is signed in, sign-out. */
 /** Sections of the bank workspace; the rules are changed by the risk administrator, read by all staff. */
@@ -31,6 +33,7 @@ export function AppShell() {
             <Typography variant="body2" fontWeight={500}>{user.fullName}</Typography>
             <Typography variant="caption" color="text.secondary">{roleLabels[user.role]}</Typography>
           </Stack>
+          <NotificationBell />
           <Button variant="outlined" onClick={signOut}>Выйти</Button>
         </Toolbar>
         {bank && (
@@ -42,6 +45,7 @@ export function AppShell() {
       <Container component="main" maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
         <Outlet />
       </Container>
+      {!bank && <AssistantPanel />}
     </Box>
   );
 }

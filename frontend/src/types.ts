@@ -394,3 +394,32 @@ export interface Analytics {
   disbursedAmount: number;
   currentStatuses: Record<string, number>;
 }
+
+export interface CabinetNotification {
+  id: string;
+  type: 'APPLICATION_STATUS' | 'ACTION_REQUIRED' | 'NEW_REVIEW';
+  title: string;
+  body: string;
+  link: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface NotificationPage {
+  items: CabinetNotification[];
+  page: number;
+  size: number;
+  total: number;
+  unread: number;
+}
+
+export interface AssistantTurn {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
+export interface AssistantAnswer {
+  text: string;
+  mode: 'MODEL' | 'RULES';
+  sources: string[];
+}

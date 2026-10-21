@@ -126,6 +126,15 @@ class AuthIntegrationTest {
         mockMvc.get("/api/v1/users/me") { header("Authorization", "Bearer forged") }.andExpect { status { isUnauthorized() } }
     }
 
+    @Test
+    fun `engagement finds the bank staff of a role through the internal API`() {
+        mockMvc.get("/internal/v1/users?role=UNDERWRITER").andExpect {
+            status { isOk() }
+            jsonPath("$[?(@.email == 'underwriter@demo.test')]") { exists() }
+            jsonPath("$[?(@.role != 'UNDERWRITER')]") { doesNotExist() }
+        }
+    }
+
     /** A synthetic ИНН of an entrepreneur ("00" region does not exist) with valid check digits. */
     private fun randomInn12(): String {
         val base = "00" + (1..8).map { Random.nextInt(10) }.joinToString("")

@@ -7,11 +7,14 @@ import {
   ApplicationDocument,
   ApplicationInput,
   ApplicationSummary,
+  AssistantAnswer,
+  AssistantTurn,
   Calculation,
   Company,
   DocumentType,
   FinancingPurpose,
   JournalEntry,
+  NotificationPage,
   Product,
   ProductMatch,
   RuleParams,
@@ -151,4 +154,17 @@ export const rulesApi = {
 
 export const analyticsApi = {
   funnel: (from?: string, to?: string) => get<Analytics>('/analytics/funnel', { from, to })
+};
+
+export const notificationsApi = {
+  page: (page = 0, size = 10) => get<NotificationPage>('/notifications', { page, size }),
+  unreadCount: async () => (await get<{ unread: number }>('/notifications/unread-count')).unread,
+  markRead: (id: string) => post<void>(`/notifications/${id}/read`),
+  markAllRead: () => post<{ updated: number }>('/notifications/read-all')
+};
+
+export const assistantApi = {
+  status: () => get<{ mode: 'MODEL' | 'RULES'; model: string | null }>('/assistant/status'),
+  ask: (question: string, applicationId: string | null, history: AssistantTurn[]) =>
+    post<AssistantAnswer>('/assistant/messages', { question, applicationId, history })
 };

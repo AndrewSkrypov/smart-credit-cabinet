@@ -5,11 +5,14 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 import ru.creditcabinet.user.domain.User
 import ru.creditcabinet.user.domain.UserDataPort
+import ru.creditcabinet.user.domain.UserRole
+import ru.creditcabinet.user.domain.UserStatus
 import java.util.UUID
 
 interface UserJpaRepository : JpaRepository<UserEntity, UUID> {
     fun findByEmail(email: String): UserEntity?
     fun findByCompanyIdOrderByCreatedAt(companyId: UUID): List<UserEntity>
+    fun findByRoleAndStatus(role: UserRole, status: UserStatus): List<UserEntity>
 }
 
 @Component
@@ -25,6 +28,9 @@ class UserJpaAdapter(
         if (ids.isEmpty()) emptyList() else repository.findAllById(ids).map(UserEntity::toDomain)
 
     override fun findByCompany(companyId: UUID): List<User> = repository.findByCompanyIdOrderByCreatedAt(companyId).map(UserEntity::toDomain)
+
+    // Blocked staff get nothing: they cannot act on it.
+    override fun findByRole(role: UserRole): List<User> = repository.findByRoleAndStatus(role, UserStatus.ACTIVE).map(UserEntity::toDomain)
 
     override fun verifyPassword(email: String, password: String): Boolean {
         val entity = repository.findByEmail(email.lowercase())

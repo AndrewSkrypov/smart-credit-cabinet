@@ -72,14 +72,13 @@ class OllamaModel(
                 .body(
                     mapOf(
                         "model" to name,
-                        "messages" to forModel(messages),
+                        "messages" to messages,
                         "stream" to false,
                         // Low temperature: the answer retells facts, it does not invent them.
                         "options" to mapOf("temperature" to 0.2, "num_predict" to 300),
                     ),
                 )
-                .retrieve().body(Reply::class.java)?.message?.content
-                ?.replace(THINKING, "")?.trim()?.takeIf { it.isNotEmpty() }
+                .retrieve().body(Reply::class.java)?.message?.content?.trim()?.takeIf { it.isNotEmpty() }
         } catch (exception: Exception) {
             log.warn("Assistant model did not answer, falling back to the rules: {}", exception.message)
             known = false to clock.instant()
@@ -87,12 +86,7 @@ class OllamaModel(
         }
     }
 
-    /** Qwen3 thinks aloud by default: slow on a CPU and not for the client. «/no_think» turns it off. */
-    private fun forModel(messages: List<ChatMessage>): List<ChatMessage> =
-        if (!name.startsWith("qwen3")) messages else messages.dropLast(1) + messages.last().let { it.copy(content = it.content + "\n/no_think") }
-
     private companion object {
         val CHECK_EVERY: Duration = Duration.ofSeconds(30)
-        val THINKING = Regex("<think>[\\s\\S]*?</think>")
     }
 }

@@ -1,0 +1,10 @@
+# Accepted findings of the image scan. Each entry says why it does not apply and when to look again.
+#
+# spring-webmvc 6.2.19 is the last release of the 6.2 line; both fixes exist only in Spring
+# Framework 7 (Spring Boot 4). Neither affected feature is used: there are no XSLT views and no
+# Server-Sent Events with view rendering (the only view is a forward to a static page of the
+# simulators' panel). Remove these lines with the move to Spring Boot 4. Review by 2026-12-31.
+# XSLT view path limitation (XsltView)
+CVE-2026-47884
+# Stream corruption in Server-Sent Events with view rendering
+CVE-2026-47890

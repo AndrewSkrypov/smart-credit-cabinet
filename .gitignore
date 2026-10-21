@@ -24,3 +24,6 @@ CLAUDE.md
 # Brand extraction of the bank's public site: reference material, summarised in docs/design-tokens.md.
 Lending_Alpha.xml
 *.docx
+
+# Local working notes.
+notes/

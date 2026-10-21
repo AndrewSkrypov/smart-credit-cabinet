@@ -122,6 +122,7 @@ class AssistantApiTest {
         assertEquals(1, Grounding.falseClaims("Это бесплатный лимит").size)
         assertEquals(1, Grounding.falseClaims("Одобрение гарантировано").size)
         assertEquals(1, Grounding.falseClaims("Кредит — не платный").size)
+        assertEquals(1, Grounding.falseClaims("Ставка может быть выше или ниже базовой").size)
         assertEquals(emptyList(), Grounding.falseClaims("Банк не гарантирует одобрение заранее."))
         assertEquals(emptyList(), Grounding.falseClaims("Проценты начисляются на использованную часть лимита за каждый день."))
         assertEquals(emptyList(), Grounding.falseClaims("Банк не обещает одобрения: решение принимается после оценки."))

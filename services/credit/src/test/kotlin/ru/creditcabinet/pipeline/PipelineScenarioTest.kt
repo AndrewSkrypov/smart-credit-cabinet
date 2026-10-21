@@ -39,7 +39,7 @@ import kotlin.test.assertTrue
  * Whole scenarios of the pipeline through the public API, with the external systems replaced by
  * fakes and a clock the test moves. The worker is off; the test runs due jobs itself.
  */
-@SpringBootTest(properties = ["cabinet.pipeline.enabled=false"])
+@SpringBootTest
 @AutoConfigureMockMvc
 @Import(PipelineFakesConfig::class)
 class PipelineScenarioTest {

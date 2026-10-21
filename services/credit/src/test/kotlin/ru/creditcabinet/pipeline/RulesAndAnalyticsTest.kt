@@ -31,7 +31,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-@SpringBootTest(properties = ["cabinet.pipeline.enabled=false"])
+@SpringBootTest
 @AutoConfigureMockMvc
 @Import(PipelineFakesConfig::class)
 class RulesAndAnalyticsTest {

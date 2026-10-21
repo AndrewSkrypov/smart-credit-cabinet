@@ -75,7 +75,7 @@ class OllamaModel(
                         "messages" to messages,
                         "stream" to false,
                         // Low temperature: the answer retells facts, it does not invent them.
-                        "options" to mapOf("temperature" to 0.2, "num_predict" to 400),
+                        "options" to mapOf("temperature" to 0.2, "num_predict" to 300),
                     ),
                 )
                 .retrieve().body(Reply::class.java)?.message?.content?.trim()?.takeIf { it.isNotEmpty() }

@@ -107,6 +107,50 @@ class AssistantApiTest {
     }
 
     @Test
+    fun `an answer that contradicts the reference is replaced by the rules answer`() {
+        whenever(model.available()).thenReturn(true)
+        whenever(model.chat(any())).thenReturn("Овердрафт — лимит на счёте. Он не начисляет проценты за использование, а просто возобновляется.")
+        val answer = mapper.readTree(ask("Чем овердрафт отличается от кредита на пополнение оборота?", application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue(answer["text"].asText().contains("Это платный продукт"), answer["text"].asText())
+    }
+
+    @Test
+    fun `false claims are found, true ones pass`() {
+        assertEquals(1, Grounding.falseClaims("Он не начисляет проценты за использование").size)
+        assertEquals(1, Grounding.falseClaims("Проценты по овердрафту не начисляются").size)
+        assertEquals(1, Grounding.falseClaims("Это бесплатный лимит").size)
+        assertEquals(1, Grounding.falseClaims("Одобрение гарантировано").size)
+        assertEquals(emptyList(), Grounding.falseClaims("Проценты начисляются на использованную часть лимита за каждый день."))
+        assertEquals(emptyList(), Grounding.falseClaims("Банк не обещает одобрения: решение принимается после оценки."))
+    }
+
+    @Test
+    fun `another script, a ramble and echoed prompt labels do not reach the client`() {
+        assertTrue(Grounding.problems("Если данные 齐全, банк проверит", "").any { it.startsWith("foreign script") })
+        assertTrue(Grounding.problems("Очень длинно. ".repeat(80), "").any { it.startsWith("too long") })
+        assertEquals(emptyList(), Grounding.problems("Договор подписывается кодом из 6 цифр в кабинете.", ""))
+
+        whenever(model.available()).thenReturn(true)
+        whenever(model.chat(any())).thenReturn("Справка:\n— Код действует несколько минут.\n\nДанные заявки: Заявка не выбрана.")
+        val answer = mapper.readTree(ask("Как подписать договор?", application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("MODEL", answer["mode"].asText())
+        assertEquals("— Код действует несколько минут.", answer["text"].asText())
+    }
+
+    @Test
+    fun `a question about my refusal without an open application is not given to the model`() {
+        whenever(model.available()).thenReturn(true)
+        whenever(model.chat(any())).thenReturn("Причина отказа: сложная финансовая ситуация и недавняя регистрация.")
+        val answer = mapper.readTree(ask("Почему мне отказали и что можно изменить?", application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue(answer["text"].asText().startsWith("Про вашу заявку я отвечаю по её данным"), answer["text"].asText())
+        verify(model, org.mockito.kotlin.never()).chat(any())
+        assertTrue(!RuleAnswers.isAboutOwnApplication("Что такое контрпредложение?"))
+        assertTrue(!RuleAnswers.isAboutOwnApplication("Сколько рассматривается заявка?"))
+    }
+
+    @Test
     fun `another company's application is not found, a long question is refused`() {
         whenever(applications.facts(eq(applicationId), any())).thenThrow(NotFoundException("Заявка не найдена"))
         assertEquals(404, ask("Что с заявкой?").status)

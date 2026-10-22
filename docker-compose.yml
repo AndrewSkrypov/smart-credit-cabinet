@@ -118,7 +118,7 @@ services:
       CREDIT_URL: http://credit:8080
       # The assistant uses the model when the "ai" profile runs, and answers by rules otherwise.
       OLLAMA_URL: http://ollama:11434
-      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-qwen2.5:1.5b}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-qwen2.5:3b}
     depends_on:
       db-init:
         condition: service_completed_successfully
@@ -166,7 +166,7 @@ services:
     profiles: ["ai"]
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["ollama", "pull", "${ASSISTANT_MODEL:-qwen2.5:1.5b}"]
+    entrypoint: ["ollama", "pull", "${ASSISTANT_MODEL:-qwen2.5:3b}"]
     depends_on:
       ollama:
         condition: service_healthy

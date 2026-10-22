@@ -36,7 +36,7 @@ cabinet:
     # Ollama with a model of open weights (docker compose --profile ai). Empty or not running:
     # the assistant answers by rules from the same reference and application facts.
     ollama-url: ${OLLAMA_URL:}
-    model: ${ASSISTANT_MODEL:qwen2.5:1.5b}
+    model: ${ASSISTANT_MODEL:qwen2.5:3b}
     answer-timeout: ${ASSISTANT_TIMEOUT:PT90S}
   openapi:
     title: "Кабинет предпринимателя: уведомления и помощник"

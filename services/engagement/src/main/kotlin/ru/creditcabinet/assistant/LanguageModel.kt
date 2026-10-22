@@ -27,7 +27,7 @@ interface LanguageModel {
 @Component
 class OllamaModel(
     @Value("\${cabinet.assistant.ollama-url:}") url: String,
-    @Value("\${cabinet.assistant.model:qwen2.5:1.5b}") override val name: String,
+    @Value("\${cabinet.assistant.model:qwen2.5:3b}") override val name: String,
     @Value("\${cabinet.assistant.answer-timeout:PT90S}") answerTimeout: Duration,
     private val builder: RestClient.Builder,
     private val clock: Clock,

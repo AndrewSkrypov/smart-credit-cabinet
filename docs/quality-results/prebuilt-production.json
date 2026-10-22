@@ -1,0 +1,95 @@
+{
+  "started_at": "2026-10-22T03:32:25.964507+00:00",
+  "source_project": "cabinet-prod-test-81841dbd2785",
+  "target_project": "cabinet-prod-restore-test-81841dbd2785",
+  "image_prefix": "cabinet-prebuilt",
+  "companies": 20,
+  "checks": [
+    "Все компании дошли до DISBURSED при производственных лимитах памяти",
+    "Смена секрета JWT при восстановлении отклоняет прежний токен",
+    "Восстановленная учётная запись входит с прежним паролем",
+    "Сохранён итоговый статус заявки",
+    "График платежей совпадает побайтно по структуре JSON",
+    "Загруженный PDF доступен после восстановления и совпадает по SHA256",
+    "Сохранены все выданные кредиты",
+    "Повторное восстановление в непустой проект отклоняется без изменения данных",
+    "Нет OOM/restart при наблюдаемой нагрузке"
+  ],
+  "passed": true,
+  "app_images": {
+    "identity": "sha256:64bdcc71f91f5e69bded6de7547852240336458f03c11b8358b7711aac89cf2d",
+    "credit": "sha256:e873e1b10d3c34edb71c1f299ea4a34a1e867b964113c6aee83b1f16ad029ec7",
+    "engagement": "sha256:c2030f612bade08add122a83ddc9db52d8de2f0746c9e28aedd30500634d3c11",
+    "external-sim": "sha256:b734539d878bac79f0f4a22310f707efd4ca8d1e32f97f4615d2ae5141ce44ea",
+    "frontend": "sha256:fa5de0754b8d42c6fde569a4e7096f741e9717f4c92458110e869d08b8627f19"
+  },
+  "app_source_revisions": {
+    "identity": "local-prebuilt-verification",
+    "credit": "local-prebuilt-verification",
+    "engagement": "local-prebuilt-verification",
+    "external-sim": "local-prebuilt-verification",
+    "frontend": "local-prebuilt-verification"
+  },
+  "peak_sampled_sum_bytes": 1542450050,
+  "containers": [
+    {
+      "name": "/cabinet-prod-test-81841dbd2785-caddy-1",
+      "image_id": "sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd",
+      "limit_bytes": 100663296,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-81841dbd2785-gateway-1",
+      "image_id": "sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94",
+      "limit_bytes": 50331648,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-81841dbd2785-identity-1",
+      "image_id": "sha256:64bdcc71f91f5e69bded6de7547852240336458f03c11b8358b7711aac89cf2d",
+      "limit_bytes": 536870912,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-81841dbd2785-credit-1",
+      "image_id": "sha256:e873e1b10d3c34edb71c1f299ea4a34a1e867b964113c6aee83b1f16ad029ec7",
+      "limit_bytes": 671088640,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-81841dbd2785-engagement-1",
+      "image_id": "sha256:c2030f612bade08add122a83ddc9db52d8de2f0746c9e28aedd30500634d3c11",
+      "limit_bytes": 536870912,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-81841dbd2785-frontend-1",
+      "image_id": "sha256:fa5de0754b8d42c6fde569a4e7096f741e9717f4c92458110e869d08b8627f19",
+      "limit_bytes": 100663296,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-81841dbd2785-external-sim-1",
+      "image_id": "sha256:b734539d878bac79f0f4a22310f707efd4ca8d1e32f97f4615d2ae5141ce44ea",
+      "limit_bytes": 402653184,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-81841dbd2785-postgres-1",
+      "image_id": "sha256:3ad25f46d14d97c7a282bfcab1e2a3cd686231837d57d4039c2942122015853a",
+      "limit_bytes": 402653184,
+      "restarts": 0,
+      "oom_killed": false
+    }
+  ],
+  "finished_at": "2026-10-22T03:39:34.042882+00:00",
+  "kept_projects": false,
+  "note": "Local prebuilt-path verification; revision label is a test marker, not a committed Git SHA. CI separately requires its exact Git SHA."
+}

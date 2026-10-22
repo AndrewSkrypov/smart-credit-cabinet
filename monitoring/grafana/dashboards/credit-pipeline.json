@@ -1,0 +1,514 @@
+{
+  "uid": "credit-pipeline",
+  "title": "Кредитный конвейер",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "cabinet"
+  ],
+  "timezone": "browser",
+  "refresh": "15s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Доступность экземпляров",
+      "description": "1 — scrape успешен; 0 — ошибка. DNS-discovery видит обе реплики credit.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "up",
+          "refId": "A",
+          "legendFormat": "{{service}} {{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Очередь по статусам",
+      "description": "Снимок общей БД: max по репликам, затем сумма корзин попыток.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (status) (max by (status, attempts) (cabinet_pipeline_jobs))",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Задачи по числу попыток",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (attempts) (max by (status, attempts) (cabinet_pipeline_jobs))",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Возраст просроченной очереди",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "max(cabinet_pipeline_queue_oldest_due_seconds)",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Шаги конвейера: p95",
+      "description": "Фактическое исполнение одной попытки, включая внешние вызовы; не полное время заявки.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, step) (rate(cabinet_pipeline_step_seconds_bucket[5m])))",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Попытки шагов в секунду",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (step, result) (rate(cabinet_pipeline_step_seconds_count[5m]))",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Ответы источников в секунду",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (source, result) (rate(cabinet_source_call_seconds_count[5m]))",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Circuit breaker: активное состояние",
+      "description": "One-hot состояние каждого источника на каждом экземпляре.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "cabinet_source_breaker == 1",
+          "refId": "A",
+          "legendFormat": "{{source}} {{state}} {{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Решения по исходам и автору",
+      "description": "Число записанных решений, включая промежуточные; это gauge общей БД, не rate/counter.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "max by (outcome, actor) (cabinet_decisions)",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Первое итоговое решение: среднее время",
+      "description": "От первой отправки до первого APPROVE/COUNTER_OFFER/REJECT по всей сохранённой истории. Нет наблюдений — NaN.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "max(cabinet_decision_time_average_seconds)",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Первое итоговое решение: максимум",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "max(cabinet_decision_time_maximum_seconds)",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Возраст снимка БД",
+      "description": "При ошибке запроса сохраняется предыдущий снимок; его возраст растёт.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "max(cabinet_pipeline_metrics_snapshot_age_seconds)",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "API: p95 по сервисам",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, application) (rate(http_server_requests_seconds_bucket[5m])))",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "JVM: используемая память",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (application, instance) (jvm_memory_used_bytes)",
+          "refId": "A",
+          "legendFormat": "{{service}} {{status}} {{attempts}} {{step}} {{source}} {{result}} {{state}} {{outcome}} {{actor}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      }
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": []
+  }
+}

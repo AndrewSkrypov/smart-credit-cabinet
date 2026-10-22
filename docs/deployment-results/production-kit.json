@@ -1,0 +1,1311 @@
+{
+  "started_at": "2026-10-22T02:35:54.007223+00:00",
+  "source_project": "cabinet-prod-test-47b03627e704",
+  "target_project": "cabinet-prod-restore-test-47b03627e704",
+  "image_prefix": "cabinet-submission",
+  "companies": 20,
+  "checks": [
+    "Все компании дошли до DISBURSED при производственных лимитах памяти",
+    "Смена секрета JWT при восстановлении отклоняет прежний токен",
+    "Восстановленная учётная запись входит с прежним паролем",
+    "Сохранён итоговый статус заявки",
+    "График платежей совпадает побайтно по структуре JSON",
+    "Загруженный PDF доступен после восстановления и совпадает по SHA256",
+    "Сохранены все выданные кредиты",
+    "Повторное восстановление в непустой проект отклоняется без изменения данных",
+    "Нет OOM/restart при наблюдаемой нагрузке"
+  ],
+  "memory_samples": [
+    {
+      "at": "2026-10-22T02:36:00.716910+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-external-sim-1": 164416716
+      },
+      "sum_bytes": 164416716
+    },
+    {
+      "at": "2026-10-22T02:36:04.719256+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-frontend-1": 7565475,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 220725248,
+        "cabinet-prod-test-47b03627e704-postgres-1": 54242836
+      },
+      "sum_bytes": 282533559
+    },
+    {
+      "at": "2026-10-22T02:36:09.663949+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8102346,
+        "cabinet-prod-test-47b03627e704-engagement-1": 172805324,
+        "cabinet-prod-test-47b03627e704-identity-1": 218208665,
+        "cabinet-prod-test-47b03627e704-credit-1": 205101465,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7565475,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 230057574,
+        "cabinet-prod-test-47b03627e704-postgres-1": 61079552
+      },
+      "sum_bytes": 902920401
+    },
+    {
+      "at": "2026-10-22T02:36:14.374041+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8102346,
+        "cabinet-prod-test-47b03627e704-engagement-1": 285946675,
+        "cabinet-prod-test-47b03627e704-identity-1": 301675315,
+        "cabinet-prod-test-47b03627e704-credit-1": 284688384,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7565475,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 230057574,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116077363
+      },
+      "sum_bytes": 1234113132
+    },
+    {
+      "at": "2026-10-22T02:36:19.184081+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8102346,
+        "cabinet-prod-test-47b03627e704-engagement-1": 305555046,
+        "cabinet-prod-test-47b03627e704-identity-1": 338165760,
+        "cabinet-prod-test-47b03627e704-credit-1": 326526566,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7565475,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 230162432,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116601651
+      },
+      "sum_bytes": 1332679276
+    },
+    {
+      "at": "2026-10-22T02:36:24.027412+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8102346,
+        "cabinet-prod-test-47b03627e704-engagement-1": 305555046,
+        "cabinet-prod-test-47b03627e704-identity-1": 342674636,
+        "cabinet-prod-test-47b03627e704-credit-1": 335124889,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7565475,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 230267289,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116601651
+      },
+      "sum_bytes": 1345891332
+    },
+    {
+      "at": "2026-10-22T02:36:28.930799+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8102346,
+        "cabinet-prod-test-47b03627e704-engagement-1": 305659904,
+        "cabinet-prod-test-47b03627e704-identity-1": 342884352,
+        "cabinet-prod-test-47b03627e704-credit-1": 340053196,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7565475,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 230372147,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116287078
+      },
+      "sum_bytes": 1350924498
+    },
+    {
+      "at": "2026-10-22T02:36:33.896943+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 13893632,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 305659904,
+        "cabinet-prod-test-47b03627e704-identity-1": 342884352,
+        "cabinet-prod-test-47b03627e704-credit-1": 341730918,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 230372147,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116391936
+      },
+      "sum_bytes": 1367099832
+    },
+    {
+      "at": "2026-10-22T02:36:38.561610+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14166261,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 305764761,
+        "cabinet-prod-test-47b03627e704-identity-1": 351272960,
+        "cabinet-prod-test-47b03627e704-credit-1": 340262912,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 230477004,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116287078
+      },
+      "sum_bytes": 1374397919
+    },
+    {
+      "at": "2026-10-22T02:36:43.272385+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14239662,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 305869619,
+        "cabinet-prod-test-47b03627e704-identity-1": 351482675,
+        "cabinet-prod-test-47b03627e704-credit-1": 340577484,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 230477004,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116287078
+      },
+      "sum_bytes": 1375100465
+    },
+    {
+      "at": "2026-10-22T02:36:47.951723+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14271119,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 305869619,
+        "cabinet-prod-test-47b03627e704-identity-1": 351482675,
+        "cabinet-prod-test-47b03627e704-credit-1": 340577484,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 230581862,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116287078
+      },
+      "sum_bytes": 1375236780
+    },
+    {
+      "at": "2026-10-22T02:36:52.652025+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14281605,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 305869619,
+        "cabinet-prod-test-47b03627e704-identity-1": 351692390,
+        "cabinet-prod-test-47b03627e704-credit-1": 340787200,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 231525580,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116077363
+      },
+      "sum_bytes": 1376400700
+    },
+    {
+      "at": "2026-10-22T02:36:57.349910+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14292090,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 306079334,
+        "cabinet-prod-test-47b03627e704-identity-1": 351692390,
+        "cabinet-prod-test-47b03627e704-credit-1": 343513497,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 231735296,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116077363
+      },
+      "sum_bytes": 1379556913
+    },
+    {
+      "at": "2026-10-22T02:37:02.040625+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14375976,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 306079334,
+        "cabinet-prod-test-47b03627e704-identity-1": 363646156,
+        "cabinet-prod-test-47b03627e704-credit-1": 343723212,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 231735296,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116287078
+      },
+      "sum_bytes": 1392018190
+    },
+    {
+      "at": "2026-10-22T02:37:06.491855+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14428405,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 306603622,
+        "cabinet-prod-test-47b03627e704-identity-1": 368155033,
+        "cabinet-prod-test-47b03627e704-credit-1": 359346995,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 232888729,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116916224
+      },
+      "sum_bytes": 1414505951
+    },
+    {
+      "at": "2026-10-22T02:37:10.571842+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14459863,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 306603622,
+        "cabinet-prod-test-47b03627e704-identity-1": 368364748,
+        "cabinet-prod-test-47b03627e704-credit-1": 359451852,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 233203302,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116916224
+      },
+      "sum_bytes": 1415170749
+    },
+    {
+      "at": "2026-10-22T02:37:15.329263+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14491320,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 306603622,
+        "cabinet-prod-test-47b03627e704-identity-1": 368574464,
+        "cabinet-prod-test-47b03627e704-credit-1": 360395571,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 233098444,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116916224
+      },
+      "sum_bytes": 1416246588
+    },
+    {
+      "at": "2026-10-22T02:37:20.085123+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14501806,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 306603622,
+        "cabinet-prod-test-47b03627e704-identity-1": 368889036,
+        "cabinet-prod-test-47b03627e704-credit-1": 361024716,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 233203302,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116916224
+      },
+      "sum_bytes": 1417305649
+    },
+    {
+      "at": "2026-10-22T02:37:24.375016+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14501806,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 306813337,
+        "cabinet-prod-test-47b03627e704-identity-1": 369098752,
+        "cabinet-prod-test-47b03627e704-credit-1": 361339289,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 233413017,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118174515
+      },
+      "sum_bytes": 1419511854
+    },
+    {
+      "at": "2026-10-22T02:37:29.041664+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14501806,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 306813337,
+        "cabinet-prod-test-47b03627e704-identity-1": 369203609,
+        "cabinet-prod-test-47b03627e704-credit-1": 362178150,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 233413017,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118279372
+      },
+      "sum_bytes": 1420556234
+    },
+    {
+      "at": "2026-10-22T02:37:33.796173+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14512291,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307023052,
+        "cabinet-prod-test-47b03627e704-identity-1": 369623040,
+        "cabinet-prod-test-47b03627e704-credit-1": 363226726,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 233517875,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118489088
+      },
+      "sum_bytes": 1422559015
+    },
+    {
+      "at": "2026-10-22T02:37:38.468547+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14512291,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307023052,
+        "cabinet-prod-test-47b03627e704-identity-1": 369937612,
+        "cabinet-prod-test-47b03627e704-credit-1": 363960729,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 233517875,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118489088
+      },
+      "sum_bytes": 1423611785
+    },
+    {
+      "at": "2026-10-22T02:37:43.185966+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14512291,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307023052,
+        "cabinet-prod-test-47b03627e704-identity-1": 370042470,
+        "cabinet-prod-test-47b03627e704-credit-1": 364065587,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 233727590,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118489088
+      },
+      "sum_bytes": 1424031216
+    },
+    {
+      "at": "2026-10-22T02:37:47.848633+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14512291,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307023052,
+        "cabinet-prod-test-47b03627e704-identity-1": 370252185,
+        "cabinet-prod-test-47b03627e704-credit-1": 364694732,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 233727590,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118489088
+      },
+      "sum_bytes": 1424870076
+    },
+    {
+      "at": "2026-10-22T02:37:51.962576+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14522777,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307127910,
+        "cabinet-prod-test-47b03627e704-identity-1": 370566758,
+        "cabinet-prod-test-47b03627e704-credit-1": 365638451,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 233937305,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118489088
+      },
+      "sum_bytes": 1426453427
+    },
+    {
+      "at": "2026-10-22T02:37:56.619117+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14522777,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307127910,
+        "cabinet-prod-test-47b03627e704-identity-1": 370881331,
+        "cabinet-prod-test-47b03627e704-credit-1": 365743308,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 233937305,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118489088
+      },
+      "sum_bytes": 1426872857
+    },
+    {
+      "at": "2026-10-22T02:38:01.059257+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14533263,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307232768,
+        "cabinet-prod-test-47b03627e704-identity-1": 370986188,
+        "cabinet-prod-test-47b03627e704-credit-1": 366582169,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 234042163,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118489088
+      },
+      "sum_bytes": 1428036777
+    },
+    {
+      "at": "2026-10-22T02:38:04.901675+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14533263,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307232768,
+        "cabinet-prod-test-47b03627e704-identity-1": 371300761,
+        "cabinet-prod-test-47b03627e704-credit-1": 367316172,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 234147020,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118593945
+      },
+      "sum_bytes": 1429295067
+    },
+    {
+      "at": "2026-10-22T02:38:09.579017+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14533263,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307337625,
+        "cabinet-prod-test-47b03627e704-identity-1": 371405619,
+        "cabinet-prod-test-47b03627e704-credit-1": 367630745,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 234251878,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118593945
+      },
+      "sum_bytes": 1429924213
+    },
+    {
+      "at": "2026-10-22T02:38:13.956737+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14533263,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307337625,
+        "cabinet-prod-test-47b03627e704-identity-1": 371510476,
+        "cabinet-prod-test-47b03627e704-credit-1": 368155033,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 234251878,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118489088
+      },
+      "sum_bytes": 1430448501
+    },
+    {
+      "at": "2026-10-22T02:38:18.614283+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14533263,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307442483,
+        "cabinet-prod-test-47b03627e704-identity-1": 371825049,
+        "cabinet-prod-test-47b03627e704-credit-1": 369308467,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 234776166,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118489088
+      },
+      "sum_bytes": 1432545654
+    },
+    {
+      "at": "2026-10-22T02:38:23.296862+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14533263,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307442483,
+        "cabinet-prod-test-47b03627e704-identity-1": 372034764,
+        "cabinet-prod-test-47b03627e704-credit-1": 369098752,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 234776166,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118698803
+      },
+      "sum_bytes": 1432755369
+    },
+    {
+      "at": "2026-10-22T02:38:27.948507+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14533263,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307442483,
+        "cabinet-prod-test-47b03627e704-identity-1": 372244480,
+        "cabinet-prod-test-47b03627e704-credit-1": 369937612,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 234985881,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118593945
+      },
+      "sum_bytes": 1433908802
+    },
+    {
+      "at": "2026-10-22T02:38:31.963297+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14543749,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307442483,
+        "cabinet-prod-test-47b03627e704-identity-1": 372349337,
+        "cabinet-prod-test-47b03627e704-credit-1": 370566758,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 234985881,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118593945
+      },
+      "sum_bytes": 1434653291
+    },
+    {
+      "at": "2026-10-22T02:38:36.613215+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14543749,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307547340,
+        "cabinet-prod-test-47b03627e704-identity-1": 372663910,
+        "cabinet-prod-test-47b03627e704-credit-1": 371405619,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 235300454,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118698803
+      },
+      "sum_bytes": 1436331013
+    },
+    {
+      "at": "2026-10-22T02:38:41.110185+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14554234,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307547340,
+        "cabinet-prod-test-47b03627e704-identity-1": 372873625,
+        "cabinet-prod-test-47b03627e704-credit-1": 371510476,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 235405312,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118698803
+      },
+      "sum_bytes": 1436760928
+    },
+    {
+      "at": "2026-10-22T02:38:45.756565+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14554234,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307652198,
+        "cabinet-prod-test-47b03627e704-identity-1": 372978483,
+        "cabinet-prod-test-47b03627e704-credit-1": 372349337,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 235510169,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118698803
+      },
+      "sum_bytes": 1437914362
+    },
+    {
+      "at": "2026-10-22T02:38:50.496444+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14554234,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307652198,
+        "cabinet-prod-test-47b03627e704-identity-1": 373188198,
+        "cabinet-prod-test-47b03627e704-credit-1": 373293056,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 235615027,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118698803
+      },
+      "sum_bytes": 1439172654
+    },
+    {
+      "at": "2026-10-22T02:38:54.859319+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14281605,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307652198,
+        "cabinet-prod-test-47b03627e704-identity-1": 373293056,
+        "cabinet-prod-test-47b03627e704-credit-1": 373293056,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 235824742,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118698803
+      },
+      "sum_bytes": 1439214598
+    },
+    {
+      "at": "2026-10-22T02:38:59.539685+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14302576,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8158969,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307652198,
+        "cabinet-prod-test-47b03627e704-identity-1": 373397913,
+        "cabinet-prod-test-47b03627e704-credit-1": 373607628,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 235824742,
+        "cabinet-prod-test-47b03627e704-postgres-1": 120481382
+      },
+      "sum_bytes": 1441433382
+    },
+    {
+      "at": "2026-10-22T02:39:03.981397+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14302576,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307757056,
+        "cabinet-prod-test-47b03627e704-identity-1": 373607628,
+        "cabinet-prod-test-47b03627e704-credit-1": 373817344,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 236139315,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118698803
+      },
+      "sum_bytes": 1440493860
+    },
+    {
+      "at": "2026-10-22T02:39:08.634813+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14313062,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307757056,
+        "cabinet-prod-test-47b03627e704-identity-1": 373712486,
+        "cabinet-prod-test-47b03627e704-credit-1": 373817344,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 236244172,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118698803
+      },
+      "sum_bytes": 1440714061
+    },
+    {
+      "at": "2026-10-22T02:39:13.340782+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 14313062,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8163164,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307757056,
+        "cabinet-prod-test-47b03627e704-identity-1": 373817344,
+        "cabinet-prod-test-47b03627e704-credit-1": 374761062,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 236453888,
+        "cabinet-prod-test-47b03627e704-postgres-1": 118803660
+      },
+      "sum_bytes": 1442077210
+    },
+    {
+      "at": "2026-10-22T02:39:17.996702+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 15120465,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8519680,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307757056,
+        "cabinet-prod-test-47b03627e704-identity-1": 374131916,
+        "cabinet-prod-test-47b03627e704-credit-1": 380003942,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 239180185,
+        "cabinet-prod-test-47b03627e704-postgres-1": 124885401
+      },
+      "sum_bytes": 1457606619
+    },
+    {
+      "at": "2026-10-22T02:39:21.980784+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 15246295,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8528068,
+        "cabinet-prod-test-47b03627e704-engagement-1": 307861913,
+        "cabinet-prod-test-47b03627e704-identity-1": 374131916,
+        "cabinet-prod-test-47b03627e704-credit-1": 382415667,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 243898777,
+        "cabinet-prod-test-47b03627e704-postgres-1": 124990259
+      },
+      "sum_bytes": 1465080869
+    },
+    {
+      "at": "2026-10-22T02:39:26.626304+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 15476981,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8528068,
+        "cabinet-prod-test-47b03627e704-engagement-1": 316145664,
+        "cabinet-prod-test-47b03627e704-identity-1": 374970777,
+        "cabinet-prod-test-47b03627e704-credit-1": 385561395,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 244213350,
+        "cabinet-prod-test-47b03627e704-postgres-1": 126248550
+      },
+      "sum_bytes": 1479152759
+    },
+    {
+      "at": "2026-10-22T02:39:31.065192+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 15980298,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8528068,
+        "cabinet-prod-test-47b03627e704-engagement-1": 316774809,
+        "cabinet-prod-test-47b03627e704-identity-1": 375285350,
+        "cabinet-prod-test-47b03627e704-credit-1": 388077977,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 248197939,
+        "cabinet-prod-test-47b03627e704-postgres-1": 128135987
+      },
+      "sum_bytes": 1488988402
+    },
+    {
+      "at": "2026-10-22T02:39:35.758436+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 16137584,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8543797,
+        "cabinet-prod-test-47b03627e704-engagement-1": 317194240,
+        "cabinet-prod-test-47b03627e704-identity-1": 375914496,
+        "cabinet-prod-test-47b03627e704-credit-1": 390070272,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 249141657,
+        "cabinet-prod-test-47b03627e704-postgres-1": 128660275
+      },
+      "sum_bytes": 1493670295
+    },
+    {
+      "at": "2026-10-22T02:39:40.489350+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 16169041,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8543797,
+        "cabinet-prod-test-47b03627e704-engagement-1": 317718528,
+        "cabinet-prod-test-47b03627e704-identity-1": 376124211,
+        "cabinet-prod-test-47b03627e704-credit-1": 396886016,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 249561088,
+        "cabinet-prod-test-47b03627e704-postgres-1": 129184563
+      },
+      "sum_bytes": 1502195218
+    },
+    {
+      "at": "2026-10-22T02:39:45.019142+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 16630415,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8547991,
+        "cabinet-prod-test-47b03627e704-engagement-1": 318662246,
+        "cabinet-prod-test-47b03627e704-identity-1": 376648499,
+        "cabinet-prod-test-47b03627e704-credit-1": 403701760,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 249770803,
+        "cabinet-prod-test-47b03627e704-postgres-1": 130128281
+      },
+      "sum_bytes": 1512097969
+    },
+    {
+      "at": "2026-10-22T02:39:49.757627+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 16965959,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8552185,
+        "cabinet-prod-test-47b03627e704-engagement-1": 318871961,
+        "cabinet-prod-test-47b03627e704-identity-1": 377382502,
+        "cabinet-prod-test-47b03627e704-credit-1": 403596902,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 260990566,
+        "cabinet-prod-test-47b03627e704-postgres-1": 130233139
+      },
+      "sum_bytes": 1524601188
+    },
+    {
+      "at": "2026-10-22T02:39:53.946557+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 17144217,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8556380,
+        "cabinet-prod-test-47b03627e704-engagement-1": 319501107,
+        "cabinet-prod-test-47b03627e704-identity-1": 377382502,
+        "cabinet-prod-test-47b03627e704-credit-1": 403806617,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261305139,
+        "cabinet-prod-test-47b03627e704-postgres-1": 130652569
+      },
+      "sum_bytes": 1526356505
+    },
+    {
+      "at": "2026-10-22T02:39:58.597562+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 17186160,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8556380,
+        "cabinet-prod-test-47b03627e704-engagement-1": 319710822,
+        "cabinet-prod-test-47b03627e704-identity-1": 377592217,
+        "cabinet-prod-test-47b03627e704-credit-1": 404016332,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261409996,
+        "cabinet-prod-test-47b03627e704-postgres-1": 130967142
+      },
+      "sum_bytes": 1527447023
+    },
+    {
+      "at": "2026-10-22T02:40:03.305611+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 16095641,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8552185,
+        "cabinet-prod-test-47b03627e704-engagement-1": 319920537,
+        "cabinet-prod-test-47b03627e704-identity-1": 377697075,
+        "cabinet-prod-test-47b03627e704-credit-1": 404226048,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261514854,
+        "cabinet-prod-test-47b03627e704-postgres-1": 130967142
+      },
+      "sum_bytes": 1526981456
+    },
+    {
+      "at": "2026-10-22T02:40:08.187752+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 0,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8543797,
+        "cabinet-prod-test-47b03627e704-engagement-1": 0,
+        "cabinet-prod-test-47b03627e704-identity-1": 0,
+        "cabinet-prod-test-47b03627e704-credit-1": 0,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261514854,
+        "cabinet-prod-test-47b03627e704-postgres-1": 65305313
+      },
+      "sum_bytes": 343371938
+    },
+    {
+      "at": "2026-10-22T02:40:12.031829+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8540651,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261514854,
+        "cabinet-prod-test-47b03627e704-postgres-1": 65273856
+      },
+      "sum_bytes": 343337335
+    },
+    {
+      "at": "2026-10-22T02:40:16.656816+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8536457,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261514854,
+        "cabinet-prod-test-47b03627e704-postgres-1": 65315799
+      },
+      "sum_bytes": 343375084
+    },
+    {
+      "at": "2026-10-22T02:40:21.177912+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8536457,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261724569,
+        "cabinet-prod-test-47b03627e704-postgres-1": 65273856
+      },
+      "sum_bytes": 343542856
+    },
+    {
+      "at": "2026-10-22T02:40:25.825298+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8532262,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261724569,
+        "cabinet-prod-test-47b03627e704-postgres-1": 65410170
+      },
+      "sum_bytes": 343674975
+    },
+    {
+      "at": "2026-10-22T02:40:30.684698+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8528068,
+        "cabinet-prod-test-47b03627e704-engagement-1": 198705152,
+        "cabinet-prod-test-47b03627e704-identity-1": 199334297,
+        "cabinet-prod-test-47b03627e704-credit-1": 216111513,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261724569,
+        "cabinet-prod-test-47b03627e704-postgres-1": 65399685
+      },
+      "sum_bytes": 957811258
+    },
+    {
+      "at": "2026-10-22T02:40:35.208021+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8523874,
+        "cabinet-prod-test-47b03627e704-engagement-1": 290036121,
+        "cabinet-prod-test-47b03627e704-identity-1": 300312166,
+        "cabinet-prod-test-47b03627e704-credit-1": 336488038,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261724569,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116182220
+      },
+      "sum_bytes": 1321274962
+    },
+    {
+      "at": "2026-10-22T02:40:39.930152+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8519680,
+        "cabinet-prod-test-47b03627e704-engagement-1": 296537292,
+        "cabinet-prod-test-47b03627e704-identity-1": 334600601,
+        "cabinet-prod-test-47b03627e704-credit-1": 334495744,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261724569,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116182220
+      },
+      "sum_bytes": 1360068080
+    },
+    {
+      "at": "2026-10-22T02:40:43.962107+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8519680,
+        "cabinet-prod-test-47b03627e704-engagement-1": 296537292,
+        "cabinet-prod-test-47b03627e704-identity-1": 334600601,
+        "cabinet-prod-test-47b03627e704-credit-1": 334705459,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261724569,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116182220
+      },
+      "sum_bytes": 1360277795
+    },
+    {
+      "at": "2026-10-22T02:40:48.622431+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-gateway-1": 8515485,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312999936,
+        "cabinet-prod-test-47b03627e704-identity-1": 338165760,
+        "cabinet-prod-test-47b03627e704-credit-1": 338480332,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261724569,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116077363
+      },
+      "sum_bytes": 1383971419
+    },
+    {
+      "at": "2026-10-22T02:40:53.374581+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8511291,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312999936,
+        "cabinet-prod-test-47b03627e704-identity-1": 338165760,
+        "cabinet-prod-test-47b03627e704-credit-1": 338585190,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261724569,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116077363
+      },
+      "sum_bytes": 1394767558
+    },
+    {
+      "at": "2026-10-22T02:40:58.043836+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8511291,
+        "cabinet-prod-test-47b03627e704-engagement-1": 313104793,
+        "cabinet-prod-test-47b03627e704-identity-1": 338270617,
+        "cabinet-prod-test-47b03627e704-credit-1": 338899763,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261829427,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116077363
+      },
+      "sum_bytes": 1395396703
+    },
+    {
+      "at": "2026-10-22T02:41:02.181052+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 313104793,
+        "cabinet-prod-test-47b03627e704-identity-1": 338270617,
+        "cabinet-prod-test-47b03627e704-credit-1": 339004620,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261829427,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116182220
+      },
+      "sum_bytes": 1395602223
+    },
+    {
+      "at": "2026-10-22T02:41:06.846032+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 313209651,
+        "cabinet-prod-test-47b03627e704-identity-1": 338375475,
+        "cabinet-prod-test-47b03627e704-credit-1": 339319193,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261829427,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116182220
+      },
+      "sum_bytes": 1396126512
+    },
+    {
+      "at": "2026-10-22T02:41:11.231402+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 313209651,
+        "cabinet-prod-test-47b03627e704-identity-1": 338375475,
+        "cabinet-prod-test-47b03627e704-credit-1": 339319193,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261829427,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116182220
+      },
+      "sum_bytes": 1396126512
+    },
+    {
+      "at": "2026-10-22T02:41:15.886335+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 313314508,
+        "cabinet-prod-test-47b03627e704-identity-1": 338480332,
+        "cabinet-prod-test-47b03627e704-credit-1": 339738624,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261829427,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116391936
+      },
+      "sum_bytes": 1396965373
+    },
+    {
+      "at": "2026-10-22T02:41:20.614412+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 313209651,
+        "cabinet-prod-test-47b03627e704-identity-1": 338375475,
+        "cabinet-prod-test-47b03627e704-credit-1": 339738624,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8007974,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261829427,
+        "cabinet-prod-test-47b03627e704-postgres-1": 116287078
+      },
+      "sum_bytes": 1396650801
+    },
+    {
+      "at": "2026-10-22T02:41:24.683024+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 313209651,
+        "cabinet-prod-test-47b03627e704-identity-1": 338165760,
+        "cabinet-prod-test-47b03627e704-credit-1": 340053196,
+        "cabinet-prod-test-47b03627e704-frontend-1": 8003780,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 115762790
+      },
+      "sum_bytes": 1396332033
+    },
+    {
+      "at": "2026-10-22T02:41:29.451591+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312685363,
+        "cabinet-prod-test-47b03627e704-identity-1": 337431756,
+        "cabinet-prod-test-47b03627e704-credit-1": 340158054,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7995392,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 114294784
+      },
+      "sum_bytes": 1393702205
+    },
+    {
+      "at": "2026-10-22T02:41:34.439031+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312475648,
+        "cabinet-prod-test-47b03627e704-identity-1": 337222041,
+        "cabinet-prod-test-47b03627e704-credit-1": 340682342,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 113560780
+      },
+      "sum_bytes": 1393068864
+    },
+    {
+      "at": "2026-10-22T02:41:39.219535+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312056217,
+        "cabinet-prod-test-47b03627e704-identity-1": 336802611,
+        "cabinet-prod-test-47b03627e704-credit-1": 340892057,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112617062
+      },
+      "sum_bytes": 1391496000
+    },
+    {
+      "at": "2026-10-22T02:41:44.112804+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312265932,
+        "cabinet-prod-test-47b03627e704-identity-1": 336802611,
+        "cabinet-prod-test-47b03627e704-credit-1": 341206630,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112407347
+      },
+      "sum_bytes": 1391810573
+    },
+    {
+      "at": "2026-10-22T02:41:48.800837+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312265932,
+        "cabinet-prod-test-47b03627e704-identity-1": 336802611,
+        "cabinet-prod-test-47b03627e704-credit-1": 341521203,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112407347
+      },
+      "sum_bytes": 1392125146
+    },
+    {
+      "at": "2026-10-22T02:41:53.546458+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312370790,
+        "cabinet-prod-test-47b03627e704-identity-1": 337012326,
+        "cabinet-prod-test-47b03627e704-credit-1": 341940633,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112302489
+      },
+      "sum_bytes": 1392754291
+    },
+    {
+      "at": "2026-10-22T02:41:58.204479+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312370790,
+        "cabinet-prod-test-47b03627e704-identity-1": 336907468,
+        "cabinet-prod-test-47b03627e704-credit-1": 342150348,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 263507148,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112302489
+      },
+      "sum_bytes": 1394432012
+    },
+    {
+      "at": "2026-10-22T02:42:02.117128+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312370790,
+        "cabinet-prod-test-47b03627e704-identity-1": 337117184,
+        "cabinet-prod-test-47b03627e704-credit-1": 342360064,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112302489
+      },
+      "sum_bytes": 1393278580
+    },
+    {
+      "at": "2026-10-22T02:42:06.778579+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312370790,
+        "cabinet-prod-test-47b03627e704-identity-1": 337117184,
+        "cabinet-prod-test-47b03627e704-credit-1": 342464921,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112302489
+      },
+      "sum_bytes": 1393383437
+    },
+    {
+      "at": "2026-10-22T02:42:11.350815+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312370790,
+        "cabinet-prod-test-47b03627e704-identity-1": 337117184,
+        "cabinet-prod-test-47b03627e704-credit-1": 342779494,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112302489
+      },
+      "sum_bytes": 1393698010
+    },
+    {
+      "at": "2026-10-22T02:42:16.046874+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312475648,
+        "cabinet-prod-test-47b03627e704-identity-1": 337117184,
+        "cabinet-prod-test-47b03627e704-credit-1": 342884352,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112302489
+      },
+      "sum_bytes": 1393907726
+    },
+    {
+      "at": "2026-10-22T02:42:20.807034+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312475648,
+        "cabinet-prod-test-47b03627e704-identity-1": 337222041,
+        "cabinet-prod-test-47b03627e704-credit-1": 343198924,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112302489
+      },
+      "sum_bytes": 1394327155
+    },
+    {
+      "at": "2026-10-22T02:42:25.117579+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312475648,
+        "cabinet-prod-test-47b03627e704-identity-1": 337222041,
+        "cabinet-prod-test-47b03627e704-credit-1": 343303782,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 261934284,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112302489
+      },
+      "sum_bytes": 1394432013
+    },
+    {
+      "at": "2026-10-22T02:42:29.814316+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312580505,
+        "cabinet-prod-test-47b03627e704-identity-1": 337222041,
+        "cabinet-prod-test-47b03627e704-credit-1": 343618355,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 262039142,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112197632
+      },
+      "sum_bytes": 1394851444
+    },
+    {
+      "at": "2026-10-22T02:42:34.225897+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10695475,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312580505,
+        "cabinet-prod-test-47b03627e704-identity-1": 337222041,
+        "cabinet-prod-test-47b03627e704-credit-1": 343723212,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 262039142,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112197632
+      },
+      "sum_bytes": 1394956301
+    },
+    {
+      "at": "2026-10-22T02:42:38.898762+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10758389,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312580505,
+        "cabinet-prod-test-47b03627e704-identity-1": 337326899,
+        "cabinet-prod-test-47b03627e704-credit-1": 344037785,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 262039142,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112302489
+      },
+      "sum_bytes": 1395543503
+    },
+    {
+      "at": "2026-10-22T02:42:43.632082+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10758389,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312580505,
+        "cabinet-prod-test-47b03627e704-identity-1": 337326899,
+        "cabinet-prod-test-47b03627e704-credit-1": 344142643,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 262039142,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112302489
+      },
+      "sum_bytes": 1395648361
+    },
+    {
+      "at": "2026-10-22T02:42:48.318035+00:00",
+      "used_bytes": {
+        "cabinet-prod-test-47b03627e704-caddy-1": 10758389,
+        "cabinet-prod-test-47b03627e704-gateway-1": 8507097,
+        "cabinet-prod-test-47b03627e704-engagement-1": 312685363,
+        "cabinet-prod-test-47b03627e704-identity-1": 337326899,
+        "cabinet-prod-test-47b03627e704-credit-1": 344457216,
+        "cabinet-prod-test-47b03627e704-frontend-1": 7991197,
+        "cabinet-prod-test-47b03627e704-external-sim-1": 262144000,
+        "cabinet-prod-test-47b03627e704-postgres-1": 112512204
+      },
+      "sum_bytes": 1396382365
+    }
+  ],
+  "passed": true,
+  "app_images": {
+    "identity": "sha256:f42713b86b838e66b84ce908cf1a0b791b920b5c4c64294544efc798063e70f9",
+    "credit": "sha256:a19b31ad72fe74f8612cabb52a2cb6e70681354cd579f8c52c6c4abb4ffd862f",
+    "engagement": "sha256:a569fed858034c20843965dcb59ca7afcfddca4be45ddbd1c457868e917cf13a",
+    "external-sim": "sha256:21db6d0348200c7155d76e1b965e358e567124813d582ef8b8c49678c00d4503",
+    "frontend": "sha256:d8f5b318aa791875d1d92ef7d5218049904f81d933700fbd03447b8e6c34be80"
+  },
+  "peak_sampled_sum_bytes": 1527447023,
+  "containers": [
+    {
+      "name": "/cabinet-prod-test-47b03627e704-caddy-1",
+      "image_id": "sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd",
+      "limit_bytes": 100663296,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-47b03627e704-gateway-1",
+      "image_id": "sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94",
+      "limit_bytes": 50331648,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-47b03627e704-engagement-1",
+      "image_id": "sha256:a569fed858034c20843965dcb59ca7afcfddca4be45ddbd1c457868e917cf13a",
+      "limit_bytes": 536870912,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-47b03627e704-identity-1",
+      "image_id": "sha256:f42713b86b838e66b84ce908cf1a0b791b920b5c4c64294544efc798063e70f9",
+      "limit_bytes": 536870912,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-47b03627e704-credit-1",
+      "image_id": "sha256:a19b31ad72fe74f8612cabb52a2cb6e70681354cd579f8c52c6c4abb4ffd862f",
+      "limit_bytes": 671088640,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-47b03627e704-frontend-1",
+      "image_id": "sha256:d8f5b318aa791875d1d92ef7d5218049904f81d933700fbd03447b8e6c34be80",
+      "limit_bytes": 100663296,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-47b03627e704-external-sim-1",
+      "image_id": "sha256:21db6d0348200c7155d76e1b965e358e567124813d582ef8b8c49678c00d4503",
+      "limit_bytes": 402653184,
+      "restarts": 0,
+      "oom_killed": false
+    },
+    {
+      "name": "/cabinet-prod-test-47b03627e704-postgres-1",
+      "image_id": "sha256:ab5e09ff037e6aaa47733dbcddac55d37fc2fd4cd84ef8eb11e3aed1658ea0ce",
+      "limit_bytes": 402653184,
+      "restarts": 0,
+      "oom_killed": false
+    }
+  ],
+  "finished_at": "2026-10-22T02:42:48.751117+00:00",
+  "kept_projects": false
+}

@@ -1,0 +1,25 @@
+{
+  "checked_at": "2026-10-22T01:40:54.925699+00:00",
+  "source_commit": "8a09acaeadcd7314be531e7e5f8906262193113a",
+  "working_tree_dirty": true,
+  "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+  "inputs": [
+    {
+      "kind": "registry-digest",
+      "reference": "ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8",
+      "seconds": 60.736203262000004,
+      "severity_counts": {
+        "MEDIUM": 62,
+        "LOW": 10,
+        "HIGH": 50,
+        "UNKNOWN": 2
+      },
+      "unique_vulnerability_ids": 112,
+      "suppressed_findings": 0,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    }
+  ],
+  "passed": true
+}

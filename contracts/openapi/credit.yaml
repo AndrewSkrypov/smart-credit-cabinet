@@ -1,0 +1,3586 @@
+components:
+  schemas:
+    ActionResult:
+      properties:
+        applicationId:
+          format: uuid
+          type: string
+        status:
+          enum:
+          - DRAFT
+          - SUBMITTED
+          - INFO_REQUESTED
+          - ENRICHMENT
+          - SCORING
+          - MANUAL_REVIEW
+          - OFFER_ISSUED
+          - SIGNING
+          - DISBURSING
+          - DISBURSED
+          - REJECTED
+          - WITHDRAWN
+          - CLOSED
+          type: string
+      required:
+      - applicationId
+      - status
+      type: object
+    Analytics:
+      properties:
+        automaticOutcomes:
+          items:
+            $ref: '#/components/schemas/OutcomeCount'
+          type: array
+        currentStatuses:
+          additionalProperties:
+            format: int32
+            type: integer
+          type: object
+        disbursedAmount:
+          format: int64
+          type: integer
+        from:
+          format: date-time
+          type: string
+        funnel:
+          items:
+            $ref: '#/components/schemas/FunnelStep'
+          type: array
+        manualOutcomes:
+          items:
+            $ref: '#/components/schemas/OutcomeCount'
+          type: array
+        manualOverrides:
+          format: int32
+          type: integer
+        stageTimes:
+          items:
+            $ref: '#/components/schemas/StageTime'
+          type: array
+        to:
+          format: date-time
+          type: string
+      required:
+      - automaticOutcomes
+      - currentStatuses
+      - disbursedAmount
+      - from
+      - funnel
+      - manualOutcomes
+      - manualOverrides
+      - stageTimes
+      - to
+      type: object
+    ApplicationRequest:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        bureauConsent:
+          type: boolean
+        declaredMonthlyDebtPayments:
+          format: int64
+          type: integer
+        declaredRevenue12m:
+          format: int64
+          type: integer
+        productCode:
+          minLength: 1
+          type: string
+        purpose:
+          enum:
+          - CASH_GAP
+          - CURRENT_EXPENSES
+          - WORKING_CAPITAL
+          - EQUIPMENT
+          - VEHICLE
+          - RENOVATION
+          - BUSINESS_DEVELOPMENT
+          type: string
+        purposeComment:
+          maxLength: 1000
+          minLength: 0
+          type: string
+        termMonths:
+          format: int32
+          maximum: 120
+          minimum: 1
+          type: integer
+      required:
+      - amount
+      - bureauConsent
+      - productCode
+      - purpose
+      - termMonths
+      type: object
+    ApplicationResponse:
+      properties:
+        allowedActions:
+          items:
+            enum:
+            - SUBMIT
+            - DATA_COMPLETE
+            - DATA_INCOMPLETE
+            - INFO_PROVIDED
+            - INFO_EXPIRED
+            - SOURCE_FAILED
+            - ENRICHMENT_DONE
+            - SOURCE_TIMED_OUT
+            - AUTO_OFFER
+            - TO_MANUAL_REVIEW
+            - AUTO_REJECT
+            - APPROVE
+            - COUNTER_OFFER
+            - REQUEST_INFO
+            - REJECT
+            - ACCEPT_OFFER
+            - DECLINE_OFFER
+            - OFFER_EXPIRED
+            - SIGN
+            - DISBURSEMENT_FAILED
+            - DISBURSED
+            - WITHDRAW
+            type: string
+          type: array
+        amount:
+          format: int64
+          type: integer
+        bureauConsent:
+          type: boolean
+        canUploadDocuments:
+          type: boolean
+        closeReason:
+          enum:
+          - INFO_EXPIRED
+          - OFFER_DECLINED
+          - OFFER_EXPIRED
+          type: string
+        company:
+          $ref: '#/components/schemas/CompanyView'
+        createdAt:
+          format: date-time
+          type: string
+        declaredMonthlyDebtPayments:
+          format: int64
+          type: integer
+        declaredRevenue12m:
+          format: int64
+          type: integer
+        documents:
+          items:
+            $ref: '#/components/schemas/DocumentView'
+          type: array
+        editable:
+          type: boolean
+        estimate:
+          $ref: '#/components/schemas/EstimateView'
+        id:
+          format: uuid
+          type: string
+        number:
+          format: int64
+          type: integer
+        process:
+          $ref: '#/components/schemas/ProcessView'
+        product:
+          $ref: '#/components/schemas/ProductView'
+        purpose:
+          enum:
+          - CASH_GAP
+          - CURRENT_EXPENSES
+          - WORKING_CAPITAL
+          - EQUIPMENT
+          - VEHICLE
+          - RENOVATION
+          - BUSINESS_DEVELOPMENT
+          type: string
+        purposeComment:
+          type: string
+        purposeTitle:
+          type: string
+        requiredDocuments:
+          items:
+            $ref: '#/components/schemas/RequiredDocumentView'
+          type: array
+        status:
+          enum:
+          - DRAFT
+          - SUBMITTED
+          - INFO_REQUESTED
+          - ENRICHMENT
+          - SCORING
+          - MANUAL_REVIEW
+          - OFFER_ISSUED
+          - SIGNING
+          - DISBURSING
+          - DISBURSED
+          - REJECTED
+          - WITHDRAWN
+          - CLOSED
+          type: string
+        statusChangedAt:
+          format: date-time
+          type: string
+        submissionProblems:
+          items:
+            type: string
+          type: array
+        submittedAt:
+          format: date-time
+          type: string
+        termMonths:
+          format: int32
+          type: integer
+        version:
+          format: int64
+          type: integer
+      required:
+      - allowedActions
+      - amount
+      - bureauConsent
+      - canUploadDocuments
+      - company
+      - createdAt
+      - documents
+      - editable
+      - id
+      - process
+      - product
+      - purpose
+      - purposeTitle
+      - requiredDocuments
+      - status
+      - statusChangedAt
+      - submissionProblems
+      - termMonths
+      type: object
+    ApplicationSummary:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        companyInn:
+          type: string
+        companyName:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        id:
+          format: uuid
+          type: string
+        number:
+          format: int64
+          type: integer
+        productCode:
+          type: string
+        productName:
+          type: string
+        status:
+          enum:
+          - DRAFT
+          - SUBMITTED
+          - INFO_REQUESTED
+          - ENRICHMENT
+          - SCORING
+          - MANUAL_REVIEW
+          - OFFER_ISSUED
+          - SIGNING
+          - DISBURSING
+          - DISBURSED
+          - REJECTED
+          - WITHDRAWN
+          - CLOSED
+          type: string
+        statusChangedAt:
+          format: date-time
+          type: string
+        submittedAt:
+          format: date-time
+          type: string
+        termMonths:
+          format: int32
+          type: integer
+      required:
+      - amount
+      - companyInn
+      - createdAt
+      - id
+      - productCode
+      - productName
+      - status
+      - statusChangedAt
+      - termMonths
+      type: object
+    AssessmentView:
+      properties:
+        actions:
+          items:
+            type: string
+          type: array
+        applicationId:
+          format: uuid
+          type: string
+        automaticDecision:
+          $ref: '#/components/schemas/DecisionView'
+        bank:
+          $ref: '#/components/schemas/BankInfo'
+        bureau:
+          $ref: '#/components/schemas/BureauInfo'
+        discrepancies:
+          items:
+            $ref: '#/components/schemas/Discrepancy'
+          type: array
+        latestDecision:
+          $ref: '#/components/schemas/DecisionView'
+        registry:
+          $ref: '#/components/schemas/RegistryInfo'
+        status:
+          enum:
+          - DRAFT
+          - SUBMITTED
+          - INFO_REQUESTED
+          - ENRICHMENT
+          - SCORING
+          - MANUAL_REVIEW
+          - OFFER_ISSUED
+          - SIGNING
+          - DISBURSING
+          - DISBURSED
+          - REJECTED
+          - WITHDRAWN
+          - CLOSED
+          type: string
+        tax:
+          $ref: '#/components/schemas/TaxInfo'
+        turnoverVariation:
+          format: double
+          type: number
+      required:
+      - actions
+      - applicationId
+      - discrepancies
+      - status
+      type: object
+    BankInfo:
+      properties:
+        client:
+          type: boolean
+        monthlyInflows:
+          items:
+            format: int64
+            type: integer
+          type: array
+        settlementAccount:
+          type: string
+      required:
+      - client
+      - monthlyInflows
+      type: object
+    BureauInfo:
+      properties:
+        currentOverdueDaysMax:
+          format: int32
+          type: integer
+        inquiries30d:
+          format: int32
+          type: integer
+        monthlyPaymentsTotal:
+          format: int64
+          type: integer
+        obligations:
+          items:
+            $ref: '#/components/schemas/BureauObligation'
+          type: array
+        worstOverdueDays24m:
+          format: int32
+          type: integer
+      required:
+      - currentOverdueDaysMax
+      - inquiries30d
+      - monthlyPaymentsTotal
+      - obligations
+      - worstOverdueDays24m
+      type: object
+    BureauObligation:
+      properties:
+        balance:
+          format: int64
+          type: integer
+        creditor:
+          type: string
+        currentOverdueDays:
+          format: int32
+          type: integer
+        limit:
+          format: int64
+          type: integer
+        monthlyPayment:
+          format: int64
+          type: integer
+        type:
+          type: string
+      required:
+      - balance
+      - creditor
+      - currentOverdueDays
+      - limit
+      - monthlyPayment
+      - type
+      type: object
+    Calculation:
+      properties:
+        monthlyPayment:
+          type: number
+        overpayment:
+          type: number
+        rate:
+          type: number
+        schedule:
+          items:
+            $ref: '#/components/schemas/ScheduleRow'
+          type: array
+        totalPayment:
+          type: number
+      required:
+      - monthlyPayment
+      - overpayment
+      - rate
+      - schedule
+      - totalPayment
+      type: object
+    CommentRequest:
+      properties:
+        comment:
+          maxLength: 2000
+          minLength: 0
+          type: string
+      type: object
+    CompanyView:
+      properties:
+        id:
+          format: uuid
+          type: string
+        inn:
+          type: string
+        legalForm:
+          enum:
+          - LEGAL_ENTITY
+          - ENTREPRENEUR
+          type: string
+        name:
+          type: string
+      required:
+      - id
+      - inn
+      - legalForm
+      type: object
+    CounterOfferRequest:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        comment:
+          maxLength: 2000
+          minLength: 0
+          type: string
+        productCode:
+          type: string
+        termMonths:
+          format: int32
+          maximum: 120
+          minimum: 1
+          type: integer
+      required:
+      - amount
+      - termMonths
+      type: object
+    DecisionView:
+      properties:
+        comment:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        decidedBy:
+          format: uuid
+          type: string
+        decidedByType:
+          type: string
+        factors:
+          items:
+            $ref: '#/components/schemas/FactorScore'
+          type: array
+        id:
+          format: uuid
+          type: string
+        manualReasons:
+          items:
+            $ref: '#/components/schemas/ReasonView'
+          type: array
+        outcome:
+          enum:
+          - APPROVE
+          - COUNTER_OFFER
+          - MANUAL_REVIEW
+          - REJECT
+          - REQUEST_INFO
+          type: string
+        rating:
+          enum:
+          - A
+          - B
+          - C
+          - D
+          - E
+          type: string
+        reasonCode:
+          type: string
+        recommendation:
+          $ref: '#/components/schemas/Recommendation'
+        ruleSetVersion:
+          format: int32
+          type: integer
+        score:
+          format: int32
+          type: integer
+        stopFactors:
+          items:
+            $ref: '#/components/schemas/ReasonView'
+          type: array
+      required:
+      - createdAt
+      - decidedByType
+      - factors
+      - id
+      - manualReasons
+      - outcome
+      - ruleSetVersion
+      - stopFactors
+      type: object
+    DeclineRequest:
+      properties:
+        comment:
+          maxLength: 2000
+          minLength: 0
+          type: string
+      type: object
+    Discrepancy:
+      properties:
+        actual:
+          type: string
+        declared:
+          type: string
+        differencePercent:
+          format: int32
+          type: integer
+        field:
+          type: string
+        source:
+          type: string
+      required:
+      - actual
+      - declared
+      - field
+      - source
+      type: object
+    DocumentView:
+      properties:
+        fileName:
+          type: string
+        id:
+          format: uuid
+          type: string
+        sizeBytes:
+          format: int64
+          type: integer
+        title:
+          type: string
+        type:
+          enum:
+          - TAX_RETURN
+          - FINANCIAL_STATEMENTS
+          - EQUIPMENT_INVOICE
+          - BANK_STATEMENT
+          - OTHER
+          type: string
+        uploadedAt:
+          format: date-time
+          type: string
+      required:
+      - fileName
+      - id
+      - sizeBytes
+      - title
+      - type
+      - uploadedAt
+      type: object
+    ErrorResponse:
+      description: Ошибка API
+      properties:
+        error:
+          description: Название HTTP-статуса
+          example: Not Found
+          type: string
+        message:
+          description: Понятное объяснение ошибки
+          example: Заявка не найдена
+          type: string
+        path:
+          description: Путь запроса, который завершился ошибкой
+          example: /api/v1/applications/00000000-0000-0000-0000-000000000001
+          type: string
+        requestId:
+          type: string
+        status:
+          description: HTTP-код ошибки
+          example: 404
+          format: int32
+          type: integer
+        timestamp:
+          format: date-time
+          type: string
+    EstimateView:
+      properties:
+        monthlyPayment:
+          type: number
+        rate:
+          type: number
+      required:
+      - monthlyPayment
+      - rate
+      type: object
+    FactorScore:
+      properties:
+        factor:
+          enum:
+          - AGE
+          - TURNOVER_STABILITY
+          - DEBT_LOAD
+          - PAYMENT_DISCIPLINE
+          - CREDIT_ACTIVITY
+          - TAX_DISCIPLINE
+          - INDUSTRY_RISK
+          - REQUEST_SIZE
+          type: string
+        hint:
+          type: string
+        maxPoints:
+          format: int32
+          type: integer
+        points:
+          format: int32
+          type: integer
+        title:
+          type: string
+        value:
+          type: string
+      required:
+      - factor
+      - maxPoints
+      - points
+      - title
+      - value
+      type: object
+    FunnelStep:
+      properties:
+        applications:
+          format: int32
+          type: integer
+        code:
+          type: string
+        title:
+          type: string
+      required:
+      - applications
+      - code
+      - title
+      type: object
+    InfoItemView:
+      properties:
+        documentType:
+          enum:
+          - TAX_RETURN
+          - FINANCIAL_STATEMENTS
+          - EQUIPMENT_INVOICE
+          - BANK_STATEMENT
+          - OTHER
+          type: string
+        question:
+          type: string
+        reason:
+          type: string
+        title:
+          type: string
+      required:
+      - title
+      type: object
+    InfoRequestBody:
+      properties:
+        comment:
+          maxLength: 2000
+          minLength: 0
+          type: string
+        items:
+          items:
+            $ref: '#/components/schemas/RequestedItem'
+          maxItems: 10
+          minItems: 1
+          type: array
+      required:
+      - items
+      type: object
+    InfoRequestView:
+      properties:
+        comment:
+          type: string
+        deadline:
+          format: date-time
+          type: string
+        id:
+          format: uuid
+          type: string
+        items:
+          items:
+            $ref: '#/components/schemas/InfoItemView'
+          type: array
+        requestedAt:
+          format: date-time
+          type: string
+      required:
+      - deadline
+      - id
+      - items
+      - requestedAt
+      type: object
+    JournalEntryView:
+      properties:
+        actorId:
+          format: uuid
+          type: string
+        actorType:
+          enum:
+          - CLIENT
+          - SYSTEM
+          - MANAGER
+          - UNDERWRITER
+          type: string
+        comment:
+          type: string
+        event:
+          type: string
+        fromStatus:
+          enum:
+          - DRAFT
+          - SUBMITTED
+          - INFO_REQUESTED
+          - ENRICHMENT
+          - SCORING
+          - MANUAL_REVIEW
+          - OFFER_ISSUED
+          - SIGNING
+          - DISBURSING
+          - DISBURSED
+          - REJECTED
+          - WITHDRAWN
+          - CLOSED
+          type: string
+        id:
+          format: uuid
+          type: string
+        occurredAt:
+          format: date-time
+          type: string
+        payload:
+          additionalProperties: {}
+          type: object
+        reasonCode:
+          type: string
+        toStatus:
+          enum:
+          - DRAFT
+          - SUBMITTED
+          - INFO_REQUESTED
+          - ENRICHMENT
+          - SCORING
+          - MANUAL_REVIEW
+          - OFFER_ISSUED
+          - SIGNING
+          - DISBURSING
+          - DISBURSED
+          - REJECTED
+          - WITHDRAWN
+          - CLOSED
+          type: string
+      required:
+      - actorType
+      - event
+      - id
+      - occurredAt
+      - payload
+      - toStatus
+      type: object
+    LoanView:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        contractNumber:
+          type: string
+        disbursedAt:
+          format: date-time
+          type: string
+        loanAccount:
+          type: string
+        maturityDate:
+          format: date
+          type: string
+        rate:
+          type: number
+        settlementAccount:
+          type: string
+        termMonths:
+          format: int32
+          type: integer
+      required:
+      - amount
+      - contractNumber
+      - disbursedAt
+      - loanAccount
+      - maturityDate
+      - rate
+      - settlementAccount
+      - termMonths
+      type: object
+    MatchRequest:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        purpose:
+          enum:
+          - CASH_GAP
+          - CURRENT_EXPENSES
+          - WORKING_CAPITAL
+          - EQUIPMENT
+          - VEHICLE
+          - RENOVATION
+          - BUSINESS_DEVELOPMENT
+          type: string
+        termMonths:
+          format: int32
+          maximum: 120
+          minimum: 1
+          type: integer
+      required:
+      - amount
+      - purpose
+      - termMonths
+      type: object
+    MatchResponse:
+      properties:
+        adjustments:
+          items:
+            type: string
+          type: array
+        fits:
+          type: boolean
+        monthlyPayment:
+          type: number
+        overpayment:
+          type: number
+        product:
+          $ref: '#/components/schemas/Product'
+        reasons:
+          items:
+            type: string
+          type: array
+        termMonths:
+          format: int32
+          type: integer
+      required:
+      - adjustments
+      - fits
+      - product
+      - reasons
+      - termMonths
+      type: object
+    NewRulesRequest:
+      properties:
+        comment:
+          maxLength: 1000
+          minLength: 0
+          type: string
+        params:
+          $ref: '#/components/schemas/RuleParams'
+      required:
+      - comment
+      - params
+      type: object
+    OfferTerms:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        monthlyPayment:
+          type: number
+        productCode:
+          type: string
+        rate:
+          type: number
+        termMonths:
+          format: int32
+          type: integer
+        totalPayment:
+          type: number
+      required:
+      - amount
+      - monthlyPayment
+      - productCode
+      - rate
+      - termMonths
+      - totalPayment
+      type: object
+    OfferView:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        changes:
+          items:
+            type: string
+          type: array
+        id:
+          format: uuid
+          type: string
+        kind:
+          enum:
+          - APPROVED
+          - COUNTER
+          type: string
+        monthlyPayment:
+          type: number
+        productCode:
+          type: string
+        productName:
+          type: string
+        rate:
+          type: number
+        status:
+          enum:
+          - ISSUED
+          - ACCEPTED
+          - DECLINED
+          - EXPIRED
+          - WITHDRAWN
+          type: string
+        termMonths:
+          format: int32
+          type: integer
+        totalPayment:
+          type: number
+        validUntil:
+          format: date-time
+          type: string
+      required:
+      - amount
+      - changes
+      - id
+      - kind
+      - monthlyPayment
+      - productCode
+      - productName
+      - rate
+      - status
+      - termMonths
+      - totalPayment
+      - validUntil
+      type: object
+    OutcomeCount:
+      properties:
+        decisions:
+          format: int32
+          type: integer
+        outcome:
+          type: string
+      required:
+      - decisions
+      - outcome
+      type: object
+    OutcomeView:
+      properties:
+        explanation:
+          items:
+            type: string
+          type: array
+        outcome:
+          enum:
+          - APPROVE
+          - COUNTER_OFFER
+          - MANUAL_REVIEW
+          - REJECT
+          - REQUEST_INFO
+          type: string
+        reasonCode:
+          type: string
+        reasonTitle:
+          type: string
+      required:
+      - explanation
+      - outcome
+      type: object
+    ProcessView:
+      properties:
+        infoRequest:
+          $ref: '#/components/schemas/InfoRequestView'
+        loan:
+          $ref: '#/components/schemas/LoanView'
+        offer:
+          $ref: '#/components/schemas/OfferView'
+        outcome:
+          $ref: '#/components/schemas/OutcomeView'
+        signing:
+          $ref: '#/components/schemas/SigningView'
+      type: object
+    Product:
+      properties:
+        autoApprovalLimit:
+          format: int64
+          type: integer
+        baseRate:
+          type: number
+        code:
+          type: string
+        description:
+          type: string
+        maxAmount:
+          format: int64
+          type: integer
+        maxTermMonths:
+          format: int32
+          type: integer
+        minAmount:
+          format: int64
+          type: integer
+        minTermMonths:
+          format: int32
+          type: integer
+        name:
+          type: string
+        purposes:
+          items:
+            enum:
+            - CASH_GAP
+            - CURRENT_EXPENSES
+            - WORKING_CAPITAL
+            - EQUIPMENT
+            - VEHICLE
+            - RENOVATION
+            - BUSINESS_DEVELOPMENT
+            type: string
+          type: array
+          uniqueItems: true
+        revolving:
+          type: boolean
+      required:
+      - autoApprovalLimit
+      - baseRate
+      - code
+      - description
+      - maxAmount
+      - maxTermMonths
+      - minAmount
+      - minTermMonths
+      - name
+      - purposes
+      - revolving
+      type: object
+    ProductView:
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        revolving:
+          type: boolean
+      required:
+      - code
+      - name
+      - revolving
+      type: object
+    ProvideInfoRequest:
+      properties:
+        answer:
+          maxLength: 2000
+          minLength: 0
+          type: string
+      type: object
+    PurposeResponse:
+      properties:
+        code:
+          enum:
+          - CASH_GAP
+          - CURRENT_EXPENSES
+          - WORKING_CAPITAL
+          - EQUIPMENT
+          - VEHICLE
+          - RENOVATION
+          - BUSINESS_DEVELOPMENT
+          type: string
+        title:
+          type: string
+      required:
+      - code
+      - title
+      type: object
+    ReasonView:
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+      required:
+      - code
+      - title
+      type: object
+    Recommendation:
+      properties:
+        notes:
+          items:
+            type: string
+          type: array
+        outcome:
+          enum:
+          - APPROVE
+          - COUNTER_OFFER
+          - MANUAL_REVIEW
+          - REJECT
+          - REQUEST_INFO
+          type: string
+        rejectReason:
+          enum:
+          - SF_STATUS
+          - SF_UNRELIABLE
+          - SF_OVERDUE_90
+          - SF_TOO_YOUNG
+          - R_LOAD
+          - R_SCORE
+          - R_MANUAL
+          type: string
+        terms:
+          $ref: '#/components/schemas/OfferTerms'
+      required:
+      - notes
+      - outcome
+      type: object
+    RegistryInfo:
+      properties:
+        address:
+          type: string
+        directorName:
+          type: string
+        fullName:
+          type: string
+        inn:
+          type: string
+        ogrn:
+          type: string
+        okvedCode:
+          type: string
+        okvedName:
+          type: string
+        registrationDate:
+          format: date
+          type: string
+        shortName:
+          type: string
+        status:
+          type: string
+        statusTitle:
+          type: string
+        unreliableAddress:
+          type: boolean
+        unreliableDirector:
+          type: boolean
+      required:
+      - address
+      - directorName
+      - fullName
+      - inn
+      - ogrn
+      - okvedCode
+      - okvedName
+      - registrationDate
+      - shortName
+      - status
+      - statusTitle
+      - unreliableAddress
+      - unreliableDirector
+      type: object
+    RequestedItem:
+      properties:
+        documentType:
+          enum:
+          - TAX_RETURN
+          - FINANCIAL_STATEMENTS
+          - EQUIPMENT_INVOICE
+          - BANK_STATEMENT
+          - OTHER
+          type: string
+        question:
+          maxLength: 500
+          minLength: 0
+          type: string
+      type: object
+    RequiredDocumentView:
+      properties:
+        reason:
+          type: string
+        title:
+          type: string
+        type:
+          enum:
+          - TAX_RETURN
+          - FINANCIAL_STATEMENTS
+          - EQUIPMENT_INVOICE
+          - BANK_STATEMENT
+          - OTHER
+          type: string
+        uploaded:
+          type: boolean
+      required:
+      - reason
+      - title
+      - type
+      - uploaded
+      type: object
+    RuleParams:
+      properties:
+        highRiskOkved:
+          items:
+            type: string
+          type: array
+          uniqueItems: true
+        lowRiskOkved:
+          items:
+            type: string
+          type: array
+          uniqueItems: true
+        maxLoad:
+          format: double
+          type: number
+        ratingCutoffs:
+          additionalProperties:
+            format: int32
+            type: integer
+          type: object
+        ratingMargins:
+          additionalProperties:
+            format: double
+            type: number
+          type: object
+        revenueMismatch:
+          format: double
+          type: number
+        weakAmountShare:
+          format: double
+          type: number
+        weakRevenueShare:
+          format: double
+          type: number
+      required:
+      - highRiskOkved
+      - lowRiskOkved
+      - maxLoad
+      - ratingCutoffs
+      - ratingMargins
+      - revenueMismatch
+      - weakAmountShare
+      - weakRevenueShare
+      type: object
+    RuleSetVersion:
+      properties:
+        comment:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        createdBy:
+          format: uuid
+          type: string
+        version:
+          format: int32
+          type: integer
+      required:
+      - createdAt
+      - version
+      type: object
+    RulesResponse:
+      properties:
+        params:
+          $ref: '#/components/schemas/RuleParams'
+        version:
+          format: int32
+          type: integer
+        versions:
+          items:
+            $ref: '#/components/schemas/RuleSetVersion'
+          type: array
+      required:
+      - params
+      - version
+      - versions
+      type: object
+    ScheduleRow:
+      properties:
+        balance:
+          type: number
+        interest:
+          type: number
+        month:
+          format: int32
+          type: integer
+        payment:
+          type: number
+        principal:
+          type: number
+      required:
+      - balance
+      - interest
+      - month
+      - payment
+      - principal
+      type: object
+    SignRequest:
+      properties:
+        code:
+          minLength: 1
+          type: string
+      required:
+      - code
+      type: object
+    SigningView:
+      properties:
+        code:
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        signedAt:
+          format: date-time
+          type: string
+      type: object
+    StageTime:
+      properties:
+        averageMinutes:
+          format: double
+          type: number
+        medianMinutes:
+          format: double
+          type: number
+        status:
+          type: string
+        title:
+          type: string
+        transitions:
+          format: int32
+          type: integer
+      required:
+      - status
+      - title
+      - transitions
+      type: object
+    SystemKeyError:
+      properties:
+        error:
+          example: Unauthorized
+          type: string
+        message:
+          example: Нужен ключ системы-клиента в заголовке X-Api-Key
+          type: string
+        status:
+          example: 401
+      required:
+      - status
+      - error
+      - message
+      type: object
+    TaxInfo:
+      properties:
+        averageHeadcount:
+          format: int32
+          type: integer
+        expenses:
+          format: int64
+          type: integer
+        hasReports:
+          type: boolean
+        massAddress:
+          type: boolean
+        reportingYear:
+          format: int32
+          type: integer
+        revenue:
+          format: int64
+          type: integer
+        taxDebt:
+          format: int64
+          type: integer
+        taxRegime:
+          type: string
+      required:
+      - hasReports
+      - massAddress
+      - taxDebt
+      type: object
+    WithdrawRequest:
+      properties:
+        comment:
+          maxLength: 2000
+          minLength: 0
+          type: string
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+    systemKey:
+      in: header
+      name: X-Api-Key
+      type: apiKey
+info:
+  description: REST API умного кредитного кабинета предпринимателя. Данные демо-стенда синтетические.
+  title: 'Кабинет предпринимателя: заявки, кредитный конвейер и решения'
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /api/v1/analytics/funnel:
+    get:
+      operationId: funnel
+      parameters:
+      - in: query
+        name: from
+        required: false
+        schema:
+          format: date-time
+          type: string
+      - in: query
+        name: to
+        required: false
+        schema:
+          format: date-time
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Analytics'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/analytics/funnel
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/analytics/funnel
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+      security:
+      - bearerAuth: []
+      summary: Воронка, время на этапах и исходы решений за период (по умолчанию 30 дней)
+      tags:
+      - Аналитика конвейера
+  /api/v1/applications:
+    get:
+      operationId: list
+      parameters:
+      - in: query
+        name: status
+        required: false
+        schema:
+          items:
+            enum:
+            - DRAFT
+            - SUBMITTED
+            - INFO_REQUESTED
+            - ENRICHMENT
+            - SCORING
+            - MANUAL_REVIEW
+            - OFFER_ISSUED
+            - SIGNING
+            - DISBURSING
+            - DISBURSED
+            - REJECTED
+            - WITHDRAWN
+            - CLOSED
+            type: string
+          type: array
+          uniqueItems: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/ApplicationSummary'
+                type: array
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+      security:
+      - bearerAuth: []
+      summary: 'Заявки: клиенту — его компании, сотрудникам банка — очередь без черновиков'
+      tags:
+      - Заявки, документы и выдача
+    post:
+      operationId: create_1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+          description: Created
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Создать черновик заявки
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}:
+    get:
+      operationId: get
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security:
+      - bearerAuth: []
+      summary: Карточка своей заявки с состоянием конвейера, решением и документами
+      tags:
+      - Заявки, документы и выдача
+    put:
+      operationId: update
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Изменить черновик
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/documents:
+    post:
+      operationId: upload
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: type
+        required: true
+        schema:
+          enum:
+          - TAX_RETURN
+          - FINANCIAL_STATEMENTS
+          - EQUIPMENT_INVOICE
+          - BANK_STATEMENT
+          - OTHER
+          type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              properties:
+                file:
+                  format: binary
+                  type: string
+              required:
+              - file
+              type: object
+      responses:
+        '201':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/DocumentView'
+          description: Created
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/documents
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/documents
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/documents
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/documents
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/documents
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/applications/{id}/documents
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+      security:
+      - bearerAuth: []
+      summary: Загрузить документ (в черновик или по запросу банка)
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/documents/{documentId}:
+    delete:
+      operationId: deleteDocument
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: path
+        name: documentId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '204':
+          description: No Content
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+      security:
+      - bearerAuth: []
+      summary: Удалить свой документ из редактируемого черновика
+      tags:
+      - Заявки, документы и выдача
+    get:
+      operationId: download
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: path
+        name: documentId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                format: binary
+                type: string
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+      security:
+      - bearerAuth: []
+      summary: 'Скачать документ: представителям компании и сотрудникам банка'
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/events:
+    get:
+      operationId: events
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/JournalEntryView'
+                type: array
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/events
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/events
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/events
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security:
+      - bearerAuth: []
+      summary: 'Журнал заявки: история для клиента, аудит для банка'
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/info-provided:
+    post:
+      operationId: provideInfo
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvideInfoRequest'
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/info-provided
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/info-provided
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/info-provided
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/info-provided
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/info-provided
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: 'Ответить на запрос банка: документы загружены, на вопросы дан ответ (T5)'
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/offer/accept:
+    post:
+      operationId: acceptOffer
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/offer/accept
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/offer/accept
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/offer/accept
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/offer/accept
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/offer/accept
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Принять предложение банка (T16); сразу выпускается код подписи
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/offer/decline:
+    post:
+      operationId: declineOffer
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeclineRequest'
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/offer/decline
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/offer/decline
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/offer/decline
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/offer/decline
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/offer/decline
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Отказаться от предложения банка (T17)
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/schedule:
+    get:
+      operationId: schedule
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Calculation'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/schedule
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/schedule
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/schedule
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security:
+      - bearerAuth: []
+      summary: График платежей по выданному кредиту или по предложению банка
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/sign:
+    post:
+      operationId: sign
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/sign
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/sign
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/sign
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/sign
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/sign
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Подписать договор кодом (T18)
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/signing/code:
+    post:
+      operationId: signingCode
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/signing/code
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/signing/code
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/signing/code
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/signing/code
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/signing/code
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Получить новый код подписи
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/submit:
+    post:
+      operationId: submit
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - description: Повтор с тем же ключом вернёт результат первого запроса
+        in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/submit
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/submit
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/submit
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/submit
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/submit
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Отправить заявку в банк (T2)
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/withdraw:
+    post:
+      operationId: withdraw
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawRequest'
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/withdraw
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/withdraw
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/withdraw
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/withdraw
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/withdraw
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Отозвать заявку (T21)
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/products:
+    get:
+      operationId: list_1
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/Product'
+                type: array
+          description: OK
+      security: []
+      summary: Каталог кредитных продуктов для подбора финансирования
+      tags:
+      - Кредитные продукты
+  /api/v1/products/match:
+    post:
+      operationId: match
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/MatchResponse'
+                type: array
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/products/match
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/products/match
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security: []
+      summary: Подбор продуктов под цель, сумму и срок
+      tags:
+      - Кредитные продукты
+  /api/v1/products/purposes:
+    get:
+      operationId: purposes
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/PurposeResponse'
+                type: array
+          description: OK
+      security: []
+      summary: Цели финансирования для мастера подбора
+      tags:
+      - Кредитные продукты
+  /api/v1/products/{code}:
+    get:
+      operationId: get_1
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: OK
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/products/{code}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security: []
+      summary: Условия продукта по его коду
+      tags:
+      - Кредитные продукты
+  /api/v1/products/{code}/calculation:
+    get:
+      operationId: calculation
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: amount
+        required: true
+        schema:
+          format: int64
+          type: integer
+      - in: query
+        name: termMonths
+        required: true
+        schema:
+          format: int32
+          type: integer
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Calculation'
+          description: OK
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/products/{code}/calculation
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security: []
+      summary: Расчёт платежа и графика по базовой ставке продукта
+      tags:
+      - Кредитные продукты
+  /api/v1/rules:
+    get:
+      operationId: current
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RulesResponse'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/rules
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/rules
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+      security:
+      - bearerAuth: []
+      summary: Действующие пороги кредитной политики и история версий
+      tags:
+      - Версии кредитной политики
+    post:
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewRulesRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RulesResponse'
+          description: Created
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/rules
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/rules
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/rules
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/rules
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Сохранить новую версию порогов (риск-администратор)
+      tags:
+      - Версии кредитной политики
+  /api/v1/underwriting/applications/{id}:
+    get:
+      operationId: assessment
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AssessmentView'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/underwriting/applications/{id}
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/underwriting/applications/{id}
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/underwriting/applications/{id}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security:
+      - bearerAuth: []
+      summary: 'Карточка оценки: данные источников, расхождения, скоринг и рекомендация'
+      tags:
+      - Решения сотрудников банка
+  /api/v1/underwriting/applications/{id}/approve:
+    post:
+      operationId: approve
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentRequest'
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActionResult'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/underwriting/applications/{id}/approve
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/underwriting/applications/{id}/approve
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/underwriting/applications/{id}/approve
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/underwriting/applications/{id}/approve
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/underwriting/applications/{id}/approve
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Одобрить на запрошенных условиях (T13)
+      tags:
+      - Решения сотрудников банка
+  /api/v1/underwriting/applications/{id}/counter-offer:
+    post:
+      operationId: counterOffer
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CounterOfferRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActionResult'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/underwriting/applications/{id}/counter-offer
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/underwriting/applications/{id}/counter-offer
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/underwriting/applications/{id}/counter-offer
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/underwriting/applications/{id}/counter-offer
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/underwriting/applications/{id}/counter-offer
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Предложить другие условия (T13)
+      tags:
+      - Решения сотрудников банка
+  /api/v1/underwriting/applications/{id}/reject:
+    post:
+      operationId: reject
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ActionResult'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/underwriting/applications/{id}/reject
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/underwriting/applications/{id}/reject
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/underwriting/applications/{id}/reject
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/underwriting/applications/{id}/reject
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/underwriting/applications/{id}/reject
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Отказать с объяснением для клиента (T15)
+      tags:
+      - Решения сотрудников банка
+  /api/v1/underwriting/applications/{id}/request-info:
+    post:
+      operationId: requestInfo
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InfoRequestBody'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                enum:
+                - DRAFT
+                - SUBMITTED
+                - INFO_REQUESTED
+                - ENRICHMENT
+                - SCORING
+                - MANUAL_REVIEW
+                - OFFER_ISSUED
+                - SIGNING
+                - DISBURSING
+                - DISBURSED
+                - REJECTED
+                - WITHDRAWN
+                - CLOSED
+                type: string
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/underwriting/applications/{id}/request-info
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/underwriting/applications/{id}/request-info
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/underwriting/applications/{id}/request-info
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/underwriting/applications/{id}/request-info
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/underwriting/applications/{id}/request-info
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Запросить документы или пояснения у клиента (T14)
+      tags:
+      - Решения сотрудников банка
+servers:
+- description: Адрес сервиса или шлюза; /ext/ доступен только во внутренней сети
+  url: /

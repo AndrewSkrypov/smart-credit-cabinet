@@ -1,0 +1,65 @@
+"""Integrity checks shared by the quiesced backup and fresh-target restore tools."""
+import hashlib
+import json
+from pathlib import PurePosixPath
+import re
+import subprocess
+import tarfile
+
+DATABASES = ("identity", "credit", "engagement")
+
+
+def digest(path):
+    value = hashlib.sha256()
+    with path.open("rb") as stream:
+        for part in iter(lambda: stream.read(1024 * 1024), b""):
+            value.update(part)
+    return value.hexdigest()
+
+
+def database_snapshot(deployment):
+    snapshot = {}
+    for database in DATABASES:
+        tables = deployment.sql(database, "select tablename from pg_tables where schemaname='public' order by tablename").splitlines()
+        values = {}
+        for table in tables:
+            assert re.fullmatch(r"[a-z_][a-z0-9_]*", table), "Неподдерживаемое имя таблицы"
+            rows = deployment.sql(database, f"set timezone='UTC'; select row_to_json(t)::text from public.{table} t order by row_to_json(t)::text")
+            values[table] = {"rows": len(rows.splitlines()) if rows else 0, "sha256": hashlib.sha256(rows.encode()).hexdigest()}
+        sequences = {}
+        for sequence in deployment.sql(database, "select sequencename from pg_sequences where schemaname='public' order by sequencename").splitlines():
+            assert re.fullmatch(r"[a-z_][a-z0-9_]*", sequence)
+            sequences[sequence] = deployment.sql(database, f"select last_value, is_called from public.{sequence}")
+        snapshot[database] = {"tables": values, "sequences": sequences}
+    return snapshot
+
+
+def document_inventory(archive):
+    values = {}
+    with tarfile.open(archive, "r:gz") as stream:
+        for member in stream:
+            path = PurePosixPath(member.name)
+            assert not path.is_absolute() and ".." not in path.parts, "Небезопасный путь в архиве документов"
+            assert not any(ord(char) < 32 for char in member.name), "Управляющие символы в пути документа"
+            assert member.isdir() or member.isfile(), "В архиве документов допустимы только обычные файлы и каталоги"
+            if member.isfile():
+                value = hashlib.sha256()
+                with stream.extractfile(member) as content:
+                    for part in iter(lambda: content.read(1024 * 1024), b""):
+                        value.update(part)
+                assert str(path) not in values, "Повторяющийся путь в архиве документов"
+                values[str(path)] = {"bytes": member.size, "sha256": value.hexdigest()}
+    return values
+
+
+def document_volume(deployment):
+    name = deployment.config()["volumes"]["cabinet-documents"]["name"]
+    assert name.startswith(deployment.project + "_"), "Нужен собственный том документов выбранного проекта"
+    return name
+
+
+def checked_docker(*arguments, **kwargs):
+    result = subprocess.run(["docker", *arguments], capture_output=not any(key in kwargs for key in ["stdout", "stderr"]), **kwargs)
+    if result.returncode:
+        raise RuntimeError(f"Docker {arguments[0]} не завершён; код {result.returncode}")
+    return result.stdout

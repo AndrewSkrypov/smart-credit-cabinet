@@ -24,9 +24,55 @@ x-service-env: &service-env
   DB_PASSWORD: ${POSTGRES_PASSWORD:-cabinet}
   JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-32bytes+}
 
+x-postgres: &postgres
+  image: cabinet/postgres:16.15-alpine-su-exec-0.3
+  build:
+    context: .
+    dockerfile: docker/postgres/Dockerfile
+
 services:
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    profiles: ["monitoring"]
+    mem_limit: 256m
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --storage.tsdb.retention.size=512MB
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./monitoring/rules.test.yml:/etc/prometheus/rules.test.yml:ro
+      - cabinet-prometheus:/prometheus
+    networks: [cabinet]
+
+  grafana:
+    image: grafana/grafana:13.2.4
+    profiles: ["monitoring"]
+    mem_limit: 512m
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-local-monitoring-change-me}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GOMEMLIMIT: 384MiB
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - cabinet-grafana:/var/lib/grafana
+    depends_on: [prometheus]
+    networks: [cabinet]
+
   postgres:
-    image: postgres:16.10-alpine
+    <<: *postgres
     environment:
       POSTGRES_DB: cabinet
       POSTGRES_USER: ${POSTGRES_USER:-cabinet}
@@ -44,7 +90,7 @@ services:
   # One database per service on the shared local Postgres. The official image runs init
   # scripts only on an empty volume, so this runs at every start and is idempotent.
   db-init:
-    image: postgres:16.10-alpine
+    <<: *postgres
     environment:
       PGHOST: postgres
       PGUSER: ${POSTGRES_USER:-cabinet}
@@ -70,6 +116,7 @@ services:
       dockerfile: docker/service/Dockerfile
       args:
         SERVICE: identity
+        SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
     environment:
       <<: *service-env
       DB_NAME: identity
@@ -87,6 +134,7 @@ services:
       dockerfile: docker/service/Dockerfile
       args:
         SERVICE: credit
+        SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
     environment:
       <<: *service-env
       DB_NAME: credit
@@ -111,6 +159,7 @@ services:
       dockerfile: docker/service/Dockerfile
       args:
         SERVICE: engagement
+        SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
     environment:
       <<: *service-env
       DB_NAME: engagement
@@ -130,6 +179,7 @@ services:
       dockerfile: docker/service/Dockerfile
       args:
         SERVICE: external-sim
+        SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
     mem_limit: 512m
     environment:
       JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-32bytes+}
@@ -140,6 +190,8 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
     mem_limit: 128m
     restart: unless-stopped
     networks:
@@ -148,7 +200,7 @@ services:
   # The assistant's language model with open weights: docker compose --profile ai up -d.
   # About 1 GB of weights is downloaded once into the volume; answers take seconds on a CPU.
   ollama:
-    image: ollama/ollama:0.6.8
+    image: ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8
     profiles: ["ai"]
     mem_limit: 4g
     volumes:
@@ -162,7 +214,7 @@ services:
       - cabinet
 
   ollama-pull:
-    image: ollama/ollama:0.6.8
+    image: ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8
     profiles: ["ai"]
     environment:
       OLLAMA_HOST: http://ollama:11434
@@ -174,7 +226,7 @@ services:
       - cabinet
 
   swagger-ui:
-    image: swaggerapi/swagger-ui:v5.17.14
+    image: swaggerapi/swagger-ui:v5.34.0@sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0
     mem_limit: 128m
     environment:
       BASE_URL: /swagger
@@ -187,7 +239,7 @@ services:
       - cabinet
 
   gateway:
-    image: nginx:1.28-alpine
+    image: nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
     ports:
       - "${GATEWAY_PORT:-8080}:80"
     volumes:
@@ -203,6 +255,8 @@ services:
       - cabinet
 
 volumes:
+  cabinet-prometheus:
+  cabinet-grafana:
   cabinet-postgres-data:
   cabinet-documents:
   cabinet-ollama:

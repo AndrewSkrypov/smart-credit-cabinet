@@ -1,0 +1,2878 @@
+{
+  "checked_at": "2026-10-22T00:44:58.733566+00:00",
+  "operations": 53,
+  "roles": [
+    "anonymous",
+    "owner",
+    "other_client",
+    "manager",
+    "underwriter",
+    "risk_admin"
+  ],
+  "expected_checks": 318,
+  "checks": [
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/options",
+      "role": "anonymous",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 12.7980999823194
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/options",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.188399984035641
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/options",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 23.291199991945177
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/options",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.614199995761737
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/options",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.8642999900039285
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/options",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 20.439499989151955
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/session",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 11.798999999882653
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/session",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 25.046100025065243
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/session",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 20.916399982525036
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/session",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.171999993966892
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/session",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.909099989570677
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/session",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 16.498299984959885
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-in",
+      "role": "anonymous",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 68.93749997834675
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-in",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 66.49600001401268
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-in",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 81.25399998971261
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-in",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 67.17230001231655
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-in",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 73.80430001649074
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-in",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 82.87940002628602
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-up",
+      "role": "anonymous",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 255.75949999620207
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-up",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 265.2461999969091
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-up",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 253.00500000594184
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-up",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 263.0981999973301
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-up",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 498.3797000022605
+    },
+    {
+      "service": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/sign-up",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 274.33889999520034
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/companies/me",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.6776000051759183
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/companies/me",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 7.691999984672293
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/companies/me",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 22.884100006194785
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/companies/me",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 5.7588999916333705
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/companies/me",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 5.358599999453872
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/companies/me",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 5.584800004726276
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.2375000009778887
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.902099994476885
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.676299992250279
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 23.43149998341687
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 20.73189997463487
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.930199986323714
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/analytics/funnel",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 9.768800024176016
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/analytics/funnel",
+      "role": "owner",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 13.346100022317842
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/analytics/funnel",
+      "role": "other_client",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 7.557600009022281
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/analytics/funnel",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 30.40839999448508
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/analytics/funnel",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 30.46910002012737
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/analytics/funnel",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 25.420899997698143
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 4.844000010052696
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 19.421300006797537
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 12.079700012691319
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 57.4923999956809
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 58.134700026130304
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 62.65579999308102
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 15.145700017455965
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications",
+      "role": "owner",
+      "expected": 201,
+      "actual": 201,
+      "duration_ms": 17.148400016594678
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications",
+      "role": "other_client",
+      "expected": 201,
+      "actual": 201,
+      "duration_ms": 25.047199975233525
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 19.279200001619756
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 8.433799986960366
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 24.550600006477907
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.3736999903339893
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 14.762100006919354
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 28.13550000428222
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 16.245199978584424
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.827800010796636
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.790400017052889
+    },
+    {
+      "service": "credit",
+      "method": "PUT",
+      "path": "/api/v1/applications/{id}",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.990400000475347
+    },
+    {
+      "service": "credit",
+      "method": "PUT",
+      "path": "/api/v1/applications/{id}",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 10.377800004789606
+    },
+    {
+      "service": "credit",
+      "method": "PUT",
+      "path": "/api/v1/applications/{id}",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 19.376799988094717
+    },
+    {
+      "service": "credit",
+      "method": "PUT",
+      "path": "/api/v1/applications/{id}",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.965600004652515
+    },
+    {
+      "service": "credit",
+      "method": "PUT",
+      "path": "/api/v1/applications/{id}",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 17.113699985202402
+    },
+    {
+      "service": "credit",
+      "method": "PUT",
+      "path": "/api/v1/applications/{id}",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 20.925800024997443
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/documents",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.4263000125065446
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/documents",
+      "role": "owner",
+      "expected": 201,
+      "actual": 201,
+      "duration_ms": 8.636900020064786
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/documents",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 23.617800005013123
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/documents",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 13.733200001297519
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/documents",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 21.15299997967668
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/documents",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 5.806000001030043
+    },
+    {
+      "service": "credit",
+      "method": "DELETE",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 10.616599989589304
+    },
+    {
+      "service": "credit",
+      "method": "DELETE",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "owner",
+      "expected": 204,
+      "actual": 204,
+      "duration_ms": 34.47499999310821
+    },
+    {
+      "service": "credit",
+      "method": "DELETE",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 27.080300002126023
+    },
+    {
+      "service": "credit",
+      "method": "DELETE",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 17.781300004571676
+    },
+    {
+      "service": "credit",
+      "method": "DELETE",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 15.37759997881949
+    },
+    {
+      "service": "credit",
+      "method": "DELETE",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 5.299000011291355
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.482899977825582
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 24.844199971994385
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 5.749699979787692
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.962000006344169
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.681499973637983
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/documents/{documentId}",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 20.499799982644618
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/events",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 4.052100004628301
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/events",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 19.630700000561774
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/events",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 5.005100014386699
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/events",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.851599980611354
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/events",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 25.86429999792017
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/events",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 14.963800000259653
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/info-provided",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.95729998126626
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/info-provided",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 19.44579998962581
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/info-provided",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 11.461299989605322
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/info-provided",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.709000000730157
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/info-provided",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.589500022120774
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/info-provided",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 5.418399989139289
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/accept",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.556300012860447
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/accept",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 235.73330001090653
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/accept",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 5.216599995037541
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/accept",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.303099995013326
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/accept",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 16.42070000525564
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/accept",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 3.9130999939516187
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/decline",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 15.311299997847527
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/decline",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 11.933500005397946
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/decline",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 5.605299986200407
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/decline",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 19.60460000555031
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/decline",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 21.021699998527765
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/offer/decline",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 14.588600024580956
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/schedule",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 18.508699984522536
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/schedule",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.564999999478459
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/schedule",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 15.950600005453452
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/schedule",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 26.508300012210384
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/schedule",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.355199973564595
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/applications/{id}/schedule",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.024700018111616
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/sign",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 11.656000016955659
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/sign",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 210.85239999229088
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/sign",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 5.395599990151823
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/sign",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.210899991448969
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/sign",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 17.044000007444993
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/sign",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 14.473100018221885
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/signing/code",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 4.668799985665828
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/signing/code",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 201.18090001051314
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/signing/code",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 21.285299997543916
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/signing/code",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 20.4401999944821
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/signing/code",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 14.193000009981915
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/signing/code",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.0182000084314495
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/submit",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.9103000017348677
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/submit",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 20.90990002034232
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/submit",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 5.1979000272694975
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/submit",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 18.574600020656362
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/submit",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.095700016478077
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/submit",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 3.9329999999608845
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/withdraw",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 13.846000016201288
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/withdraw",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 9.324299986474216
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/withdraw",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 4.8451999900862575
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/withdraw",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.758600000059232
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/withdraw",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.17070000548847
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/applications/{id}/withdraw",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 3.5884999961126596
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products",
+      "role": "anonymous",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.740999982459471
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 15.14949998818338
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 19.87139999982901
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 3.9551000227220356
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 15.450499980943277
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 3.4801999863702804
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/products/match",
+      "role": "anonymous",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 34.342899976763874
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/products/match",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 9.096299996599555
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/products/match",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 11.720700014848262
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/products/match",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.472899996675551
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/products/match",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.828400007681921
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/products/match",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 19.872400007443503
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/purposes",
+      "role": "anonymous",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 15.375499991932884
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/purposes",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 16.99530001496896
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/purposes",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 23.046799993608147
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/purposes",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 15.023999992990866
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/purposes",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 3.192499978467822
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/purposes",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 26.80200000759214
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}",
+      "role": "anonymous",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 37.76139998808503
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 14.140599989332259
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.94569997722283
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 7.982999988598749
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 3.716800012625754
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 16.876599984243512
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}/calculation",
+      "role": "anonymous",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.740199994761497
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}/calculation",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.805100004887208
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}/calculation",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 27.918700012378395
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}/calculation",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.055600002175197
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}/calculation",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 12.4010999861639
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/products/{code}/calculation",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 26.87790000345558
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/rules",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 14.402000000700355
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/rules",
+      "role": "owner",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 3.5435000027064234
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/rules",
+      "role": "other_client",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 3.303100005723536
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/rules",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.9057000142056495
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/rules",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 3.783399995882064
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/rules",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 3.8280999870039523
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/rules",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.0095000111032277
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/rules",
+      "role": "owner",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 9.420799993677065
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/rules",
+      "role": "other_client",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 19.64449998922646
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/rules",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 19.154899986460805
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/rules",
+      "role": "underwriter",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 20.620299997972324
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/rules",
+      "role": "risk_admin",
+      "expected": 201,
+      "actual": 201,
+      "duration_ms": 30.845900007989258
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/underwriting/applications/{id}",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 14.762499980861321
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/underwriting/applications/{id}",
+      "role": "owner",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 3.6940999852959067
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/underwriting/applications/{id}",
+      "role": "other_client",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 3.9832000038586557
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/underwriting/applications/{id}",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.668799993349239
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/underwriting/applications/{id}",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 31.123499997192994
+    },
+    {
+      "service": "credit",
+      "method": "GET",
+      "path": "/api/v1/underwriting/applications/{id}",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 24.712099984753877
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/approve",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.8379000034183264
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/approve",
+      "role": "owner",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 10.53569998475723
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/approve",
+      "role": "other_client",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.227099998388439
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/approve",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 23.415699979523197
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/approve",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 20.52189997630194
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/approve",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 15.735399996628985
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/counter-offer",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 18.590199993923306
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/counter-offer",
+      "role": "owner",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 18.061600014334545
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/counter-offer",
+      "role": "other_client",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.424999991897494
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/counter-offer",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.180500021902844
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/counter-offer",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 11.165900010382757
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/counter-offer",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 42.052899982081726
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/reject",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 17.059899982996285
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/reject",
+      "role": "owner",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.849599994486198
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/reject",
+      "role": "other_client",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 5.065200006356463
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/reject",
+      "role": "manager",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.370999988168478
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/reject",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 10.7387000171002
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/reject",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 4.4609000033233315
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/request-info",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.617800015490502
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/request-info",
+      "role": "owner",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 16.271700005745515
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/request-info",
+      "role": "other_client",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 5.475700017996132
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/request-info",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 35.48719998798333
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/request-info",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 12.66780000878498
+    },
+    {
+      "service": "credit",
+      "method": "POST",
+      "path": "/api/v1/underwriting/applications/{id}/request-info",
+      "role": "risk_admin",
+      "expected": 403,
+      "actual": 403,
+      "duration_ms": 14.074400009121746
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/assistant/messages",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 106.31100001046434
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/assistant/messages",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 303.4404999925755
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/assistant/messages",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 116.64069999824278
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/assistant/messages",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 32.30340001755394
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/assistant/messages",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 16.25489999423735
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/assistant/messages",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 16.817299998365343
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/assistant/status",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 4.736900009447709
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/assistant/status",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 3666.0292000160553
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/assistant/status",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 13.24850000673905
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/assistant/status",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 23.25659999041818
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/assistant/status",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.456499998923391
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/assistant/status",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 15.145799989113584
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.671300015412271
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 18.53200001642108
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 18.449600000167266
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.174199981614947
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 24.67740001156926
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 10.280200018314645
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/read-all",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 13.73139998759143
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/read-all",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 18.75990000553429
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/read-all",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 32.48220001114532
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/read-all",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 7.657700014533475
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/read-all",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 16.641099995467812
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/read-all",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 18.838999996660277
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 3.447399998549372
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 21.739999996498227
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.315599981462583
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.346699996152893
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 19.93179999408312
+    },
+    {
+      "service": "engagement",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 6.740500015439466
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/{id}/read",
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401,
+      "duration_ms": 6.192800006829202
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/{id}/read",
+      "role": "owner",
+      "expected": 204,
+      "actual": 204,
+      "duration_ms": 10.126299981493503
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/{id}/read",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 14.970599993830547
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/{id}/read",
+      "role": "manager",
+      "expected": 204,
+      "actual": 204,
+      "duration_ms": 29.234600020572543
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/{id}/read",
+      "role": "underwriter",
+      "expected": 204,
+      "actual": 204,
+      "duration_ms": 6.757199997082353
+    },
+    {
+      "service": "engagement",
+      "method": "POST",
+      "path": "/api/v1/notifications/{id}/read",
+      "role": "risk_admin",
+      "expected": 204,
+      "actual": 204,
+      "duration_ms": 6.153199996333569
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bank/v1/clients/{inn}",
+      "role": "anonymous",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 2.5677999947220087
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bank/v1/clients/{inn}",
+      "role": "owner",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.8654000014066696
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bank/v1/clients/{inn}",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.6157999925781041
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bank/v1/clients/{inn}",
+      "role": "manager",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.87130001722835
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bank/v1/clients/{inn}",
+      "role": "underwriter",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 11.755899991840124
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bank/v1/clients/{inn}",
+      "role": "risk_admin",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 2.16760000330396
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bureau/v1/reports/{inn}",
+      "role": "anonymous",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.7767999961506575
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bureau/v1/reports/{inn}",
+      "role": "owner",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 2.070300019113347
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bureau/v1/reports/{inn}",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.6158999933395535
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bureau/v1/reports/{inn}",
+      "role": "manager",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 19.14090002537705
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bureau/v1/reports/{inn}",
+      "role": "underwriter",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.6898000030778348
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/bureau/v1/reports/{inn}",
+      "role": "risk_admin",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.791399990906939
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/core/v1/loans",
+      "role": "anonymous",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.6348999924957752
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/core/v1/loans",
+      "role": "owner",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 9.717000008095056
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/core/v1/loans",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 12.055200000759214
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/core/v1/loans",
+      "role": "manager",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 12.080299988156185
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/core/v1/loans",
+      "role": "underwriter",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 11.873200011905283
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/core/v1/loans",
+      "role": "risk_admin",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.7398000054527074
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/core/v1/loans/{applicationId}",
+      "role": "anonymous",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.4654000115115196
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/core/v1/loans/{applicationId}",
+      "role": "owner",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.3430999824777246
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/core/v1/loans/{applicationId}",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.3527999981306493
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/core/v1/loans/{applicationId}",
+      "role": "manager",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.8286000122316182
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/core/v1/loans/{applicationId}",
+      "role": "underwriter",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.3325999898370355
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/core/v1/loans/{applicationId}",
+      "role": "risk_admin",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.3787999923806638
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/fns/v1/companies/{inn}/summary",
+      "role": "anonymous",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.508099987404421
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/fns/v1/companies/{inn}/summary",
+      "role": "owner",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.414199999999255
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/fns/v1/companies/{inn}/summary",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.3685000012628734
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/fns/v1/companies/{inn}/summary",
+      "role": "manager",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.363799994578585
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/fns/v1/companies/{inn}/summary",
+      "role": "underwriter",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 13.775100000202656
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/fns/v1/companies/{inn}/summary",
+      "role": "risk_admin",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 20.83310001762584
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/registry/v1/companies/{inn}",
+      "role": "anonymous",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 15.355600015027449
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/registry/v1/companies/{inn}",
+      "role": "owner",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 12.408899987349287
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/registry/v1/companies/{inn}",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.665599993430078
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/registry/v1/companies/{inn}",
+      "role": "manager",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 10.674100019969046
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/registry/v1/companies/{inn}",
+      "role": "underwriter",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.9440999894868582
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/registry/v1/companies/{inn}",
+      "role": "risk_admin",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 24.80499999364838
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions",
+      "role": "anonymous",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 2.2666000004392117
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions",
+      "role": "owner",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.9554999889805913
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.9080000056419522
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions",
+      "role": "manager",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 2.1391999907791615
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions",
+      "role": "underwriter",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.7986999882850796
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions",
+      "role": "risk_admin",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.588399987667799
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/signing/v1/sessions/{id}",
+      "role": "anonymous",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.4528000028803945
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/signing/v1/sessions/{id}",
+      "role": "owner",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.5574000135529786
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/signing/v1/sessions/{id}",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.496099983341992
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/signing/v1/sessions/{id}",
+      "role": "manager",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.408000010997057
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/signing/v1/sessions/{id}",
+      "role": "underwriter",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 12.226499995449558
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/ext/signing/v1/sessions/{id}",
+      "role": "risk_admin",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.666199997998774
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions/{id}/confirm",
+      "role": "anonymous",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 13.124699995387346
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions/{id}/confirm",
+      "role": "owner",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.7627999768592417
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions/{id}/confirm",
+      "role": "other_client",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.5381000121124089
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions/{id}/confirm",
+      "role": "manager",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.6086999967228621
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions/{id}/confirm",
+      "role": "underwriter",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 1.5703999961260706
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/ext/signing/v1/sessions/{id}/confirm",
+      "role": "risk_admin",
+      "expected": 404,
+      "actual": 404,
+      "duration_ms": 14.360600005602464
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/sim/control",
+      "role": "anonymous",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.835400002775714
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/sim/control",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 219.665900018299
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/sim/control",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 20.129400014411658
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/sim/control",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.494900000281632
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/sim/control",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 21.586500020930544
+    },
+    {
+      "service": "external-sim",
+      "method": "GET",
+      "path": "/sim/control",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 29.311000020243227
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/sim/control/reset",
+      "role": "anonymous",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 17.89019998977892
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/sim/control/reset",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.406999989645556
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/sim/control/reset",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 12.194500013720244
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/sim/control/reset",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 4.023599991342053
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/sim/control/reset",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 25.72500001406297
+    },
+    {
+      "service": "external-sim",
+      "method": "POST",
+      "path": "/sim/control/reset",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 21.613100019749254
+    },
+    {
+      "service": "external-sim",
+      "method": "PUT",
+      "path": "/sim/control/sources/{source}",
+      "role": "anonymous",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 14.814900001510978
+    },
+    {
+      "service": "external-sim",
+      "method": "PUT",
+      "path": "/sim/control/sources/{source}",
+      "role": "owner",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.534600000828505
+    },
+    {
+      "service": "external-sim",
+      "method": "PUT",
+      "path": "/sim/control/sources/{source}",
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.188299983274192
+    },
+    {
+      "service": "external-sim",
+      "method": "PUT",
+      "path": "/sim/control/sources/{source}",
+      "role": "manager",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.027000006521121
+    },
+    {
+      "service": "external-sim",
+      "method": "PUT",
+      "path": "/sim/control/sources/{source}",
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 5.040099989855662
+    },
+    {
+      "service": "external-sim",
+      "method": "PUT",
+      "path": "/sim/control/sources/{source}",
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200,
+      "duration_ms": 19.024099980015308
+    }
+  ],
+  "passed": true
+}

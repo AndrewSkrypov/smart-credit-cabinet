@@ -23,6 +23,18 @@
 | [docs/design-tokens.md](docs/design-tokens.md) | Цвета, шрифты, отступы и скругления интерфейса |
 | [docs/integrations.md](docs/integrations.md) | Симуляторы ЕГРЮЛ/ЕГРИП, ФНС, БКИ, данных банка, подписания и АБС; тестовые компании |
 | [docs/demo.md](docs/demo.md) | Сценарий демонстрации на 7 минут |
+| [docs/data-model.md](docs/data-model.md) | Таблицы, связи, ключи и границы неизменности данных |
+| [docs/api.md](docs/api.md) | API, роли, идемпотентность и ошибки |
+| [docs/test-scenarios.md](docs/test-scenarios.md) | Ручная проверка и команды автотестов |
+| [docs/adr/](docs/adr/) | Восемь архитектурных решений с альтернативами и последствиями |
+| [contracts/README.md](contracts/README.md) | OpenAPI, проверка расхождений и Postman/Newman |
+| [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) | Версии, лицензии библиотек, образов, шрифта и модели |
+| [docs/reliability.md](docs/reliability.md) | Измеренная нагрузка, падение, сбои источников и гонки |
+| [docs/security.md](docs/security.md) | Модель угроз, матрица прав, сканирование и план Boot 4 |
+| [docs/operations.md](docs/operations.md) | Метрики, готовый дашборд и диагностика сбоев |
+| [docs/deployment.md](docs/deployment.md) | HTTPS, секреты, бюджет памяти, backup и проверенное восстановление |
+| [docs/demo-history.md](docs/demo-history.md) | 120 настоящих синтетических заявок и безопасный сброс демо-стенда |
+| [docs/quality.md](docs/quality.md) | Измеренное покрытие, порог domain и отчёты CI |
 
 ## Запуск
 
@@ -141,6 +153,81 @@ cd frontend && npm ci && npx tsc --noEmit && npm run lint && npx vitest run
 
 Нужен JDK 21 (Gradle берёт версию из toolchain) и Node.js 20+.
 
+### Как запустить автотесты
+
+Бэкенд и проверки фронтенда — команды выше. На запущенном отдельном демо-стенде:
+
+```bash
+cd e2e && npm ci && npx playwright install chromium && npm test
+cd ../contracts/postman && npm ci && npm test && npm run test:recovery
+```
+
+Playwright проверяет desktop/mobile, Newman — полный путь API и решения банка.
+Тесты создают заявки и версии правил: не запускайте их на стенде с рабочими данными.
+Селекторы и UI-подписи описаны в [e2e/README.md](e2e/README.md), все ручные шаги,
+предусловия, отчёты и проверка OpenAPI — в [сценариях](docs/test-scenarios.md).
+Нагрузка k6, несколько экземпляров, принудительная остановка и конкурентные действия —
+команды [load/README.md](load/README.md), включая API/SQL-проверки и условия изоляции.
+`./gradlew build` проверяет порог JaCoCo 75% для каждого пакета `domain`;
+`cd frontend && npm run test:coverage` строит покрытие Vitest. Отчёты и измеренные
+ограничения — [quality.md](docs/quality.md); оба отчёта сохраняются в CI.
+
+### Фиксация зависимостей и лицензии
+
+Gradle проверяет разрешённые версии по `gradle.lockfile` каждого модуля;
+`buildscript-gradle.lockfile` и `settings-gradle.lockfile` фиксируют зависимости плагинов.
+Включённая сборка `build-logic` имеет свои lock-файлы. Обычная сборка их не обновляет.
+После осознанного изменения каталога/BOM обновите обе сборки и проверьте diff:
+
+```bash
+python scripts/update-dependency-locks.py
+DB_PORT=55432 ./gradlew build
+```
+
+Для npm используется `npm ci` с lock-файлом каждого проекта. Обновление списка лицензий
+(перед запуском нужен JDK 21 и установленные npm-зависимости):
+
+```bash
+npm ci --prefix frontend && npm ci --prefix e2e
+npm ci --prefix contracts/postman && npm ci --prefix scripts/license-tools
+node scripts/generate-notices.mjs
+node scripts/generate-notices.mjs --skip-gradle --check
+```
+
+Первая команда генерации вызывает Gradle License Report 3.1.4 для основной и включённой
+сборки, затем license-checker 25.0.1 для npm. `--check` проверяет совпадение с сохранёнными
+`THIRD_PARTY_NOTICES` и `docs/licenses/inventory.json`; `--skip-gradle` использует уже
+выгруженные отчёты `build/reports/dependency-license/`. Ошибка или неизвестная лицензия
+останавливает генерацию. Два маркера Gradle дополнены точными ссылками на исходники
+в `scripts/license-tools/gradle-markers.json`. Состав образов/ресурсов указан отдельно
+в `scripts/license-tools/components.json`; его обновляют при изменении Compose/Dockerfile.
+
+Матрица прав, негативные проверки, npm audit и Trivy — [security/README.md](security/README.md).
+Модель угроз, результаты и план Boot 4 — [docs/security.md](docs/security.md).
+
+### Мониторинг
+
+```bash
+docker compose --profile monitoring up --build -d
+python monitoring/verify.py --require-activity
+```
+
+Перед проверкой проведите заявку до решения; для пустого стенда уберите
+`--require-activity`. Prometheus — http://localhost:9090, Grafana — http://localhost:3000,
+дашборд «Кредитный конвейер». Вход и смена параметров — [operations.md](docs/operations.md).
+Оба порта доступны только с localhost. Без модели и мониторинга базовый запуск прежний.
+
+### Развёртывание и восстановление
+
+Комплект `deploy/` включает prod-профиль, Caddy HTTPS, генерацию секретов, отдельные
+учётки банка, ограничения для VPS 4 GiB, согласованные копии БД/документов и restore
+в новый пустой проект. [Инструкция и локальная приёмка](docs/deployment.md).
+Сервер/домен/публичный сертификат проверяет владелец; локальная проверка использует
+собственный CA клиента и не меняет доверие ОС.
+Синтетическая история и сброс отдельного локального демо-проекта —
+[demo-history.md](docs/demo-history.md). Скрипт создаёт данные через API и не подходит
+для производственного стенда.
+
 ## Стек
 
 | Часть | Технологии |
@@ -150,4 +237,5 @@ cd frontend && npm ci && npx tsc --noEmit && npm run lint && npx vitest run
 | Инфраструктура | Docker Compose, nginx (gateway), Swagger UI, GitHub Actions, Trivy |
 
 Версии зафиксированы: `gradle/libs.versions.toml` и BOM Spring Boot для бэкенда,
-`frontend/package-lock.json` для фронтенда, теги образов в `docker-compose.yml`.
+lock-файлы Gradle для разрешённых транзитивных версий, `frontend/package-lock.json`
+для фронтенда, теги образов в `docker-compose.yml`.

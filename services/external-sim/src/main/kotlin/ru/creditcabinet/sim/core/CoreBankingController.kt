@@ -77,6 +77,7 @@ class CoreBankingController(private val faults: Faults) {
         }
     }
 
+    @Operation(summary = "Результат смоделированной выдачи по идентификатору заявки")
     @GetMapping("/loans/{applicationId}")
     fun get(@PathVariable applicationId: UUID): LoanRecord = loans[applicationId] ?: throw NotFoundException("Кредит по заявке не найден")
 }

@@ -40,6 +40,7 @@ class ControlController(
     private val dataset: Dataset,
     @Value("\${cabinet.sim.control-enabled:true}") private val enabled: Boolean,
 ) {
+    @Operation(summary = "Состояние синтетических источников и десять демонстрационных компаний")
     @GetMapping
     fun state(): ControlState =
         ControlState(
@@ -56,6 +57,7 @@ class ControlController(
         return state()
     }
 
+    @Operation(summary = "Вернуть все синтетические источники в нормальный режим")
     @PostMapping("/reset")
     fun reset(): ControlState {
         requireEnabled()

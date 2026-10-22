@@ -1,0 +1,377 @@
+{
+  "checked_at": "2026-10-22T00:54:38.608295+00:00",
+  "checks": [
+    {
+      "name": "Исходный JWT действителен",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "name": "Контроль повторной подписи тестовым ключом",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "name": "Изменённая роль без подписи: /api/v1/users/me",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Изменённая роль без подписи: /api/v1/applications",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Изменённая роль без подписи: /api/v1/notifications",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Просроченный правильно подписанный JWT: /api/v1/users/me",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Просроченный правильно подписанный JWT: /api/v1/applications",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Просроченный правильно подписанный JWT: /api/v1/notifications",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Поддельная подпись: /api/v1/users/me",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Поддельная подпись: /api/v1/applications",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Поддельная подпись: /api/v1/notifications",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Алгоритм none: /api/v1/users/me",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Алгоритм none: /api/v1/applications",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Алгоритм none: /api/v1/notifications",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Роль в заголовке не заменяет JWT",
+      "expected": 403,
+      "actual": 403,
+      "passed": true
+    },
+    {
+      "name": "HTTP Basic выключен",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "IDOR заявки",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Компания в заголовке не заменяет JWT",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Компания в JSON не назначает чужого владельца",
+      "expected": 201,
+      "actual": 201,
+      "passed": true
+    },
+    {
+      "name": "Созданная заявка принадлежит второму клиенту",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "name": "Первый клиент не видит её по переданному companyId",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Исполняемое содержимое под видом PDF",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "name": "Поддельный PDF не сохранён",
+      "passed": true
+    },
+    {
+      "name": "Собственный синтетический PDF принят",
+      "expected": 201,
+      "actual": 201,
+      "passed": true
+    },
+    {
+      "name": "IDOR документа",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Чужой документ через свою заявку",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "IDOR помощника",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Подготовка личного уведомления",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "name": "IDOR уведомления",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Список другого получателя не раскрывает уведомление",
+      "passed": true
+    },
+    {
+      "name": "Владелец может прочитать уведомление",
+      "expected": 204,
+      "actual": 204,
+      "passed": true
+    },
+    {
+      "name": "Внешняя ссылка отклонена: https://evil.example",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "name": "Внешняя ссылка отклонена: //evil.example",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "name": "Внешняя ссылка отклонена: javascript:alert(1)",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "name": "Внешняя ссылка отклонена: /\\evil.example",
+      "expected": 400,
+      "actual": 400,
+      "passed": true
+    },
+    {
+      "name": "Отклонённые ссылки не создали уведомления",
+      "passed": true
+    },
+    {
+      "name": "Закрытый путь шлюза /internal/v1/users/ae299bc1-4c3b-4766-90ac-d5ad9b380bb0",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Закрытый путь шлюза /ext/registry/v1/companies/0092932089",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Внутренняя доставка не опубликована",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Закрытый путь шлюза /internal/v1/users/ae299bc1-4c3b-4766-90ac-d5ad9b380bb0",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Закрытый путь шлюза /ext/registry/v1/companies/0092932089",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Внутренняя доставка не опубликована",
+      "expected": 404,
+      "actual": 404,
+      "passed": true
+    },
+    {
+      "name": "Системный API: без ключа",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Системный API: неверный ключ",
+      "expected": 401,
+      "actual": 401,
+      "passed": true
+    },
+    {
+      "name": "Системный API: правильный ключ",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "name": "nosniff: /",
+      "passed": true
+    },
+    {
+      "name": "Referrer-Policy: /",
+      "passed": true
+    },
+    {
+      "name": "CSP собственные скрипты: /",
+      "passed": true
+    },
+    {
+      "name": "Запрет встраивания: /",
+      "passed": true
+    },
+    {
+      "name": "nosniff: /sign-in",
+      "passed": true
+    },
+    {
+      "name": "Referrer-Policy: /sign-in",
+      "passed": true
+    },
+    {
+      "name": "CSP собственные скрипты: /sign-in",
+      "passed": true
+    },
+    {
+      "name": "Запрет встраивания: /sign-in",
+      "passed": true
+    },
+    {
+      "name": "nosniff: /api/v1/products",
+      "passed": true
+    },
+    {
+      "name": "Referrer-Policy: /api/v1/products",
+      "passed": true
+    },
+    {
+      "name": "Нельзя подписать без подписанного права sign",
+      "expected": 403,
+      "actual": 403,
+      "passed": true
+    },
+    {
+      "name": "Нельзя получить код без подписанного права sign",
+      "expected": 403,
+      "actual": 403,
+      "passed": true
+    },
+    {
+      "name": "Сервер скрывает действие SIGN",
+      "passed": true
+    },
+    {
+      "name": "Уполномоченный владелец подписывает тем же кодом",
+      "expected": 200,
+      "actual": 200,
+      "passed": true
+    },
+    {
+      "name": "Ограничение загрузок с учётом числа экземпляров",
+      "passed": true
+    },
+    {
+      "name": "Ограничение вопросов помощнику",
+      "passed": true
+    },
+    {
+      "name": "Пять неверных паролей блокируют шестую попытку",
+      "passed": true
+    },
+    {
+      "name": "Шлюз ограничивает поток с одного адреса",
+      "passed": true
+    }
+  ],
+  "measurements": {
+    "uploads": {
+      "credit_replicas": 2,
+      "prior_valid_uploads": 1,
+      "accepted_in_probe": 54,
+      "limit_response": 429
+    },
+    "assistant": {
+      "accepted": 20,
+      "limit_response": 429
+    },
+    "login_account": {
+      "statuses": [
+        401,
+        401,
+        401,
+        401,
+        401,
+        429
+      ]
+    },
+    "gateway_rate_body": "html/text",
+    "login_gateway": {
+      "accepted_in_burst": 21,
+      "limit_response": 429
+    }
+  },
+  "failure": null,
+  "cleanup_errors": [],
+  "passed": true
+}

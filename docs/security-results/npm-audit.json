@@ -1,0 +1,54 @@
+{
+  "checked_at": "2026-10-22T00:36:16.869712+00:00",
+  "reports": [
+    {
+      "scope": "frontend",
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 2,
+        "high": 0,
+        "critical": 0,
+        "total": 2
+      },
+      "critical_packages": []
+    },
+    {
+      "scope": "e2e",
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "critical_packages": []
+    },
+    {
+      "scope": "contracts/postman",
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 7,
+        "high": 11,
+        "critical": 0,
+        "total": 18
+      },
+      "critical_packages": []
+    },
+    {
+      "scope": "scripts/license-tools",
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "critical_packages": []
+    }
+  ],
+  "passed": true
+}

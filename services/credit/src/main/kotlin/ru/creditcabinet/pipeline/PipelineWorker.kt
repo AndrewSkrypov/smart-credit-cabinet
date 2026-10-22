@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import ru.creditcabinet.application.domain.PipelineJob
 import ru.creditcabinet.application.domain.PipelineJobs
+import ru.creditcabinet.observability.PipelineMetrics
 import java.time.Clock
 import java.time.Duration
 
@@ -24,6 +25,7 @@ class PipelineWorker(
     private val steps: PipelineSteps,
     private val settings: PipelineSettings,
     private val clock: Clock,
+    private val metrics: PipelineMetrics,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -45,9 +47,12 @@ class PipelineWorker(
     }
 
     private fun process(job: PipelineJob) {
+        val startedNanos = System.nanoTime()
+        var failed = false
         try {
             steps.run(job)
         } catch (exception: Exception) {
+            failed = true
             log.error("Pipeline step {} of application {} failed (attempt {})", job.step, job.applicationId, job.attempts, exception)
             if (job.attempts >= settings.maxAttempts) {
                 jobs.fail(job.id, exception.message)
@@ -55,6 +60,8 @@ class PipelineWorker(
                 val pause = Duration.ofSeconds(10).multipliedBy(1L shl (job.attempts - 1).coerceIn(0, 5))
                 jobs.retry(job.id, clock.instant().plus(pause), exception.message)
             }
+        } finally {
+            metrics.step(job.step, startedNanos, failed)
         }
     }
 

@@ -58,16 +58,19 @@ data class MatchResponse(
     }
 }
 
-@Tag(name = "Products")
+@Tag(name = "Кредитные продукты")
 @RestController
 @RequestMapping("/api/v1/products")
 class ProductController(private val catalog: ProductCatalog) {
+    @Operation(summary = "Каталог кредитных продуктов для подбора финансирования")
     @GetMapping
     fun list(): List<Product> = catalog.all()
 
+    @Operation(summary = "Цели финансирования для мастера подбора")
     @GetMapping("/purposes")
     fun purposes(): List<PurposeResponse> = FinancingPurpose.entries.map { PurposeResponse(it, it.title) }
 
+    @Operation(summary = "Условия продукта по его коду")
     @GetMapping("/{code}")
     fun get(@PathVariable code: String): Product = catalog.find(code) ?: throw NotFoundException("Продукт не найден")
 

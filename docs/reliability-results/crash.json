@@ -1,0 +1,2800 @@
+{
+  "mode": "crash",
+  "project": "cabinet-submission",
+  "cohort": "crash-retry",
+  "started_at": "2026-10-22T00:18:26.260272+00:00",
+  "running_at_crash": [
+    {
+      "id": "e32f7488-8805-4bba-ad81-700e1b0942b0",
+      "application_id": "8de6c96a-ff2a-4bc6-a42b-cdbdc5d26fa0",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:37.888314+00:00"
+    },
+    {
+      "id": "f7acda45-e641-4355-9d1e-d1d3b4623f5f",
+      "application_id": "ad1cb944-1474-4042-9f25-83cb922ad66e",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:37.888314+00:00"
+    },
+    {
+      "id": "f7b0809f-79e0-474f-8a40-3bf13a71d2d1",
+      "application_id": "7b03226f-1fab-4748-bbe1-ca874afaa0f0",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:38.654737+00:00"
+    },
+    {
+      "id": "b3840571-3cf0-4d3a-9808-3f72f2fe5bf4",
+      "application_id": "4bdfbb8f-a03a-422f-ac74-fc652c906837",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:38.654737+00:00"
+    },
+    {
+      "id": "e6c108ff-16a1-41ed-81a1-dd4df7241b23",
+      "application_id": "dd084097-41d9-46a7-9fc8-f8bcc8d7b166",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:37.888314+00:00"
+    },
+    {
+      "id": "b56dc1dc-ce85-4a4a-99c7-ee7f9ff5482f",
+      "application_id": "15220ea6-8152-41be-bc4b-fac10ffafacf",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:37.888314+00:00"
+    },
+    {
+      "id": "6a0f18c9-8b46-49fd-9ddc-9c94f5b3fa7e",
+      "application_id": "89be0655-82bf-416d-8e20-1630dbe0ec06",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:37.888314+00:00"
+    },
+    {
+      "id": "f164cfad-129c-4d67-922d-e155dc1c1a03",
+      "application_id": "f5a30e1f-c8c6-43cb-8da5-012bfc8f79a9",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:37.888314+00:00"
+    },
+    {
+      "id": "7de1820c-b939-49c4-8abd-c0da10028fd5",
+      "application_id": "73aa10dc-5069-4e5f-b150-b33edcee0b72",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:37.888314+00:00"
+    },
+    {
+      "id": "3351340d-b173-466e-a864-f6923969189a",
+      "application_id": "0d3e7967-e206-4117-9d27-30122c22af7d",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:38.654737+00:00"
+    },
+    {
+      "id": "bccdaf29-81e0-43bb-87ba-a98ffaddb4a9",
+      "application_id": "07468a96-4ce0-4837-8a51-a591c9f40231",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:38.654737+00:00"
+    },
+    {
+      "id": "c17a3a87-4dbf-420f-9f42-376643ddf61c",
+      "application_id": "7583b23b-d034-4f1b-b10e-c83bc32c7d42",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:38.654737+00:00"
+    },
+    {
+      "id": "08ee40ba-aaed-4e1b-8d7c-b1b43048c94e",
+      "application_id": "0dee938d-400a-4bb1-a418-c3929e5f7594",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:38.654737+00:00"
+    },
+    {
+      "id": "df7ad776-c05b-4e2b-8422-84581060219d",
+      "application_id": "11c1b21d-5c40-4669-bc5a-87c48a9d74b0",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:38.654737+00:00"
+    },
+    {
+      "id": "7932889e-532b-4b36-ac6d-29dcfb39621b",
+      "application_id": "72e3b639-babf-4dae-9409-276a2a01aba9",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:38.654737+00:00"
+    },
+    {
+      "id": "f862a21c-8abd-47b9-b269-be965ea64540",
+      "application_id": "2c0ce39f-45ee-447c-8cbc-ba6010f93037",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:38.654737+00:00"
+    },
+    {
+      "id": "6d7e0ac0-a403-4a6c-97b6-e62aac70c025",
+      "application_id": "cdb21d50-f2d0-4a0a-be99-7092e6bc6185",
+      "step": "DATA_CHECK",
+      "status": "RUNNING",
+      "attempts": 1,
+      "locked_until": "2026-10-22T00:18:38.654737+00:00"
+    }
+  ],
+  "stopped_container": "9171b113db12",
+  "before_crash": {
+    "name": "/cabinet-submission-credit-1",
+    "image_id": "sha256:f0b2a8cffca9553b3d213a815634bb85926ab330c11b9b958df4232d51e0254e",
+    "state": {
+      "Status": "running",
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 72614,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-10-22T00:15:50.091702771Z",
+      "FinishedAt": "2026-10-22T00:15:10.634104462Z",
+      "Health": {
+        "Status": "healthy",
+        "FailingStreak": 0,
+        "Log": [
+          {
+            "Start": "2026-10-22T00:17:40.359339624Z",
+            "End": "2026-10-22T00:17:40.417261551Z",
+            "ExitCode": 0,
+            "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+          },
+          {
+            "Start": "2026-10-22T00:17:47.696600024Z",
+            "End": "2026-10-22T00:17:47.757997275Z",
+            "ExitCode": 0,
+            "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+          },
+          {
+            "Start": "2026-10-22T00:17:57.759942142Z",
+            "End": "2026-10-22T00:17:57.817494086Z",
+            "ExitCode": 0,
+            "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+          },
+          {
+            "Start": "2026-10-22T00:18:07.818541025Z",
+            "End": "2026-10-22T00:18:07.872291096Z",
+            "ExitCode": 0,
+            "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+          },
+          {
+            "Start": "2026-10-22T00:18:15.154810856Z",
+            "End": "2026-10-22T00:18:15.227700197Z",
+            "ExitCode": 0,
+            "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+          }
+        ]
+      }
+    }
+  },
+  "stopped_state": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 137,
+    "Error": "",
+    "StartedAt": "2026-10-22T00:15:50.091702771Z",
+    "FinishedAt": "2026-10-22T00:18:24.061034127Z",
+    "Health": {
+      "Status": "unhealthy",
+      "FailingStreak": 0,
+      "Log": [
+        {
+          "Start": "2026-10-22T00:17:40.359339624Z",
+          "End": "2026-10-22T00:17:40.417261551Z",
+          "ExitCode": 0,
+          "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+        },
+        {
+          "Start": "2026-10-22T00:17:47.696600024Z",
+          "End": "2026-10-22T00:17:47.757997275Z",
+          "ExitCode": 0,
+          "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+        },
+        {
+          "Start": "2026-10-22T00:17:57.759942142Z",
+          "End": "2026-10-22T00:17:57.817494086Z",
+          "ExitCode": 0,
+          "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+        },
+        {
+          "Start": "2026-10-22T00:18:07.818541025Z",
+          "End": "2026-10-22T00:18:07.872291096Z",
+          "ExitCode": 0,
+          "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+        },
+        {
+          "Start": "2026-10-22T00:18:15.154810856Z",
+          "End": "2026-10-22T00:18:15.227700197Z",
+          "ExitCode": 0,
+          "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+        }
+      ]
+    }
+  },
+  "transient_network": [
+    {
+      "id": "dd084097-41d9-46a7-9fc8-f8bcc8d7b166",
+      "error": "TimeoutError"
+    },
+    {
+      "id": "8de6c96a-ff2a-4bc6-a42b-cdbdc5d26fa0",
+      "error": "TimeoutError"
+    },
+    {
+      "id": "79c7b9bc-c113-4bca-a011-9aff74ccc4bb",
+      "error": "TimeoutError"
+    },
+    {
+      "id": "89be0655-82bf-416d-8e20-1630dbe0ec06",
+      "error": "TimeoutError"
+    },
+    {
+      "id": "15220ea6-8152-41be-bc4b-fac10ffafacf",
+      "error": "TimeoutError"
+    },
+    {
+      "id": "53082e26-2a1d-45e3-a40e-f15989be99f6",
+      "error": "TimeoutError"
+    },
+    {
+      "id": "73aa10dc-5069-4e5f-b150-b33edcee0b72",
+      "error": "TimeoutError"
+    },
+    {
+      "id": "366709fd-fc93-49cf-8338-1f2efcd69ae9",
+      "error": "TimeoutError"
+    }
+  ],
+  "applications": [
+    {
+      "id": "53082e26-2a1d-45e3-a40e-f15989be99f6",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "e48fb6be-4177-4ae8-ad1a-cd80803996a5",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "cbd853ab-1772-444f-8249-9d9e14168e25",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:17:37.172695Z"
+        },
+        {
+          "id": "c2a2f22a-65f7-4557-9677-b290c84b52a7",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "cbd853ab-1772-444f-8249-9d9e14168e25",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.703937Z"
+        },
+        {
+          "id": "a3d6734f-9c65-40c1-a7fc-17634868b7b6",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:23.121612Z"
+        },
+        {
+          "id": "90837161-4013-4950-ac2b-d8e5f0be3456",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:29.519119Z"
+        },
+        {
+          "id": "309c5da7-ed6f-42aa-bb90-1e8ea06aa13b",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 92,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "7f741ccc-1459-484f-9fa3-ae7c76f5e4ed"
+          },
+          "occurredAt": "2026-10-22T00:18:35.185930Z"
+        },
+        {
+          "id": "fb045f60-e05c-45e3-abd3-d7503d23c1af",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "02aeeb05-ad24-4d50-8a0b-3d3ff44a722b",
+            "decisionId": "a6e9f63b-087b-4cc8-bb67-401cf658aece"
+          },
+          "occurredAt": "2026-10-22T00:18:35.787269Z"
+        }
+      ]
+    },
+    {
+      "id": "366709fd-fc93-49cf-8338-1f2efcd69ae9",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "93baa27d-3eca-4bb4-863d-4af29f236ae4",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "3950ebfa-fe23-4841-bd52-a6d978c54dba",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:17:39.788141Z"
+        },
+        {
+          "id": "51b41d32-8918-4145-856f-462b7e5147b3",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "3950ebfa-fe23-4841-bd52-a6d978c54dba",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.703999Z"
+        },
+        {
+          "id": "4a0934c3-584f-498e-9b1b-220cabbfad89",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:23.346251Z"
+        },
+        {
+          "id": "69db8a10-0ace-4e66-a739-9c4ce713b904",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:30.142914Z"
+        },
+        {
+          "id": "193767f8-8284-4350-8032-20d7b90d6305",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 96,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "30f58e8b-ecab-4330-9f15-a95fae6d56ce"
+          },
+          "occurredAt": "2026-10-22T00:18:35.194495Z"
+        },
+        {
+          "id": "7a073b0a-b6f8-4189-b31f-7d69a8ed5ed4",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "1ed80225-c58e-471e-bc38-af44e327d2ef",
+            "decisionId": "3613aa83-f5f2-4f7b-8677-69e7ddf7c96e"
+          },
+          "occurredAt": "2026-10-22T00:18:35.692745Z"
+        }
+      ]
+    },
+    {
+      "id": "15220ea6-8152-41be-bc4b-fac10ffafacf",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "789f16f2-5d6f-43bc-ab7b-2a6517d446be",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "00e54ef5-e057-4332-be4c-a8e2a11f9798",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:17:42.451463Z"
+        },
+        {
+          "id": "e8ce1432-8ee4-4c23-82e9-a9ab6181687d",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "00e54ef5-e057-4332-be4c-a8e2a11f9798",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.727613Z"
+        },
+        {
+          "id": "4ffead14-cc14-4991-90ff-86971fc45776",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:24.006146Z"
+        },
+        {
+          "id": "32424350-269e-44f9-a78e-922ad2e95886",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:32.014323Z"
+        },
+        {
+          "id": "3b2c1ba8-65d3-44c8-ae33-d6c914837010",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 89,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "8e29272c-c82e-40a4-b2e1-24cf40ec0c13"
+          },
+          "occurredAt": "2026-10-22T00:18:35.223756Z"
+        },
+        {
+          "id": "802e5443-854d-4175-8794-a6e84e1fa9df",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "beb35e82-9cfc-4520-b0d7-467e2a682fa8",
+            "decisionId": "95927833-318f-4990-ab22-b88caf005084"
+          },
+          "occurredAt": "2026-10-22T00:18:35.743868Z"
+        }
+      ]
+    },
+    {
+      "id": "dd084097-41d9-46a7-9fc8-f8bcc8d7b166",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "7eb00cc1-a0d4-4672-9383-68f23633b900",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "faac8565-cbe1-41d3-af46-54dfc5d45cd3",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:17:42.362753Z"
+        },
+        {
+          "id": "96ef9b11-73cb-459a-9e39-b6741f2ccddf",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "faac8565-cbe1-41d3-af46-54dfc5d45cd3",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.726638Z"
+        },
+        {
+          "id": "485503f1-2003-4b8b-9986-6bef9734e291",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:23.788461Z"
+        },
+        {
+          "id": "954afbfc-881b-437a-ba22-3e82cea4ad55",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:31.393271Z"
+        },
+        {
+          "id": "dae03461-5ee1-4c9b-8582-07e806c209a7",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 89,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "c98a113a-4719-41f9-9215-295c841b4cf6"
+          },
+          "occurredAt": "2026-10-22T00:18:35.214800Z"
+        },
+        {
+          "id": "4d0f9bc4-0cfd-42c7-963b-df9b70eb8685",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "f6478bfb-a47b-4f7d-a55e-4bc2dea73aad",
+            "decisionId": "e25fbbcb-6259-4811-8d23-4dd291e7a76c"
+          },
+          "occurredAt": "2026-10-22T00:18:35.692757Z"
+        }
+      ]
+    },
+    {
+      "id": "89be0655-82bf-416d-8e20-1630dbe0ec06",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "2172593f-5244-4632-8d9f-edc0f99cb642",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "ca99532f-a47a-47cd-93cd-678ccca487b8",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:17:44.974670Z"
+        },
+        {
+          "id": "460d206b-75b8-4c2c-8ce5-7815923313ee",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "ca99532f-a47a-47cd-93cd-678ccca487b8",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.726280Z"
+        },
+        {
+          "id": "f732a577-fc5d-4612-b4e1-150c3e6aa09b",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:36.099816Z"
+        },
+        {
+          "id": "1509a995-ea6c-439b-941e-9ac25bf21648",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:38.426Z"
+        },
+        {
+          "id": "84df8865-4ee3-4981-9a65-02a8d125f05b",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 91,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "b1156838-b439-4efc-ba8d-686b92d465d8"
+          },
+          "occurredAt": "2026-10-22T00:18:39.696027Z"
+        },
+        {
+          "id": "d8f82e29-e16a-402f-a442-cd0a6a789c89",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "a0134514-6485-4c36-81e7-41bbb4da42b9",
+            "decisionId": "7f23396a-b897-4532-9cb4-76fef7329078"
+          },
+          "occurredAt": "2026-10-22T00:18:40.258669Z"
+        }
+      ]
+    },
+    {
+      "id": "79c7b9bc-c113-4bca-a011-9aff74ccc4bb",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "d5e88708-d0e0-4c13-8027-4635508eaa58",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "9c7bb2f6-f9ad-4093-ad38-05000411f943",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:17:47.616164Z"
+        },
+        {
+          "id": "66227f65-8bbc-453b-be2e-ef4f0f729a64",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "9c7bb2f6-f9ad-4093-ad38-05000411f943",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.712347Z"
+        },
+        {
+          "id": "a0b18478-de3d-4cc3-b38a-780868ca9d19",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:23.566893Z"
+        },
+        {
+          "id": "b52d423d-1026-418a-8ce3-57ba69d548ed",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:30.770279Z"
+        },
+        {
+          "id": "982f59dd-d063-4461-809b-9ae204da9628",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 90,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "0ba40fa6-5f15-49fb-91e4-3867871f4a50"
+          },
+          "occurredAt": "2026-10-22T00:18:35.204955Z"
+        },
+        {
+          "id": "e71d6e5d-6b6a-4d49-a3b7-def2142d9828",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "83f8fb82-b7f0-4482-b658-adc69097cd28",
+            "decisionId": "c8ab0d5b-61c6-4106-bbdb-15efb2f01b3c"
+          },
+          "occurredAt": "2026-10-22T00:18:35.710294Z"
+        }
+      ]
+    },
+    {
+      "id": "73aa10dc-5069-4e5f-b150-b33edcee0b72",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "f76f0c86-c419-4c4a-a291-199df646a702",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "4e3fe76f-3fbc-4925-aeb1-4a5b76dd74d1",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:17:50.226237Z"
+        },
+        {
+          "id": "78433c89-b752-461f-81ed-101a452161f9",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "4e3fe76f-3fbc-4925-aeb1-4a5b76dd74d1",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.729053Z"
+        },
+        {
+          "id": "c7ea5899-3c21-454c-992e-0510fbde07d7",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:36.523122Z"
+        },
+        {
+          "id": "3b9e2717-0c93-4c1c-8ece-8f366a8131cb",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:39.669806Z"
+        },
+        {
+          "id": "8db34697-e4f1-4914-bded-039c5ecc1a0b",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 89,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "fef1202b-a355-487d-9e2b-b1959eb3f721"
+          },
+          "occurredAt": "2026-10-22T00:18:39.715377Z"
+        },
+        {
+          "id": "82206971-41a6-4961-b6bb-da6ae63a2cc4",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "0daaff92-20f2-4e58-92fc-3e3eff3b4ca1",
+            "decisionId": "7ddf49da-db49-4583-bd4b-0fdcbe5ddd98"
+          },
+          "occurredAt": "2026-10-22T00:18:40.306849Z"
+        }
+      ]
+    },
+    {
+      "id": "8de6c96a-ff2a-4bc6-a42b-cdbdc5d26fa0",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "5d9787aa-2ec5-47c5-89f2-a5c83a24cb2a",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "63c3d216-41e7-4d4c-982f-f448306ecfc3",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:17:52.860092Z"
+        },
+        {
+          "id": "90d0614d-6d85-4f8f-a24c-5bad898ae83b",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "63c3d216-41e7-4d4c-982f-f448306ecfc3",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.727706Z"
+        },
+        {
+          "id": "e5cde1ee-946a-4df7-94c3-cc3a060f650c",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:35.673608Z"
+        },
+        {
+          "id": "af6eaab2-9f0a-4942-b252-c23a08046232",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:37.156482Z"
+        },
+        {
+          "id": "65d39952-c4df-4b0c-9162-bd861e6e59f8",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 87,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "afa4f2cc-9cad-47bf-b1ef-a5cc2bbf2a65"
+          },
+          "occurredAt": "2026-10-22T00:18:39.680233Z"
+        },
+        {
+          "id": "9dead2bd-2ee4-4b4e-ade3-a18acdfe3389",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "5485987a-90f5-414f-861a-581a7cc62b51",
+            "decisionId": "e09a11b6-3066-455c-b071-8e8b91236f8e"
+          },
+          "occurredAt": "2026-10-22T00:18:40.241362Z"
+        }
+      ]
+    },
+    {
+      "id": "f5a30e1f-c8c6-43cb-8da5-012bfc8f79a9",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "a8c13905-1985-405a-a9dc-e43037066667",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "6918eae2-d0b6-4497-943f-44d540ef7944",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:17:55.783493Z"
+        },
+        {
+          "id": "6adcb2da-cbd1-476a-a3e5-2138b9d67dff",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "6918eae2-d0b6-4497-943f-44d540ef7944",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.745541Z"
+        },
+        {
+          "id": "f5ee4973-691a-4e57-af08-9745856ca9c5",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:36.310799Z"
+        },
+        {
+          "id": "ffcd1fa1-4063-43fa-876e-55eea9ee6758",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:39.048581Z"
+        },
+        {
+          "id": "8e17a17d-1079-4db4-8fc1-85cb060337f8",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 96,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "d63d9d2b-1c61-46d1-a7dd-bd651775390a"
+          },
+          "occurredAt": "2026-10-22T00:18:39.707211Z"
+        },
+        {
+          "id": "371eb66d-bd85-4877-b227-eb0db474d242",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "0ffc40e8-0bb2-4b64-bcfb-650c2f1d6b3c",
+            "decisionId": "f9e46ca7-d2b9-447c-8604-6fd7b18c8ad1"
+          },
+          "occurredAt": "2026-10-22T00:18:40.282593Z"
+        }
+      ]
+    },
+    {
+      "id": "7b03226f-1fab-4748-bbe1-ca874afaa0f0",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "78b2868a-8482-483a-8f8a-a57796ac3601",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "dd39e3eb-02f4-4bbc-88ec-a6d54cf836d6",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:17:58.772188Z"
+        },
+        {
+          "id": "e1fe7ed8-dd1c-4deb-9f46-238a01a30633",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "dd39e3eb-02f4-4bbc-88ec-a6d54cf836d6",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.801391Z"
+        },
+        {
+          "id": "ca9fe0e3-765d-4f3e-9c9b-346cd58cac9a",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:23.865653Z"
+        },
+        {
+          "id": "8c0d9a19-a752-420f-923c-df1e3a0d134e",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:26.408989Z"
+        },
+        {
+          "id": "bf10ea91-88a9-4cb5-9a8a-905f282dcb7b",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 93,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "ebb7ea2b-de8c-4b17-8b24-373f7c5241c7"
+          },
+          "occurredAt": "2026-10-22T00:18:35.140776Z"
+        },
+        {
+          "id": "f24b490e-2b58-4c71-8ccc-21ec5e7a0d10",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "c348911c-9fec-4f6c-9be2-7a1a8a1f8518",
+            "decisionId": "8a3446fb-70de-43e7-84c3-f9e6ba99cf79"
+          },
+          "occurredAt": "2026-10-22T00:18:36.291Z"
+        }
+      ]
+    },
+    {
+      "id": "0dee938d-400a-4bb1-a418-c3929e5f7594",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "d3d6a6e4-6887-407c-85bd-92b92019f28e",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "636ff7ae-df1a-4c2b-ac79-ed6a02ebac5e",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:01.384168Z"
+        },
+        {
+          "id": "21679356-af97-4596-a476-8013de05f2a8",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "636ff7ae-df1a-4c2b-ac79-ed6a02ebac5e",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.805786Z"
+        },
+        {
+          "id": "aaf1f1f8-9b70-44fd-9077-eaca71b51e5b",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:24.933174Z"
+        },
+        {
+          "id": "4e9043f2-fc7e-470e-8788-2b60483511cf",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:32.647874Z"
+        },
+        {
+          "id": "9cd2b01d-acf6-468f-83ca-929b3c3f7f4a",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 87,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "6d67091b-35e1-4750-b13f-723dc662bb16"
+          },
+          "occurredAt": "2026-10-22T00:18:35.232796Z"
+        },
+        {
+          "id": "cf0bd192-f3cc-4753-aa24-d7e1fe9d5d1f",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "bd8e42e5-e153-4ca4-858f-afe741b94f4e",
+            "decisionId": "0313033b-124d-4036-9f17-48bdcca6279c"
+          },
+          "occurredAt": "2026-10-22T00:18:36.334206Z"
+        }
+      ]
+    },
+    {
+      "id": "ad1cb944-1474-4042-9f25-83cb922ad66e",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "e11dcd19-e8b8-4409-9925-288db3407b64",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "2e1f3c2e-91a8-4e93-a0f5-c471c233aea6",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:04.004290Z"
+        },
+        {
+          "id": "64f3919c-b118-4962-b129-a0c978e371c2",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "2e1f3c2e-91a8-4e93-a0f5-c471c233aea6",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.779666Z"
+        },
+        {
+          "id": "bf1cebfd-00cb-4139-8530-ebb28f99decd",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:35.886586Z"
+        },
+        {
+          "id": "8ec013f0-2a96-4750-8583-658a7f9d4000",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:37.796253Z"
+        },
+        {
+          "id": "ac46b154-fc5b-4529-b865-82398eedf2bd",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 100,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "d2cb2769-2a6e-46b4-b4c3-085e2963944a"
+          },
+          "occurredAt": "2026-10-22T00:18:39.687297Z"
+        },
+        {
+          "id": "842c0b17-7949-4d07-b8a0-465aed1ed107",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "fb8182a6-8cd3-4df9-a762-4448a1c9faee",
+            "decisionId": "08d91a33-a354-4974-886d-3f3dc7c4e5cd"
+          },
+          "occurredAt": "2026-10-22T00:18:39.731036Z"
+        }
+      ]
+    },
+    {
+      "id": "0d3e7967-e206-4117-9d27-30122c22af7d",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "2b58dffd-d2db-460e-82d5-5d2405308567",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "72422250-959d-4cbc-9cd1-f01af7995f8d",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:06.638311Z"
+        },
+        {
+          "id": "7ede6999-ff5f-4d19-a067-89b15bb8f5ef",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "72422250-959d-4cbc-9cd1-f01af7995f8d",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.791765Z"
+        },
+        {
+          "id": "048d1aa6-570f-4007-b3a4-a87620890384",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:24.291480Z"
+        },
+        {
+          "id": "be24c7ef-0920-4fb9-a245-d4092e939ea3",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:27.654333Z"
+        },
+        {
+          "id": "c0d15d51-33cf-4924-98fb-8d7290644393",
+          "event": "AUTO_OFFER",
+          "fromStatus": "SCORING",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": null,
+          "payload": {
+            "score": 96,
+            "rating": "A",
+            "offerId": "54380d5e-9897-4875-81ae-471f08d21404",
+            "decisionId": "2a17c182-7944-4e47-bc29-b1e01422c0ce"
+          },
+          "occurredAt": "2026-10-22T00:18:35.156966Z"
+        }
+      ]
+    },
+    {
+      "id": "07468a96-4ce0-4837-8a51-a591c9f40231",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "f690e434-9491-4109-90ca-5b8123913a3c",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "099b9ecc-cd7d-4832-894b-f69af586956f",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:09.263459Z"
+        },
+        {
+          "id": "c51b8ebb-55c5-4072-8ed0-6b294df8f57d",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "099b9ecc-cd7d-4832-894b-f69af586956f",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.811889Z"
+        },
+        {
+          "id": "37670e92-4c5d-4a03-b937-a5c7d8061932",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:24.503091Z"
+        },
+        {
+          "id": "b5478f0f-8173-490c-9ffa-e459fc5f4fc3",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:28.281528Z"
+        },
+        {
+          "id": "8961aef4-7f0a-4930-9627-a6356752164d",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 83,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "5e41d117-b698-424a-af06-d679109c241e"
+          },
+          "occurredAt": "2026-10-22T00:18:35.166012Z"
+        },
+        {
+          "id": "cb6b7d37-1044-48dc-81a1-bb2eedb1a320",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "84a5cef7-c789-4463-8117-7f9d8349558d",
+            "decisionId": "209c15ce-f1bf-420b-9395-b7981de18f34"
+          },
+          "occurredAt": "2026-10-22T00:18:36.434568Z"
+        }
+      ]
+    },
+    {
+      "id": "7583b23b-d034-4f1b-b10e-c83bc32c7d42",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "3aa18139-cba3-4be2-a52b-1c7cd459d348",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "cfebd9a4-a381-418a-a9b8-d66d4c6e6bf2",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:09.167963Z"
+        },
+        {
+          "id": "254eebaa-b5c1-4ada-94e2-a268cd504657",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "cfebd9a4-a381-418a-a9b8-d66d4c6e6bf2",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.833057Z"
+        },
+        {
+          "id": "b93332b8-c1ea-4ebc-8a5b-94c06af42c68",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:24.718205Z"
+        },
+        {
+          "id": "75b39127-dffc-4456-a637-19ba1540e970",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:28.898568Z"
+        },
+        {
+          "id": "b5c9609e-4443-4ee8-bbfd-527745816d0d",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 92,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "23b285cb-b6ec-4062-8ac7-3031aca522be"
+          },
+          "occurredAt": "2026-10-22T00:18:35.173717Z"
+        },
+        {
+          "id": "b8e0eb3f-4ea1-43c5-831f-7d4f81744593",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "9eb28aa5-79b2-4811-a888-1c0731dda271",
+            "decisionId": "8e11f825-c3ed-4545-a103-cba1263e9d0c"
+          },
+          "occurredAt": "2026-10-22T00:18:36.924401Z"
+        }
+      ]
+    },
+    {
+      "id": "11c1b21d-5c40-4669-bc5a-87c48a9d74b0",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "19fc1adf-fd3a-4c4d-8eec-b7d3cfda4dbd",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "54e5a47a-3b91-42a4-a7fe-3df40b4bae99",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:11.800410Z"
+        },
+        {
+          "id": "3c0e165b-0955-4746-a643-109efe2cac2b",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "54e5a47a-3b91-42a4-a7fe-3df40b4bae99",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.808611Z"
+        },
+        {
+          "id": "16e2e37c-335f-4fb9-8805-f3047baa020d",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:25.148606Z"
+        },
+        {
+          "id": "8fc393ed-4cfe-4b45-a244-343929b3d4e7",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:33.267049Z"
+        },
+        {
+          "id": "e89cac80-b69a-4e78-a4ce-d6345169a799",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 93,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "687d639a-78f2-447e-9e1b-10e7fa4f5880"
+          },
+          "occurredAt": "2026-10-22T00:18:35.243261Z"
+        },
+        {
+          "id": "120bb312-88f1-4d14-aeff-b59970ae638c",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "e22f9a90-cfa1-414a-bb02-470bb7a99f90",
+            "decisionId": "4965c362-c588-4dac-a667-930b3076d434"
+          },
+          "occurredAt": "2026-10-22T00:18:36.933682Z"
+        }
+      ]
+    },
+    {
+      "id": "4bdfbb8f-a03a-422f-ac74-fc652c906837",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "8a8e5f1b-affe-472c-928a-0c26ba9277aa",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "bae11e3f-5c31-4322-9b32-c51d090f475f",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:14.420948Z"
+        },
+        {
+          "id": "0fa953a7-ea19-4912-8379-f2b4e0d6c91c",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "bae11e3f-5c31-4322-9b32-c51d090f475f",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.821650Z"
+        },
+        {
+          "id": "335b6cd6-5d2a-4d2c-93f5-402de41bfce7",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:24.078350Z"
+        },
+        {
+          "id": "1228bf15-a052-427e-a9b6-3b0c6ef320ca",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:27.030787Z"
+        },
+        {
+          "id": "fb807f67-05b6-4ee9-a09d-539c5617938a",
+          "event": "AUTO_OFFER",
+          "fromStatus": "SCORING",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": null,
+          "payload": {
+            "score": 93,
+            "rating": "A",
+            "offerId": "da127bc7-fbc9-4ddb-9c8e-4f7bbf8347b4",
+            "decisionId": "cb669d93-4e56-4746-b0e6-23e7c52fbdd9"
+          },
+          "occurredAt": "2026-10-22T00:18:35.148318Z"
+        }
+      ]
+    },
+    {
+      "id": "72e3b639-babf-4dae-9409-276a2a01aba9",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "f4d9d40b-06db-407c-9566-10054e99f929",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "52d4fb47-773a-480a-a139-f77b4c5fef19",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:17.089491Z"
+        },
+        {
+          "id": "c98ebfb9-84c8-4b91-af2b-0da09ec59cd1",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "52d4fb47-773a-480a-a139-f77b4c5fef19",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.837842Z"
+        },
+        {
+          "id": "caf328a8-9c11-4d81-bda6-516fa562057e",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:25.359370Z"
+        },
+        {
+          "id": "0b2ad5ea-5ad7-4080-9515-46e5ab640a3e",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:33.890447Z"
+        },
+        {
+          "id": "c63232c4-3a75-43d9-82a0-e360c044785c",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 96,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "a9f1e936-a8d0-4515-93f0-3914a8278cc7"
+          },
+          "occurredAt": "2026-10-22T00:18:35.252463Z"
+        },
+        {
+          "id": "c5fe57dc-399d-48a1-b859-2a7b99c0ff17",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "e4251ba2-5d2d-4a7b-ae08-d45112710590",
+            "decisionId": "127355bd-e314-4127-a77a-c8204ee0498c"
+          },
+          "occurredAt": "2026-10-22T00:18:37.038357Z"
+        }
+      ]
+    },
+    {
+      "id": "2c0ce39f-45ee-447c-8cbc-ba6010f93037",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "bf2cfac9-689d-4cc1-a655-5d1a8e3d23f3",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "acc9eef4-5cc5-42d5-8e41-0c0bbffa4068",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:19.706949Z"
+        },
+        {
+          "id": "8b237ec6-416c-456c-bb20-0741b8882f3f",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "acc9eef4-5cc5-42d5-8e41-0c0bbffa4068",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.844657Z"
+        },
+        {
+          "id": "b4758380-426a-4789-b05d-1c481f80d767",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:25.572164Z"
+        },
+        {
+          "id": "7bfceb2c-6d61-416b-99c3-6dde58d87f75",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:34.509111Z"
+        },
+        {
+          "id": "2e69dd00-e866-4ac9-9a7b-5454f305a4eb",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 93,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "06701abb-5cb2-4109-a708-4e2bdea19a95"
+          },
+          "occurredAt": "2026-10-22T00:18:35.261422Z"
+        },
+        {
+          "id": "e17d3feb-9a37-49f8-bbf5-de2d5d3818a5",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "0e8287b7-50ea-42c0-bbc0-09c81d39c2b2",
+            "decisionId": "70bc362f-b8d0-4ea0-ad92-d9c686317fd5"
+          },
+          "occurredAt": "2026-10-22T00:18:37.525246Z"
+        }
+      ]
+    },
+    {
+      "id": "cdb21d50-f2d0-4a0a-be99-7092e6bc6185",
+      "status": "OFFER_ISSUED",
+      "events": [
+        {
+          "id": "b6e83b28-631f-4f62-8f3d-1c1154693330",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "9738e984-7bfa-4682-bc1b-b6768d513c5d",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.323759Z"
+        },
+        {
+          "id": "48eca336-293f-45fc-8f4b-4bef8666bf79",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "9738e984-7bfa-4682-bc1b-b6768d513c5d",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:22.845356Z"
+        },
+        {
+          "id": "2375b769-fd45-49f9-9ae9-4251aced6a6c",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:18:25.786692Z"
+        },
+        {
+          "id": "c27d49d4-1525-4da9-82f3-4bd18e3f1728",
+          "event": "ENRICHMENT_DONE",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "SCORING",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BANK",
+              "REGISTRY",
+              "TAX",
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:18:35.132893Z"
+        },
+        {
+          "id": "d4775970-2181-4735-bc24-2af383c1f70e",
+          "event": "TO_MANUAL_REVIEW",
+          "fromStatus": "SCORING",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "REVENUE_MISMATCH",
+          "comment": null,
+          "payload": {
+            "score": 87,
+            "rating": "A",
+            "reasons": [
+              "REVENUE_MISMATCH"
+            ],
+            "decisionId": "4ed5b9bc-f7b5-4cc5-a3b8-d22119d4e9dd"
+          },
+          "occurredAt": "2026-10-22T00:18:35.269909Z"
+        },
+        {
+          "id": "78a7df13-6e7f-4977-ad0e-c80c0d790ccd",
+          "event": "APPROVE",
+          "fromStatus": "MANUAL_REVIEW",
+          "toStatus": "OFFER_ISSUED",
+          "actorType": "UNDERWRITER",
+          "actorId": null,
+          "reasonCode": "APPROVED",
+          "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
+          "payload": {
+            "offerId": "40901251-ad4b-491f-9e47-8d2e8f0fbbb7",
+            "decisionId": "d06e4820-6e7f-43b8-9112-973579f080c7"
+          },
+          "occurredAt": "2026-10-22T00:18:37.534572Z"
+        }
+      ]
+    }
+  ],
+  "database": {
+    "duplicate_offers": 0,
+    "failed_jobs": 0,
+    "due_open_jobs": 0,
+    "retried_jobs": 5
+  },
+  "jobs": [
+    {
+      "id": "d1286367-65cd-4802-9e6d-1a189811763c",
+      "application_id": "53082e26-2a1d-45e3-a40e-f15989be99f6",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "68a1a1e5-4ee4-4d23-b29f-9fe7aedbac72",
+      "application_id": "366709fd-fc93-49cf-8338-1f2efcd69ae9",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "48c211e9-59ae-4e52-af6f-5abb5df4b085",
+      "application_id": "0dee938d-400a-4bb1-a418-c3929e5f7594",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "ed80ca0f-4526-4cec-8cc1-439b7fd73458",
+      "application_id": "11c1b21d-5c40-4669-bc5a-87c48a9d74b0",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "847a99e0-4eb9-4db2-ac60-5a04782966ac",
+      "application_id": "72e3b639-babf-4dae-9409-276a2a01aba9",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "0b53ef0d-0167-493d-81da-6ff5923ed63a",
+      "application_id": "7b03226f-1fab-4748-bbe1-ca874afaa0f0",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "056fddf8-a55a-4bd6-a18c-8c2cbc30a584",
+      "application_id": "0dee938d-400a-4bb1-a418-c3929e5f7594",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "f08fceb1-e9f0-4258-92fd-0d2b0e51b12f",
+      "application_id": "cdb21d50-f2d0-4a0a-be99-7092e6bc6185",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "1904a88a-ed3d-423d-a899-7cbccd8912fc",
+      "application_id": "89be0655-82bf-416d-8e20-1630dbe0ec06",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "f7b0809f-79e0-474f-8a40-3bf13a71d2d1",
+      "application_id": "7b03226f-1fab-4748-bbe1-ca874afaa0f0",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "b3840571-3cf0-4d3a-9808-3f72f2fe5bf4",
+      "application_id": "4bdfbb8f-a03a-422f-ac74-fc652c906837",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "e32f7488-8805-4bba-ad81-700e1b0942b0",
+      "application_id": "8de6c96a-ff2a-4bc6-a42b-cdbdc5d26fa0",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 2,
+      "locked_until": null
+    },
+    {
+      "id": "f7acda45-e641-4355-9d1e-d1d3b4623f5f",
+      "application_id": "ad1cb944-1474-4042-9f25-83cb922ad66e",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 2,
+      "locked_until": null
+    },
+    {
+      "id": "7f430e9e-a652-407d-899a-29fcdec86cef",
+      "application_id": "79c7b9bc-c113-4bca-a011-9aff74ccc4bb",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "e6c108ff-16a1-41ed-81a1-dd4df7241b23",
+      "application_id": "dd084097-41d9-46a7-9fc8-f8bcc8d7b166",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "b56dc1dc-ce85-4a4a-99c7-ee7f9ff5482f",
+      "application_id": "15220ea6-8152-41be-bc4b-fac10ffafacf",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "3351340d-b173-466e-a864-f6923969189a",
+      "application_id": "0d3e7967-e206-4117-9d27-30122c22af7d",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "bccdaf29-81e0-43bb-87ba-a98ffaddb4a9",
+      "application_id": "07468a96-4ce0-4837-8a51-a591c9f40231",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "c17a3a87-4dbf-420f-9f42-376643ddf61c",
+      "application_id": "7583b23b-d034-4f1b-b10e-c83bc32c7d42",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "ff2e531a-880c-4fd9-90a9-4246b8923a41",
+      "application_id": "53082e26-2a1d-45e3-a40e-f15989be99f6",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "ffef281c-52aa-4483-81e2-4c6ba7286a6e",
+      "application_id": "366709fd-fc93-49cf-8338-1f2efcd69ae9",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "57969577-0967-414a-9e09-bd2370b13193",
+      "application_id": "79c7b9bc-c113-4bca-a011-9aff74ccc4bb",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "deb54ca1-1a38-4215-a2dd-ce4d0ae33789",
+      "application_id": "dd084097-41d9-46a7-9fc8-f8bcc8d7b166",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "3b783f53-d05b-4982-a5a9-5d70361b2fb8",
+      "application_id": "15220ea6-8152-41be-bc4b-fac10ffafacf",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "6a0f18c9-8b46-49fd-9ddc-9c94f5b3fa7e",
+      "application_id": "89be0655-82bf-416d-8e20-1630dbe0ec06",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 2,
+      "locked_until": null
+    },
+    {
+      "id": "f164cfad-129c-4d67-922d-e155dc1c1a03",
+      "application_id": "f5a30e1f-c8c6-43cb-8da5-012bfc8f79a9",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 2,
+      "locked_until": null
+    },
+    {
+      "id": "7de1820c-b939-49c4-8abd-c0da10028fd5",
+      "application_id": "73aa10dc-5069-4e5f-b150-b33edcee0b72",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 2,
+      "locked_until": null
+    },
+    {
+      "id": "08ee40ba-aaed-4e1b-8d7c-b1b43048c94e",
+      "application_id": "0dee938d-400a-4bb1-a418-c3929e5f7594",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "262f9ced-06c1-4105-a75e-ee78f2d0f572",
+      "application_id": "366709fd-fc93-49cf-8338-1f2efcd69ae9",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "df670a66-8ef0-46ff-894b-a6c04357d431",
+      "application_id": "79c7b9bc-c113-4bca-a011-9aff74ccc4bb",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "9513c49f-2574-4744-976b-6e17e00047b5",
+      "application_id": "11c1b21d-5c40-4669-bc5a-87c48a9d74b0",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "df7ad776-c05b-4e2b-8422-84581060219d",
+      "application_id": "11c1b21d-5c40-4669-bc5a-87c48a9d74b0",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "7932889e-532b-4b36-ac6d-29dcfb39621b",
+      "application_id": "72e3b639-babf-4dae-9409-276a2a01aba9",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "f862a21c-8abd-47b9-b269-be965ea64540",
+      "application_id": "2c0ce39f-45ee-447c-8cbc-ba6010f93037",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "6d7e0ac0-a403-4a6c-97b6-e62aac70c025",
+      "application_id": "cdb21d50-f2d0-4a0a-be99-7092e6bc6185",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "24bdf0ad-2f82-4c00-aaa3-f44b764f54d6",
+      "application_id": "dd084097-41d9-46a7-9fc8-f8bcc8d7b166",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "13f46c05-6022-47a7-a5a4-d38f8e85123f",
+      "application_id": "53082e26-2a1d-45e3-a40e-f15989be99f6",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "1a9483c9-601b-4c79-9fe7-5f085689695f",
+      "application_id": "07468a96-4ce0-4837-8a51-a591c9f40231",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "cd0fd704-c1d2-47ce-a2f2-a30a572cdca4",
+      "application_id": "7583b23b-d034-4f1b-b10e-c83bc32c7d42",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "9c5231e3-85ff-4563-9291-a75a6432325a",
+      "application_id": "72e3b639-babf-4dae-9409-276a2a01aba9",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "c13866eb-fad8-44f7-89aa-037a274a27f3",
+      "application_id": "2c0ce39f-45ee-447c-8cbc-ba6010f93037",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "d2c42644-a752-4328-ba22-8c139f851234",
+      "application_id": "ad1cb944-1474-4042-9f25-83cb922ad66e",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "48124ebd-3940-4370-b7ea-4219d6ecd447",
+      "application_id": "8de6c96a-ff2a-4bc6-a42b-cdbdc5d26fa0",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "b4cd17b7-ab0a-4805-9200-6512ca3e7314",
+      "application_id": "f5a30e1f-c8c6-43cb-8da5-012bfc8f79a9",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "5dc60625-f7c6-4582-8256-79459f44bbc7",
+      "application_id": "73aa10dc-5069-4e5f-b150-b33edcee0b72",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "e0bce02c-82eb-47bc-91a1-3d8477c879d0",
+      "application_id": "7b03226f-1fab-4748-bbe1-ca874afaa0f0",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "642930b7-4271-4349-bead-22348c17f720",
+      "application_id": "4bdfbb8f-a03a-422f-ac74-fc652c906837",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "1dcd4c97-0152-4386-bf4e-e27b294c30f4",
+      "application_id": "0d3e7967-e206-4117-9d27-30122c22af7d",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "c575ac43-3e0e-41be-bd08-0514b81f0ea6",
+      "application_id": "07468a96-4ce0-4837-8a51-a591c9f40231",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "448f4e87-907c-4433-ae93-30f1ecdf7693",
+      "application_id": "7583b23b-d034-4f1b-b10e-c83bc32c7d42",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "c8acb24a-cd00-4288-b5a3-338d7864a09f",
+      "application_id": "2c0ce39f-45ee-447c-8cbc-ba6010f93037",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "85beb475-7fa4-4dc1-9de7-45f7d3c982ec",
+      "application_id": "cdb21d50-f2d0-4a0a-be99-7092e6bc6185",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "38b49cf8-59c5-41d8-869e-472745a57185",
+      "application_id": "7b03226f-1fab-4748-bbe1-ca874afaa0f0",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "0a5cacd6-7c80-40aa-96c9-fb59763aa445",
+      "application_id": "4bdfbb8f-a03a-422f-ac74-fc652c906837",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "7317040f-2793-4a99-9338-afa119ef2dd6",
+      "application_id": "4bdfbb8f-a03a-422f-ac74-fc652c906837",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "1917101d-05a9-4f24-b9e2-a65753374e6d",
+      "application_id": "0d3e7967-e206-4117-9d27-30122c22af7d",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "32ba1779-2a76-46ff-a0b3-930e26db6ff2",
+      "application_id": "0d3e7967-e206-4117-9d27-30122c22af7d",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "93a9a31c-d28f-4f23-b6bd-2c7a6e921d45",
+      "application_id": "07468a96-4ce0-4837-8a51-a591c9f40231",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "89922d0f-e4ef-4d69-80d7-625b3d6bd82c",
+      "application_id": "7583b23b-d034-4f1b-b10e-c83bc32c7d42",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "41478ff9-64b2-4450-a67c-820a523f1039",
+      "application_id": "53082e26-2a1d-45e3-a40e-f15989be99f6",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "1e794099-feb1-4645-a552-e0880cef346c",
+      "application_id": "366709fd-fc93-49cf-8338-1f2efcd69ae9",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "7ad4829f-6f89-4dd3-a192-55054961668c",
+      "application_id": "79c7b9bc-c113-4bca-a011-9aff74ccc4bb",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "173c2897-af5f-42ef-af15-c9c7bd07bb6a",
+      "application_id": "dd084097-41d9-46a7-9fc8-f8bcc8d7b166",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "33fc7438-c5ec-413c-acad-5d07e9337fa7",
+      "application_id": "15220ea6-8152-41be-bc4b-fac10ffafacf",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "5e0f8f01-0d05-4f35-be26-3ed611addf1c",
+      "application_id": "0dee938d-400a-4bb1-a418-c3929e5f7594",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "51e41679-fa65-41c1-9ad1-1930cfbd7990",
+      "application_id": "11c1b21d-5c40-4669-bc5a-87c48a9d74b0",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "5e5175eb-4a52-400e-a213-cda48ede4bf5",
+      "application_id": "72e3b639-babf-4dae-9409-276a2a01aba9",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "209cf868-57ee-40e8-ac6b-57468768d032",
+      "application_id": "2c0ce39f-45ee-447c-8cbc-ba6010f93037",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "b4cfed34-0835-451f-b2bb-c42152b36e22",
+      "application_id": "cdb21d50-f2d0-4a0a-be99-7092e6bc6185",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "e3191b92-6c21-4de4-ba59-ef6f205b2d37",
+      "application_id": "15220ea6-8152-41be-bc4b-fac10ffafacf",
+      "step": "EXPIRE_OFFER",
+      "status": "PENDING",
+      "attempts": 0,
+      "locked_until": null
+    },
+    {
+      "id": "c79adb73-a555-445b-9c39-c2dff2918a9c",
+      "application_id": "8de6c96a-ff2a-4bc6-a42b-cdbdc5d26fa0",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "3fd1e1fb-d215-4d0e-a931-bb1e5ea11f55",
+      "application_id": "ad1cb944-1474-4042-9f25-83cb922ad66e",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "33b81c3a-7aee-41f0-9173-588aab28ac68",
+      "application_id": "89be0655-82bf-416d-8e20-1630dbe0ec06",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "5c788778-ed48-49c0-8c37-18c42c959d66",
+      "application_id": "f5a30e1f-c8c6-43cb-8da5-012bfc8f79a9",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "b5d204c2-8f8f-43bd-8532-587c753bb537",
+      "application_id": "73aa10dc-5069-4e5f-b150-b33edcee0b72",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "9363f574-86f5-4c12-b85b-a54580967bdf",
+      "application_id": "8de6c96a-ff2a-4bc6-a42b-cdbdc5d26fa0",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "b6ef8904-41a5-4971-a35e-65d417a5bdf2",
+      "application_id": "ad1cb944-1474-4042-9f25-83cb922ad66e",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "fb71b6d9-e724-41d4-9489-696583bb190b",
+      "application_id": "89be0655-82bf-416d-8e20-1630dbe0ec06",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "82419db3-606a-411a-bb80-d2438add7d9e",
+      "application_id": "f5a30e1f-c8c6-43cb-8da5-012bfc8f79a9",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "f725f48d-70e7-4f84-92a2-484caf8d9475",
+      "application_id": "73aa10dc-5069-4e5f-b150-b33edcee0b72",
+      "step": "SCORING",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    }
+  ],
+  "seconds_until_verified": 19.98887850000756,
+  "passed": true,
+  "finished_at": "2026-10-22T00:18:46.757811+00:00"
+}

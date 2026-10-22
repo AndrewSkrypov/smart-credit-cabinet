@@ -1,0 +1,10 @@
+{
+  "checked_at": "2026-10-22T02:16:43.429495+00:00",
+  "source_project": "cabinet-prod-check",
+  "target_project": "cabinet-prod-restore-check",
+  "passed": true,
+  "checks": [
+    "Все таблицы, данные и последовательности трёх БД совпадают до запуска worker",
+    "Проверены SHA256 всех файлов, безопасные пути и восстановлен том документов"
+  ]
+}

@@ -56,7 +56,7 @@ data class NewRulesRequest(
     val comment: String,
 )
 
-@Tag(name = "Rules")
+@Tag(name = "Версии кредитной политики")
 @RestController
 @RequestMapping("/api/v1/rules")
 class RulesController(private val ruleSets: RuleSets) {

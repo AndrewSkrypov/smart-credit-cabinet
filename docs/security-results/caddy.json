@@ -1,0 +1,26 @@
+{
+  "checked_at": "2026-10-22T01:56:25.322180+00:00",
+  "source_commit": "477f026be96ff5ab75df370813abcb26e533fc48",
+  "working_tree_dirty": false,
+  "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+  "inputs": [
+    {
+      "kind": "image",
+      "reference": "caddy:2.11.7-alpine",
+      "image_id": "sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd",
+      "seconds": 3.8952163999783807,
+      "severity_counts": {
+        "UNKNOWN": 1,
+        "HIGH": 5,
+        "MEDIUM": 13,
+        "LOW": 1
+      },
+      "unique_vulnerability_ids": 15,
+      "suppressed_findings": 0,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    }
+  ],
+  "passed": true
+}

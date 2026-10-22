@@ -1,0 +1,211 @@
+{
+  "run": "two-replicas",
+  "checked_at": "2026-10-22T00:13:52.927612+00:00",
+  "project": "cabinet-submission",
+  "harness_commit": "ab62a5e50ca8469e9bdf7b28064963253159b81f",
+  "working_tree_dirty": true,
+  "companies": 20,
+  "k6_exit": 0,
+  "process_seconds": 12.919962399988435,
+  "runtime": [
+    {
+      "name": "/cabinet-submission-gateway-1",
+      "image_id": "sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236",
+      "memory_limit_bytes": 0
+    },
+    {
+      "name": "/cabinet-submission-credit-1",
+      "image_id": "sha256:f0b2a8cffca9553b3d213a815634bb85926ab330c11b9b958df4232d51e0254e",
+      "memory_limit_bytes": 671088640
+    },
+    {
+      "name": "/cabinet-submission-credit-2",
+      "image_id": "sha256:f0b2a8cffca9553b3d213a815634bb85926ab330c11b9b958df4232d51e0254e",
+      "memory_limit_bytes": 671088640
+    },
+    {
+      "name": "/cabinet-submission-external-sim-1",
+      "image_id": "sha256:21db6d0348200c7155d76e1b965e358e567124813d582ef8b8c49678c00d4503",
+      "memory_limit_bytes": 536870912
+    },
+    {
+      "name": "/cabinet-submission-frontend-1",
+      "image_id": "sha256:c0faa06d8d0fc8d075f40c071bfd384963c945d44b4595d7e7961c2f5cd937cd",
+      "memory_limit_bytes": 134217728
+    },
+    {
+      "name": "/cabinet-submission-engagement-1",
+      "image_id": "sha256:a569fed858034c20843965dcb59ca7afcfddca4be45ddbd1c457868e917cf13a",
+      "memory_limit_bytes": 671088640
+    },
+    {
+      "name": "/cabinet-submission-identity-1",
+      "image_id": "sha256:f42713b86b838e66b84ce908cf1a0b791b920b5c4c64294544efc798063e70f9",
+      "memory_limit_bytes": 671088640
+    },
+    {
+      "name": "/cabinet-submission-postgres-1",
+      "image_id": "sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297",
+      "memory_limit_bytes": 0
+    },
+    {
+      "name": "/cabinet-submission-swagger-ui-1",
+      "image_id": "sha256:cb968cc70260c6027b44f227d054a0f12381736e9ab628ef6b6070a19fdf2172",
+      "memory_limit_bytes": 134217728
+    }
+  ],
+  "api_ms": {
+    "p(99)": 102.66283515000002,
+    "max": 150.053521,
+    "avg": 17.59084198737375,
+    "min": 5.386017,
+    "med": 10.138761500000001,
+    "p(95)": 61.2943745
+  },
+  "decision_ms": {
+    "p(99)": 10215.25,
+    "max": 10315,
+    "avg": 6248.5,
+    "min": 2105,
+    "med": 6121.5,
+    "p(95)": 9816.25
+  },
+  "http_failed": {
+    "rate": 0,
+    "passes": 0,
+    "fails": 396
+  },
+  "decisions": {
+    "count": 20,
+    "rate": 1.9388348670301228
+  },
+  "database": {
+    "applications": 20,
+    "duplicate_offers": 0,
+    "failed_jobs": 0,
+    "due_open_jobs": 0,
+    "jobs_retried": 0
+  },
+  "applications": [
+    {
+      "id": "e5e3a984-c009-482f-b0ed-84ab19e7c9dd",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "e872bd10-1d9d-499e-9a84-bd6f05cdd6f5",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "839e6728-846c-4af1-93de-648e4f848fe8",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "98328ac0-7966-4a85-b7ea-d10423a82544",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "a16e8e17-cbcb-420b-8f93-27a3a401975e",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "b5fc0767-01ff-4365-9c97-7e0b0db957e6",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "35df248c-15ff-4cf2-baa2-dde5c9146ae6",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "737c79a2-9496-4f4b-9fb1-b432bb213aa8",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "9ab3aa44-6bda-4bd5-94ba-8d7ea0f88bdd",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "f8a93be6-0186-4e10-8194-eb722a975986",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "f3f5f9ee-92a8-4ff7-b9bf-b097ab5c1003",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "5678ad56-a5d8-41f6-8647-42e7227d5ae0",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "8248a5e7-0e5d-4dd8-b403-dd7307e7357d",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "1c64f4a6-e172-482b-a4ae-3a8bc78a8e6a",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "3293d5d2-9c7b-4b46-878e-a5232e96ad92",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "283fe5db-7fa0-4dda-b3bc-e6a8710e6512",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "817e8c8a-6c83-466e-a1b3-ad2477e4add5",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "42ffccd5-4eb7-48e4-8539-5f6fd025ccf4",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "7c9dcb35-546c-4413-afbe-1f9310e2d7c1",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "035f1031-ae95-4197-8469-f7b0db5c233a",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    }
+  ]
+}

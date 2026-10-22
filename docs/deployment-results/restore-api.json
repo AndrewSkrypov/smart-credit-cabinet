@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "old_jwt_status": 401,
+  "new_login_status": 200,
+  "application_status": "DISBURSED",
+  "schedule_equal": true,
+  "pdf_equal": true,
+  "pdf_bytes": 600,
+  "pdf_sha256": "29ce904ff3a6e002f5363469979360732cc1775432a097b782e7c16d6eaeefb6"
+}

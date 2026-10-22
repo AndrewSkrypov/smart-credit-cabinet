@@ -34,6 +34,8 @@ RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination 
 # Our own application code last, so a code-only release ships a few hundred KB.
 # Vulnerabilities in these layers stop the pipeline (Trivy): bump the base tags then.
 FROM eclipse-temurin:21-jre-jammy
+ARG SOURCE_REVISION=unknown
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/* \

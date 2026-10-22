@@ -1,0 +1,2010 @@
+{
+  "info": {
+    "name": "Кредитный кабинет — проверка API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Только изолированный демо-стенд. Путь до выдачи, документы, идемпотентность, все решения андеррайтера, версии правил и аналитика. Восстановление параметров выполняется в конце успешного прогона."
+  },
+  "item": [
+    {
+      "name": "01. Вход клиента",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/sign-in",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"client@demo.test\",\n  \"password\": \"{{demoPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const session = pm.response.json();",
+              "pm.test(\"Подписанный токен получен\", () => pm.expect(session.token.split('.')).to.have.length(3));",
+              "pm.collectionVariables.set(\"clientToken\", session.token);",
+              "const serverDate=pm.response.headers.get('Date');pm.test('Серверное время доступно',()=>pm.expect(Number.isNaN(Date.parse(serverDate))).to.equal(false));pm.collectionVariables.set('runStarted',new Date(serverDate).toISOString());"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Подготовка клиентского сценария",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const active = pm.response.json().filter(a => !['DISBURSED','REJECTED','WITHDRAWN','CLOSED'].includes(a.status));",
+              "pm.test(\"Активные демо-заявки сняты\", function(done) {",
+              "  let index = 0;",
+              "  function next() {",
+              "    if (index === active.length) return done();",
+              "    const app = active[index++];",
+              "    pm.sendRequest({url: pm.environment.get('baseUrl') + '/applications/' + app.id + '/withdraw', method:'POST',",
+              "      header: {Authorization:'Bearer ' + pm.collectionVariables.get('clientToken'), 'Content-Type':'application/json'},",
+              "      body:{mode:'raw',raw:JSON.stringify({comment:'Подготовка повторного API-прогона'})}}, (error, response) => {",
+              "        if (error) return done(error);",
+              "        try { pm.expect(response.code, 'Снятие ' + app.id + ' (' + app.status + ')').to.equal(200); next(); } catch (failure) { done(failure); }",
+              "      });",
+              "  }",
+              "  next();",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Подбор продукта",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/products/match",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"purpose\": \"WORKING_CAPITAL\",\n  \"amount\": 1000000,\n  \"termMonths\": 12\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Оборотный кредит присутствует',()=>pm.expect(pm.response.json().some(x=>x.product.code==='WORKING_CAPITAL')).to.equal(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Расчёт платежа",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/products/WORKING_CAPITAL/calculation?amount=1000000&termMonths=12"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('График на 12 месяцев',()=>pm.expect(pm.response.json().schedule).to.have.length(12));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Создание черновика",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productCode\": \"WORKING_CAPITAL\",\n  \"purpose\": \"WORKING_CAPITAL\",\n  \"amount\": 1000000,\n  \"termMonths\": 12,\n  \"declaredRevenue12m\": 14400000,\n  \"bureauConsent\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const app=pm.response.json();",
+              "pm.test(\"Создан новый черновик\",()=>pm.expect(app.status).to.equal('DRAFT'));",
+              "pm.collectionVariables.set('clientApplication',app.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Сохранение черновика",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productCode\": \"WORKING_CAPITAL\",\n  \"purpose\": \"WORKING_CAPITAL\",\n  \"amount\": 1000000,\n  \"termMonths\": 12,\n  \"declaredRevenue12m\": 14400000,\n  \"bureauConsent\": true,\n  \"purposeComment\": \"Синтетическая заявка для проверки контракта\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Черновик сохранён',()=>pm.expect(pm.response.json().status).to.equal('DRAFT'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Загрузка документа в черновик",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/documents?type=OTHER",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "fixtures/synthetic.pdf"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test('Документ привязан к заявке',()=>pm.expect(pm.response.json().id).to.be.a('string'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Отправка с Idempotency-Key",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/submit",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:'postman-'+pm.collectionVariables.get('clientApplication')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Ответ относится к своей заявке\",()=>pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('clientApplication')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. Повтор той же отправки",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/submit",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:'postman-'+pm.collectionVariables.get('clientApplication')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Ответ относится к своей заявке\",()=>pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('clientApplication')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Ожидание оффера",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('deadline_9')) pm.collectionVariables.set('deadline_9',Date.now()+90000);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const app=pm.response.json();",
+              "if (app.status !== 'OFFER_ISSUED' && Date.now() < Number(pm.collectionVariables.get('deadline_9'))) {",
+              "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  setTimeout(()=>{},500);",
+              "} else {",
+              "  pm.collectionVariables.unset('deadline_9');",
+              "  pm.test(\"Достигнут OFFER_ISSUED\",()=>pm.expect(app.status).to.equal('OFFER_ISSUED'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Принятие оффера",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/offer/accept",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const app=pm.response.json();pm.test('Выпущен код подписи',()=>pm.expect(app.process.signing.code).to.match(/^\\d{6}$/));pm.collectionVariables.set('signingCode',app.process.signing.code);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Подписание кодом",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/sign",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"{{signingCode}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Подпись принята',()=>pm.expect(['DISBURSING','DISBURSED']).to.include(pm.response.json().status));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Ожидание выдачи",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('deadline_12')) pm.collectionVariables.set('deadline_12',Date.now()+90000);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const app=pm.response.json();",
+              "if (app.status !== 'DISBURSED' && Date.now() < Number(pm.collectionVariables.get('deadline_12'))) {",
+              "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  setTimeout(()=>{},500);",
+              "} else {",
+              "  pm.collectionVariables.unset('deadline_12');",
+              "  pm.test(\"Достигнут DISBURSED\",()=>pm.expect(app.status).to.equal('DISBURSED'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. График выданного кредита",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/schedule"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const schedule=pm.response.json().schedule;pm.test('12 платежей и нулевой остаток',()=>{pm.expect(schedule).to.have.length(12);pm.expect(schedule[11].balance).to.equal(0);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15. Журнал и идемпотентность",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/events"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const events=pm.response.json();pm.test('Отправка и выдача записаны по одному разу',()=>{pm.expect(events.filter(e=>e.toStatus==='SUBMITTED')).to.have.length(1);pm.expect(events.filter(e=>e.toStatus==='DISBURSED')).to.have.length(1);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16. Вход клиента ручного сценария",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/sign-in",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"logistic@demo.test\",\n  \"password\": \"{{demoPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const session = pm.response.json();",
+              "pm.test(\"Подписанный токен получен\", () => pm.expect(session.token.split('.')).to.have.length(3));",
+              "pm.collectionVariables.set(\"manualClientToken\", session.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17. Подготовка ручных сценариев",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const active = pm.response.json().filter(a => !['DISBURSED','REJECTED','WITHDRAWN','CLOSED'].includes(a.status));",
+              "pm.test(\"Активные демо-заявки сняты\", function(done) {",
+              "  let index = 0;",
+              "  function next() {",
+              "    if (index === active.length) return done();",
+              "    const app = active[index++];",
+              "    pm.sendRequest({url: pm.environment.get('baseUrl') + '/applications/' + app.id + '/withdraw', method:'POST',",
+              "      header: {Authorization:'Bearer ' + pm.collectionVariables.get('manualClientToken'), 'Content-Type':'application/json'},",
+              "      body:{mode:'raw',raw:JSON.stringify({comment:'Подготовка повторного API-прогона'})}}, (error, response) => {",
+              "        if (error) return done(error);",
+              "        try { pm.expect(response.code, 'Снятие ' + app.id + ' (' + app.status + ')').to.equal(200); next(); } catch (failure) { done(failure); }",
+              "      });",
+              "  }",
+              "  next();",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18. Вход андеррайтера",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/sign-in",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"underwriter@demo.test\",\n  \"password\": \"{{demoPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const session = pm.response.json();",
+              "pm.test(\"Подписанный токен получен\", () => pm.expect(session.token.split('.')).to.have.length(3));",
+              "pm.collectionVariables.set(\"underwriterToken\", session.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19. Заявка для запроса сведений и одобрения",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productCode\": \"WORKING_CAPITAL\",\n  \"purpose\": \"WORKING_CAPITAL\",\n  \"amount\": 3000000,\n  \"termMonths\": 24,\n  \"declaredRevenue12m\": 15000000,\n  \"bureauConsent\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const app=pm.response.json();",
+              "pm.test(\"Создан новый черновик\",()=>pm.expect(app.status).to.equal('DRAFT'));",
+              "pm.collectionVariables.set('manualApplication',app.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20. Отправка ручной заявки",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{manualApplication}}/submit",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:'postman-'+pm.collectionVariables.get('manualApplication')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Ответ относится к своей заявке\",()=>pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('manualApplication')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21. Ожидание ручного рассмотрения",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{manualApplication}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('deadline_20')) pm.collectionVariables.set('deadline_20',Date.now()+90000);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const app=pm.response.json();",
+              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_20'))) {",
+              "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  setTimeout(()=>{},500);",
+              "} else {",
+              "  pm.collectionVariables.unset('deadline_20');",
+              "  pm.test(\"Достигнут MANUAL_REVIEW\",()=>pm.expect(app.status).to.equal('MANUAL_REVIEW'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22. Карточка оценки",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/underwriting/applications/{{manualApplication}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Есть автоматическая оценка',()=>pm.expect(pm.response.json().automaticDecision).to.be.an('object'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23. Запрос дополнительного документа",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/underwriting/applications/{{manualApplication}}/request-info",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"items\": [\n    {\n      \"documentType\": \"OTHER\"\n    }\n  ],\n  \"comment\": \"Нужен дополнительный документ для ручной проверки\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24. Загрузка запрошенного документа",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{manualApplication}}/documents?type=OTHER",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "fixtures/synthetic.pdf"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test('Файл загружен',()=>pm.expect(pm.response.json().id).to.be.a('string'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25. Ответ клиента на запрос",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{manualApplication}}/info-provided",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"answer\": \"Синтетический документ приложен\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26. Повторное ручное рассмотрение",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{manualApplication}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('deadline_25')) pm.collectionVariables.set('deadline_25',Date.now()+90000);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const app=pm.response.json();",
+              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_25'))) {",
+              "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  setTimeout(()=>{},500);",
+              "} else {",
+              "  pm.collectionVariables.unset('deadline_25');",
+              "  pm.test(\"Достигнут MANUAL_REVIEW\",()=>pm.expect(app.status).to.equal('MANUAL_REVIEW'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27. Одобрение андеррайтера",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/underwriting/applications/{{manualApplication}}/approve",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": \"Доходы и документы проверены, условия допустимы\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28. Оффер после ручного одобрения",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{manualApplication}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('deadline_27')) pm.collectionVariables.set('deadline_27',Date.now()+90000);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const app=pm.response.json();",
+              "if (app.status !== 'OFFER_ISSUED' && Date.now() < Number(pm.collectionVariables.get('deadline_27'))) {",
+              "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  setTimeout(()=>{},500);",
+              "} else {",
+              "  pm.collectionVariables.unset('deadline_27');",
+              "  pm.test(\"Достигнут OFFER_ISSUED\",()=>pm.expect(app.status).to.equal('OFFER_ISSUED'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29. Закрытие проверочного оффера клиентом",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{manualApplication}}/offer/decline",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": \"Завершение синтетического сценария\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Заявка закрыта',()=>pm.expect(pm.response.json().status).to.equal('CLOSED'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30. Заявка для контрпредложения",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productCode\": \"WORKING_CAPITAL\",\n  \"purpose\": \"WORKING_CAPITAL\",\n  \"amount\": 3000000,\n  \"termMonths\": 24,\n  \"declaredRevenue12m\": 15000000,\n  \"bureauConsent\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const app=pm.response.json();",
+              "pm.test(\"Создан новый черновик\",()=>pm.expect(app.status).to.equal('DRAFT'));",
+              "pm.collectionVariables.set('counterApplication',app.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "31. Отправка для контрпредложения",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{counterApplication}}/submit",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:'postman-'+pm.collectionVariables.get('counterApplication')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Ответ относится к своей заявке\",()=>pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('counterApplication')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32. Рассмотрение контрпредложения",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{counterApplication}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('deadline_31')) pm.collectionVariables.set('deadline_31',Date.now()+90000);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const app=pm.response.json();",
+              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_31'))) {",
+              "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  setTimeout(()=>{},500);",
+              "} else {",
+              "  pm.collectionVariables.unset('deadline_31');",
+              "  pm.test(\"Достигнут MANUAL_REVIEW\",()=>pm.expect(app.status).to.equal('MANUAL_REVIEW'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "33. Другие условия андеррайтера",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/underwriting/applications/{{counterApplication}}/counter-offer",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 2000000,\n  \"termMonths\": 24,\n  \"comment\": \"Уменьшена сумма после проверки нагрузки\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "34. Получение контрпредложения",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{counterApplication}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('deadline_33')) pm.collectionVariables.set('deadline_33',Date.now()+90000);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const app=pm.response.json();",
+              "if (app.status !== 'OFFER_ISSUED' && Date.now() < Number(pm.collectionVariables.get('deadline_33'))) {",
+              "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  setTimeout(()=>{},500);",
+              "} else {",
+              "  pm.collectionVariables.unset('deadline_33');",
+              "  pm.test(\"Достигнут OFFER_ISSUED\",()=>pm.expect(app.status).to.equal('OFFER_ISSUED'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "35. Проверка новых условий",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{counterApplication}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Клиент видит новые условия',()=>{const offer=pm.response.json().process.offer;pm.expect(offer.kind).to.equal('COUNTER');pm.expect(offer.amount).to.equal(2000000);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "36. Отзыв проверочной заявки",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{counterApplication}}/withdraw",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": \"Завершение проверки контрпредложения\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Заявка отозвана',()=>pm.expect(pm.response.json().status).to.equal('WITHDRAWN'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "37. Заявка для ручного отказа",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productCode\": \"WORKING_CAPITAL\",\n  \"purpose\": \"WORKING_CAPITAL\",\n  \"amount\": 3000000,\n  \"termMonths\": 24,\n  \"declaredRevenue12m\": 15000000,\n  \"bureauConsent\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const app=pm.response.json();",
+              "pm.test(\"Создан новый черновик\",()=>pm.expect(app.status).to.equal('DRAFT'));",
+              "pm.collectionVariables.set('rejectedApplication',app.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "38. Отправка для ручного отказа",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{rejectedApplication}}/submit",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:'postman-'+pm.collectionVariables.get('rejectedApplication')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Ответ относится к своей заявке\",()=>pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('rejectedApplication')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "39. Ожидание решения специалиста",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{rejectedApplication}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('deadline_38')) pm.collectionVariables.set('deadline_38',Date.now()+90000);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const app=pm.response.json();",
+              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_38'))) {",
+              "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  setTimeout(()=>{},500);",
+              "} else {",
+              "  pm.collectionVariables.unset('deadline_38');",
+              "  pm.test(\"Достигнут MANUAL_REVIEW\",()=>pm.expect(app.status).to.equal('MANUAL_REVIEW'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "40. Обоснованный отказ",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/underwriting/applications/{{rejectedApplication}}/reject",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": \"По результатам ручной проверки риск не принят\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "41. Клиент видит отказ",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{rejectedApplication}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('deadline_40')) pm.collectionVariables.set('deadline_40',Date.now()+90000);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const app=pm.response.json();",
+              "if (app.status !== 'REJECTED' && Date.now() < Number(pm.collectionVariables.get('deadline_40'))) {",
+              "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  setTimeout(()=>{},500);",
+              "} else {",
+              "  pm.collectionVariables.unset('deadline_40');",
+              "  pm.test(\"Достигнут REJECTED\",()=>pm.expect(app.status).to.equal('REJECTED'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "42. Вход риск-администратора",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/sign-in",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"risk@demo.test\",\n  \"password\": \"{{demoPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const session = pm.response.json();",
+              "pm.test(\"Подписанный токен получен\", () => pm.expect(session.token.split('.')).to.have.length(3));",
+              "pm.collectionVariables.set(\"riskToken\", session.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "43. Действующие правила",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{riskToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/rules"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const rules=pm.response.json();pm.test('Правила имеют версию',()=>pm.expect(rules.version).to.be.a('number'));pm.collectionVariables.set('originalRules',JSON.stringify(rules.params));pm.collectionVariables.set('originalVersion',rules.version);const changed=JSON.parse(JSON.stringify(rules.params));changed.maxLoad-=0.01;pm.collectionVariables.set('changedRules',JSON.stringify(changed));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "44. Новая версия правил",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{riskToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/rules",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"params\":{{changedRules}},\"comment\":\"Проверка версии кредитной политики через API\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test('Версия увеличилась',()=>pm.expect(pm.response.json().version).to.equal(Number(pm.collectionVariables.get('originalVersion'))+1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "45. Восстановление параметров",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{riskToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/rules",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"params\":{{originalRules}},\"comment\":\"Восстановление параметров после проверки\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test('Исходные параметры восстановлены',()=>pm.expect(pm.response.json().params).to.deep.equal(JSON.parse(pm.collectionVariables.get('originalRules'))));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "46. Аналитика реальных заявок",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{riskToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/analytics/funnel?from={{runStarted}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const analytics=pm.response.json();pm.test('Воронка содержит поданные заявки',()=>{pm.expect(analytics.funnel).to.be.an('array').that.is.not.empty;pm.expect(analytics.funnel[0].applications).to.be.at.least(4);analytics.funnel.forEach(x=>pm.expect(x.applications).to.be.at.least(0));});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "clientToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "manualClientToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "underwriterToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "riskToken",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

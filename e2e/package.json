@@ -1,0 +1,17 @@
+{
+  "name": "cabinet-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:desktop": "playwright test --project=desktop",
+    "typecheck": "tsc --noEmit",
+    "wait": "node scripts/wait-for-stack.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "20.19.24",
+    "typescript": "5.9.3"
+  }
+}

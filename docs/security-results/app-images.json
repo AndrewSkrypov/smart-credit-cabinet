@@ -1,0 +1,87 @@
+{
+  "checked_at": "2026-10-22T01:06:50.178549+00:00",
+  "source_commit": "4ba5400cd07430fffd448b61b10071d42d63e930",
+  "working_tree_dirty": true,
+  "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+  "inputs": [
+    {
+      "kind": "image",
+      "reference": "cabinet-submission-identity:latest",
+      "image_id": "sha256:f42713b86b838e66b84ce908cf1a0b791b920b5c4c64294544efc798063e70f9",
+      "seconds": 260.36277430001064,
+      "severity_counts": {
+        "MEDIUM": 35,
+        "LOW": 16,
+        "HIGH": 5
+      },
+      "unique_vulnerability_ids": 42,
+      "suppressed_findings": 2,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    },
+    {
+      "kind": "image",
+      "reference": "cabinet-submission-credit:latest",
+      "image_id": "sha256:f0b2a8cffca9553b3d213a815634bb85926ab330c11b9b958df4232d51e0254e",
+      "seconds": 34.87073819999932,
+      "severity_counts": {
+        "MEDIUM": 35,
+        "LOW": 16,
+        "HIGH": 5
+      },
+      "unique_vulnerability_ids": 42,
+      "suppressed_findings": 2,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    },
+    {
+      "kind": "image",
+      "reference": "cabinet-submission-engagement:latest",
+      "image_id": "sha256:a569fed858034c20843965dcb59ca7afcfddca4be45ddbd1c457868e917cf13a",
+      "seconds": 22.822361500002444,
+      "severity_counts": {
+        "MEDIUM": 35,
+        "LOW": 16,
+        "HIGH": 5
+      },
+      "unique_vulnerability_ids": 42,
+      "suppressed_findings": 2,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    },
+    {
+      "kind": "image",
+      "reference": "cabinet-submission-external-sim:latest",
+      "image_id": "sha256:21db6d0348200c7155d76e1b965e358e567124813d582ef8b8c49678c00d4503",
+      "seconds": 20.92098789999727,
+      "severity_counts": {
+        "MEDIUM": 35,
+        "LOW": 16,
+        "HIGH": 5
+      },
+      "unique_vulnerability_ids": 42,
+      "suppressed_findings": 2,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    },
+    {
+      "kind": "image",
+      "reference": "cabinet-submission-frontend:latest",
+      "image_id": "sha256:d8f5b318aa791875d1d92ef7d5218049904f81d933700fbd03447b8e6c34be80",
+      "seconds": 3.0236427999916486,
+      "severity_counts": {
+        "MEDIUM": 1
+      },
+      "unique_vulnerability_ids": 1,
+      "suppressed_findings": 0,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    }
+  ],
+  "passed": true
+}

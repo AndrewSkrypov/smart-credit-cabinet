@@ -1,0 +1,9 @@
+{
+  "review_by": "2026-12-31",
+  "component": "org.springframework:spring-webmvc",
+  "reviewed_versions": ["6.2.19"],
+  "exceptions": [
+    {"id": "CVE-2026-47884", "reason": "В приложении нет XsltView/XsltViewResolver и неявного выбора XSLT по catch-all маршруту.", "source": "https://spring.io/security/cve-2026-47884/", "oss_fix": "7.0.9", "enterprise_fix": "6.2.20"},
+    {"id": "CVE-2026-47890", "reason": "Контроллеры не отправляют фрагменты представлений через SSE; SSE-эмиттеров и event-stream маршрутов нет.", "source": "https://spring.io/security/cve-2026-47890/", "oss_fix": "7.0.9", "enterprise_fix": "6.2.20"}
+  ]
+}

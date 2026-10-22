@@ -1,0 +1,1066 @@
+components:
+  schemas:
+    BankClientData:
+      properties:
+        client:
+          type: boolean
+        inn:
+          type: string
+        settlementAccount:
+          type: string
+        turnovers:
+          items:
+            $ref: '#/components/schemas/MonthlyTurnover'
+          type: array
+      required:
+      - client
+      - inn
+      - turnovers
+      type: object
+    BureauObligation:
+      properties:
+        balance:
+          format: int64
+          type: integer
+        creditor:
+          type: string
+        currentOverdueDays:
+          format: int32
+          type: integer
+        limit:
+          format: int64
+          type: integer
+        monthlyPayment:
+          format: int64
+          type: integer
+        openedAt:
+          format: date
+          type: string
+        type:
+          type: string
+      required:
+      - balance
+      - creditor
+      - currentOverdueDays
+      - limit
+      - monthlyPayment
+      - openedAt
+      - type
+      type: object
+    ConfirmRequest:
+      properties:
+        code:
+          minLength: 1
+          type: string
+      required:
+      - code
+      type: object
+    ControlState:
+      properties:
+        companies:
+          items:
+            $ref: '#/components/schemas/ScenarioCompany'
+          type: array
+        slowDelayMs:
+          format: int64
+          type: integer
+        sources:
+          items:
+            $ref: '#/components/schemas/SourceState'
+          type: array
+      required:
+      - companies
+      - slowDelayMs
+      - sources
+      type: object
+    CreditReport:
+      properties:
+        currentOverdueDaysMax:
+          format: int32
+          type: integer
+        inn:
+          type: string
+        inquiries30d:
+          format: int32
+          type: integer
+        monthlyPaymentsTotal:
+          format: int64
+          type: integer
+        obligations:
+          items:
+            $ref: '#/components/schemas/BureauObligation'
+          type: array
+        reportDate:
+          format: date
+          type: string
+        worstOverdueDays24m:
+          format: int32
+          type: integer
+      required:
+      - currentOverdueDaysMax
+      - inn
+      - inquiries30d
+      - monthlyPaymentsTotal
+      - obligations
+      - reportDate
+      - worstOverdueDays24m
+      type: object
+    Director:
+      properties:
+        fullName:
+          type: string
+        position:
+          type: string
+      required:
+      - fullName
+      - position
+      type: object
+    ErrorResponse:
+      description: Ошибка API
+      properties:
+        error:
+          description: Название HTTP-статуса
+          example: Not Found
+          type: string
+        message:
+          description: Понятное объяснение ошибки
+          example: Заявка не найдена
+          type: string
+        path:
+          description: Путь запроса, который завершился ошибкой
+          example: /api/v1/applications/00000000-0000-0000-0000-000000000001
+          type: string
+        requestId:
+          type: string
+        status:
+          description: HTTP-код ошибки
+          example: 404
+          format: int32
+          type: integer
+        timestamp:
+          format: date-time
+          type: string
+    FnsSummary:
+      properties:
+        averageHeadcount:
+          format: int32
+          type: integer
+        expenses:
+          format: int64
+          type: integer
+        hasReports:
+          type: boolean
+        inn:
+          type: string
+        massAddress:
+          type: boolean
+        reportingYear:
+          format: int32
+          type: integer
+        revenue:
+          format: int64
+          type: integer
+        taxDebt:
+          format: int64
+          type: integer
+        taxRegime:
+          type: string
+        taxesPaid:
+          format: int64
+          type: integer
+      required:
+      - hasReports
+      - inn
+      - massAddress
+      - taxDebt
+      type: object
+    Founder:
+      properties:
+        name:
+          type: string
+        sharePercent:
+          format: int32
+          type: integer
+      required:
+      - name
+      - sharePercent
+      type: object
+    LoanRecord:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        annualRate:
+          type: number
+        applicationId:
+          format: uuid
+          type: string
+        contractNumber:
+          type: string
+        disbursedAt:
+          format: date-time
+          type: string
+        loanAccount:
+          type: string
+        maturityDate:
+          format: date
+          type: string
+        revolving:
+          type: boolean
+        settlementAccount:
+          type: string
+        termMonths:
+          format: int32
+          type: integer
+      required:
+      - amount
+      - annualRate
+      - applicationId
+      - contractNumber
+      - disbursedAt
+      - loanAccount
+      - maturityDate
+      - revolving
+      - settlementAccount
+      - termMonths
+      type: object
+    LoanRequest:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        annualRate:
+          type: number
+        applicationId:
+          format: uuid
+          type: string
+        companyInn:
+          minLength: 1
+          type: string
+        revolving:
+          type: boolean
+        signatureId:
+          format: uuid
+          type: string
+        termMonths:
+          format: int32
+          maximum: 120
+          minimum: 1
+          type: integer
+      required:
+      - amount
+      - annualRate
+      - applicationId
+      - companyInn
+      - revolving
+      - signatureId
+      - termMonths
+      type: object
+    ModeRequest:
+      properties:
+        mode:
+          enum:
+          - OK
+          - SLOW
+          - DOWN
+          type: string
+      required:
+      - mode
+      type: object
+    MonthlyTurnover:
+      properties:
+        inflow:
+          format: int64
+          type: integer
+        month:
+          type: string
+        outflow:
+          format: int64
+          type: integer
+      required:
+      - inflow
+      - month
+      - outflow
+      type: object
+    Okved:
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+      required:
+      - code
+      - name
+      type: object
+    RegistryExtract:
+      properties:
+        address:
+          type: string
+        director:
+          $ref: '#/components/schemas/Director'
+        extractDate:
+          format: date
+          type: string
+        founders:
+          items:
+            $ref: '#/components/schemas/Founder'
+          type: array
+        fullName:
+          type: string
+        inn:
+          type: string
+        legalForm:
+          enum:
+          - LEGAL_ENTITY
+          - ENTREPRENEUR
+          type: string
+        ogrn:
+          type: string
+        okvedMain:
+          $ref: '#/components/schemas/Okved'
+        registrationDate:
+          format: date
+          type: string
+        registry:
+          type: string
+        shortName:
+          type: string
+        status:
+          enum:
+          - ACTIVE
+          - LIQUIDATING
+          - BANKRUPTCY
+          - EXCLUDED
+          type: string
+        statusTitle:
+          type: string
+        unreliableAddress:
+          type: boolean
+        unreliableDirector:
+          type: boolean
+      required:
+      - address
+      - director
+      - extractDate
+      - founders
+      - fullName
+      - inn
+      - legalForm
+      - ogrn
+      - okvedMain
+      - registrationDate
+      - registry
+      - shortName
+      - status
+      - statusTitle
+      - unreliableAddress
+      - unreliableDirector
+      type: object
+    Scenario:
+      properties:
+        code:
+          type: string
+        expected:
+          type: string
+        request:
+          $ref: '#/components/schemas/ScenarioRequest'
+        title:
+          type: string
+      required:
+      - code
+      - expected
+      - request
+      - title
+      type: object
+    ScenarioCompany:
+      properties:
+        inn:
+          type: string
+        name:
+          type: string
+        scenario:
+          $ref: '#/components/schemas/Scenario'
+      required:
+      - inn
+      - name
+      type: object
+    ScenarioRequest:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        declaredRevenue12m:
+          format: int64
+          type: integer
+        productCode:
+          type: string
+        purpose:
+          type: string
+        termMonths:
+          format: int32
+          type: integer
+      required:
+      - amount
+      - declaredRevenue12m
+      - productCode
+      - purpose
+      - termMonths
+      type: object
+    SigningRequest:
+      properties:
+        documentId:
+          minLength: 1
+          type: string
+        documentText:
+          minLength: 1
+          type: string
+        documentTitle:
+          minLength: 1
+          type: string
+        signerName:
+          minLength: 1
+          type: string
+      required:
+      - documentId
+      - documentText
+      - documentTitle
+      - signerName
+      type: object
+    SigningSession:
+      properties:
+        attemptsLeft:
+          format: int32
+          type: integer
+        code:
+          type: string
+        documentHash:
+          type: string
+        documentId:
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        sessionId:
+          format: uuid
+          type: string
+        signatureId:
+          format: uuid
+          type: string
+        signedAt:
+          format: date-time
+          type: string
+      required:
+      - attemptsLeft
+      - code
+      - documentHash
+      - documentId
+      - expiresAt
+      - sessionId
+      type: object
+    SourceState:
+      properties:
+        mode:
+          enum:
+          - OK
+          - SLOW
+          - DOWN
+          type: string
+        source:
+          enum:
+          - REGISTRY
+          - FNS
+          - BUREAU
+          - BANK
+          - SIGNING
+          - CORE
+          type: string
+        title:
+          type: string
+      required:
+      - mode
+      - source
+      - title
+      type: object
+    SystemKeyError:
+      properties:
+        error:
+          example: Unauthorized
+          type: string
+        message:
+          example: Нужен ключ системы-клиента в заголовке X-Api-Key
+          type: string
+        status:
+          example: 401
+      required:
+      - status
+      - error
+      - message
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+    systemKey:
+      in: header
+      name: X-Api-Key
+      type: apiKey
+info:
+  description: REST API умного кредитного кабинета предпринимателя. Данные демо-стенда синтетические.
+  title: 'Симуляторы внешних систем: ЕГРЮЛ/ЕГРИП, ФНС, БКИ, данные банка, подписание, АБС'
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /ext/bank/v1/clients/{inn}:
+    get:
+      operationId: client
+      parameters:
+      - in: path
+        name: inn
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BankClientData'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Нужен ключ системы-клиента в заголовке X-Api-Key
+                status: 401
+              schema:
+                $ref: '#/components/schemas/SystemKeyError'
+          description: Нет корректного ключа системы
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /ext/bank/v1/clients/{inn}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security:
+      - systemKey: []
+      summary: Счёт компании в банке и обороты за 12 месяцев
+      tags:
+      - Внутренние данные банка (симулятор)
+  /ext/bureau/v1/reports/{inn}:
+    get:
+      operationId: report
+      parameters:
+      - in: path
+        name: inn
+        required: true
+        schema:
+          type: string
+      - description: Идентификатор согласия субъекта на запрос кредитной истории
+        in: header
+        name: X-Consent-Id
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/CreditReport'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Нужен ключ системы-клиента в заголовке X-Api-Key
+                status: 401
+              schema:
+                $ref: '#/components/schemas/SystemKeyError'
+          description: Нет корректного ключа системы
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /ext/bureau/v1/reports/{inn}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security:
+      - systemKey: []
+      summary: Кредитный отчёт по ИНН (только с согласием клиента)
+      tags:
+      - Бюро кредитных историй (симулятор)
+  /ext/core/v1/loans:
+    post:
+      operationId: disburse
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/LoanRecord'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /ext/core/v1/loans
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Нужен ключ системы-клиента в заголовке X-Api-Key
+                status: 401
+              schema:
+                $ref: '#/components/schemas/SystemKeyError'
+          description: Нет корректного ключа системы
+      security:
+      - systemKey: []
+      summary: Открыть ссудный счёт и зачислить средства; повтор по той же заявке возвращает тот же кредит
+      tags:
+      - 'АБС: открытие кредита и выдача (симулятор)'
+  /ext/core/v1/loans/{applicationId}:
+    get:
+      operationId: get_1
+      parameters:
+      - in: path
+        name: applicationId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/LoanRecord'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Нужен ключ системы-клиента в заголовке X-Api-Key
+                status: 401
+              schema:
+                $ref: '#/components/schemas/SystemKeyError'
+          description: Нет корректного ключа системы
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /ext/core/v1/loans/{applicationId}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security:
+      - systemKey: []
+      summary: Результат смоделированной выдачи по идентификатору заявки
+      tags:
+      - 'АБС: открытие кредита и выдача (симулятор)'
+  /ext/fns/v1/companies/{inn}/summary:
+    get:
+      operationId: summary
+      parameters:
+      - in: path
+        name: inn
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/FnsSummary'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Нужен ключ системы-клиента в заголовке X-Api-Key
+                status: 401
+              schema:
+                $ref: '#/components/schemas/SystemKeyError'
+          description: Нет корректного ключа системы
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /ext/fns/v1/companies/{inn}/summary
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security:
+      - systemKey: []
+      summary: Финансовые показатели и налоговая задолженность за последний отчётный год
+      tags:
+      - ФНС «Прозрачный бизнес» (симулятор)
+  /ext/registry/v1/companies/{inn}:
+    get:
+      operationId: extract
+      parameters:
+      - in: path
+        name: inn
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RegistryExtract'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Нужен ключ системы-клиента в заголовке X-Api-Key
+                status: 401
+              schema:
+                $ref: '#/components/schemas/SystemKeyError'
+          description: Нет корректного ключа системы
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /ext/registry/v1/companies/{inn}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security:
+      - systemKey: []
+      summary: Выписка из ЕГРЮЛ/ЕГРИП по ИНН
+      tags:
+      - ЕГРЮЛ / ЕГРИП (симулятор)
+  /ext/signing/v1/sessions:
+    post:
+      operationId: start
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SigningRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SigningSession'
+          description: Created
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /ext/signing/v1/sessions
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Нужен ключ системы-клиента в заголовке X-Api-Key
+                status: 401
+              schema:
+                $ref: '#/components/schemas/SystemKeyError'
+          description: Нет корректного ключа системы
+      security:
+      - systemKey: []
+      summary: 'Начать подписание: выпускается одноразовый код'
+      tags:
+      - Сервис подписания ПЭП (симулятор)
+  /ext/signing/v1/sessions/{id}:
+    get:
+      operationId: get
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SigningSession'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Нужен ключ системы-клиента в заголовке X-Api-Key
+                status: 401
+              schema:
+                $ref: '#/components/schemas/SystemKeyError'
+          description: Нет корректного ключа системы
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /ext/signing/v1/sessions/{id}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security:
+      - systemKey: []
+      summary: Состояние синтетической сессии подписания по её идентификатору
+      tags:
+      - Сервис подписания ПЭП (симулятор)
+  /ext/signing/v1/sessions/{id}/confirm:
+    post:
+      operationId: confirm
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/SigningSession'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /ext/signing/v1/sessions/{id}/confirm
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Нужен ключ системы-клиента в заголовке X-Api-Key
+                status: 401
+              schema:
+                $ref: '#/components/schemas/SystemKeyError'
+          description: Нет корректного ключа системы
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /ext/signing/v1/sessions/{id}/confirm
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security:
+      - systemKey: []
+      summary: Подтвердить подпись кодом; повтор после успеха возвращает ту же подпись
+      tags:
+      - Сервис подписания ПЭП (симулятор)
+  /sim/control:
+    get:
+      operationId: state
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ControlState'
+          description: OK
+      security: []
+      summary: Состояние синтетических источников и десять демонстрационных компаний
+      tags:
+      - Пульт симуляторов
+  /sim/control/reset:
+    post:
+      operationId: reset
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ControlState'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /sim/control/reset
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /sim/control/reset
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+      security: []
+      summary: Вернуть все синтетические источники в нормальный режим
+      tags:
+      - Пульт симуляторов
+  /sim/control/sources/{source}:
+    put:
+      operationId: set
+      parameters:
+      - in: path
+        name: source
+        required: true
+        schema:
+          enum:
+          - REGISTRY
+          - FNS
+          - BUREAU
+          - BANK
+          - SIGNING
+          - CORE
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModeRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ControlState'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /sim/control/sources/{source}
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /sim/control/sources/{source}
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /sim/control/sources/{source}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+      security: []
+      summary: 'Переключить источник: OK, SLOW (отвечает дольше таймаута клиента) или DOWN (503)'
+      tags:
+      - Пульт симуляторов
+servers:
+- description: Адрес сервиса или шлюза; /ext/ доступен только во внутренней сети
+  url: /

@@ -1,0 +1,16 @@
+{
+  "mode": "balance",
+  "project": "cabinet-submission",
+  "cohort": "single-baseline",
+  "started_at": "2026-10-22T00:12:35.880686+00:00",
+  "upstreams": {
+    "172.19.0.9": 56,
+    "172.19.0.6": 44
+  },
+  "containers": {
+    "172.19.0.6": "9171b113db12",
+    "172.19.0.9": "567a4613ae8a"
+  },
+  "passed": true,
+  "finished_at": "2026-10-22T00:12:49.193848+00:00"
+}

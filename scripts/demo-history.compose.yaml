@@ -1,0 +1,8 @@
+services:
+  credit:
+    environment:
+      INFO_REQUEST_TTL: ${DEMO_HISTORY_TTL:-PT30M}
+      OFFER_TTL: ${DEMO_HISTORY_TTL:-PT30M}
+  gateway:
+    ports: !override
+      - "127.0.0.1:${GATEWAY_PORT:-18082}:80"

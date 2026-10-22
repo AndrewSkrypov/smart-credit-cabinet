@@ -16,6 +16,7 @@ import ru.creditcabinet.assessment.domain.BureauInfo
 import ru.creditcabinet.assessment.domain.BureauObligation
 import ru.creditcabinet.assessment.domain.RegistryInfo
 import ru.creditcabinet.assessment.domain.TaxInfo
+import ru.creditcabinet.observability.PipelineMetrics
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -33,6 +34,7 @@ class ExternalCalls(
     @Value("\${cabinet.external.api-key:}") apiKey: String,
     @Value("\${cabinet.external.read-timeout:PT5S}") readTimeout: Duration,
     builder: RestClient.Builder,
+    private val metrics: PipelineMetrics,
 ) {
     private val client: RestClient? = url.takeIf { it.isNotBlank() }?.let {
         val requestFactory = SimpleClientHttpRequestFactory().apply {
@@ -54,18 +56,27 @@ class ExternalCalls(
             .build(),
     )
 
+    init {
+        listOf("ЕГРЮЛ/ЕГРИП", "ФНС", "БКИ", "Данные банка", "Подписание", "АБС").forEach { metrics.monitor(it, breaker(it)) }
+    }
+
     fun breaker(source: String): CircuitBreaker = breakers.circuitBreaker(source)
 
     /** Runs [call] for [source]; a 404 gives null, any other failure becomes [SourceUnavailableException]. */
     fun <T> call(source: String, call: (RestClient) -> T): T? {
         val client = client ?: throw SourceUnavailableException(source, "$source: адрес внешних систем не настроен")
+        val startedNanos = System.nanoTime()
+        var result = "error"
         return try {
-            breaker(source).executeSupplier { call(client) }
+            breaker(source).executeSupplier { call(client) }.also { result = "success" }
         } catch (exception: HttpClientErrorException.NotFound) {
+            result = "not_found"
             null
         } catch (exception: CallNotPermittedException) {
+            result = "circuit_open"
             throw SourceUnavailableException(source, "$source: источник временно не опрашивается после серии сбоев")
         } catch (exception: HttpClientErrorException) {
+            result = "rejected"
             if (exception.statusCode ==
                 HttpStatus.BAD_REQUEST
             ) {
@@ -73,7 +84,10 @@ class ExternalCalls(
             }
             throw SourceUnavailableException(source, "$source: ошибка ${exception.statusCode.value()}")
         } catch (exception: Exception) {
+            if (generateSequence<Throwable>(exception) { it.cause }.any { it is java.net.SocketTimeoutException }) result = "timeout"
             throw SourceUnavailableException(source, "$source: ${exception.message ?: exception.javaClass.simpleName}")
+        } finally {
+            metrics.source(source, result, startedNanos)
         }
     }
 }

@@ -1,6 +1,7 @@
 package ru.creditcabinet.user.controller
 
 import io.swagger.v3.oas.annotations.Hidden
+import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -15,10 +16,11 @@ import ru.creditcabinet.user.domain.UserRole
 import ru.creditcabinet.user.dto.UserResponse
 import java.util.UUID
 
-@Tag(name = "Users")
+@Tag(name = "Текущий пользователь")
 @RestController
 @RequestMapping("/api/v1/users")
 class UserController(private val authService: AuthService) {
+    @Operation(summary = "Профиль текущего пользователя и его роль")
     @GetMapping("/me")
     fun me(@RequestHeader("Authorization", required = false) authorization: String?): UserResponse =
         UserResponse.of(authService.currentUser(authorization))

@@ -1,0 +1,54 @@
+{
+  "events": [
+    {
+      "event": "CREATED",
+      "at": "2026-10-22T02:56:06.558576+00:00",
+      "seq": 106
+    },
+    {
+      "event": "SUBMIT",
+      "at": "2026-10-22T02:56:30.552249+00:00",
+      "seq": 177
+    },
+    {
+      "event": "DATA_INCOMPLETE",
+      "at": "2026-10-22T02:56:33.648382+00:00",
+      "seq": 178
+    },
+    {
+      "event": "DOCUMENT_ADDED",
+      "at": "2026-10-22T02:56:32.454699+00:00",
+      "seq": 179
+    },
+    {
+      "event": "DOCUMENT_ADDED",
+      "at": "2026-10-22T02:56:34.722613+00:00",
+      "seq": 180
+    },
+    {
+      "event": "DOCUMENT_ADDED",
+      "at": "2026-10-22T02:56:36.960685+00:00",
+      "seq": 181
+    },
+    {
+      "event": "INFO_EXPIRED",
+      "at": "2026-10-22T02:57:03.673552+00:00",
+      "seq": 184
+    }
+  ],
+  "documents": [
+    {
+      "type": "TAX_RETURN",
+      "uploaded_at": "2026-10-22T02:56:32.454699+00:00"
+    },
+    {
+      "type": "FINANCIAL_STATEMENTS",
+      "uploaded_at": "2026-10-22T02:56:34.722613+00:00"
+    },
+    {
+      "type": "BANK_STATEMENT",
+      "uploaded_at": "2026-10-22T02:56:36.960685+00:00"
+    }
+  ],
+  "scope": "Local synthetic seed run; non-monotonic wall timestamps were observed, root cause is not established"
+}

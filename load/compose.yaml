@@ -1,0 +1,11 @@
+services:
+  credit:
+    environment:
+      SOURCE_TIMEOUT: PT45S
+      EXTERNAL_READ_TIMEOUT: PT2S
+      CABINET_PIPELINE_LEASE: PT15S
+      INFO_REQUEST_TTL: PT15M
+      OFFER_TTL: PT15M
+  gateway:
+    volumes:
+      - ./load/reports/gateway.conf:/etc/nginx/conf.d/default.conf:ro

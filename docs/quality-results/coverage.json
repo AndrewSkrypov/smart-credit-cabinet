@@ -1,0 +1,260 @@
+{
+  "backend": {
+    "instruction": {
+      "covered": 27547,
+      "missed": 6305,
+      "percent": 81.37
+    },
+    "branch": {
+      "covered": 1114,
+      "missed": 826,
+      "percent": 57.42
+    },
+    "line": {
+      "covered": 3809,
+      "missed": 512,
+      "percent": 88.15
+    },
+    "complexity": {
+      "covered": 1833,
+      "missed": 909,
+      "percent": 66.85
+    },
+    "method": {
+      "covered": 1476,
+      "missed": 292,
+      "percent": 83.48
+    },
+    "class": {
+      "covered": 307,
+      "missed": 44,
+      "percent": 87.46
+    }
+  },
+  "domain_packages": {
+    "ru.creditcabinet.product.domain": {
+      "instruction": {
+        "covered": 751,
+        "missed": 40,
+        "percent": 94.94
+      },
+      "branch": {
+        "covered": 26,
+        "missed": 10,
+        "percent": 72.22
+      },
+      "line": {
+        "covered": 98,
+        "missed": 1,
+        "percent": 98.99
+      },
+      "complexity": {
+        "covered": 55,
+        "missed": 11,
+        "percent": 83.33
+      },
+      "method": {
+        "covered": 47,
+        "missed": 1,
+        "percent": 97.92
+      },
+      "class": {
+        "covered": 7,
+        "missed": 0,
+        "percent": 100.0
+      }
+    },
+    "ru.creditcabinet.company.domain": {
+      "instruction": {
+        "covered": 90,
+        "missed": 4,
+        "percent": 95.74
+      },
+      "branch": {
+        "covered": 1,
+        "missed": 1,
+        "percent": 50.0
+      },
+      "line": {
+        "covered": 13,
+        "missed": 0,
+        "percent": 100.0
+      },
+      "complexity": {
+        "covered": 10,
+        "missed": 1,
+        "percent": 90.91
+      },
+      "method": {
+        "covered": 10,
+        "missed": 0,
+        "percent": 100.0
+      },
+      "class": {
+        "covered": 3,
+        "missed": 0,
+        "percent": 100.0
+      }
+    },
+    "ru.creditcabinet.assessment.domain": {
+      "instruction": {
+        "covered": 2592,
+        "missed": 289,
+        "percent": 89.97
+      },
+      "branch": {
+        "covered": 170,
+        "missed": 65,
+        "percent": 72.34
+      },
+      "line": {
+        "covered": 345,
+        "missed": 28,
+        "percent": 92.49
+      },
+      "complexity": {
+        "covered": 226,
+        "missed": 51,
+        "percent": 81.59
+      },
+      "method": {
+        "covered": 167,
+        "missed": 3,
+        "percent": 98.24
+      },
+      "class": {
+        "covered": 30,
+        "missed": 0,
+        "percent": 100.0
+      }
+    },
+    "ru.creditcabinet.document.domain": {
+      "instruction": {
+        "covered": 439,
+        "missed": 150,
+        "percent": 74.53
+      },
+      "branch": {
+        "covered": 17,
+        "missed": 41,
+        "percent": 29.31
+      },
+      "line": {
+        "covered": 41,
+        "missed": 11,
+        "percent": 78.85
+      },
+      "complexity": {
+        "covered": 31,
+        "missed": 23,
+        "percent": 57.41
+      },
+      "method": {
+        "covered": 24,
+        "missed": 1,
+        "percent": 96.0
+      },
+      "class": {
+        "covered": 6,
+        "missed": 0,
+        "percent": 100.0
+      }
+    },
+    "ru.creditcabinet.application.domain": {
+      "instruction": {
+        "covered": 1633,
+        "missed": 78,
+        "percent": 95.44
+      },
+      "branch": {
+        "covered": 50,
+        "missed": 14,
+        "percent": 78.12
+      },
+      "line": {
+        "covered": 181,
+        "missed": 3,
+        "percent": 98.37
+      },
+      "complexity": {
+        "covered": 116,
+        "missed": 17,
+        "percent": 87.22
+      },
+      "method": {
+        "covered": 95,
+        "missed": 5,
+        "percent": 95.0
+      },
+      "class": {
+        "covered": 18,
+        "missed": 0,
+        "percent": 100.0
+      }
+    },
+    "ru.creditcabinet.user.domain": {
+      "instruction": {
+        "covered": 206,
+        "missed": 57,
+        "percent": 78.33
+      },
+      "branch": {
+        "covered": 11,
+        "missed": 7,
+        "percent": 61.11
+      },
+      "line": {
+        "covered": 24,
+        "missed": 1,
+        "percent": 96.0
+      },
+      "complexity": {
+        "covered": 17,
+        "missed": 8,
+        "percent": 68.0
+      },
+      "method": {
+        "covered": 15,
+        "missed": 1,
+        "percent": 93.75
+      },
+      "class": {
+        "covered": 4,
+        "missed": 0,
+        "percent": 100.0
+      }
+    }
+  },
+  "frontend": {
+    "lines": {
+      "total": 929,
+      "covered": 291,
+      "skipped": 0,
+      "pct": 31.32
+    },
+    "statements": {
+      "total": 1080,
+      "covered": 317,
+      "skipped": 0,
+      "pct": 29.35
+    },
+    "functions": {
+      "total": 390,
+      "covered": 81,
+      "skipped": 0,
+      "pct": 20.76
+    },
+    "branches": {
+      "total": 956,
+      "covered": 232,
+      "skipped": 0,
+      "pct": 24.26
+    },
+    "branchesTrue": {
+      "total": 0,
+      "covered": 0,
+      "skipped": 0,
+      "pct": 100
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "checked_at": "2026-10-22T01:11:34.335790+00:00",
+  "source_commit": "4ba5400cd07430fffd448b61b10071d42d63e930",
+  "working_tree_dirty": true,
+  "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+  "inputs": [
+    {
+      "kind": "git-head",
+      "archive_sha256": "8b30a06ab7aeed4c9f8b1a76ea9ce40671b43b2b90aa4c99ee1c0168ad797b69",
+      "seconds": 0.9408527000050526,
+      "severity_counts": {
+        "MEDIUM": 64,
+        "HIGH": 44
+      },
+      "unique_vulnerability_ids": 41,
+      "suppressed_findings": 10,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    }
+  ],
+  "passed": true
+}

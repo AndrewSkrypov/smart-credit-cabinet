@@ -29,7 +29,7 @@ interface PipelineJobs {
     /** Adds a step; a step already pending or running for the application is not added twice. */
     fun enqueue(applicationId: UUID, step: PipelineStep, runAt: Instant)
 
-    /** Pending steps of a withdrawn application are not run. */
+    /** Cancel open steps so late worker callbacks cannot revive a withdrawn application's work. */
     fun cancelPending(applicationId: UUID)
 
     /**

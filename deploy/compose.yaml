@@ -1,0 +1,100 @@
+x-prod-env: &prod-env
+  SPRING_PROFILES_ACTIVE: prod
+  JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
+  JWT_SECRET: ${JWT_SECRET:?Задайте JWT_SECRET в deploy/.env}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в deploy/.env}
+
+services:
+  postgres:
+    profiles: [prod]
+    mem_limit: 384m
+    command: [postgres, -c, shared_buffers=96MB, -c, work_mem=4MB, -c, max_connections=60]
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в deploy/.env}
+  db-init:
+    profiles: [prod]
+    mem_limit: 64m
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в deploy/.env}
+  identity:
+    profiles: [prod]
+    image: cabinet/identity:${CABINET_RELEASE:?Задайте CABINET_RELEASE}
+    mem_limit: 512m
+    environment:
+      <<: *prod-env
+      DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-false}
+      SIM_API_KEY: ${SIM_API_KEY:?Задайте SIM_API_KEY в deploy/.env}
+  credit:
+    profiles: [prod]
+    image: cabinet/credit:${CABINET_RELEASE:?Задайте CABINET_RELEASE}
+    mem_limit: 640m
+    environment:
+      <<: *prod-env
+      SIM_API_KEY: ${SIM_API_KEY:?Задайте SIM_API_KEY в deploy/.env}
+      INFO_REQUEST_TTL: ${INFO_REQUEST_TTL:-P14D}
+      OFFER_TTL: ${OFFER_TTL:-P5D}
+      SOURCE_TIMEOUT: ${SOURCE_TIMEOUT:-PT1H}
+  engagement:
+    profiles: [prod]
+    image: cabinet/engagement:${CABINET_RELEASE:?Задайте CABINET_RELEASE}
+    mem_limit: 512m
+    environment:
+      <<: *prod-env
+  external-sim:
+    profiles: [prod]
+    image: cabinet/external-sim:${CABINET_RELEASE:?Задайте CABINET_RELEASE}
+    mem_limit: 384m
+    environment:
+      <<: *prod-env
+      SIM_API_KEY: ${SIM_API_KEY:?Задайте SIM_API_KEY в deploy/.env}
+      SIM_CONTROL_ENABLED: ${SIM_CONTROL_ENABLED:-false}
+  frontend:
+    profiles: [prod]
+    image: cabinet/frontend:${CABINET_RELEASE:?Задайте CABINET_RELEASE}
+    mem_limit: 96m
+  swagger-ui:
+    profiles: [documentation]
+  gateway:
+    profiles: [prod]
+    mem_limit: 48m
+    ports: !override []
+    volumes:
+      - ${GATEWAY_CONFIG:?Подготовьте конфигурацию через deploy/start.py}:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      swagger-ui:
+        condition: service_started
+        required: false
+    networks:
+      cabinet:
+      edge:
+        ipv4_address: ${GATEWAY_EDGE_IP:-172.30.40.3}
+  caddy:
+    image: caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd
+    profiles: [prod]
+    mem_limit: 96m
+    restart: unless-stopped
+    environment:
+      CABINET_DOMAIN: ${CABINET_DOMAIN:?Задайте CABINET_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Задайте ACME_EMAIL}
+      GOMEMLIMIT: 64MiB
+    ports:
+      - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-80}:80"
+      - "${HTTPS_BIND:-0.0.0.0}:${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - cabinet-caddy-data:/data
+      - cabinet-caddy-config:/config
+    depends_on: [gateway]
+    networks:
+      edge:
+        ipv4_address: ${CADDY_EDGE_IP:-172.30.40.2}
+
+volumes:
+  cabinet-caddy-data:
+  cabinet-caddy-config:
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: ${EDGE_SUBNET:-172.30.40.0/28}

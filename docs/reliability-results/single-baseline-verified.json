@@ -1,0 +1,205 @@
+{
+  "run": "single-baseline",
+  "checked_at": "2026-10-22T00:09:57.491928+00:00",
+  "project": "cabinet-submission",
+  "commit": "ab62a5e50ca8469e9bdf7b28064963253159b81f",
+  "companies": 20,
+  "k6_exit": 0,
+  "process_seconds": 18.430563300003996,
+  "runtime": [
+    {
+      "name": "/cabinet-submission-external-sim-1",
+      "image_id": "sha256:21db6d0348200c7155d76e1b965e358e567124813d582ef8b8c49678c00d4503",
+      "memory_limit_bytes": 536870912
+    },
+    {
+      "name": "/cabinet-submission-credit-1",
+      "image_id": "sha256:f390ed79fe08427b156ae0d915c345dfdeaa0e491091c651fbe36fe78763dd06",
+      "memory_limit_bytes": 671088640
+    },
+    {
+      "name": "/cabinet-submission-frontend-1",
+      "image_id": "sha256:c0faa06d8d0fc8d075f40c071bfd384963c945d44b4595d7e7961c2f5cd937cd",
+      "memory_limit_bytes": 134217728
+    },
+    {
+      "name": "/cabinet-submission-engagement-1",
+      "image_id": "sha256:a569fed858034c20843965dcb59ca7afcfddca4be45ddbd1c457868e917cf13a",
+      "memory_limit_bytes": 671088640
+    },
+    {
+      "name": "/cabinet-submission-identity-1",
+      "image_id": "sha256:f42713b86b838e66b84ce908cf1a0b791b920b5c4c64294544efc798063e70f9",
+      "memory_limit_bytes": 671088640
+    },
+    {
+      "name": "/cabinet-submission-gateway-1",
+      "image_id": "sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236",
+      "memory_limit_bytes": 0
+    },
+    {
+      "name": "/cabinet-submission-postgres-1",
+      "image_id": "sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297",
+      "memory_limit_bytes": 0
+    },
+    {
+      "name": "/cabinet-submission-swagger-ui-1",
+      "image_id": "sha256:cb968cc70260c6027b44f227d054a0f12381736e9ab628ef6b6070a19fdf2172",
+      "memory_limit_bytes": 134217728
+    }
+  ],
+  "api_ms": {
+    "min": 3.012026,
+    "med": 6.84651,
+    "p(95)": 74.1176849,
+    "p(99)": 117.34053062,
+    "max": 125.642335,
+    "avg": 14.177160989515073
+  },
+  "decision_ms": {
+    "min": 17538,
+    "med": 18550,
+    "p(95)": 18627,
+    "p(99)": 18627,
+    "max": 18627,
+    "avg": 18331.8
+  },
+  "http_failed": {
+    "rate": 0,
+    "passes": 0,
+    "fails": 763
+  },
+  "decisions": {
+    "count": 20,
+    "rate": 1.0736524973845758
+  },
+  "database": {
+    "applications": 20,
+    "duplicate_offers": 0,
+    "failed_jobs": 0,
+    "due_open_jobs": 0,
+    "jobs_retried": 0
+  },
+  "applications": [
+    {
+      "id": "af60e8bd-778c-46d3-ad47-8b342b7c7d1c",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "9a11c89f-b43c-4649-bf84-4811630e3790",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "54c5e7ae-20da-4ad3-a8bd-e23016df0a71",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "8a60fb68-f1d8-46bd-89a8-fb6e3b7a89c6",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "5a12540f-11fd-4a55-a06c-52f3f9d09193",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "57290607-3235-4bec-8e39-a8957dec75d2",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "a2f4ffb0-8a65-42cb-aef6-db065c03c98d",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "a09d212c-dc56-4291-9942-3874a67d7726",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "8971b193-fc48-4628-9351-57e1b3f423c5",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "914940a2-c4a4-45e4-bb7e-1332f49b0e1f",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "6abc483e-158e-4b5d-9aac-f4b9dc6e9d43",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "4ccd0fc6-e1ca-49c8-a820-7985cd2d1ff9",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "1936c091-5630-40ba-87b9-eb2f7f5fd0f7",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "f9863c39-32cf-48cf-a635-88480ecc5a19",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "315df468-746c-4d48-9d73-4a455c3a25c9",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "831f94b9-d26c-4c13-8969-72121c32f711",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "1bfa43ff-90f0-44e7-b1ef-9a1ef8186ef6",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "85d9be7b-8311-4f45-a008-c1e6b1211ab6",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    },
+    {
+      "id": "632a603f-22a1-470f-96c4-7b2f29137c6e",
+      "status": "OFFER_ISSUED",
+      "transitions": 4,
+      "single_transitions": true
+    },
+    {
+      "id": "a7402bda-953b-406f-ae57-c0e5f8f5d4aa",
+      "status": "OFFER_ISSUED",
+      "transitions": 5,
+      "single_transitions": true
+    }
+  ]
+}

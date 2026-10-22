@@ -1,0 +1,127 @@
+{
+  "images": [
+    {
+      "image": "postgres:16.15-alpine@sha256:deb28ee471183cb0c303113dac9b2433c51eeeeb678def7af9a9ec5820367815",
+      "component": "PostgreSQL / основа cabinet/postgres:16.15-alpine-su-exec-0.3",
+      "license": "PostgreSQL",
+      "source": "https://www.postgresql.org/about/licence/"
+    },
+    {
+      "image": "nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94",
+      "component": "nginx",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/nginx/nginx/blob/master/LICENSE"
+    },
+    {
+      "image": "nginxinc/nginx-unprivileged:1.30-alpine",
+      "component": "nginx / непривилегированный образ",
+      "license": "BSD-2-Clause / Apache-2.0 (рецепт образа)",
+      "source": "https://github.com/nginx/docker-nginx-unprivileged/blob/main/LICENSE"
+    },
+    {
+      "image": "swaggerapi/swagger-ui:v5.34.0@sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0",
+      "component": "Swagger UI",
+      "license": "Apache-2.0",
+      "source": "https://github.com/swagger-api/swagger-ui/blob/v5.34.0/LICENSE"
+    },
+    {
+      "image": "ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8",
+      "component": "Ollama",
+      "license": "MIT; дополнительные компоненты перечислены upstream",
+      "source": "https://github.com/ollama/ollama/blob/v0.40.8/LICENSE"
+    },
+    {
+      "image": "gradle:8.10.2-jdk21",
+      "component": "Gradle / OpenJDK",
+      "license": "Apache-2.0 / GPL-2.0-with-classpath-exception",
+      "source": "https://github.com/gradle/gradle/blob/v8.10.2/LICENSE"
+    },
+    {
+      "image": "eclipse-temurin:21-jre-jammy",
+      "component": "Eclipse Temurin / OpenJDK",
+      "license": "GPL-2.0-with-classpath-exception; Apache-2.0 (рецепт образа)",
+      "source": "https://adoptium.net/about/faq/"
+    },
+    {
+      "image": "node:20-alpine",
+      "component": "Node.js",
+      "license": "MIT; встроенные компоненты имеют свои лицензии",
+      "source": "https://github.com/nodejs/node/blob/v20.x/LICENSE"
+    },
+    {
+      "image": "grafana/k6:1.3.0",
+      "component": "k6, отдельный нагрузочный инструмент",
+      "license": "AGPL-3.0",
+      "source": "https://github.com/grafana/k6/blob/v1.3.0/LICENSE.md"
+    },
+    {
+      "image": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+      "component": "Trivy, отдельный сканер",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aquasecurity/trivy/blob/v0.76.1/LICENSE"
+    },
+    {
+      "image": "prom/prometheus:v3.15.1",
+      "component": "Prometheus",
+      "license": "Apache-2.0",
+      "source": "https://github.com/prometheus/prometheus/blob/v3.15.1/LICENSE"
+    },
+    {
+      "image": "grafana/grafana:13.2.4",
+      "component": "Grafana OSS",
+      "license": "AGPL-3.0",
+      "source": "https://github.com/grafana/grafana/blob/v13.2.4/LICENSE"
+    },
+    {
+      "image": "caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd",
+      "component": "Caddy",
+      "license": "Apache-2.0",
+      "source": "https://github.com/caddyserver/caddy/blob/v2.11.7/LICENSE"
+    }
+  ],
+  "assets": [
+    {
+      "name": "Inter",
+      "version": "@fontsource/inter 5.3.0 (точная версия — npm lock)",
+      "license": "SIL Open Font License 1.1",
+      "source": "https://github.com/rsms/inter/blob/master/LICENSE.txt",
+      "note": "Шрифт поставляется в frontend через @fontsource/inter; оригинальное уведомление есть в пакете LICENSE."
+    },
+    {
+      "name": "Qwen2.5-3B-Instruct",
+      "version": "Ollama qwen2.5:3b",
+      "license": "Qwen Research License",
+      "source": "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/blob/main/LICENSE",
+      "note": "Модель помощника по умолчанию; необязательные открытые веса, скачиваются профилем ai. Лицензия разрешает исследовательское и некоммерческое использование, коммерческое — по отдельному соглашению с Alibaba Cloud; для промышленного запуска заменить через ASSISTANT_MODEL на модель под Apache-2.0 (qwen2.5:1.5b или qwen2.5:7b). Тег Ollama не является digest весов; смена ASSISTANT_MODEL требует повторной проверки лицензии."
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "license": "MIT",
+      "source": "https://github.com/yaml/pyyaml/blob/6.0.3/LICENSE",
+      "note": "Инструмент экспорта контрактов; версия из scripts/requirements-tools.txt."
+    },
+    {
+      "name": "su-exec",
+      "version": "0.3-r0 (Alpine)",
+      "license": "MIT",
+      "source": "https://github.com/ncopa/su-exec/blob/v0.3/LICENSE",
+      "note": "Заменяет gosu в локальном рецепте PostgreSQL; выполняет переключение UID/GID без статического Go runtime."
+    },
+    {
+      "name": "bcrypt (инструмент начальной настройки банка)",
+      "version": "5.0.0",
+      "license": "Apache-2.0",
+      "source": "https://github.com/pyca/bcrypt/blob/5.0.0/LICENSE",
+      "note": "Используется только локальным deploy/provision-bank-user.py, не добавляет публичных API и не выводит пароль."
+    }
+  ],
+  "simulations": [
+    "ЕГРЮЛ/ЕГРИП",
+    "ФНС «Прозрачный бизнес»",
+    "БКИ",
+    "Данные банка",
+    "ПЭП",
+    "АБС"
+  ]
+}

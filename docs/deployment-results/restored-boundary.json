@@ -1,0 +1,43 @@
+{
+  "checked_at": "2026-10-22T02:17:45.080092+00:00",
+  "project": "cabinet-prod-restore-check",
+  "checks": [
+    "HTTPS с проверкой сертификата собственным CA клиента",
+    "HSTS и запрет MIME sniffing",
+    "HTTP перенаправляет на HTTPS",
+    "Демо-кнопки выключены",
+    "Знакомый демо-пароль не даёт вход",
+    "Закрыт внешний маршрут /sim/",
+    "Закрыт внешний маршрут /sim/control",
+    "Закрыт внешний маршрут /ext/bureau/v1/reports/000100000004",
+    "Закрыт внешний маршрут /internal/notifications",
+    "Закрыт внешний маршрут /actuator/prometheus",
+    "Закрыт внешний маршрут /swagger/",
+    "Закрыт внешний маршрут /v3/api-docs/credit",
+    "В БД нет активных демо-учёток",
+    "Даже внутреннее управление сбоями запрещено",
+    "Не опубликован порт postgres",
+    "Не опубликован порт identity",
+    "Не опубликован порт credit",
+    "Не опубликован порт engagement",
+    "Не опубликован порт external-sim",
+    "Не опубликован порт frontend",
+    "Не опубликован порт gateway",
+    "Gateway видит HTTPS и доверяет только Caddy",
+    "Внешний X-Forwarded-For не подменяет адрес лимитера",
+    "Лимиты оставляют не менее 1 GiB из 4 GiB для ОС"
+  ],
+  "passed": true,
+  "gateway_observation": "172.30.41.1 peer=172.30.41.2 proto=https id=6ad9726277e38b0840add9d336cf8fb1 GET /api/v1/products 200",
+  "memory_limits_bytes": {
+    "caddy": 100663296,
+    "credit": 671088640,
+    "db-init": 67108864,
+    "engagement": 536870912,
+    "external-sim": 402653184,
+    "frontend": 100663296,
+    "gateway": 50331648,
+    "identity": 536870912,
+    "postgres": 402653184
+  }
+}

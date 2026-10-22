@@ -1,0 +1,39 @@
+{
+  "checked_at": "2026-10-22T01:22:38.716291+00:00",
+  "source_commit": "4ba5400cd07430fffd448b61b10071d42d63e930",
+  "working_tree_dirty": true,
+  "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+  "inputs": [
+    {
+      "kind": "image",
+      "reference": "nginx:1.30.5-alpine",
+      "image_id": "sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94",
+      "seconds": 7.15848320000805,
+      "severity_counts": {
+        "HIGH": 5,
+        "MEDIUM": 8
+      },
+      "unique_vulnerability_ids": 13,
+      "suppressed_findings": 0,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    },
+    {
+      "kind": "image",
+      "reference": "swaggerapi/swagger-ui:v5.34.0",
+      "image_id": "sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0",
+      "seconds": 10.852711000014096,
+      "severity_counts": {
+        "HIGH": 5,
+        "MEDIUM": 8
+      },
+      "unique_vulnerability_ids": 13,
+      "suppressed_findings": 0,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    }
+  ],
+  "passed": true
+}

@@ -21,8 +21,10 @@ import org.springframework.test.web.servlet.put
 import ru.creditcabinet.application.domain.CompanyDirectory
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
+import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.TokenClaims
+import java.time.Instant
 import java.util.Date
 import java.util.UUID
 import kotlin.test.BeforeTest
@@ -46,6 +48,9 @@ class ApplicationApiIntegrationTest {
 
     @Autowired
     private lateinit var jdbc: JdbcTemplate
+
+    @Autowired
+    private lateinit var jobs: PipelineJobs
 
     @MockitoBean
     private lateinit var companies: CompanyDirectory
@@ -143,6 +148,37 @@ class ApplicationApiIntegrationTest {
         )
         assertEquals("WITHDRAWN", withdrawn["status"].asText())
         assertEquals(0, jdbc.queryForObject("select count(*) from pipeline_jobs where application_id = ?::uuid and status = 'PENDING'", Int::class.java, id))
+    }
+
+    @Test
+    fun `a withdrawn running job cannot be revived by a stale worker`() {
+        val callbacks: List<Pair<String, (UUID) -> Unit>> = listOf(
+            "retry" to { id -> jobs.retry(id, Instant.now(), "External call failed after withdrawal") },
+            "complete" to { id -> jobs.complete(id) },
+            "fail" to { id -> jobs.fail(id, "Last attempt failed after withdrawal") },
+        )
+        for ((name, callback) in callbacks) {
+            val id = create()["id"].asText()
+            assertEquals(200, submit(id).status)
+            // Make this fixture the earliest due job without claiming unrelated applications.
+            jdbc.update("update pipeline_jobs set run_at = ? where application_id = ?::uuid", java.sql.Timestamp.from(Instant.EPOCH), id)
+            val now = Instant.now()
+            val claimed = jobs.claim(now, now.plusSeconds(120), 1).single()
+            assertEquals(id, claimed.applicationId.toString())
+            assertEquals("RUNNING", jdbc.queryForObject("select status from pipeline_jobs where id = ?", String::class.java, claimed.id))
+
+            mockMvc.post("/api/v1/applications/$id/withdraw") { header("Authorization", "Bearer $client") }.andExpect { status { isOk() } }
+            callback(claimed.id)
+
+            assertEquals("CANCELLED", jdbc.queryForObject("select status from pipeline_jobs where id = ?", String::class.java, claimed.id), name)
+            assertEquals(0, jdbc.queryForObject("select count(*) from pipeline_jobs where id = ? and locked_until is not null", Int::class.java, claimed.id))
+            assertEquals("WITHDRAWN", json(get(id, client))["status"].asText())
+            assertEquals(
+                listOf("CREATED", "SUBMIT", "WITHDRAW"),
+                json(mockMvc.get("/api/v1/applications/$id/events") { header("Authorization", "Bearer $client") }.andReturn().response)
+                    .map { it["event"].asText() },
+            )
+        }
     }
 
     @Test

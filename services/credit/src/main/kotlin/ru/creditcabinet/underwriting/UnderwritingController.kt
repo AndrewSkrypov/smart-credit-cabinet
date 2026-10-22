@@ -123,7 +123,7 @@ data class InfoRequestBody(
     @field:Size(max = 2000) val comment: String? = null,
 )
 
-@Tag(name = "Underwriting")
+@Tag(name = "Решения сотрудников банка")
 @RestController
 @RequestMapping("/api/v1/underwriting/applications")
 class UnderwritingController(

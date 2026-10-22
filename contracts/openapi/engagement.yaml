@@ -1,0 +1,560 @@
+components:
+  schemas:
+    Answer:
+      properties:
+        mode:
+          enum:
+          - MODEL
+          - RULES
+          type: string
+        sources:
+          items:
+            type: string
+          type: array
+        text:
+          type: string
+      required:
+      - mode
+      - sources
+      - text
+      type: object
+    AssistantQuestion:
+      properties:
+        applicationId:
+          format: uuid
+          type: string
+        history:
+          items:
+            $ref: '#/components/schemas/Turn'
+          maxItems: 10
+          minItems: 0
+          type: array
+        question:
+          maxLength: 500
+          minLength: 0
+          type: string
+      required:
+      - history
+      - question
+      type: object
+    AssistantStatus:
+      properties:
+        mode:
+          enum:
+          - MODEL
+          - RULES
+          type: string
+        model:
+          type: string
+      required:
+      - mode
+      type: object
+    ErrorResponse:
+      description: Ошибка API
+      properties:
+        error:
+          description: Название HTTP-статуса
+          example: Not Found
+          type: string
+        message:
+          description: Понятное объяснение ошибки
+          example: Заявка не найдена
+          type: string
+        path:
+          description: Путь запроса, который завершился ошибкой
+          example: /api/v1/applications/00000000-0000-0000-0000-000000000001
+          type: string
+        requestId:
+          type: string
+        status:
+          description: HTTP-код ошибки
+          example: 404
+          format: int32
+          type: integer
+        timestamp:
+          format: date-time
+          type: string
+    NotificationPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/NotificationView'
+          type: array
+        page:
+          format: int32
+          type: integer
+        size:
+          format: int32
+          type: integer
+        total:
+          format: int32
+          type: integer
+        unread:
+          format: int32
+          type: integer
+      required:
+      - items
+      - page
+      - size
+      - total
+      - unread
+      type: object
+    NotificationView:
+      properties:
+        body:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        id:
+          format: uuid
+          type: string
+        link:
+          type: string
+        read:
+          type: boolean
+        title:
+          type: string
+        type:
+          enum:
+          - APPLICATION_STATUS
+          - ACTION_REQUIRED
+          - NEW_REVIEW
+          type: string
+      required:
+      - body
+      - createdAt
+      - id
+      - read
+      - title
+      - type
+      type: object
+    SystemKeyError:
+      properties:
+        error:
+          example: Unauthorized
+          type: string
+        message:
+          example: Нужен ключ системы-клиента в заголовке X-Api-Key
+          type: string
+        status:
+          example: 401
+      required:
+      - status
+      - error
+      - message
+      type: object
+    Turn:
+      properties:
+        role:
+          type: string
+        text:
+          type: string
+      required:
+      - role
+      - text
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+    systemKey:
+      in: header
+      name: X-Api-Key
+      type: apiKey
+info:
+  description: REST API умного кредитного кабинета предпринимателя. Данные демо-стенда синтетические.
+  title: 'Кабинет предпринимателя: уведомления и помощник'
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /api/v1/assistant/messages:
+    post:
+      operationId: ask
+      parameters:
+      - in: header
+        name: Authorization
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantQuestion'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Answer'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/assistant/messages
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/assistant/messages
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/assistant/messages
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/assistant/messages
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/assistant/messages
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+      security:
+      - bearerAuth: []
+      summary: Вопрос помощнику о продуктах, статусе и решении по заявке
+      tags:
+      - Кредитный помощник
+  /api/v1/assistant/status:
+    get:
+      operationId: status
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AssistantStatus'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/assistant/status
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/assistant/status
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+      security:
+      - bearerAuth: []
+      summary: 'Режим помощника: модель с открытыми весами или справочные ответы по правилам'
+      tags:
+      - Кредитный помощник
+  /api/v1/notifications:
+    get:
+      operationId: list
+      parameters:
+      - in: query
+        name: page
+        required: false
+        schema:
+          default: 0
+          format: int32
+          type: integer
+      - in: query
+        name: size
+        required: false
+        schema:
+          default: 20
+          format: int32
+          type: integer
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/notifications
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/notifications
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+      security:
+      - bearerAuth: []
+      summary: Мои уведомления, новые сверху
+      tags:
+      - Уведомления в кабинете
+  /api/v1/notifications/read-all:
+    post:
+      operationId: readAll
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                additionalProperties:
+                  format: int32
+                  type: integer
+                type: object
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/notifications/read-all
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/notifications/read-all
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/notifications/read-all
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/notifications/read-all
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Отметить все свои уведомления прочитанными
+      tags:
+      - Уведомления в кабинете
+  /api/v1/notifications/unread-count:
+    get:
+      operationId: unread
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                additionalProperties:
+                  format: int32
+                  type: integer
+                type: object
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/notifications/unread-count
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/notifications/unread-count
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+      security:
+      - bearerAuth: []
+      summary: Число непрочитанных уведомлений текущего пользователя
+      tags:
+      - Уведомления в кабинете
+  /api/v1/notifications/{id}/read:
+    post:
+      operationId: read
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '204':
+          description: No Content
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/notifications/{id}/read
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/notifications/{id}/read
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/notifications/{id}/read
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/notifications/{id}/read
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/notifications/{id}/read
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+      security:
+      - bearerAuth: []
+      summary: Отметить своё уведомление прочитанным; чужое возвращает 404
+      tags:
+      - Уведомления в кабинете
+servers:
+- description: Адрес сервиса или шлюза; /ext/ доступен только во внутренней сети
+  url: /

@@ -1,0 +1,1275 @@
+{
+  "mode": "timeout",
+  "project": "cabinet-submission",
+  "cohort": "source-deadline",
+  "started_at": "2026-10-22T00:22:42.890651+00:00",
+  "source_failure_observed": true,
+  "breaker_open_observed": true,
+  "fault_seconds": 2.8091519000008702,
+  "waiting_states": {
+    "ENRICHMENT": 10
+  },
+  "applications": [
+    {
+      "id": "4b4f060f-9bbf-4d8a-bda5-0cd214148e7c",
+      "status": "MANUAL_REVIEW",
+      "events": [
+        {
+          "id": "4887e236-6882-4065-9c75-7dd0b812e832",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "613c0f6e-6588-4446-ae21-0b3966e859d4",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:16.218234Z"
+        },
+        {
+          "id": "f00cea0a-8fdb-40ad-b692-d653c68726ef",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "613c0f6e-6588-4446-ae21-0b3966e859d4",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.422348Z"
+        },
+        {
+          "id": "1268e309-729d-4566-a195-0425cd852422",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:41.307250Z"
+        },
+        {
+          "id": "7052ab21-22b6-48fa-9efa-ef66b0b190df",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: 503 : \"{\"timestamp\":\"2026-10-22T00:22:42.677262643Z\",\"status\":503,\"error\":\"Service Unavailable\",\"message\":\"Бюро кредитных историй: сервис недоступен (симуляция сбоя)\",\"path\":\"/ext/bureau/v1/reports/0017624984\",\"requestId\":\"6ad957518a0da3e285505c66ec231e93\"}\"",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:22:47.679879724Z"
+          },
+          "occurredAt": "2026-10-22T00:22:42.679880Z"
+        },
+        {
+          "id": "7a814b11-18b3-443f-a582-83d74113224b",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:18.000561707Z"
+          },
+          "occurredAt": "2026-10-22T00:22:48.000562Z"
+        },
+        {
+          "id": "b34d1814-007b-463a-a16c-df383883f711",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:26.307250Z"
+          },
+          "occurredAt": "2026-10-22T00:23:18.988307Z"
+        },
+        {
+          "id": "324d7521-322f-40cc-a524-16de65ca8570",
+          "event": "SOURCE_TIMED_OUT",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:23:27.089842Z"
+        }
+      ]
+    },
+    {
+      "id": "e56c005c-33a5-468a-a1df-d45e1de9fc26",
+      "status": "MANUAL_REVIEW",
+      "events": [
+        {
+          "id": "7c1fb23a-84ab-4538-94bd-07f376f95947",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "d01715f3-96f6-46f0-b0fd-32420be47613",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:18.866936Z"
+        },
+        {
+          "id": "52e6d0b2-2347-4d72-ac34-84b1d0858b29",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "d01715f3-96f6-46f0-b0fd-32420be47613",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.426539Z"
+        },
+        {
+          "id": "1f08fff9-ca11-48d2-8598-a8fdd79fae61",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:41.944601Z"
+        },
+        {
+          "id": "e9b4700d-f735-4a68-94c9-08707b67c528",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:22:51.428507778Z"
+          },
+          "occurredAt": "2026-10-22T00:22:46.428508Z"
+        },
+        {
+          "id": "0c27b32e-a2b5-423b-ab4f-377c50e8b14f",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:22.031959604Z"
+          },
+          "occurredAt": "2026-10-22T00:22:52.031960Z"
+        },
+        {
+          "id": "a4973c98-d8fd-4b4f-a40e-c7b2769d9fad",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:26.944601Z"
+          },
+          "occurredAt": "2026-10-22T00:23:22.040789Z"
+        },
+        {
+          "id": "02b1c101-91fd-42a3-b3d5-4ff57931616a",
+          "event": "SOURCE_TIMED_OUT",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:23:27.112616Z"
+        }
+      ]
+    },
+    {
+      "id": "137dc288-8581-4873-a0f6-9398379faa6b",
+      "status": "MANUAL_REVIEW",
+      "events": [
+        {
+          "id": "ea16907c-368e-41f4-9a49-cd8494dfd94f",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "b0a44431-4fe3-4f0c-a038-40d3e2f3b61f",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:21.520767Z"
+        },
+        {
+          "id": "160dcc27-3d6e-4736-adcf-771ecab33f39",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "b0a44431-4fe3-4f0c-a038-40d3e2f3b61f",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.427928Z"
+        },
+        {
+          "id": "5e02d348-8562-45d3-a30d-6049a8ae3233",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:42.589163Z"
+        },
+        {
+          "id": "05539abc-b995-4108-8fea-a96cf1570484",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:22:47.955899649Z"
+          },
+          "occurredAt": "2026-10-22T00:22:42.955900Z"
+        },
+        {
+          "id": "c655c693-e2e1-489f-b4ea-ac2f97fff013",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:18.019831979Z"
+          },
+          "occurredAt": "2026-10-22T00:22:48.019832Z"
+        },
+        {
+          "id": "2a77cef2-f531-4343-8969-d2db4dd6fa4b",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:27.589163Z"
+          },
+          "occurredAt": "2026-10-22T00:23:19.007127Z"
+        },
+        {
+          "id": "d91fd5d9-4b8d-4e3f-9a10-ccb3305215b6",
+          "event": "SOURCE_TIMED_OUT",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:23:28.101360Z"
+        }
+      ]
+    },
+    {
+      "id": "006dd663-f846-43f7-9213-0321bafbb800",
+      "status": "MANUAL_REVIEW",
+      "events": [
+        {
+          "id": "8b7913af-2ba8-48cb-a51f-9b1e67ba7941",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "25a0a97d-927b-4185-86b4-7ee6cf83701d",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:24.151099Z"
+        },
+        {
+          "id": "cd375679-88b1-4b2f-8f19-adabcc7e6afe",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "25a0a97d-927b-4185-86b4-7ee6cf83701d",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.433202Z"
+        },
+        {
+          "id": "5aaed9be-fa6a-4753-87c8-a18f86b5d180",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.879532Z"
+        },
+        {
+          "id": "682cbbaa-099c-4fd7-89e1-3faf3d7d65ab",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: 503 : \"{\"timestamp\":\"2026-10-22T00:22:41.821732112Z\",\"status\":503,\"error\":\"Service Unavailable\",\"message\":\"Бюро кредитных историй: сервис недоступен (симуляция сбоя)\",\"path\":\"/ext/bureau/v1/reports/0093085815\",\"requestId\":\"6ad957518a0da3e285505c66ec231e93\"}\"",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:22:46.823407011Z"
+          },
+          "occurredAt": "2026-10-22T00:22:41.823407Z"
+        },
+        {
+          "id": "8e80d846-bdcd-482c-826a-07a5a1203d32",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: 503 : \"{\"timestamp\":\"2026-10-22T00:22:46.974906037Z\",\"status\":503,\"error\":\"Service Unavailable\",\"message\":\"Бюро кредитных историй: сервис недоступен (симуляция сбоя)\",\"path\":\"/ext/bureau/v1/reports/0093085815\",\"requestId\":\"6ad957561ac863d829601b4ccc854324\"}\"",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:16.975912935Z"
+          },
+          "occurredAt": "2026-10-22T00:22:46.975913Z"
+        },
+        {
+          "id": "2430a450-37cf-45ac-8dd5-68d2c6dc013d",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: 503 : \"{\"timestamp\":\"2026-10-22T00:23:17.960874799Z\",\"status\":503,\"error\":\"Service Unavailable\",\"message\":\"Бюро кредитных историй: сервис недоступен (симуляция сбоя)\",\"path\":\"/ext/bureau/v1/reports/0093085815\",\"requestId\":\"6ad95775654079237511668221a98132\"}\"",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:25.879532Z"
+          },
+          "occurredAt": "2026-10-22T00:23:17.963618Z"
+        },
+        {
+          "id": "1c5fd59d-1345-467a-b058-9508a5dd73c8",
+          "event": "SOURCE_TIMED_OUT",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:23:26.063118Z"
+        }
+      ]
+    },
+    {
+      "id": "3f61fd6c-0ff3-414e-9a88-c2e8d6200481",
+      "status": "MANUAL_REVIEW",
+      "events": [
+        {
+          "id": "905231ff-9875-41ef-b7f6-d37308fddabb",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "9b1705e4-d307-4124-8092-ca646e2427e8",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:26.775863Z"
+        },
+        {
+          "id": "11e243a2-b1c1-4556-87cb-9f5b076c61bf",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "9b1705e4-d307-4124-8092-ca646e2427e8",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.439287Z"
+        },
+        {
+          "id": "26c2cde5-e566-4ffc-96e4-a5a38245f680",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:42.157504Z"
+        },
+        {
+          "id": "0d8421b3-3559-40cd-8059-300a7ec41b82",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:22:47.114632741Z"
+          },
+          "occurredAt": "2026-10-22T00:22:42.114633Z"
+        },
+        {
+          "id": "6dae733e-a82a-4d21-939d-9b689cc708e8",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:18.007904304Z"
+          },
+          "occurredAt": "2026-10-22T00:22:48.007904Z"
+        },
+        {
+          "id": "995bc27d-b1fc-4995-aa10-e47604a152b6",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:27.157504Z"
+          },
+          "occurredAt": "2026-10-22T00:23:18.994232Z"
+        },
+        {
+          "id": "9a89d09f-35bc-4f8c-b2c9-0881a38a6fdb",
+          "event": "SOURCE_TIMED_OUT",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:23:28.082395Z"
+        }
+      ]
+    },
+    {
+      "id": "0372fcc9-e46a-4c0a-9707-cafc602bb354",
+      "status": "MANUAL_REVIEW",
+      "events": [
+        {
+          "id": "32701956-3b55-41bf-ade4-c5fff6512d11",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "814b247d-0797-4aa5-aef9-9e0b6662e6c0",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:29.437951Z"
+        },
+        {
+          "id": "a309d46f-2d06-484a-8cef-339b459c52f5",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "814b247d-0797-4aa5-aef9-9e0b6662e6c0",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.433408Z"
+        },
+        {
+          "id": "80de96a1-d9ec-4dfe-acf6-4a8b4784f6d1",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:41.518769Z"
+        },
+        {
+          "id": "e6f81975-fb30-40d3-af3b-c465eb91c2ef",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:22:50.552880220Z"
+          },
+          "occurredAt": "2026-10-22T00:22:45.552880Z"
+        },
+        {
+          "id": "3a51b535-50a1-4938-b4b6-9ef531cb41d5",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:20.999736744Z"
+          },
+          "occurredAt": "2026-10-22T00:22:50.999737Z"
+        },
+        {
+          "id": "09be0afe-3d39-4986-8974-436e5a2f6d6d",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: 503 : \"{\"timestamp\":\"2026-10-22T00:23:21.016966567Z\",\"status\":503,\"error\":\"Service Unavailable\",\"message\":\"Бюро кредитных историй: сервис недоступен (симуляция сбоя)\",\"path\":\"/ext/bureau/v1/reports/0059597475\",\"requestId\":\"6ad957791921e1c5fd78c5fe69eaa9f1\"}\"",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:26.518769Z"
+          },
+          "occurredAt": "2026-10-22T00:23:21.019184Z"
+        },
+        {
+          "id": "cc18dd16-d742-4f58-bba6-42030b4057bc",
+          "event": "SOURCE_TIMED_OUT",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:23:27.097849Z"
+        }
+      ]
+    },
+    {
+      "id": "b023d256-8f75-4ed6-959d-33df34d4538c",
+      "status": "MANUAL_REVIEW",
+      "events": [
+        {
+          "id": "2847163d-ea94-4a58-b845-b4a7f360e9e3",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "e7c1c320-3f79-4008-aa4b-10fe792e4be0",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:32.079849Z"
+        },
+        {
+          "id": "e4666018-193a-4e9f-80a8-9da2fcfd3c52",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "e7c1c320-3f79-4008-aa4b-10fe792e4be0",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.442334Z"
+        },
+        {
+          "id": "77ddb622-2e58-4707-8f6d-b76ca1ec3b92",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:42.374048Z"
+        },
+        {
+          "id": "e0137382-0d1d-407f-b85e-2e6b501578f1",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:22:47.538795039Z"
+          },
+          "occurredAt": "2026-10-22T00:22:42.538795Z"
+        },
+        {
+          "id": "fcbf9c64-4ef2-4ef7-9bf1-61ed8c2bb86e",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:18.014136801Z"
+          },
+          "occurredAt": "2026-10-22T00:22:48.014137Z"
+        },
+        {
+          "id": "b18f394f-4cc9-4793-9d5f-c011a99fda22",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:27.374048Z"
+          },
+          "occurredAt": "2026-10-22T00:23:19.000581Z"
+        },
+        {
+          "id": "cc355e42-38ed-4ca4-971f-4be3c7877b44",
+          "event": "SOURCE_TIMED_OUT",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:23:28.092962Z"
+        }
+      ]
+    },
+    {
+      "id": "07762cd0-b7e2-4e56-b960-c31ed99ed9cf",
+      "status": "MANUAL_REVIEW",
+      "events": [
+        {
+          "id": "6126c68e-aa7c-4141-89e3-a4553ea2aa7d",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "9b9f0372-3ada-4a68-b42d-53026609b232",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:34.763047Z"
+        },
+        {
+          "id": "ae800650-0d43-4cc0-9920-42ea7a244e07",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "9b9f0372-3ada-4a68-b42d-53026609b232",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.442821Z"
+        },
+        {
+          "id": "e908a48d-ca00-4270-8a75-705c7921d2c9",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:41.731435Z"
+        },
+        {
+          "id": "d9b88fdd-4e7d-403c-ae16-43de7995bca3",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:22:51.015753187Z"
+          },
+          "occurredAt": "2026-10-22T00:22:46.015753Z"
+        },
+        {
+          "id": "a079d548-d80b-4e15-9ee4-ad8342b85739",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:21.019796369Z"
+          },
+          "occurredAt": "2026-10-22T00:22:51.019796Z"
+        },
+        {
+          "id": "f83bf7cb-89f6-41f4-bd9f-b774dbafe0a1",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:26.731435Z"
+          },
+          "occurredAt": "2026-10-22T00:23:21.035120Z"
+        },
+        {
+          "id": "0279dff4-0a90-469a-902e-e2a8f660fae7",
+          "event": "SOURCE_TIMED_OUT",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:23:27.104930Z"
+        }
+      ]
+    },
+    {
+      "id": "b2c227b6-e5e2-483d-a12d-6e6166dbd4d2",
+      "status": "MANUAL_REVIEW",
+      "events": [
+        {
+          "id": "1c601f59-0255-4b04-addd-fbc46de6638d",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "577a256f-9be9-461b-a71e-32a11e1a80e4",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:37.397136Z"
+        },
+        {
+          "id": "d9b21cfd-c588-4c76-a5b4-bb98ce436046",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "577a256f-9be9-461b-a71e-32a11e1a80e4",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.442080Z"
+        },
+        {
+          "id": "84ecb10d-8fde-491d-a105-27ca1a2c37d6",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:42.806496Z"
+        },
+        {
+          "id": "55d1edad-5d8a-41bb-8932-e87eb4f912ed",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: 503 : \"{\"timestamp\":\"2026-10-22T00:22:45.677019255Z\",\"status\":503,\"error\":\"Service Unavailable\",\"message\":\"Бюро кредитных историй: сервис недоступен (симуляция сбоя)\",\"path\":\"/ext/bureau/v1/reports/0078521263\",\"requestId\":\"6ad957501dfa2644b25216131c5af335\"}\"",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:22:50.678050077Z"
+          },
+          "occurredAt": "2026-10-22T00:22:45.678050Z"
+        },
+        {
+          "id": "ab06a3ea-22a4-472e-9c2e-b834bab37da1",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:21.008767403Z"
+          },
+          "occurredAt": "2026-10-22T00:22:51.008767Z"
+        },
+        {
+          "id": "0e664369-5c7b-4ec2-ae09-12be670c779f",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:27.806496Z"
+          },
+          "occurredAt": "2026-10-22T00:23:21.021339Z"
+        },
+        {
+          "id": "b4c7a77f-60a2-449d-a8c5-2840d13951fc",
+          "event": "SOURCE_TIMED_OUT",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:23:28.109498Z"
+        }
+      ]
+    },
+    {
+      "id": "ca3658f0-5586-4cd0-ade1-2dfb8cfe076d",
+      "status": "MANUAL_REVIEW",
+      "events": [
+        {
+          "id": "f2d30ea4-10b0-47e2-a9cd-7c334a70e4f9",
+          "event": "CREATED",
+          "fromStatus": "DRAFT",
+          "toStatus": "DRAFT",
+          "actorType": "CLIENT",
+          "actorId": "0e864ded-f0f2-4531-8572-2c22d0685b52",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.047967Z"
+        },
+        {
+          "id": "ff8b9076-0646-4e93-941d-ebc707acd0a2",
+          "event": "SUBMIT",
+          "fromStatus": "DRAFT",
+          "toStatus": "SUBMITTED",
+          "actorType": "CLIENT",
+          "actorId": "0e864ded-f0f2-4531-8572-2c22d0685b52",
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:40.445069Z"
+        },
+        {
+          "id": "e21400fc-04e5-4a8e-ad00-a5cbd277edd4",
+          "event": "DATA_COMPLETE",
+          "fromStatus": "SUBMITTED",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": null,
+          "comment": null,
+          "payload": {},
+          "occurredAt": "2026-10-22T00:22:41.094598Z"
+        },
+        {
+          "id": "66463f2c-f59b-4f43-844b-8d7371f3c343",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: 503 : \"{\"timestamp\":\"2026-10-22T00:22:42.246134408Z\",\"status\":503,\"error\":\"Service Unavailable\",\"message\":\"Бюро кредитных историй: сервис недоступен (симуляция сбоя)\",\"path\":\"/ext/bureau/v1/reports/0061583141\",\"requestId\":\"6ad957518a0da3e285505c66ec231e93\"}\"",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:22:47.248575927Z"
+          },
+          "occurredAt": "2026-10-22T00:22:42.248576Z"
+        },
+        {
+          "id": "be1a6f0e-a287-4c76-9302-315ddca72770",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:17.993703201Z"
+          },
+          "occurredAt": "2026-10-22T00:22:47.993703Z"
+        },
+        {
+          "id": "0d5ee2d8-1400-4af1-9ab4-b236d9a97203",
+          "event": "SOURCE_FAILED",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "ENRICHMENT",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": "БКИ: источник временно не опрашивается после серии сбоев",
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ],
+            "nextAttemptAt": "2026-10-22T00:23:26.094598Z"
+          },
+          "occurredAt": "2026-10-22T00:23:18.981782Z"
+        },
+        {
+          "id": "7eeb4cd8-c74a-41c2-84b4-1ef0edef296b",
+          "event": "SOURCE_TIMED_OUT",
+          "fromStatus": "ENRICHMENT",
+          "toStatus": "MANUAL_REVIEW",
+          "actorType": "SYSTEM",
+          "actorId": null,
+          "reasonCode": "SOURCE_UNAVAILABLE",
+          "comment": null,
+          "payload": {
+            "sources": [
+              "BUREAU"
+            ]
+          },
+          "occurredAt": "2026-10-22T00:23:27.080982Z"
+        }
+      ]
+    }
+  ],
+  "database": {
+    "duplicate_offers": 0,
+    "failed_jobs": 0,
+    "due_open_jobs": 0,
+    "retried_jobs": 10
+  },
+  "jobs": [
+    {
+      "id": "f1fdb585-26a1-4c76-83c3-55cb6f18756f",
+      "application_id": "006dd663-f846-43f7-9213-0321bafbb800",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "c0e1d85f-ca45-4c94-b94f-13e8f82067ef",
+      "application_id": "ca3658f0-5586-4cd0-ade1-2dfb8cfe076d",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "5cd359ff-cfb0-47fc-819e-ee3ad8f1309b",
+      "application_id": "4b4f060f-9bbf-4d8a-bda5-0cd214148e7c",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "33f201a6-33a0-4d40-a7ad-a39555b88fe2",
+      "application_id": "0372fcc9-e46a-4c0a-9707-cafc602bb354",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "b22cee53-059c-4362-8d5c-1844a29d27cf",
+      "application_id": "07762cd0-b7e2-4e56-b960-c31ed99ed9cf",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "198d4582-f38e-4b51-b92a-359ee31092c5",
+      "application_id": "e56c005c-33a5-468a-a1df-d45e1de9fc26",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "6209ab02-16cb-41c2-bbff-48082220e7cf",
+      "application_id": "3f61fd6c-0ff3-414e-9a88-c2e8d6200481",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "9c8f29b9-388b-44f0-a2b6-ff9570dbce0f",
+      "application_id": "b023d256-8f75-4ed6-959d-33df34d4538c",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "676d2f37-818f-4cb4-8df9-3f9f78d7d718",
+      "application_id": "006dd663-f846-43f7-9213-0321bafbb800",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 4,
+      "locked_until": null
+    },
+    {
+      "id": "59efa58b-cd1b-4b35-b347-10939a816465",
+      "application_id": "ca3658f0-5586-4cd0-ade1-2dfb8cfe076d",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 4,
+      "locked_until": null
+    },
+    {
+      "id": "299dc627-faa7-4414-9530-65e91895e017",
+      "application_id": "137dc288-8581-4873-a0f6-9398379faa6b",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "b0f822ec-9993-4b99-af67-fe3ce25812e6",
+      "application_id": "4b4f060f-9bbf-4d8a-bda5-0cd214148e7c",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 4,
+      "locked_until": null
+    },
+    {
+      "id": "92cfdc05-146a-4f33-b114-992742920250",
+      "application_id": "0372fcc9-e46a-4c0a-9707-cafc602bb354",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 4,
+      "locked_until": null
+    },
+    {
+      "id": "6050cbfb-f236-4c76-ad87-c7507b914704",
+      "application_id": "07762cd0-b7e2-4e56-b960-c31ed99ed9cf",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 4,
+      "locked_until": null
+    },
+    {
+      "id": "871e312c-939d-41d8-9ec0-a21b84124ae1",
+      "application_id": "e56c005c-33a5-468a-a1df-d45e1de9fc26",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 4,
+      "locked_until": null
+    },
+    {
+      "id": "118ee106-081d-4e8e-9e30-a80d3248159d",
+      "application_id": "b2c227b6-e5e2-483d-a12d-6e6166dbd4d2",
+      "step": "DATA_CHECK",
+      "status": "DONE",
+      "attempts": 1,
+      "locked_until": null
+    },
+    {
+      "id": "2f42c79d-c861-4083-adb8-951393767d59",
+      "application_id": "3f61fd6c-0ff3-414e-9a88-c2e8d6200481",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 4,
+      "locked_until": null
+    },
+    {
+      "id": "ef389800-8626-4565-9832-fd0e4c17c0c3",
+      "application_id": "b023d256-8f75-4ed6-959d-33df34d4538c",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 4,
+      "locked_until": null
+    },
+    {
+      "id": "121d37b2-6adb-4543-a426-0ef50480a1f5",
+      "application_id": "137dc288-8581-4873-a0f6-9398379faa6b",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 4,
+      "locked_until": null
+    },
+    {
+      "id": "e396bd42-48d0-41ff-a9c2-caac184447d4",
+      "application_id": "b2c227b6-e5e2-483d-a12d-6e6166dbd4d2",
+      "step": "ENRICHMENT",
+      "status": "DONE",
+      "attempts": 4,
+      "locked_until": null
+    }
+  ],
+  "seconds_until_verified": 49.6782319000049,
+  "passed": true,
+  "finished_at": "2026-10-22T00:23:32.771300+00:00"
+}

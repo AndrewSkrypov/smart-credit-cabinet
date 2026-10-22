@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
-@Tag(name = "Notifications")
+@Tag(name = "Уведомления в кабинете")
 @RestController
 @RequestMapping("/api/v1/notifications")
 class NotificationController(private val service: NotificationService) {
@@ -25,13 +25,16 @@ class NotificationController(private val service: NotificationService) {
     @GetMapping
     fun list(@RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int): NotificationPage = service.page(page, size)
 
+    @Operation(summary = "Число непрочитанных уведомлений текущего пользователя")
     @GetMapping("/unread-count")
     fun unread(): Map<String, Int> = mapOf("unread" to service.unread())
 
+    @Operation(summary = "Отметить своё уведомление прочитанным; чужое возвращает 404")
     @PostMapping("/{id}/read")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun read(@PathVariable id: UUID) = service.markRead(id)
 
+    @Operation(summary = "Отметить все свои уведомления прочитанными")
     @PostMapping("/read-all")
     fun readAll(): Map<String, Int> = mapOf("updated" to service.markAllRead())
 }

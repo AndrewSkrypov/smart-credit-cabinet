@@ -1,0 +1,40 @@
+{
+  "checked_at": "2026-10-22T01:48:03.634639+00:00",
+  "source_commit": "8a09acaeadcd7314be531e7e5f8906262193113a",
+  "working_tree_dirty": true,
+  "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+  "inputs": [
+    {
+      "kind": "image",
+      "reference": "prom/prometheus:v3.15.1",
+      "image_id": "sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2",
+      "seconds": 13.493870499980403,
+      "severity_counts": {
+        "UNKNOWN": 2
+      },
+      "unique_vulnerability_ids": 1,
+      "suppressed_findings": 0,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    },
+    {
+      "kind": "image",
+      "reference": "grafana/grafana:13.2.4",
+      "image_id": "sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f",
+      "seconds": 61.90877479998744,
+      "severity_counts": {
+        "MEDIUM": 175,
+        "HIGH": 75,
+        "UNKNOWN": 5,
+        "LOW": 13
+      },
+      "unique_vulnerability_ids": 30,
+      "suppressed_findings": 0,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    }
+  ],
+  "passed": true
+}

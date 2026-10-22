@@ -1,0 +1,478 @@
+components:
+  schemas:
+    AuthOptionsResponse:
+      properties:
+        demoAccounts:
+          type: boolean
+      required:
+      - demoAccounts
+      type: object
+    CompanyMemberResponse:
+      properties:
+        canSign:
+          type: boolean
+        fullName:
+          type: string
+        id:
+          format: uuid
+          type: string
+      required:
+      - canSign
+      - fullName
+      - id
+      type: object
+    CompanyResponse:
+      properties:
+        id:
+          format: uuid
+          type: string
+        inn:
+          type: string
+        legalForm:
+          enum:
+          - LEGAL_ENTITY
+          - ENTREPRENEUR
+          type: string
+        members:
+          items:
+            $ref: '#/components/schemas/CompanyMemberResponse'
+          type: array
+        name:
+          type: string
+      required:
+      - id
+      - inn
+      - legalForm
+      - members
+      type: object
+    ErrorResponse:
+      description: Ошибка API
+      properties:
+        error:
+          description: Название HTTP-статуса
+          example: Not Found
+          type: string
+        message:
+          description: Понятное объяснение ошибки
+          example: Заявка не найдена
+          type: string
+        path:
+          description: Путь запроса, который завершился ошибкой
+          example: /api/v1/applications/00000000-0000-0000-0000-000000000001
+          type: string
+        requestId:
+          type: string
+        status:
+          description: HTTP-код ошибки
+          example: 404
+          format: int32
+          type: integer
+        timestamp:
+          format: date-time
+          type: string
+    SignInRequest:
+      properties:
+        email:
+          minLength: 1
+          type: string
+        password:
+          minLength: 1
+          type: string
+      required:
+      - email
+      - password
+      type: object
+    SignUpRequest:
+      properties:
+        email:
+          minLength: 1
+          type: string
+        fullName:
+          maxLength: 255
+          minLength: 0
+          type: string
+        inn:
+          minLength: 1
+          type: string
+        password:
+          minLength: 1
+          type: string
+        personalDataConsent:
+          type: boolean
+      required:
+      - email
+      - fullName
+      - inn
+      - password
+      - personalDataConsent
+      type: object
+    SystemKeyError:
+      properties:
+        error:
+          example: Unauthorized
+          type: string
+        message:
+          example: Нужен ключ системы-клиента в заголовке X-Api-Key
+          type: string
+        status:
+          example: 401
+      required:
+      - status
+      - error
+      - message
+      type: object
+    UserResponse:
+      properties:
+        canSign:
+          type: boolean
+        companyId:
+          format: uuid
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        id:
+          format: uuid
+          type: string
+        role:
+          enum:
+          - CLIENT
+          - MANAGER
+          - UNDERWRITER
+          - RISK_ADMIN
+          type: string
+        status:
+          enum:
+          - ACTIVE
+          - BLOCKED
+          type: string
+      required:
+      - canSign
+      - email
+      - fullName
+      - id
+      - role
+      - status
+      type: object
+    UserSessionResponse:
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserResponse'
+      required:
+      - token
+      - user
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+    systemKey:
+      in: header
+      name: X-Api-Key
+      type: apiKey
+info:
+  description: REST API умного кредитного кабинета предпринимателя. Данные демо-стенда синтетические.
+  title: 'Кабинет предпринимателя: пользователи, компании и вход'
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /api/v1/auth/options:
+    get:
+      operationId: options
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AuthOptionsResponse'
+          description: OK
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/auth/options
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+      security: []
+      summary: 'Настройки входа: доступность демо-учётных записей'
+      tags:
+      - Вход и регистрация
+  /api/v1/auth/session:
+    get:
+      operationId: session
+      parameters:
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/UserSessionResponse'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/auth/session
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/auth/session
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/auth/session
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+      security:
+      - bearerAuth: []
+      summary: Проверить текущего пользователя и обновить JWT с актуальными правами
+      tags:
+      - Вход и регистрация
+  /api/v1/auth/sign-in:
+    post:
+      operationId: signIn
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/UserSessionResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/auth/sign-in
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/auth/sign-in
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/auth/sign-in
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+      security: []
+      summary: Войти по email и паролю, получить подписанный JWT
+      tags:
+      - Вход и регистрация
+  /api/v1/auth/sign-up:
+    post:
+      operationId: signUp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/UserSessionResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/auth/sign-up
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/auth/sign-up
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/auth/sign-up
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+      security: []
+      summary: Подключить компанию по ИНН с согласием на обработку данных
+      tags:
+      - Вход и регистрация
+  /api/v1/companies/me:
+    get:
+      operationId: mine
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/CompanyResponse'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/companies/me
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/companies/me
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+      security:
+      - bearerAuth: []
+      summary: Компания и представители текущего клиента; компания определяется подписанным токеном
+      tags:
+      - Компания клиента
+  /api/v1/users/me:
+    get:
+      operationId: me
+      parameters:
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/users/me
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/users/me
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+      security:
+      - bearerAuth: []
+      summary: Профиль текущего пользователя и его роль
+      tags:
+      - Текущий пользователь
+servers:
+- description: Адрес сервиса или шлюза; /ext/ доступен только во внутренней сети
+  url: /

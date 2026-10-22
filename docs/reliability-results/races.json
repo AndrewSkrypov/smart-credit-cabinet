@@ -1,0 +1,124 @@
+{
+  "mode": "races",
+  "project": "cabinet-submission",
+  "cohort": "concurrent-actions",
+  "started_at": "2026-10-22T00:24:19.154062+00:00",
+  "double_submits": [
+    {
+      "id": "339ca09b-7976-41ee-80d3-a2d8c60e8d80",
+      "submit_statuses": [
+        200,
+        409
+      ],
+      "submit_events": 1,
+      "withdraw_reject_statuses": [
+        409,
+        200
+      ],
+      "terminal_status": "REJECTED",
+      "terminal_events": 1,
+      "database": {
+        "manual_decisions": 1,
+        "offers": 0,
+        "open_jobs": 0
+      }
+    },
+    {
+      "id": "d9d11357-b49f-4842-9927-e62d2d9aad35",
+      "submit_statuses": [
+        200,
+        409
+      ],
+      "submit_events": 1,
+      "withdraw_reject_statuses": [
+        200,
+        409
+      ],
+      "terminal_status": "WITHDRAWN",
+      "terminal_events": 1,
+      "database": {
+        "manual_decisions": 0,
+        "offers": 0,
+        "open_jobs": 0
+      }
+    },
+    {
+      "id": "060feb67-594e-453d-95d1-95f30b9bdbd6",
+      "submit_statuses": [
+        409,
+        200
+      ],
+      "submit_events": 1,
+      "withdraw_reject_statuses": [
+        200,
+        409
+      ],
+      "terminal_status": "WITHDRAWN",
+      "terminal_events": 1,
+      "database": {
+        "manual_decisions": 0,
+        "offers": 0,
+        "open_jobs": 0
+      }
+    },
+    {
+      "id": "5d7116ed-c4f9-40c9-8467-f670110cee19",
+      "submit_statuses": [
+        200,
+        409
+      ],
+      "submit_events": 1,
+      "withdraw_reject_statuses": [
+        200,
+        409
+      ],
+      "terminal_status": "WITHDRAWN",
+      "terminal_events": 1,
+      "database": {
+        "manual_decisions": 0,
+        "offers": 0,
+        "open_jobs": 0
+      }
+    },
+    {
+      "id": "f5de7b3d-fb0c-40ed-a2a0-31ed24b2cba4",
+      "submit_statuses": [
+        200,
+        200
+      ],
+      "submit_events": 1,
+      "withdraw_reject_statuses": [
+        409,
+        200
+      ],
+      "terminal_status": "REJECTED",
+      "terminal_events": 1,
+      "database": {
+        "manual_decisions": 1,
+        "offers": 0,
+        "open_jobs": 0
+      }
+    },
+    {
+      "id": "af831c30-c514-4df1-8316-f9a52cc7738b",
+      "submit_statuses": [
+        200,
+        200
+      ],
+      "submit_events": 1,
+      "withdraw_reject_statuses": [
+        409,
+        200
+      ],
+      "terminal_status": "REJECTED",
+      "terminal_events": 1,
+      "database": {
+        "manual_decisions": 1,
+        "offers": 0,
+        "open_jobs": 0
+      }
+    }
+  ],
+  "passed": true,
+  "finished_at": "2026-10-22T00:24:29.173160+00:00"
+}

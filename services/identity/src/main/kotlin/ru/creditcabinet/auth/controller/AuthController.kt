@@ -1,5 +1,6 @@
 package ru.creditcabinet.auth.controller
 
+import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.beans.factory.annotation.Value
@@ -15,23 +16,27 @@ import ru.creditcabinet.auth.dto.SignInRequest
 import ru.creditcabinet.auth.dto.SignUpRequest
 import ru.creditcabinet.auth.dto.UserSessionResponse
 
-@Tag(name = "Auth")
+@Tag(name = "Вход и регистрация")
 @RestController
 @RequestMapping("/api/v1/auth")
 class AuthController(
     private val authService: AuthService,
     @Value("\${spring.flyway.placeholders.demo-accounts:true}") private val demoAccounts: Boolean,
 ) {
+    @Operation(summary = "Настройки входа: доступность демо-учётных записей")
     @GetMapping("/options")
     fun options(): AuthOptionsResponse = AuthOptionsResponse(demoAccounts = demoAccounts)
 
+    @Operation(summary = "Подключить компанию по ИНН с согласием на обработку данных")
     @PostMapping("/sign-up")
     fun signUp(@Valid @RequestBody request: SignUpRequest): UserSessionResponse = authService.signUp(request)
 
+    @Operation(summary = "Войти по email и паролю, получить подписанный JWT")
     @PostMapping("/sign-in")
     fun signIn(@Valid @RequestBody request: SignInRequest): UserSessionResponse = authService.signIn(request)
 
     /** A fresh token for the current user, e.g. after their company or rights changed. */
+    @Operation(summary = "Проверить текущего пользователя и обновить JWT с актуальными правами")
     @GetMapping("/session")
     fun session(@RequestHeader("Authorization", required = false) authorization: String?): UserSessionResponse =
         authService.session(authorization)

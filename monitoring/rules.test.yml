@@ -1,0 +1,48 @@
+rule_files:
+  - alerts.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'cabinet_pipeline_jobs{instance="a",status="FAILED",attempts="2-4"}'
+        values: '1+0x4'
+      - series: 'cabinet_pipeline_jobs{instance="b",status="FAILED",attempts="2-4"}'
+        values: '1+0x4'
+    promql_expr_test:
+      - expr: sum(max by (status, attempts) (cabinet_pipeline_jobs{status="FAILED"}))
+        eval_time: 2m
+        exp_samples:
+          - labels: '{}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: CabinetFailedJobs
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: 'Есть задачи FAILED — нужна диагностика оператора'
+  - interval: 1m
+    input_series:
+      - series: 'up{job="credit",instance="a"}'
+        values: '1+0x4'
+      - series: 'cabinet_pipeline_metrics_snapshot_age_seconds{job="credit",instance="a"}'
+        values: 'NaN NaN NaN NaN NaN'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: CabinetMetricsStale
+        exp_alerts:
+          - exp_labels:
+              job: credit
+              instance: a
+              severity: warning
+            exp_annotations:
+              summary: 'Снимок метрик БД устарел — счётчики нельзя считать актуальными'
+  - interval: 1m
+    input_series:
+      - series: 'cabinet_pipeline_queue_oldest_due_seconds{instance="a"}'
+        values: '0+0x5'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CabinetQueueDelayed
+        exp_alerts: []

@@ -84,7 +84,10 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
 
     override fun cancelPending(applicationId: UUID) {
         jdbc.update(
-            "update pipeline_jobs set status = 'CANCELLED', updated_at = now() where application_id = :application and status = 'PENDING'",
+            """
+            update pipeline_jobs set status = 'CANCELLED', locked_until = null, updated_at = now()
+            where application_id = :application and status in ('PENDING', 'RUNNING')
+            """.trimIndent(),
             mapOf("application" to applicationId),
         )
     }
@@ -113,19 +116,28 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
         }
 
     override fun complete(id: UUID) {
-        jdbc.update("update pipeline_jobs set status = 'DONE', locked_until = null, updated_at = now() where id = :id", mapOf("id" to id))
+        jdbc.update(
+            "update pipeline_jobs set status = 'DONE', locked_until = null, updated_at = now() where id = :id and status = 'RUNNING'",
+            mapOf("id" to id),
+        )
     }
 
     override fun retry(id: UUID, runAt: Instant, error: String?) {
         jdbc.update(
-            "update pipeline_jobs set status = 'PENDING', run_at = :runAt, locked_until = null, last_error = :error, updated_at = now() where id = :id",
+            """
+            update pipeline_jobs set status = 'PENDING', run_at = :runAt, locked_until = null, last_error = :error, updated_at = now()
+            where id = :id and status = 'RUNNING'
+            """.trimIndent(),
             mapOf("id" to id, "runAt" to Timestamp.from(runAt), "error" to error?.take(2000)),
         )
     }
 
     override fun fail(id: UUID, error: String?) {
         jdbc.update(
-            "update pipeline_jobs set status = 'FAILED', locked_until = null, last_error = :error, updated_at = now() where id = :id",
+            """
+            update pipeline_jobs set status = 'FAILED', locked_until = null, last_error = :error, updated_at = now()
+            where id = :id and status = 'RUNNING'
+            """.trimIndent(),
             mapOf("id" to id, "error" to error?.take(2000)),
         )
     }

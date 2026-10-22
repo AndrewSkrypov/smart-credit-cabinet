@@ -1,0 +1,21 @@
+{
+  "checked_at": "2026-10-22T01:27:31.963847+00:00",
+  "source_commit": "6dbfa39e1851679c209c2ec3affeacbc01ad6cd0",
+  "working_tree_dirty": true,
+  "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+  "inputs": [
+    {
+      "kind": "image",
+      "reference": "cabinet/postgres:16.15-alpine-su-exec-0.3",
+      "image_id": "sha256:0ef31cc638ee024dc8821bef397a5fe4fcd1377e217a74b636492728d6d7a775",
+      "seconds": 14.640798099979293,
+      "severity_counts": {},
+      "unique_vulnerability_ids": 0,
+      "suppressed_findings": 0,
+      "secret_findings": 0,
+      "fixable_critical": [],
+      "passed": true
+    }
+  ],
+  "passed": true
+}

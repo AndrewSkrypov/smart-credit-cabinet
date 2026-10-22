@@ -78,6 +78,7 @@ class SigningController(private val faults: Faults) {
         return session
     }
 
+    @Operation(summary = "Состояние синтетической сессии подписания по её идентификатору")
     @GetMapping("/sessions/{id}")
     fun get(@PathVariable id: UUID): SigningSession = sessions[id] ?: throw NotFoundException("Сессия подписания не найдена")
 

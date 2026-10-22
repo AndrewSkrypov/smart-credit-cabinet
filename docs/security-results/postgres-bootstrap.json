@@ -1,0 +1,13 @@
+{
+  "checked_at": "2026-10-22T01:27:25.308977+00:00",
+  "image": "cabinet/postgres:16.15-alpine-su-exec-0.3",
+  "checks": [
+    "Новый том и SQL от root entrypoint",
+    "Сервер работает без root",
+    "Переключение UID/GID через su-exec",
+    "Повторный запуск с существующей БД сохраняет данные"
+  ],
+  "passed": true,
+  "image_id": "sha256:0ef31cc638ee024dc8821bef397a5fe4fcd1377e217a74b636492728d6d7a775",
+  "version": "16.15"
+}

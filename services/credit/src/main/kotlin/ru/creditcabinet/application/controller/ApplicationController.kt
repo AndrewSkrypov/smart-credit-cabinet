@@ -45,7 +45,7 @@ import ru.creditcabinet.product.domain.LoanMath
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
-@Tag(name = "Applications")
+@Tag(name = "Заявки, документы и выдача")
 @RestController
 @RequestMapping("/api/v1/applications")
 class ApplicationController(
@@ -67,6 +67,7 @@ class ApplicationController(
     @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
     fun create(@Valid @RequestBody request: ApplicationRequest): ApplicationResponse = detail(service.create(request.toTerms()))
 
+    @Operation(summary = "Карточка своей заявки с состоянием конвейера, решением и документами")
     @GetMapping("/{id}")
     fun get(@PathVariable id: UUID): ApplicationResponse = detail(service.get(id))
 
@@ -136,6 +137,7 @@ class ApplicationController(
     fun upload(@PathVariable id: UUID, @RequestParam type: DocumentType, @RequestPart file: MultipartFile): DocumentView =
         DocumentView.of(documents.upload(id, type, file))
 
+    @Operation(summary = "Удалить свой документ из редактируемого черновика")
     @DeleteMapping("/{id}/documents/{documentId}")
     @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
     fun deleteDocument(@PathVariable id: UUID, @PathVariable documentId: UUID) = documents.delete(id, documentId)

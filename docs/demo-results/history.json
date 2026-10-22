@@ -1,0 +1,4557 @@
+{
+  "runs": [
+    {
+      "started_at": "2026-10-22T03:06:33.725307+00:00",
+      "finished_at": "2026-10-22T03:25:23.341878+00:00",
+      "requested": 120,
+      "full_history": true,
+      "project": "cabinet-demo-history",
+      "passed": true,
+      "normal_timings_restored": true,
+      "status_counts": {
+        "REJECTED": 30,
+        "DISBURSED": 60,
+        "WITHDRAWN": 10,
+        "CLOSED": 20
+      },
+      "case_counts": {
+        "Отказ по рейтингу": 10,
+        "Отказ со стоп-фактором": 10,
+        "Отказ андеррайтера": 10,
+        "Автоматическое одобрение": 10,
+        "Контрпредложение правил": 10,
+        "Отзыв после отправки": 10,
+        "Одобрение андеррайтера": 10,
+        "Контрпредложение андеррайтера": 10,
+        "Новая компания": 10,
+        "Документы через API": 10,
+        "Истечение оффера": 10,
+        "Истечение запроса сведений": 10
+      },
+      "event_counts": {
+        "CREATED": 120,
+        "SUBMIT": 120,
+        "DATA_COMPLETE": 120,
+        "ENRICHMENT_DONE": 118,
+        "AUTO_REJECT": 20,
+        "TO_MANUAL_REVIEW": 59,
+        "REJECT": 10,
+        "AUTO_OFFER": 39,
+        "ACCEPT_OFFER": 60,
+        "SIGN": 60,
+        "DISBURSED": 60,
+        "DATA_INCOMPLETE": 20,
+        "DOCUMENT_ADDED": 51,
+        "INFO_PROVIDED": 20,
+        "WITHDRAW": 10,
+        "APPROVE": 24,
+        "COUNTER_OFFER": 10,
+        "OFFER_EXPIRED": 10,
+        "REQUEST_INFO": 10,
+        "INFO_EXPIRED": 10
+      },
+      "analytics_before": {
+        "from": "2026-09-22T03:06:56.891122701Z",
+        "to": "2026-10-22T03:06:56.891122701Z",
+        "funnel": [
+          {
+            "code": "SUBMITTED",
+            "title": "Отправлены",
+            "applications": 0
+          },
+          {
+            "code": "DATA_COMPLETE",
+            "title": "Данные полные",
+            "applications": 0
+          },
+          {
+            "code": "DECIDED",
+            "title": "Принято решение",
+            "applications": 0
+          },
+          {
+            "code": "OFFER_ISSUED",
+            "title": "Сделано предложение",
+            "applications": 0
+          },
+          {
+            "code": "ACCEPTED",
+            "title": "Предложение принято",
+            "applications": 0
+          },
+          {
+            "code": "SIGNED",
+            "title": "Договор подписан",
+            "applications": 0
+          },
+          {
+            "code": "DISBURSED",
+            "title": "Выдано",
+            "applications": 0
+          }
+        ],
+        "stageTimes": [],
+        "automaticOutcomes": [],
+        "manualOutcomes": [],
+        "manualOverrides": 0,
+        "disbursedAmount": 0,
+        "currentStatuses": {}
+      },
+      "analytics_after": {
+        "from": "2026-09-22T03:25:07.360796907Z",
+        "to": "2026-10-22T03:25:07.360796907Z",
+        "funnel": [
+          {
+            "code": "SUBMITTED",
+            "title": "Отправлены",
+            "applications": 120
+          },
+          {
+            "code": "DATA_COMPLETE",
+            "title": "Данные полные",
+            "applications": 120
+          },
+          {
+            "code": "DECIDED",
+            "title": "Принято решение",
+            "applications": 103
+          },
+          {
+            "code": "OFFER_ISSUED",
+            "title": "Сделано предложение",
+            "applications": 73
+          },
+          {
+            "code": "ACCEPTED",
+            "title": "Предложение принято",
+            "applications": 60
+          },
+          {
+            "code": "SIGNED",
+            "title": "Договор подписан",
+            "applications": 60
+          },
+          {
+            "code": "DISBURSED",
+            "title": "Выдано",
+            "applications": 60
+          }
+        ],
+        "stageTimes": [
+          {
+            "status": "SUBMITTED",
+            "title": "Проверка полноты",
+            "transitions": 140,
+            "averageMinutes": 0.019605490714285714,
+            "medianMinutes": 0.017257425
+          },
+          {
+            "status": "INFO_REQUESTED",
+            "title": "Ожидание документов от клиента",
+            "transitions": 30,
+            "averageMinutes": 0.42662476666666665,
+            "medianMinutes": 0.1761862833333333
+          },
+          {
+            "status": "ENRICHMENT",
+            "title": "Запрос источников",
+            "transitions": 120,
+            "averageMinutes": 0.027413745416666666,
+            "medianMinutes": 0.02076455
+          },
+          {
+            "status": "SCORING",
+            "title": "Скоринг",
+            "transitions": 118,
+            "averageMinutes": 0.01669899745762712,
+            "medianMinutes": 0.010879775
+          },
+          {
+            "status": "MANUAL_REVIEW",
+            "title": "Ручное рассмотрение",
+            "transitions": 59,
+            "averageMinutes": 0.05523632627118644,
+            "medianMinutes": 0.05409535
+          },
+          {
+            "status": "OFFER_ISSUED",
+            "title": "Ожидание ответа на предложение",
+            "transitions": 73,
+            "averageMinutes": 0.18912160342465753,
+            "medianMinutes": 0.07266285
+          },
+          {
+            "status": "SIGNING",
+            "title": "Подписание",
+            "transitions": 60,
+            "averageMinutes": 0.042351337777777776,
+            "medianMinutes": 0.044646824999999994
+          },
+          {
+            "status": "DISBURSING",
+            "title": "Выдача",
+            "transitions": 60,
+            "averageMinutes": 0.014351375833333334,
+            "medianMinutes": 0.014804349999999999
+          }
+        ],
+        "automaticOutcomes": [
+          {
+            "outcome": "MANUAL_REVIEW",
+            "decisions": 59
+          },
+          {
+            "outcome": "APPROVE",
+            "decisions": 29
+          },
+          {
+            "outcome": "REJECT",
+            "decisions": 20
+          },
+          {
+            "outcome": "COUNTER_OFFER",
+            "decisions": 10
+          }
+        ],
+        "manualOutcomes": [
+          {
+            "outcome": "APPROVE",
+            "decisions": 24
+          },
+          {
+            "outcome": "REQUEST_INFO",
+            "decisions": 10
+          },
+          {
+            "outcome": "COUNTER_OFFER",
+            "decisions": 10
+          },
+          {
+            "outcome": "REJECT",
+            "decisions": 10
+          }
+        ],
+        "manualOverrides": 20,
+        "disbursedAmount": 125300000,
+        "currentStatuses": {
+          "CLOSED": 20,
+          "DISBURSED": 60,
+          "REJECTED": 30,
+          "WITHDRAWN": 10
+        }
+      },
+      "label": "first",
+      "post_run_report_validation": {
+        "distinct_application_ids": 120,
+        "single_submit_per_application": true,
+        "funnel_and_status_deltas_match": true
+      },
+      "applications": [
+        {
+          "id": "9d40f3e9-f235-4391-b4d7-50e9b3801831",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "0a986809-4ac8-4267-9be1-9d54ed4947d5",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "fb06f67a-d9e2-4700-8212-288eb730f8e2",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "9ef64409-f054-4901-809e-37cfad5cec42",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "7b0bfc2e-fe83-41b0-81c4-c08f46335c2d",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "68e4a66c-50a6-43e6-acb6-82814f65b316",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "d3185b23-084d-49fa-ab85-a437de1cb9dc",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "2567bd13-7ef9-4716-9bfd-cbc4554d05d9",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "4038f599-65b7-4601-90d8-1f18e5136f0e",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "d6c1cace-489b-4a2b-8310-bd73a22610c8",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания technopark",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "fc280b58-560e-414f-88ef-1a2fd3ba4685",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "818d0290-50fa-4c9c-b4d2-4de9fc259847",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "8744b493-cec1-456c-b882-2ebc84b71003",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "a626985b-ad46-4703-85f9-90f2587fe8ed",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "f571a8da-86d2-4282-adc4-b84ffd8c10b9",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "75da9a8b-dd80-4c96-bc6f-a59d18259eb1",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "8e6606c4-4467-4089-b33a-0d55198fa804",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "7da8d0f6-2bbe-4573-972c-d21027ec785f",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "98bc9bbc-fe78-4455-8a6e-954fd08d714d",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "8c2e734b-c6e6-4fd0-b25d-371a4e03e6ab",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания technopark",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "7a246abd-1a05-4cb7-880b-b76ebae04c86",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "d6f9852e-aaca-496e-b591-b4c489cf6dc5",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "d08411bc-ddde-4127-a9df-ada92e35c112",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "c8a24acc-38c4-4511-92dc-6801690b9a03",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "a5015d87-b191-45b2-b91b-b0ebc10d24e5",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "25397024-a588-41ca-a740-29af5f2d822b",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "b0889698-ca95-4d4b-b33e-7e86880e6777",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "718b0b6c-d28b-4af2-85dc-bd7e9c02a913",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "fd88c304-edab-48a6-a611-123a1e252188",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "59ee2431-5b4e-4d18-8062-bc5b3ad25686",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания technopark",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "b8dab320-a954-42a1-84d4-39b9fe1d474d",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "b8dfd7ab-ff7e-407c-8408-d6d106e52ba9",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "71dd38a7-01d2-4e50-bc12-d3dcfd94ff57",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "feb9ebd0-97ea-487f-bd47-4989eb929264",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "9a7d7d91-2627-4b2c-9c2e-893d21abc61f",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "16332db8-e9ad-493a-b63c-0b1fbf8bce3b",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "388023d1-14a9-484b-8874-d98439619707",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "5391ff6e-42c3-4a57-bb33-83d426f4c85e",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "f00cf271-f4d2-48f7-97ad-596271a74323",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "ca15fa15-7437-438d-aa0c-48dc7672a787",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания technopark",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "aea0aaab-fbe7-431c-aaa2-a408f3aaed43",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "6f8ea185-21ec-4816-9963-2bbadfe64396",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "96c4f5ab-5c9b-42b8-8f3c-6a74b23f65ea",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "9f374d4d-76a9-4188-af0c-aa86090bcfcd",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "97e7e381-2ed5-4f59-8eda-4b7c159e4fad",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "25268d4e-7848-40d7-bd2b-8e271c702afa",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "8a0af725-869b-41ae-b636-bb160fe559a3",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "cf5844e4-5e6d-49e7-ab54-611aa23466ea",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "b41410fd-383d-40cb-b6e2-73a26c38a887",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "64686322-982c-4c5b-bd0f-333ea80d1706",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания technopark",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "582806c7-fe10-4f0e-9278-bd3c280853af",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "2d1c1684-5e7f-456b-828e-9324e49e2819",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "61200263-6b92-4d4a-ad63-2597d463bd89",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "061cb986-fba3-4f82-ab6e-0ae13065ad66",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "ec482ea9-21a6-4312-aa7e-a0e66d77ef0e",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "dbbddd8d-76f7-4c90-a93d-d9b92ab8d8aa",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "598f1d36-946f-4a36-bbca-5d3a7ac7c87a",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "344bb585-af3f-42f7-bf52-373d86d8ba3f",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "52e5dbae-e39c-4da2-8633-16ce43bd0e87",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "2d311579-7c35-40eb-b11b-8b20a289fd15",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания technopark",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "fbfc78b8-06b6-45d2-9bd7-4d0e888f1cae",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "0d0d15f9-b6ba-4c52-b940-d14d60094f6d",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "3f7ecdcd-e10f-4862-bbbf-cf25566d1ba9",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "7c8d4949-05f2-4f1a-9ebc-d82ef83c66e0",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "224875da-2990-4765-ac4b-27f6efae936c",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "40f0100e-03ae-4013-9df8-6f3f244d8c94",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "2a0d8f77-05ba-4050-a5eb-08f6f967e3c7",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "c8376cfb-19de-4dcf-83b7-941c317c22f7",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "e80a736c-5f04-44e4-8793-ae4061deb90c",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "526e0ce6-b7df-4995-9dfd-b52cf14fabda",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания technopark",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "6c0a6391-7bf3-48d5-8d26-3150c3b95ff4",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "809994f8-7c22-4d8b-9526-259476fc186f",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "a91246c2-8286-409e-8ab4-8808a158b7f1",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "fedc339b-2923-4322-93f7-cd68b5e8c1a5",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "8f8f4ab5-f4d2-44a9-af9e-21f451330361",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "771391bf-715f-4d4c-ad5e-a85b9a412634",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "96a4df77-530f-4435-b22c-4dbd7e896eab",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "c6886a39-38a7-4e6d-b48e-c7995e3fec87",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "22abb122-b8b5-450d-a82b-01dc478d44ec",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "1fc53dc4-8fd5-410b-8abb-95286e7eaa2c",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания technopark",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "3849b0a6-aa72-4d0c-9796-b4e623ca70f4",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "49e234ba-a75d-42bd-b188-60a07d58c71a",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "e9b8a231-8a42-4326-b57f-3a39c962d884",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "c0b7367c-9f0b-4ff6-82a0-97c5f9d1f94a",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "0afa9493-bd58-4017-94bd-294b4b5c9d8d",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "c2889dbb-40fb-4b42-b9ab-d7acafd58e25",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "8183ecc2-5519-4fa5-8d66-5cbbb260e5d8",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "e6ef7d94-5f31-4468-88f8-185a16f748fa",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "583937cd-55a5-4ec7-81b4-7caf94c11e2c",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "e33d2c5b-22ba-478a-b746-36976236fcaa",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания technopark",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "86918420-3fc0-409b-a6f5-37d6fad214e6",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "3d34bd47-9fcd-413c-9cb8-c00137216af5",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "95174d36-694a-41bd-b4aa-c498426c4463",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "ac20dd00-55d4-42e3-ae98-b280b41b2d07",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "7a7ea6ce-bb87-470c-a286-771e02c2a985",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "c87db7ac-ab05-4573-95a4-e78ffa444111",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "367c7b72-b6b0-45f2-91f1-582dd58b9cd7",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "c8c5933f-7e80-454d-a117-7799e3a3ca21",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "3868e2a9-c006-42d7-ab7c-95af6ba84ff0",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 1,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "e8516ec0-7514-46c9-9652-b7320202bf0b",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания technopark",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "2a4b6685-adb6-4d7b-b3de-104385bf05e3",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "e0c1d36d-aac4-4fcc-8256-f294758c6732",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "8c398ccc-8ba8-4570-a1ba-bc7074343162",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "3ab6839d-2cbb-40aa-93c0-c6f24e6e3a9d",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "000a3508-f480-4274-96e4-8f5f0bd462e2",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "1301ecdc-bc61-45e1-bc10-6e8c7f2e661d",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "66703a19-3220-4690-87a4-f04e11cf9bfb",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "958e3be6-0a14-4417-a64a-ab9b01d4c8e3",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "e8c269d1-7e02-406b-bf51-33514598d7b2",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "c24b1daa-a10f-46e9-aef3-72e88ddfa5c1",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "6e33335a-4115-4c32-a22f-05da789a1c31",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "c4a1efc8-5a45-431f-8fcc-ee72cd8865aa",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "4ec89d94-99f1-4f5c-8387-e759929ff8ee",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "949c1762-95f6-4ae0-b0af-f1087a81a351",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "90cc1282-c638-4980-95a5-965c653b4603",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "5c3d5d95-27f5-4a09-a4df-f71b9bdd5b59",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "a50c5c7c-b978-41c2-aa4d-7f93a097713d",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "494fcc02-9871-442c-91ab-ed2369eee54f",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "299797d7-2717-447e-a76d-a948e307fa87",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "84515154-832a-4607-97d3-3d9fc2f28056",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        }
+      ]
+    },
+    {
+      "started_at": "2026-10-22T03:37:02.574826+00:00",
+      "finished_at": "2026-10-22T03:42:51.180198+00:00",
+      "requested": 120,
+      "full_history": true,
+      "project": "cabinet-demo-history",
+      "passed": true,
+      "normal_timings_restored": true,
+      "status_counts": {
+        "REJECTED": 30,
+        "WITHDRAWN": 10,
+        "DISBURSED": 60,
+        "CLOSED": 20
+      },
+      "case_counts": {
+        "Отказ со стоп-фактором": 10,
+        "Отказ по рейтингу": 10,
+        "Отзыв после отправки": 10,
+        "Отказ андеррайтера": 10,
+        "Одобрение андеррайтера": 10,
+        "Новая компания": 10,
+        "Контрпредложение правил": 10,
+        "Автоматическое одобрение": 10,
+        "Контрпредложение андеррайтера": 10,
+        "Документы через API": 10,
+        "Истечение оффера": 10,
+        "Истечение запроса сведений": 10
+      },
+      "event_counts": {
+        "CREATED": 120,
+        "SUBMIT": 120,
+        "DATA_COMPLETE": 110,
+        "ENRICHMENT_DONE": 110,
+        "AUTO_REJECT": 20,
+        "WITHDRAW": 10,
+        "TO_MANUAL_REVIEW": 62,
+        "REJECT": 10,
+        "APPROVE": 32,
+        "ACCEPT_OFFER": 60,
+        "SIGN": 60,
+        "DISBURSED": 60,
+        "DATA_INCOMPLETE": 20,
+        "DOCUMENT_ADDED": 41,
+        "INFO_PROVIDED": 20,
+        "AUTO_OFFER": 28,
+        "COUNTER_OFFER": 10,
+        "OFFER_EXPIRED": 10,
+        "REQUEST_INFO": 10,
+        "INFO_EXPIRED": 10
+      },
+      "analytics_before": {
+        "from": "2026-09-22T03:37:16.139931468Z",
+        "to": "2026-10-22T03:37:16.139931468Z",
+        "funnel": [
+          {
+            "code": "SUBMITTED",
+            "title": "Отправлены",
+            "applications": 0
+          },
+          {
+            "code": "DATA_COMPLETE",
+            "title": "Данные полные",
+            "applications": 0
+          },
+          {
+            "code": "DECIDED",
+            "title": "Принято решение",
+            "applications": 0
+          },
+          {
+            "code": "OFFER_ISSUED",
+            "title": "Сделано предложение",
+            "applications": 0
+          },
+          {
+            "code": "ACCEPTED",
+            "title": "Предложение принято",
+            "applications": 0
+          },
+          {
+            "code": "SIGNED",
+            "title": "Договор подписан",
+            "applications": 0
+          },
+          {
+            "code": "DISBURSED",
+            "title": "Выдано",
+            "applications": 0
+          }
+        ],
+        "stageTimes": [],
+        "automaticOutcomes": [],
+        "manualOutcomes": [],
+        "manualOverrides": 0,
+        "disbursedAmount": 0,
+        "currentStatuses": {}
+      },
+      "analytics_after": {
+        "from": "2026-09-22T03:42:36.381627287Z",
+        "to": "2026-10-22T03:42:36.381627287Z",
+        "funnel": [
+          {
+            "code": "SUBMITTED",
+            "title": "Отправлены",
+            "applications": 120
+          },
+          {
+            "code": "DATA_COMPLETE",
+            "title": "Данные полные",
+            "applications": 110
+          },
+          {
+            "code": "DECIDED",
+            "title": "Принято решение",
+            "applications": 100
+          },
+          {
+            "code": "OFFER_ISSUED",
+            "title": "Сделано предложение",
+            "applications": 70
+          },
+          {
+            "code": "ACCEPTED",
+            "title": "Предложение принято",
+            "applications": 60
+          },
+          {
+            "code": "SIGNED",
+            "title": "Договор подписан",
+            "applications": 60
+          },
+          {
+            "code": "DISBURSED",
+            "title": "Выдано",
+            "applications": 60
+          }
+        ],
+        "stageTimes": [
+          {
+            "status": "SUBMITTED",
+            "title": "Проверка полноты",
+            "transitions": 140,
+            "averageMinutes": 0.019235920714285714,
+            "medianMinutes": 0.019354233333333335
+          },
+          {
+            "status": "INFO_REQUESTED",
+            "title": "Ожидание документов от клиента",
+            "transitions": 30,
+            "averageMinutes": 0.3418089094444444,
+            "medianMinutes": 0.008581150000000001
+          },
+          {
+            "status": "ENRICHMENT",
+            "title": "Запрос источников",
+            "transitions": 110,
+            "averageMinutes": 0.04164995545454545,
+            "medianMinutes": 0.03556925
+          },
+          {
+            "status": "SCORING",
+            "title": "Скоринг",
+            "transitions": 110,
+            "averageMinutes": 0.026529315909090908,
+            "medianMinutes": 0.021587908333333336
+          },
+          {
+            "status": "MANUAL_REVIEW",
+            "title": "Ручное рассмотрение",
+            "transitions": 62,
+            "averageMinutes": 0.005821790860215054,
+            "medianMinutes": 0.0060298
+          },
+          {
+            "status": "OFFER_ISSUED",
+            "title": "Ожидание ответа на предложение",
+            "transitions": 70,
+            "averageMinutes": 0.14682738547619048,
+            "medianMinutes": 0.0013507166666666668
+          },
+          {
+            "status": "SIGNING",
+            "title": "Подписание",
+            "transitions": 60,
+            "averageMinutes": 0.007695084444444444,
+            "medianMinutes": 0.007378341666666666
+          },
+          {
+            "status": "DISBURSING",
+            "title": "Выдача",
+            "transitions": 60,
+            "averageMinutes": 0.024417043611111112,
+            "medianMinutes": 0.026045125000000002
+          }
+        ],
+        "automaticOutcomes": [
+          {
+            "outcome": "MANUAL_REVIEW",
+            "decisions": 62
+          },
+          {
+            "outcome": "REJECT",
+            "decisions": 20
+          },
+          {
+            "outcome": "APPROVE",
+            "decisions": 18
+          },
+          {
+            "outcome": "COUNTER_OFFER",
+            "decisions": 10
+          }
+        ],
+        "manualOutcomes": [
+          {
+            "outcome": "APPROVE",
+            "decisions": 32
+          },
+          {
+            "outcome": "REQUEST_INFO",
+            "decisions": 10
+          },
+          {
+            "outcome": "COUNTER_OFFER",
+            "decisions": 10
+          },
+          {
+            "outcome": "REJECT",
+            "decisions": 10
+          }
+        ],
+        "manualOverrides": 22,
+        "disbursedAmount": 125300000,
+        "currentStatuses": {
+          "CLOSED": 20,
+          "DISBURSED": 60,
+          "REJECTED": 30,
+          "WITHDRAWN": 10
+        }
+      },
+      "label": "after_reset",
+      "post_run_report_validation": {
+        "distinct_application_ids": 120,
+        "single_submit_per_application": true,
+        "funnel_and_status_deltas_match": true
+      },
+      "applications": [
+        {
+          "id": "e03b8fff-a68a-49e2-8104-298ae9ad786b",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "65cf23a8-8da2-46e1-97a3-0a1c1acbf323",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "813c492f-e494-4aef-8b3f-09f6a02473c4",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "05ce256f-b0ce-4531-a3a7-7e73652b8828",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "10e3043a-6224-4073-a652-4b28f1f38c3e",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "4888acb5-f14a-4c07-b3d7-4aaebbea58d0",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "e19674ca-d033-4a13-9dea-d5b75b2619c3",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "ba4b6e3d-97e7-4d4b-92d8-6f163aa39349",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "9ad4ec63-7e0a-4138-a7e2-e29533ae5ae2",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "f87241ac-9720-4ce5-bc6f-6bd7b85d1fcb",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания technopark",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "0b6fe3e1-0bdf-4eab-9412-447e2a6c4ca4",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "069cb59f-5477-4e35-8112-3456988bd15a",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "e0d1f77e-7363-4895-b2ac-0376bb46594d",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "faba70e8-3b62-4568-a4d9-d05611a4c900",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "c9e6e94f-8ff9-44a2-9e78-67de0da3875e",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "38b3fd31-4b09-4e5c-9e5d-753626e88c25",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "dd5f0a68-1b88-4484-aa7b-b418c953d418",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "e462575c-1920-4729-a160-3e91d0460b4c",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "a324ddea-6fb9-4029-810d-b498c9df34a3",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "25943985-6bc9-49da-9086-b6985d95e087",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "c7898c08-676e-49a9-8c1e-73688d4977f7",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "bcf8b632-c3c8-41fe-849d-3328e4c8aa80",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "f1bbcd2e-9568-4367-979d-1e124dd8e484",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "44efba93-750e-4b2c-9040-2b96b8cbf0f7",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "839d7fe2-9664-45c2-b85e-bccfe503f3a1",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "77a6c5a6-ee9f-43ae-961b-16978f3b6a7a",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "d6426720-cb7d-43aa-9683-6d4d01d83a44",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "b4507ed8-a9df-4d67-bba8-7acb4e5c3f51",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "ebbe8866-503f-4684-a770-18342cb89de1",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "2aa5ecd1-87cc-491a-a5f7-ee75ce28ac37",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "c19b0e32-ed1f-4504-920a-c519f1c66717",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "696f3ef1-5561-44e2-8db2-23541716e4e5",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "86a9a850-f71a-48c0-8d7e-50c9cc3d0f4d",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "6499daab-dd92-484c-a7ad-dc2382856ec2",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "2d1334d4-a8ab-4605-a97e-176697fda26f",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "058c7bfb-0f64-45d2-b390-45e812aeb682",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "16c45a67-d526-469a-ac50-b0597960e662",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "de1c20c0-61f6-4abd-9d6b-0a871ed72bf8",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "b4f36a85-0ddc-4947-a0cb-8cfc055edb5a",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "35653969-ed1a-428e-8e5e-8e92d5ccf429",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "65deec8b-2fd0-481c-b130-f41244517e3a",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "45879cf0-40b4-4c08-a184-5d85d308d3b2",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "cfe9fe1e-a5de-4b2b-9e87-e69cde47e2f1",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "9d0adae6-ecbe-4402-a29a-742fccdaf59f",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "3fc873b9-5e95-44b6-a400-513b0a9618de",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "05871279-4f19-4ef3-a2cd-265a31dda6f0",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "48c76030-28bf-42bb-a686-050c84c85e48",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "cdd034d1-2472-46a7-b20e-7cbd3b9c8e8c",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "71014d66-2943-4871-8db5-c7c7710f20ae",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "512e63f6-9610-4a31-8a84-60b4ca50c5c2",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "4f01a0d2-e6e9-4862-b3ad-ba74791bf785",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "bf9365de-d5b5-4028-a1dc-8d13eee7040e",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "ad45bab2-1027-4fd7-92bc-7a800f72fb7a",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "2ae0d0c4-f41e-414e-8640-4b47d088481f",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "b9e431e6-d82b-4d21-a8f8-1bb886f7e10b",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "3b175ebe-134b-431c-9f4d-feb4e8bbec03",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "cc763119-30ec-416c-9019-c07ed6e987d5",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "2a032811-06ea-45ed-a19a-82dc624132ed",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "668d4408-b16e-4434-968e-e4c764ec9ab4",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "baf8714e-1a91-47a0-a76f-f7d2e1e9c0aa",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "a911908e-e7ac-404f-b011-b4cb302afcf9",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "0a85ec8a-cf94-4470-b104-779c8e6ba477",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "34a952b2-e71e-4c98-8948-e49a88484199",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "3a3a1d9b-a006-43a4-9021-e7fb81b76999",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "c960a597-0acb-4fe2-a2ca-c03e50f56dfd",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "687e79f0-7c78-429e-94be-689a71c2285e",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "499bbcdc-f38b-4d84-a2f3-0b69ac01a420",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "dd8326c0-d4e1-4523-a655-9b5bd9654839",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "40c953a3-a171-4f21-b3b6-311ff76a2e78",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "fd9765f4-f564-4eb3-996f-877ba26dd786",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "420b9165-d56b-435e-b55b-bf0420d48e42",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "6522f90c-138c-48da-bf74-d65ad93b6eaa",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "a3e47505-6b41-45e7-8368-33f0d9a04183",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "bd12bf8d-288e-4c04-ac93-8baa2933c73a",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "f7b4fc42-62f7-4c3a-b1d4-4710adbc4f1f",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "443951e2-4070-475b-b4d2-ec2cd593c431",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "ada823a3-3013-409c-a51d-5f646b66ec22",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "5b1ec0ac-553a-40f7-bf93-cbc70ef0790b",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "21e1fb8f-44c9-4a71-854f-8727d2935571",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "321e3ecf-895c-440b-872a-e37d65de2ab0",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "6dbe049d-a941-4402-aafb-eae5e770bc2d",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "a7e3ec86-c845-4372-b822-659ca22ccded",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "4f9a6e1c-f37d-4754-9bc0-8b59c4eda048",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "b16ee39b-3109-4fc7-bc7c-ff7cac1a89c8",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "ba9adf40-a991-46e3-a41c-452b67a1a871",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "63732f1a-ba11-4fd7-8790-a8d0447d8230",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "223c7a77-b923-45af-8d5a-12b8ff66696d",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "73661630-7190-4efe-9c81-c2b0089d2ab2",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "9a11d58c-2fb9-4a7b-b2f5-35385c62f2c3",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "a9dceedd-ed0c-4b49-8b51-bfb23e429db3",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "bb646141-d1e5-41b5-b68a-d22ace2b350e",
+          "case": "Отказ со стоп-фактором",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания romashka",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "10ae0eb2-8e6a-40ce-8546-9b3ef9b16d61",
+          "case": "Отказ по рейтингу",
+          "status": "REJECTED",
+          "company_source": "Сценарная компания gromov",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_REJECT"
+          ]
+        },
+        {
+          "id": "49f35113-df57-4812-a712-f0b8e2ccb0ea",
+          "case": "Отзыв после отправки",
+          "status": "WITHDRAWN",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "WITHDRAW"
+          ]
+        },
+        {
+          "id": "ed8f4fb6-2055-4972-a63e-ea48b33e6cbf",
+          "case": "Отказ андеррайтера",
+          "status": "REJECTED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REJECT"
+          ]
+        },
+        {
+          "id": "9fb99318-c189-4ff9-8316-043e202c325c",
+          "case": "Контрпредложение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "COUNTER_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "2b5db539-3a0c-4751-a3b4-a1484d1e161e",
+          "case": "Новая компания",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "86cab30c-73d8-4e2f-9bde-35f76077a272",
+          "case": "Автоматическое одобрение",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания client",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "fa095a0a-0530-42d6-989f-1b293b143c39",
+          "case": "Контрпредложение правил",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания mebel",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "b6f53949-892f-4766-a7e2-6fc3e7fd6998",
+          "case": "Одобрение андеррайтера",
+          "status": "DISBURSED",
+          "company_source": "Сценарная компания logistic",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "e345d333-da25-4196-baf7-a935653b4cd0",
+          "case": "Документы через API",
+          "status": "DISBURSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_INCOMPLETE",
+            "DOCUMENT_ADDED",
+            "DOCUMENT_ADDED",
+            "INFO_PROVIDED",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "ACCEPT_OFFER",
+            "SIGN",
+            "DISBURSED"
+          ]
+        },
+        {
+          "id": "5e05c9df-62cc-43b1-902a-1a58af727850",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "348a7586-11b3-49e5-883a-e4346063d666",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "e521c39a-9381-4f56-9515-b0165e744082",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "1a606399-fc5f-438a-aa66-3e4085116fa7",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "054096fb-1164-4e30-b491-57a9eb0b1210",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "0fb35327-838a-4c5a-9bba-6de877b05a1c",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "d2c5647e-26e0-4e78-a9a6-272813a954dd",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "30c6f886-88e7-42fd-8c51-61566e36df5b",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "870cde79-1242-49f5-b298-6eb01945b518",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "92b93e67-ec0a-4a7d-8cf2-16364cb5eab0",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "ae651c5e-e46c-4aff-9ab4-233a4c701498",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "6104123e-5df6-48f7-97ef-93add4b4ad6d",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "9ca03940-2375-4f11-8bba-785b94aebcd6",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "e7fb42cd-ce87-422b-bae9-2ff173b82643",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "7b2d482a-71ed-4379-8414-2070944548ae",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "256b3dc9-ea20-4a28-b212-35c1c1867c87",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "f5dfcbb3-8d47-4cc8-aac9-de5dc9fae4e8",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "APPROVE",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "3a42dcce-f336-4563-b66a-82d7a02ded6c",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        },
+        {
+          "id": "6cb70a15-5dcc-4dfe-90be-9e0ad5b1df6a",
+          "case": "Истечение оффера",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "AUTO_OFFER",
+            "OFFER_EXPIRED"
+          ]
+        },
+        {
+          "id": "89f131b2-036b-458d-83db-fc37d99f2274",
+          "case": "Истечение запроса сведений",
+          "status": "CLOSED",
+          "company_source": "Сгенерированная компания с ИНН 00",
+          "freshness_reuploads": 0,
+          "events": [
+            "CREATED",
+            "SUBMIT",
+            "DATA_COMPLETE",
+            "ENRICHMENT_DONE",
+            "TO_MANUAL_REVIEW",
+            "REQUEST_INFO",
+            "INFO_EXPIRED"
+          ]
+        }
+      ]
+    }
+  ],
+  "resets": [
+    {
+      "checked_at": "2026-10-22T03:06:33.389939+00:00",
+      "project": "cabinet-demo-history",
+      "applications": 0,
+      "passed": true
+    },
+    {
+      "checked_at": "2026-10-22T03:26:16.540322+00:00",
+      "project": "cabinet-demo-history",
+      "applications": 0,
+      "passed": true
+    },
+    {
+      "checked_at": "2026-10-22T03:37:02.427992+00:00",
+      "project": "cabinet-demo-history",
+      "applications": 0,
+      "passed": true
+    }
+  ],
+  "note": "Synthetic API histories; different generated company IDs and real wall-clock timings, without backdating or SQL writes."
+}

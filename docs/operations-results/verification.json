@@ -1,0 +1,2462 @@
+{
+  "checked_at": "2026-10-22T01:52:41.660244+00:00",
+  "passed": true,
+  "checkout": {
+    "commit": "8a09acaeadcd7314be531e7e5f8906262193113a",
+    "dirty": true
+  },
+  "panel_queries_verified": 14,
+  "targets": [
+    {
+      "service": "identity",
+      "instance": "identity:8080",
+      "health": "up"
+    },
+    {
+      "service": "engagement",
+      "instance": "engagement:8080",
+      "health": "up"
+    },
+    {
+      "service": "external-sim",
+      "instance": "external-sim:8080",
+      "health": "up"
+    },
+    {
+      "service": "credit",
+      "instance": "172.19.0.11:8080",
+      "health": "up"
+    },
+    {
+      "service": "credit",
+      "instance": "172.19.0.6:8080",
+      "health": "up"
+    }
+  ],
+  "dashboard": {
+    "uid": "credit-pipeline",
+    "title": "Кредитный конвейер",
+    "panels": 14
+  },
+  "samples": {
+    "cabinet_pipeline_jobs": [
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "0",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "CANCELLED"
+        },
+        "value": [
+          1792633958.176,
+          "62"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "0",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "DONE"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "0",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "FAILED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "0",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "PENDING"
+        },
+        "value": [
+          1792633958.176,
+          "30"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "0",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "RUNNING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "1",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "CANCELLED"
+        },
+        "value": [
+          1792633958.176,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "1",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "DONE"
+        },
+        "value": [
+          1792633958.176,
+          "1001"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "1",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "FAILED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "1",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "PENDING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "1",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "RUNNING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "2-4",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "CANCELLED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "2-4",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "DONE"
+        },
+        "value": [
+          1792633958.176,
+          "62"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "2-4",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "FAILED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "2-4",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "PENDING"
+        },
+        "value": [
+          1792633958.176,
+          "10"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "2-4",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "RUNNING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "5+",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "CANCELLED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "5+",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "DONE"
+        },
+        "value": [
+          1792633958.176,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "5+",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "FAILED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "5+",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "PENDING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "5+",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "RUNNING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "0",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "CANCELLED"
+        },
+        "value": [
+          1792633958.176,
+          "62"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "0",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "DONE"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "0",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "FAILED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "0",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "PENDING"
+        },
+        "value": [
+          1792633958.176,
+          "30"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "0",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "RUNNING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "1",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "CANCELLED"
+        },
+        "value": [
+          1792633958.176,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "1",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "DONE"
+        },
+        "value": [
+          1792633958.176,
+          "1001"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "1",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "FAILED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "1",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "PENDING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "1",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "RUNNING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "2-4",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "CANCELLED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "2-4",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "DONE"
+        },
+        "value": [
+          1792633958.176,
+          "62"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "2-4",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "FAILED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "2-4",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "PENDING"
+        },
+        "value": [
+          1792633958.176,
+          "10"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "2-4",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "RUNNING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "5+",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "CANCELLED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "5+",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "DONE"
+        },
+        "value": [
+          1792633958.176,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "5+",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "FAILED"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "5+",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "PENDING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_jobs",
+          "application": "credit",
+          "attempts": "5+",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "status": "RUNNING"
+        },
+        "value": [
+          1792633958.176,
+          "0"
+        ]
+      }
+    ],
+    "cabinet_pipeline_step_seconds_count": [
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_step_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "result": "completed",
+          "service": "credit",
+          "step": "EXPIRE_OFFER"
+        },
+        "value": [
+          1792633958.193,
+          "2"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_step_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "result": "completed",
+          "service": "credit",
+          "step": "DATA_CHECK"
+        },
+        "value": [
+          1792633958.193,
+          "20"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_step_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "result": "completed",
+          "service": "credit",
+          "step": "ENRICHMENT"
+        },
+        "value": [
+          1792633958.193,
+          "29"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_step_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "completed",
+          "service": "credit",
+          "step": "DATA_CHECK"
+        },
+        "value": [
+          1792633958.193,
+          "20"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_step_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "completed",
+          "service": "credit",
+          "step": "ENRICHMENT"
+        },
+        "value": [
+          1792633958.193,
+          "42"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_step_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "completed",
+          "service": "credit",
+          "step": "EXPIRE_INFO_REQUEST"
+        },
+        "value": [
+          1792633958.193,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_step_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "completed",
+          "service": "credit",
+          "step": "EXPIRE_OFFER"
+        },
+        "value": [
+          1792633958.193,
+          "3"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_step_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "completed",
+          "service": "credit",
+          "step": "SCORING"
+        },
+        "value": [
+          1792633958.193,
+          "17"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_step_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "result": "completed",
+          "service": "credit",
+          "step": "SCORING"
+        },
+        "value": [
+          1792633958.193,
+          "14"
+        ]
+      }
+    ],
+    "cabinet_source_call_seconds_count": [
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "result": "success",
+          "service": "credit",
+          "source": "bank"
+        },
+        "value": [
+          1792633958.211,
+          "20"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "result": "success",
+          "service": "credit",
+          "source": "bureau"
+        },
+        "value": [
+          1792633958.211,
+          "17"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "result": "success",
+          "service": "credit",
+          "source": "registry"
+        },
+        "value": [
+          1792633958.211,
+          "21"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "result": "success",
+          "service": "credit",
+          "source": "tax"
+        },
+        "value": [
+          1792633958.211,
+          "21"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "success",
+          "service": "credit",
+          "source": "bank"
+        },
+        "value": [
+          1792633958.211,
+          "20"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "success",
+          "service": "credit",
+          "source": "bureau"
+        },
+        "value": [
+          1792633958.211,
+          "14"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "success",
+          "service": "credit",
+          "source": "registry"
+        },
+        "value": [
+          1792633958.211,
+          "19"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "success",
+          "service": "credit",
+          "source": "tax"
+        },
+        "value": [
+          1792633958.211,
+          "19"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "circuit_open",
+          "service": "credit",
+          "source": "bureau"
+        },
+        "value": [
+          1792633958.211,
+          "22"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "error",
+          "service": "credit",
+          "source": "bureau"
+        },
+        "value": [
+          1792633958.211,
+          "3"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "result": "circuit_open",
+          "service": "credit",
+          "source": "bureau"
+        },
+        "value": [
+          1792633958.211,
+          "6"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "result": "error",
+          "service": "credit",
+          "source": "bureau"
+        },
+        "value": [
+          1792633958.211,
+          "3"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "result": "timeout",
+          "service": "credit",
+          "source": "bureau"
+        },
+        "value": [
+          1792633958.211,
+          "3"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_call_seconds_count",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "result": "timeout",
+          "service": "credit",
+          "source": "bureau"
+        },
+        "value": [
+          1792633958.211,
+          "3"
+        ]
+      }
+    ],
+    "cabinet_source_breaker": [
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bank",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "bureau",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "core",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "registry",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "signing",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "CLOSED"
+        },
+        "value": [
+          1792633958.213,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "DISABLED"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "FORCED_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "HALF_OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "METRICS_ONLY"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_source_breaker",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit",
+          "source": "tax",
+          "state": "OPEN"
+        },
+        "value": [
+          1792633958.213,
+          "0"
+        ]
+      }
+    ],
+    "cabinet_decisions": [
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "SYSTEM",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "outcome": "APPROVE",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "74"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "SYSTEM",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "outcome": "COUNTER_OFFER",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "SYSTEM",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "outcome": "MANUAL_REVIEW",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "188"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "SYSTEM",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "outcome": "REJECT",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "30"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "SYSTEM",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "outcome": "REQUEST_INFO",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "UNDERWRITER",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "outcome": "APPROVE",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "108"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "UNDERWRITER",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "outcome": "COUNTER_OFFER",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "19"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "UNDERWRITER",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "outcome": "MANUAL_REVIEW",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "UNDERWRITER",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "outcome": "REJECT",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "12"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "UNDERWRITER",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "outcome": "REQUEST_INFO",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "11"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "SYSTEM",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "outcome": "APPROVE",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "74"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "SYSTEM",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "outcome": "COUNTER_OFFER",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "SYSTEM",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "outcome": "MANUAL_REVIEW",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "188"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "SYSTEM",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "outcome": "REJECT",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "30"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "SYSTEM",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "outcome": "REQUEST_INFO",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "UNDERWRITER",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "outcome": "APPROVE",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "108"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "UNDERWRITER",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "outcome": "COUNTER_OFFER",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "19"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "UNDERWRITER",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "outcome": "MANUAL_REVIEW",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "UNDERWRITER",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "outcome": "REJECT",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "12"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decisions",
+          "actor": "UNDERWRITER",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "outcome": "REQUEST_INFO",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.215,
+          "11"
+        ]
+      }
+    ],
+    "cabinet_decision_time_average_seconds": [
+      {
+        "metric": {
+          "__name__": "cabinet_decision_time_average_seconds",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.216,
+          "10.48202712295082"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decision_time_average_seconds",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.216,
+          "10.48202712295082"
+        ]
+      }
+    ],
+    "cabinet_decision_time_maximum_seconds": [
+      {
+        "metric": {
+          "__name__": "cabinet_decision_time_maximum_seconds",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.221,
+          "48.245399"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_decision_time_maximum_seconds",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.221,
+          "48.245399"
+        ]
+      }
+    ],
+    "cabinet_pipeline_metrics_snapshot_age_seconds": [
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_metrics_snapshot_age_seconds",
+          "application": "credit",
+          "instance": "172.19.0.11:8080",
+          "job": "credit",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.222,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "cabinet_pipeline_metrics_snapshot_age_seconds",
+          "application": "credit",
+          "instance": "172.19.0.6:8080",
+          "job": "credit",
+          "service": "credit"
+        },
+        "value": [
+          1792633958.222,
+          "5.952"
+        ]
+      }
+    ]
+  }
+}

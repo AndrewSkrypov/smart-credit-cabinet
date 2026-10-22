@@ -4,6 +4,7 @@
 plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jlleitschuh.gradle.ktlint")
+    id("jacoco")
 }
 
 java {
@@ -20,6 +21,20 @@ kotlin {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    finalizedBy("jacocoTestReport")
+}
+
+jacoco {
+    toolVersion = "0.8.15"
+}
+
+tasks.named<org.gradle.testing.jacoco.tasks.JacocoReport>("jacocoTestReport") {
+    dependsOn("test")
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
 }
 
 // Security fixes newer than the Spring Boot BOM (found by the image scan in CI). They

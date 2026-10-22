@@ -40,7 +40,7 @@ data class Analytics(
  * The funnel of the credit pipeline, computed from the journal and the decisions: no separate
  * analytics store, so the numbers are exactly what happened to the applications.
  */
-@Tag(name = "Analytics")
+@Tag(name = "Аналитика конвейера")
 @RestController
 @RequestMapping("/api/v1/analytics")
 class AnalyticsController(private val jdbc: NamedParameterJdbcTemplate, private val clock: Clock) {

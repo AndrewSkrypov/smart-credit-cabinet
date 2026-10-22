@@ -1,0 +1,38 @@
+groups:
+  - name: cabinet
+    rules:
+      - alert: CabinetServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Экземпляр сервиса недоступен'
+      - alert: CabinetFailedJobs
+        expr: sum(max by (status, attempts) (cabinet_pipeline_jobs{status="FAILED"})) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Есть задачи FAILED — нужна диагностика оператора'
+      - alert: CabinetQueueDelayed
+        expr: max(cabinet_pipeline_queue_oldest_due_seconds) > 60
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Просроченная очередь не разбирается более минуты'
+      - alert: CabinetMetricsStale
+        expr: (cabinet_pipeline_metrics_snapshot_age_seconds > 60) or ((up{job="credit"} == 1) unless on (instance) (cabinet_pipeline_metrics_snapshot_age_seconds >= 0))
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Снимок метрик БД устарел — счётчики нельзя считать актуальными'
+      - alert: CabinetSourceCircuitOpen
+        expr: cabinet_source_breaker{state="OPEN"} == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Circuit breaker источника открыт больше минуты'

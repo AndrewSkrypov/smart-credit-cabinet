@@ -1,0 +1,117 @@
+{
+  "mode": "disburse",
+  "project": "cabinet-submission",
+  "cohort": "two-replicas",
+  "started_at": "2026-10-22T00:25:50.251632+00:00",
+  "applications": [
+    {
+      "id": "e5e3a984-c009-482f-b0ed-84ab19e7c9dd",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "e872bd10-1d9d-499e-9a84-bd6f05cdd6f5",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "839e6728-846c-4af1-93de-648e4f848fe8",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "98328ac0-7966-4a85-b7ea-d10423a82544",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "a16e8e17-cbcb-420b-8f93-27a3a401975e",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "b5fc0767-01ff-4365-9c97-7e0b0db957e6",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "35df248c-15ff-4cf2-baa2-dde5c9146ae6",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "737c79a2-9496-4f4b-9fb1-b432bb213aa8",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "9ab3aa44-6bda-4bd5-94ba-8d7ea0f88bdd",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "f8a93be6-0186-4e10-8194-eb722a975986",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "f3f5f9ee-92a8-4ff7-b9bf-b097ab5c1003",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "5678ad56-a5d8-41f6-8647-42e7227d5ae0",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "8248a5e7-0e5d-4dd8-b403-dd7307e7357d",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "1c64f4a6-e172-482b-a4ae-3a8bc78a8e6a",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "3293d5d2-9c7b-4b46-878e-a5232e96ad92",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "283fe5db-7fa0-4dda-b3bc-e6a8710e6512",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "817e8c8a-6c83-466e-a1b3-ad2477e4add5",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "42ffccd5-4eb7-48e4-8539-5f6fd025ccf4",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "7c9dcb35-546c-4413-afbe-1f9310e2d7c1",
+      "sign_events": 1,
+      "disbursed_events": 1
+    },
+    {
+      "id": "035f1031-ae95-4197-8469-f7b0db5c233a",
+      "sign_events": 1,
+      "disbursed_events": 1
+    }
+  ],
+  "database": {
+    "loans": 20,
+    "distinct_contracts": 20,
+    "disbursement_jobs": 20,
+    "completed_disbursement_jobs": 20
+  },
+  "seconds_until_verified": 3.9105801999976393,
+  "passed": true,
+  "finished_at": "2026-10-22T00:25:54.315844+00:00"
+}

@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/submission-kit]
   pull_request:
 
 permissions:
@@ -14,20 +14,6 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-24.04
-    services:
-      postgres:
-        image: postgres:16.10-alpine
-        env:
-          POSTGRES_USER: cabinet
-          POSTGRES_PASSWORD: cabinet
-          POSTGRES_DB: cabinet
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U cabinet"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -35,6 +21,16 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Build and verify the patched database image
+        run: |
+          docker build -f docker/postgres/Dockerfile -t cabinet/postgres:16.15-alpine-su-exec-0.3 .
+          python3 security/postgres-image.py
+          docker run -d --name cabinet-ci-postgres -p 127.0.0.1:5432:5432 -e POSTGRES_USER=cabinet -e POSTGRES_PASSWORD=cabinet -e POSTGRES_DB=cabinet cabinet/postgres:16.15-alpine-su-exec-0.3
+          for attempt in $(seq 1 60); do
+            if docker exec cabinet-ci-postgres pg_isready -U cabinet -d cabinet && docker exec cabinet-ci-postgres sh -c 'tr "\000" " " </proc/1/cmdline' | grep -q '^postgres'; then break; fi
+            sleep 1
+          done
+          docker exec cabinet-ci-postgres pg_isready -U cabinet -d cabinet
       - name: Create the databases of the services
         env:
           PGPASSWORD: cabinet
@@ -44,12 +40,29 @@ jobs:
           done
       - name: Build, ktlint and tests
         run: ./gradlew build --no-daemon
-      - name: Test reports
-        if: failure()
+      - name: Test and coverage reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: backend-test-reports
-          path: "**/build/reports/tests/"
+          path: |
+            **/build/reports/tests/
+            **/build/reports/jacoco/
+      - name: Hash the tested service jars
+        run: |
+          mkdir -p ci-artifacts
+          test "$(find services -path '*/build/libs/app.jar' | wc -l)" -eq 4
+          sha256sum services/*/build/libs/app.jar > ci-artifacts/backend.sha256
+      - name: Publish the tested service jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-backend-jars
+          path: |
+            services/*/build/libs/app.jar
+            ci-artifacts/backend.sha256
+      - name: Stop the isolated database
+        if: always()
+        run: docker rm -f cabinet-ci-postgres
 
   frontend:
     runs-on: ubuntu-24.04
@@ -66,8 +79,72 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint
-      - run: npx vitest run
+      - run: npm run test:coverage
       - run: npm run build
+      - name: Frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+      - name: Hash the tested frontend distribution
+        working-directory: .
+        run: |
+          mkdir -p ci-artifacts
+          find frontend/dist -type f -print0 | sort -z | xargs -0 sha256sum > ci-artifacts/frontend.sha256
+      - name: Publish the tested frontend distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-frontend-dist
+          path: |
+            frontend/dist/
+            ci-artifacts/frontend.sha256
+
+  documentation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+            contracts/postman/package-lock.json
+            scripts/license-tools/package-lock.json
+      - name: Check documentation links and decisions
+        run: python3 scripts/check-docs.py
+      - name: Install locked dependency inventories
+        run: |
+          npm ci --prefix frontend
+          npm ci --prefix e2e
+          npm ci --prefix contracts/postman
+          npm ci --prefix scripts/license-tools
+      - name: Verify third party notices against resolved dependencies
+        run: node scripts/generate-notices.mjs --check
+      - name: Reject critical verification dependencies
+        run: python3 security/audit-dependencies.py
+      - name: Dependency audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-reports
+          path: security/reports/npm-*.json
+      - name: License reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-license-reports
+          path: |
+            build/reports/dependency-license/
+            build-logic/build/reports/dependency-license/
+            docs/licenses/inventory.json
 
   images:
     needs: [backend, frontend]
@@ -78,17 +155,311 @@ jobs:
         service: [identity, credit, engagement, external-sim, frontend]
     steps:
       - uses: actions/checkout@v4
-      - name: Build image
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-backend-jars
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-frontend-dist
+      - name: Verify the producer checksums
+        run: |
+          sha256sum -c ci-artifacts/backend.sha256
+          sha256sum -c ci-artifacts/frontend.sha256
+      - name: Build image from verified artifacts
         run: |
           if [ "${{ matrix.service }}" = frontend ]; then
-            docker build -f frontend/Dockerfile -t cabinet/frontend:ci .
+            docker build -f frontend/Dockerfile --build-arg DIST_SOURCE=prebuilt --build-arg SOURCE_REVISION="$GITHUB_SHA" -t cabinet/frontend:ci .
           else
-            docker build -f docker/service/Dockerfile --build-arg SERVICE=${{ matrix.service }} -t cabinet/${{ matrix.service }}:ci .
+            docker build -f docker/service/Dockerfile --build-arg SERVICE=${{ matrix.service }} --build-arg JAR_SOURCE=prebuilt --build-arg SOURCE_REVISION="$GITHUB_SHA" -t cabinet/${{ matrix.service }}:ci .
           fi
       - name: Scan image
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        run: python3 security/scan.py --image cabinet/${{ matrix.service }}:ci --report-name image-${{ matrix.service }}
+      - name: Image vulnerability reports
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          image-ref: cabinet/${{ matrix.service }}:ci
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
+          name: image-scan-${{ matrix.service }}
+          path: |
+            security/reports/image-${{ matrix.service }}/trivy-image-*.json
+            security/reports/image-${{ matrix.service }}/summary.json
+
+  source-security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Review accepted vulnerability assumptions
+        run: python3 security/check-exceptions.py
+      - name: Scan the exact committed source and locked dependencies
+        run: python3 security/scan.py --report-name ci-source
+      - name: Source vulnerability reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-security-reports
+          path: |
+            security/reports/ci-source/trivy-filesystem.json
+            security/reports/ci-source/summary.json
+
+  infrastructure-security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: postgres
+            image: cabinet/postgres:16.15-alpine-su-exec-0.3
+          - name: gateway
+            image: nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
+          - name: swagger
+            image: swaggerapi/swagger-ui:v5.34.0@sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0
+          - name: prometheus
+            image: prom/prometheus:v3.15.1
+          - name: grafana
+            image: grafana/grafana:13.2.4
+          - name: caddy
+            image: caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd
+          - name: ollama
+            image: ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull the pinned infrastructure image
+        run: |
+          if [ "${{ matrix.name }}" = postgres ]; then
+            docker build -f docker/postgres/Dockerfile -t '${{ matrix.image }}' .
+            python3 security/postgres-image.py
+          elif [ "${{ matrix.name }}" != ollama ]; then
+            docker pull '${{ matrix.image }}'
+          fi
+      - name: Scan infrastructure including the optional model runtime
+        run: |
+          if [ "${{ matrix.name }}" = ollama ]; then
+            python3 security/scan.py --remote --image '${{ matrix.image }}' --report-name infra-${{ matrix.name }}
+          else
+            python3 security/scan.py --image '${{ matrix.image }}' --report-name infra-${{ matrix.name }}
+          fi
+      - name: Infrastructure vulnerability reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infra-scan-${{ matrix.name }}
+          path: |
+            security/reports/infra-${{ matrix.name }}/trivy-image-*.json
+            security/reports/infra-${{ matrix.name }}/summary.json
+
+  deployment:
+    needs: [backend, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      SOURCE_REVISION: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-backend-jars
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-frontend-dist
+      - name: Verify the producer checksums
+        run: |
+          sha256sum -c ci-artifacts/backend.sha256
+          sha256sum -c ci-artifacts/frontend.sha256
+      - name: Install pinned deployment tools
+        run: |
+          python3 -m venv "$RUNNER_TEMP/cabinet-deployment"
+          "$RUNNER_TEMP/cabinet-deployment/bin/pip" install -r scripts/requirements-tools.txt
+      - name: Build deployment images from tested artifacts
+        run: docker compose -p cabinet-deploy-build -f docker-compose.yml -f ci/compose.yaml build
+      - name: Exercise TLS, production memory limits and an independent restore
+        run: '"$RUNNER_TEMP/cabinet-deployment/bin/python" deploy/test-local.py --image-prefix cabinet-deploy-build --companies 20 --expected-revision "$GITHUB_SHA"'
+      - name: Deployment measurements without credentials or database dumps
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-reports
+          path: deploy/reports/test-*/*.json
+          retention-days: 14
+
+  demo-history:
+    needs: [backend, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      SOURCE_REVISION: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-backend-jars
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-frontend-dist
+      - name: Verify the producer checksums
+        run: |
+          sha256sum -c ci-artifacts/backend.sha256
+          sha256sum -c ci-artifacts/frontend.sha256
+      - name: Build demo images from tested artifacts
+        run: docker compose -p cabinet-demo-build -f docker-compose.yml -f ci/compose.yaml build
+      - name: Create 120 real synthetic applications
+        run: python3 -u scripts/seed-demo-history.py --start --project cabinet-demo-ci --image-prefix cabinet-demo-build --count 120 --report-name ci-first
+      - name: Reset only the dedicated demo project
+        run: bash scripts/demo-reset.sh --project cabinet-demo-ci --confirm-project cabinet-demo-ci --no-build
+      - name: Recreate the complete history after reset
+        run: python3 -u scripts/seed-demo-history.py --start --project cabinet-demo-ci --image-prefix cabinet-demo-build --count 120 --report-name ci-repeat
+      - name: Synthetic history without session credentials
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-history-reports
+          path: scripts/demo-reports/*.json
+          retention-days: 14
+      - name: Stop only the disposable demo project
+        if: always()
+        run: docker compose -p cabinet-demo-ci -f docker-compose.yml -f scripts/demo-history.compose.yaml down -v --remove-orphans
+
+  e2e:
+    needs: [backend, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      COMPOSE_PROJECT_NAME: cabinet-e2e
+      COMPOSE_FILE: docker-compose.yml:ci/compose.yaml
+      SOURCE_REVISION: ${{ github.sha }}
+      COMPOSE_ANSI: never
+      COMPOSE_PROGRESS: plain
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            e2e/package-lock.json
+            contracts/postman/package-lock.json
+      - run: npm ci
+        working-directory: e2e
+      - run: npm run typecheck
+        working-directory: e2e
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - name: Install and check API contract tools
+        run: |
+          python3 -m venv "$RUNNER_TEMP/cabinet-contracts"
+          "$RUNNER_TEMP/cabinet-contracts/bin/pip" install -r scripts/requirements-tools.txt
+          "$RUNNER_TEMP/cabinet-contracts/bin/python" -m unittest discover -s scripts/tests -v
+          npm ci --prefix contracts/postman
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-backend-jars
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-frontend-dist
+      - name: Verify the producer checksums
+        run: |
+          sha256sum -c ci-artifacts/backend.sha256
+          sha256sum -c ci-artifacts/frontend.sha256
+      - name: Start the complete cabinet
+        run: docker compose up --build --wait --wait-timeout 240
+      - name: Wait for public API routes
+        run: npm run wait
+        working-directory: e2e
+      - name: Verify live OpenAPI snapshots
+        run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" scripts/export-openapi.py --check'
+      - name: Desktop and mobile scenarios
+        run: npm test
+        working-directory: e2e
+      - name: Postman client and bank contracts
+        run: npm test
+        working-directory: contracts/postman
+      - name: Restore policy after a controlled test failure
+        run: npm run test:recovery
+        working-directory: contracts/postman
+      - name: Exercise two replicas and measure a concurrent cohort
+        run: |
+          python3 load/start.py --project "$COMPOSE_PROJECT_NAME" --replicas 2
+          python3 load/run.py --project "$COMPOSE_PROJECT_NAME" --companies 20 --label ci-normal
+          python3 load/chaos.py balance --project "$COMPOSE_PROJECT_NAME" --cohort ci-normal
+          python3 load/chaos.py disburse --project "$COMPOSE_PROJECT_NAME" --cohort ci-normal
+      - name: Recover leased jobs after a forced container stop
+        run: |
+          python3 load/run.py --project "$COMPOSE_PROJECT_NAME" --companies 20 --label ci-crash --prepare-only
+          python3 load/chaos.py crash --project "$COMPOSE_PROJECT_NAME" --cohort ci-crash
+      - name: Recover sources and enforce their waiting deadline
+        run: |
+          for mode in recover-down recover-slow timeout; do
+            python3 load/run.py --project "$COMPOSE_PROJECT_NAME" --companies 10 --label "ci-$mode" --prepare-only
+            python3 load/chaos.py "$mode" --project "$COMPOSE_PROJECT_NAME" --cohort "ci-$mode"
+          done
+      - name: Resolve concurrent submit and withdrawal decisions
+        run: |
+          python3 load/run.py --project "$COMPOSE_PROJECT_NAME" --companies 6 --revenue 999000000 --label ci-races --prepare-only
+          python3 load/chaos.py races --project "$COMPOSE_PROJECT_NAME" --cohort ci-races
+      - name: Verify provisioned monitoring and measured source failures
+        run: |
+          docker compose --profile monitoring up -d --no-deps prometheus grafana
+          docker compose exec -T prometheus promtool check config /etc/prometheus/prometheus.yml
+          docker compose exec -T -w /etc/prometheus prometheus promtool test rules rules.test.yml
+          python3 monitoring/verify.py --replicas 2 --require-activity --require-source-errors --require-source-timeouts
+      - name: Verify every endpoint against the explicit access matrix
+        run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" security/matrix.py --project "$COMPOSE_PROJECT_NAME"'
+      - name: Reject forged tokens, foreign objects and unsafe inputs
+        run: python3 security/negative.py --project "$COMPOSE_PROJECT_NAME"
+      - name: Capture service diagnostics
+        if: failure()
+        run: |
+          mkdir -p e2e/test-results/compose
+          docker compose ps -a > e2e/test-results/compose/status.txt
+          docker compose logs --no-color > e2e/test-results/compose/services.log 2>&1
+      - name: Playwright reports and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 14
+      - name: API contract reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-contract-reports
+          path: contracts/postman/reports/
+          retention-days: 14
+      - name: Reliability measurements without session tokens
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reliability-reports
+          path: |
+            load/reports/**/summary.json
+            load/reports/**/verified.json
+            load/reports/**/k6.log
+            load/reports/**/balance.json
+            load/reports/**/disburse.json
+            load/reports/**/crash.json
+            load/reports/**/recover-down.json
+            load/reports/**/recover-slow.json
+            load/reports/**/timeout.json
+            load/reports/**/races.json
+          retention-days: 14
+      - name: Access matrix and negative security checks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: access-security-reports
+          path: |
+            security/reports/access-matrix.json
+            security/reports/negative.json
+          retention-days: 14
+      - name: Monitoring verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-reports
+          path: monitoring/reports/*.json
+      - name: Stop the test cabinet
+        if: always()
+        run: docker compose --profile monitoring down -v --remove-orphans

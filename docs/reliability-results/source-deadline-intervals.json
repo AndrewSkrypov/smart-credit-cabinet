@@ -1,0 +1,9 @@
+{
+  "applications": 10,
+  "seconds_waited": {
+    "min": 45.168015,
+    "median": 45.545638499999995,
+    "max": 45.986384
+  },
+  "each_source_unavailable": true
+}

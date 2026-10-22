@@ -26,7 +26,7 @@ data class AssistantQuestion(
 
 data class AssistantStatus(val mode: AnswerMode, val model: String?)
 
-@Tag(name = "Assistant")
+@Tag(name = "Кредитный помощник")
 @RestController
 @RequestMapping("/api/v1/assistant")
 class AssistantController(private val service: AssistantService) {

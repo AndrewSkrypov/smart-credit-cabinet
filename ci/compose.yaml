@@ -1,0 +1,26 @@
+services:
+  identity:
+    build:
+      args:
+        JAR_SOURCE: prebuilt
+        SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
+  credit:
+    build:
+      args:
+        JAR_SOURCE: prebuilt
+        SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
+  engagement:
+    build:
+      args:
+        JAR_SOURCE: prebuilt
+        SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
+  external-sim:
+    build:
+      args:
+        JAR_SOURCE: prebuilt
+        SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
+  frontend:
+    build:
+      args:
+        DIST_SOURCE: prebuilt
+        SOURCE_REVISION: ${SOURCE_REVISION:-unknown}

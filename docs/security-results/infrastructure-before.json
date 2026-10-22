@@ -1,0 +1,113 @@
+{
+  "checked_at": "2026-10-22T01:15:03.840161+00:00",
+  "source_commit": "4ba5400cd07430fffd448b61b10071d42d63e930",
+  "working_tree_dirty": true,
+  "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+  "inputs": [
+    {
+      "kind": "image",
+      "reference": "postgres:16.10-alpine",
+      "image_id": "sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297",
+      "seconds": 10.836336500011384,
+      "severity_counts": {
+        "MEDIUM": 63,
+        "LOW": 54,
+        "CRITICAL": 3,
+        "HIGH": 51,
+        "UNKNOWN": 1
+      },
+      "unique_vulnerability_ids": 122,
+      "suppressed_findings": 0,
+      "secret_findings": 0,
+      "fixable_critical": [
+        {
+          "id": "CVE-2026-31789",
+          "package": "libcrypto3",
+          "installed": "3.5.4-r0",
+          "fixed": "3.5.6-r0"
+        },
+        {
+          "id": "CVE-2026-31789",
+          "package": "libssl3",
+          "installed": "3.5.4-r0",
+          "fixed": "3.5.6-r0"
+        },
+        {
+          "id": "CVE-2025-68121",
+          "package": "stdlib",
+          "installed": "v1.24.6",
+          "fixed": "1.24.13, 1.25.7, 1.26.0-rc.3"
+        }
+      ],
+      "passed": false
+    },
+    {
+      "kind": "image",
+      "reference": "nginx:1.28-alpine",
+      "image_id": "sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236",
+      "seconds": 5.2276224000088405,
+      "severity_counts": {
+        "HIGH": 61,
+        "MEDIUM": 96,
+        "LOW": 52,
+        "UNKNOWN": 2,
+        "CRITICAL": 2
+      },
+      "unique_vulnerability_ids": 136,
+      "suppressed_findings": 0,
+      "secret_findings": 0,
+      "fixable_critical": [
+        {
+          "id": "CVE-2026-31789",
+          "package": "libcrypto3",
+          "installed": "3.5.5-r0",
+          "fixed": "3.5.6-r0"
+        },
+        {
+          "id": "CVE-2026-31789",
+          "package": "libssl3",
+          "installed": "3.5.5-r0",
+          "fixed": "3.5.6-r0"
+        }
+      ],
+      "passed": false
+    },
+    {
+      "kind": "image",
+      "reference": "swaggerapi/swagger-ui:v5.17.14",
+      "image_id": "sha256:cb968cc70260c6027b44f227d054a0f12381736e9ab628ef6b6070a19fdf2172",
+      "seconds": 6.673236100003123,
+      "severity_counts": {
+        "MEDIUM": 46,
+        "LOW": 32,
+        "HIGH": 17,
+        "CRITICAL": 3
+      },
+      "unique_vulnerability_ids": 55,
+      "suppressed_findings": 0,
+      "secret_findings": 0,
+      "fixable_critical": [
+        {
+          "id": "CVE-2024-45491",
+          "package": "libexpat",
+          "installed": "2.6.2-r0",
+          "fixed": "2.6.3-r0"
+        },
+        {
+          "id": "CVE-2024-45492",
+          "package": "libexpat",
+          "installed": "2.6.2-r0",
+          "fixed": "2.6.3-r0"
+        },
+        {
+          "id": "CVE-2024-56171",
+          "package": "libxml2",
+          "installed": "2.11.7-r0",
+          "fixed": "2.11.8-r1"
+        }
+      ],
+      "passed": false
+    }
+  ],
+  "passed": false
+}

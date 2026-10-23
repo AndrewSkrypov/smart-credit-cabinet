@@ -15,6 +15,9 @@ class DeploymentStorageTest(unittest.TestCase):
         values = {"POSTGRES_PASSWORD": "p" * 64, "JWT_SECRET": "j" * 64, "SIM_API_KEY": "s" * 64,
                   "IDENTITY_LINK_KEY": "i" * 64, "VALKEY_PASSWORD": "v" * 64, "DEMO_ACCOUNTS": "false", "SIM_CONTROL_ENABLED": "false",
                   "CABINET_RELEASE": "test", "CABINET_DOMAIN": "localhost", "PUBLIC_CABINET_URL": "https://localhost"}
+        for index, service in enumerate(["IDENTITY", "CREDIT", "ENGAGEMENT"]):
+            values[service + "_DB_PASSWORD"] = ("runtime" + str(index)) * 8
+            values[service + "_MIGRATION_PASSWORD"] = ("migration" + str(index)) * 8
         values.update(extra)
         path = Path(directory) / "deploy.env"
         path.write_text("".join(f"{key}={value}\n" for key, value in values.items()), encoding="utf-8")

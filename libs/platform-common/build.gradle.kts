@@ -12,6 +12,7 @@ dependencies {
     api(libs.findLibrary("springdoc-webmvc-ui").get())
     api(libs.findLibrary("jjwt-api").get())
     implementation("org.springframework:spring-jdbc")
+    compileOnly("org.flywaydb:flyway-core")
     implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("io.micrometer:micrometer-core")
     implementation(libs.findLibrary("valkey-java").get())

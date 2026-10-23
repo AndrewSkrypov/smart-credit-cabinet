@@ -20,8 +20,8 @@ x-service: &service
 x-service-env: &service-env
   DB_HOST: postgres
   DB_PORT: 5432
-  DB_USER: ${POSTGRES_USER:-cabinet}
-  DB_PASSWORD: ${POSTGRES_PASSWORD:-cabinet}
+  SPRING_FLYWAY_ENABLED: "false"
+  CABINET_DATABASE_GUARD_ENABLED: "true"
   JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-32bytes+}
   CABINET_VALKEY_ENABLED: "true"
   CABINET_VALKEY_HOST: valkey
@@ -180,21 +180,80 @@ services:
       PGUSER: ${POSTGRES_USER:-cabinet}
       PGPASSWORD: ${POSTGRES_PASSWORD:-cabinet}
       PGDATABASE: cabinet
-    command:
-      - sh
-      - -c
-      - |
-        for db in identity credit engagement; do
-          psql -tAc "select 1 from pg_database where datname = '$$db'" | grep -q 1 || psql -c "create database $$db"
-        done
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:-dev-identity-runtime-password}
+      CREDIT_DB_PASSWORD: ${CREDIT_DB_PASSWORD:-dev-credit-runtime-password}
+      ENGAGEMENT_DB_PASSWORD: ${ENGAGEMENT_DB_PASSWORD:-dev-engagement-runtime-password}
+      IDENTITY_MIGRATION_PASSWORD: ${IDENTITY_MIGRATION_PASSWORD:-dev-identity-owner-password}
+      CREDIT_MIGRATION_PASSWORD: ${CREDIT_MIGRATION_PASSWORD:-dev-credit-owner-password}
+      ENGAGEMENT_MIGRATION_PASSWORD: ${ENGAGEMENT_MIGRATION_PASSWORD:-dev-engagement-owner-password}
+    volumes:
+      - ./docker/postgres/bootstrap.sh:/cabinet/bootstrap.sh:ro
+      - ./libs/platform-common/src/main/resources/cabinet/database-permissions.sql:/cabinet/database-permissions.sql:ro
+    command: [sh, /cabinet/bootstrap.sh]
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - cabinet
 
+  identity-migrate:
+    image: ${COMPOSE_PROJECT_NAME:-smart-credit-cabinet}-identity:latest
+    pull_policy: never
+    mem_limit: 192m
+    restart: "no"
+    environment:
+      MIGRATION_ONLY: "true"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: identity
+      DB_USER: identity_owner
+      DB_PASSWORD: ${IDENTITY_MIGRATION_PASSWORD:-dev-identity-owner-password}
+      DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-true}
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    networks: [cabinet]
+
+  credit-migrate:
+    image: ${COMPOSE_PROJECT_NAME:-smart-credit-cabinet}-credit:latest
+    pull_policy: never
+    mem_limit: 192m
+    restart: "no"
+    environment:
+      MIGRATION_ONLY: "true"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: credit
+      DB_USER: credit_owner
+      DB_PASSWORD: ${CREDIT_MIGRATION_PASSWORD:-dev-credit-owner-password}
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    networks: [cabinet]
+
+  engagement-migrate:
+    image: ${COMPOSE_PROJECT_NAME:-smart-credit-cabinet}-engagement:latest
+    pull_policy: never
+    mem_limit: 192m
+    restart: "no"
+    environment:
+      MIGRATION_ONLY: "true"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: engagement
+      DB_USER: engagement_owner
+      DB_PASSWORD: ${ENGAGEMENT_MIGRATION_PASSWORD:-dev-engagement-owner-password}
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    networks: [cabinet]
+
   identity:
     <<: *service
+    image: ${COMPOSE_PROJECT_NAME:-smart-credit-cabinet}-identity:latest
     build:
       context: .
       dockerfile: docker/service/Dockerfile
@@ -204,6 +263,8 @@ services:
     environment:
       <<: *service-env
       DB_NAME: identity
+      DB_USER: identity_app
+      DB_PASSWORD: ${IDENTITY_DB_PASSWORD:-dev-identity-runtime-password}
       IDENTITY_LINK_KEY: ${IDENTITY_LINK_KEY:-dev-identity-links-change-before-deployment-48bytes}
       IDENTITY_LINK_KEY_VERSION: ${IDENTITY_LINK_KEY_VERSION:-1}
       DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-true}
@@ -213,11 +274,12 @@ services:
     depends_on:
       valkey:
         condition: service_healthy
-      db-init:
+      identity-migrate:
         condition: service_completed_successfully
 
   credit:
     <<: *service
+    image: ${COMPOSE_PROJECT_NAME:-smart-credit-cabinet}-credit:latest
     build:
       context: .
       dockerfile: docker/service/Dockerfile
@@ -227,6 +289,8 @@ services:
     environment:
       <<: *service-env
       DB_NAME: credit
+      DB_USER: credit_app
+      DB_PASSWORD: ${CREDIT_DB_PASSWORD:-dev-credit-runtime-password}
       STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
       DOCUMENT_UPLOADS_ENABLED: ${DOCUMENT_UPLOADS_ENABLED:-true}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://seaweedfs:8333}
@@ -251,13 +315,14 @@ services:
     depends_on:
       valkey:
         condition: service_healthy
-      db-init:
+      credit-migrate:
         condition: service_completed_successfully
       clamav:
         condition: service_healthy
 
   engagement:
     <<: *service
+    image: ${COMPOSE_PROJECT_NAME:-smart-credit-cabinet}-engagement:latest
     build:
       context: .
       dockerfile: docker/service/Dockerfile
@@ -267,15 +332,17 @@ services:
     environment:
       <<: *service-env
       DB_NAME: engagement
+      DB_USER: engagement_app
+      DB_PASSWORD: ${ENGAGEMENT_DB_PASSWORD:-dev-engagement-runtime-password}
       IDENTITY_URL: http://identity:8080
       CREDIT_URL: http://credit:8080
       # The assistant uses the model when the "ai" profile runs, and answers by rules otherwise.
-      OLLAMA_URL: http://ollama:11434
+      OLLAMA_URL: ${OLLAMA_URL-http://ollama:11434}
       ASSISTANT_MODEL: ${ASSISTANT_MODEL:-qwen2.5:3b}
     depends_on:
       valkey:
         condition: service_healthy
-      db-init:
+      engagement-migrate:
         condition: service_completed_successfully
 
   external-sim:

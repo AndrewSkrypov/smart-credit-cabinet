@@ -32,6 +32,9 @@ values = {"CABINET_DOMAIN": domain, "ACME_EMAIL": email, "CABINET_RELEASE": revi
 values.update(STORAGE_BACKEND=args.storage, STORAGE_ENABLED="true" if args.storage == "s3" else "false",
               S3_ACCESS_KEY=secrets.token_urlsafe(24), S3_SECRET_KEY=secrets.token_urlsafe(32),
               S3_ADMIN_ACCESS_KEY=secrets.token_urlsafe(24), S3_ADMIN_SECRET_KEY=secrets.token_urlsafe(32))
+for service in ["IDENTITY", "CREDIT", "ENGAGEMENT"]:
+    values[service + "_DB_PASSWORD"] = secrets.token_urlsafe(32)
+    values[service + "_MIGRATION_PASSWORD"] = secrets.token_urlsafe(32)
 if args.local:
     values.update(HTTP_PORT="18080", HTTPS_PORT="18443", HTTP_BIND="127.0.0.1", HTTPS_BIND="127.0.0.1", PUBLIC_CABINET_URL="https://localhost:18443")
 target = Path(args.output).resolve()

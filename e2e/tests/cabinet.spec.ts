@@ -24,7 +24,7 @@ test('Синтетическая компания регистрируется �
   await page.getByRole('button', { name: 'Подключить', exact: true }).click();
   expect((await registered).status()).toBe(200);
   await expect(page).toHaveURL(/\/client$/);
-  await expect(page.getByText(inn, { exact: false })).toBeVisible();
+  await expect(page.getByText(`Организация · ИНН ${inn}`, { exact: true })).toBeVisible();
   await noHorizontalOverflow(page);
 });
 

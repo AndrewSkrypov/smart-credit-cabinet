@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: [main, feature/submission-kit, feature/release-hardening]
+    branches: [main, feature/submission-kit, feature/release-hardening, feature/release-hardening-final, feature/release-hardening-integration]
   pull_request:
 
 permissions:
@@ -405,11 +405,14 @@ jobs:
           sha256sum -c ci-artifacts/frontend.sha256
       - name: Start two real replicas of identity, credit and engagement
         run: docker compose --profile mail up -d --build --scale identity=2 --scale credit=2 --scale engagement=2 --wait --wait-timeout 300
+      - name: Verify real database credentials, DDL denials and append-only grants
+        run: python3 security/db-permissions.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-db-permissions
       - name: Exercise shared limits, session revocation, persistence and actual failures
         run: python3 load/shared-state.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-shared-state
       - name: Bound gateway failures and never replay writes
         run: |
           python3 load/gateway-fault.py --project "$COMPOSE_PROJECT_NAME" --label ci-gateway --expect-hardened
+          python3 load/gateway-write-refusal.py --project "$COMPOSE_PROJECT_NAME" --label ci-gateway-refusal
           python3 load/gateway-write-fault.py --project "$COMPOSE_PROJECT_NAME" --label ci-gateway-writes
       - name: Publish measurements without credentials
         if: always()
@@ -419,7 +422,9 @@ jobs:
           path: |
             load/reports/ci-shared-state/*.json
             load/reports/ci-gateway/gateway-fault.json
+            load/reports/ci-gateway-refusal/gateway-refusal.json
             load/reports/ci-gateway-writes/gateway-writes.json
+            security/reports/ci-db-permissions/verified.json
           retention-days: 14
       - name: Stop only the disposable shared-state project
         if: always()
@@ -473,6 +478,7 @@ jobs:
       SOURCE_REVISION: ${{ github.sha }}
       COMPOSE_ANSI: never
       COMPOSE_PROGRESS: plain
+      OLLAMA_URL: ""
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -514,6 +520,8 @@ jobs:
       - name: Desktop and mobile scenarios
         run: npm test
         working-directory: e2e
+      - name: Evaluate 36 fixed assistant questions without a model connection
+        run: python3 scripts/assistant-eval.py --mode rules --project "$COMPOSE_PROJECT_NAME" --report-name ci-rules
       - name: Postman client and bank contracts
         run: npm test
         working-directory: contracts/postman
@@ -582,6 +590,13 @@ jobs:
         with:
           name: api-contract-reports
           path: contracts/postman/reports/
+          retention-days: 14
+      - name: Assistant facts, safety and latency report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assistant-eval-rules
+          path: scripts/assistant-eval-reports/ci-rules/report.json
           retention-days: 14
       - name: Reliability measurements without session tokens
         if: always()

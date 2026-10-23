@@ -180,6 +180,13 @@
       "license": "MIT",
       "source": "https://github.com/urllib3/urllib3/blob/2.8.0/LICENSE.txt",
       "note": "Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel."
+    },
+    {
+      "name": "Qwen2.5-1.5B-Instruct",
+      "version": "Ollama qwen2.5:1.5b Q4_K_M; sha256:65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/blob/main/LICENSE",
+      "note": "Отдельный проверенный override для контрольного набора; лицензия скачанного пакета совпала с издателем. Не меняет модель по умолчанию и не подтверждает качество ответов; результаты и ограничения в docs/assistant-eval.md."
     }
   ],
   "simulations": [

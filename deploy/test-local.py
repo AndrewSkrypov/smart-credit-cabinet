@@ -183,6 +183,11 @@ try:
               and all(source.container(name) for name in ["caddy", "credit", "identity", "engagement"]))
     finally:
         lock.close()
+    stage = "source-database-permissions"
+    subprocess.run([sys.executable, str(ROOT / "security/db-permissions.py"), "--project", source_name,
+                    "--report-name", "prod-source-" + suffix], cwd=ROOT, check=True)
+    shutil.copyfile(ROOT / ("security/reports/prod-source-" + suffix + "/verified.json"), output / "source-db-permissions.json")
+    check("Runtime-роли исходного стенда изолированы от чужих БД, DDL и изменения аудита", True)
     stage = "backup"
     run("backup.py", "--project", source_name, "--env-file", source_path, "--local", "--output", backup)
     manifest = json.loads((backup / "manifest.json").read_text(encoding="utf-8"))
@@ -210,6 +215,11 @@ try:
     shutil.copyfile(ROOT / "deploy/reports/restore.json", output / "restore.json")
     run("verify.py", "--project", target_name, "--env-file", target_path)
     shutil.copyfile(ROOT / f"deploy/reports/{target_name}-boundary.json", output / "restored-boundary.json")
+    stage = "restored-database-permissions"
+    subprocess.run([sys.executable, str(ROOT / "security/db-permissions.py"), "--project", target_name,
+                    "--report-name", "prod-restored-" + suffix], cwd=ROOT, check=True)
+    shutil.copyfile(ROOT / ("security/reports/prod-restored-" + suffix + "/verified.json"), output / "restored-db-permissions.json")
+    check("После restore владельцы, runtime-права и запреты аудита восстановлены", True)
     restored_api = api_for(target)
     stage = "restored-api"
     check("Смена секрета JWT при восстановлении отклоняет прежний токен", restored_api.request("GET", "/api/v1/users/me", token=fixture["token"], expected=None)["status"] == 401)

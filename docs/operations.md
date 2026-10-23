@@ -1,5 +1,8 @@
 # Эксплуатация и наблюдаемость
 
+Для PostgreSQL: [роли, обновление, восстановление и диагностика](database-isolation.md).
+Три *-migrate должны завершиться с exit 0 до старта соответствующих HTTP-сервисов.
+
 Для общего Valkey: [пороги, метрики и runbook](shared-state.md#runbook).
 `cabinet_shared_limits_total` различает allowed/limited/unavailable; ошибки кэша отзыва
 видны в `cabinet_revocation_cache_total`. Отказ Valkey не включает локальные квоты,

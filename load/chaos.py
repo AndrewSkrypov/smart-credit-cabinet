@@ -13,7 +13,7 @@ import sys
 import threading
 import time
 from urllib.error import URLError
-from fault_observation import wait_for_enrichment
+from fault_observation import wait_for_container_healthy, wait_for_enrichment
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -253,6 +253,8 @@ def fault_or_crash():
         finally:
             if victim:
                 docker("start", victim)
+                result["victim_restored"] = wait_for_container_healthy(
+                    lambda: json.loads(docker("inspect", victim))[0]["State"])
 
 
 def races():

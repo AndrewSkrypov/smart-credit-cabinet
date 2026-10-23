@@ -57,6 +57,9 @@ try:
         with (directory / f"{database}.dump").open("rb") as stream:
             checked_docker("exec", "-i", deployment.container("postgres"), "pg_restore", "-U", deployment.values.get("POSTGRES_USER", "cabinet"),
                            "-d", database, "--clean", "--if-exists", "--no-owner", "--no-acl", "--exit-on-error", stdin=stream)
+    # Dumps deliberately omit roles/ACLs/passwords. Adopt restored objects to their schema
+    # owner and restore the current least-privilege grants before any HTTP process starts.
+    deployment.compose("run", "--rm", "--no-deps", "db-init")
     assert database_snapshot(deployment) == manifest["databases"], "Таблицы или последовательности после восстановления отличаются"
     report["checks"].append("Все таблицы, данные и последовательности трёх БД совпадают до запуска worker")
     for archive, (key, inventory) in archives.items():

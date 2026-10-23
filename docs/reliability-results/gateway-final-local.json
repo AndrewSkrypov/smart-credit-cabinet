@@ -1,0 +1,2004 @@
+{
+  "schema_version": 1,
+  "description": "Local acceptance after CI exposed DNS retry race; not final SHA CI acceptance",
+  "before_ci": {
+    "sha": "18ed7c98e25d62110c62f87ae3495b3ef8479e96",
+    "run": 39965949697,
+    "killed": {
+      "200": 24,
+      "504": 8
+    }
+  },
+  "reads": {
+    "started_at": "2026-10-23T14:21:51.948457+00:00",
+    "project": "cabinet-release-work",
+    "label": "final-gateway-address-snapshot",
+    "gateway_config_sha256": "1ae95bd8604518390b1ebe7f18e286c74076441cc9d2fd737541d7c8a353fdd3",
+    "replicas": [
+      {
+        "id": "5ff044c98c1cd44917cf05a0d14d476de508edf5e26e7156f08205ce7c8a9f4e",
+        "image": "sha256:87b9ebad107c4556d5db66e7f49b54fdc34bb81c50a482aae3991c3180102c7e",
+        "networks": {
+          "cabinet-release-work_cabinet": "172.26.0.8"
+        }
+      },
+      {
+        "id": "1fa9eacdbc17ee21a04e3b1d19d43c223f1d3b343b59e5acc7c4330aa0b96253",
+        "image": "sha256:87b9ebad107c4556d5db66e7f49b54fdc34bb81c50a482aae3991c3180102c7e",
+        "networks": {
+          "cabinet-release-work_cabinet": "172.26.0.13"
+        }
+      }
+    ],
+    "client_timeout_seconds": 15,
+    "concurrency": 8,
+    "phases": {
+      "healthy": {
+        "n": 32,
+        "statuses": {
+          "200": 32
+        },
+        "errors": {},
+        "percentile_method": "nearest_rank",
+        "p50_seconds": 0.0638392999971984,
+        "p95_seconds": 0.500338500001817,
+        "p99_seconds": 0.5019460999974399,
+        "first_success_seconds": 0.09459550000246963,
+        "all_requests_completed_seconds": 0.6609629000013229,
+        "requests": [
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-0",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.5019460999974399,
+            "completed_after": 0.5022967000004428
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-1",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.10638710000057472,
+            "completed_after": 0.10728830000152811
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-2",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.500338500001817,
+            "completed_after": 0.5017023000000336
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-3",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.49555859999964014,
+            "completed_after": 0.4974404000022332
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-4",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.10475079999741865,
+            "completed_after": 0.10703950000242912
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-5",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.4945337999997719,
+            "completed_after": 0.49769450000167126
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-6",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.09107489999951213,
+            "completed_after": 0.09459550000246963
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-7",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.49265770000056364,
+            "completed_after": 0.4965565000020433
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-8",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.4068210999976145,
+            "completed_after": 0.5014463000006799
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-9",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.39007170000331826,
+            "completed_after": 0.49714049999965937
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-10",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.3968343000015011,
+            "completed_after": 0.5041369999999006
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-11",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.027419499998359242,
+            "completed_after": 0.5239904000009119
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-12",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.04447199999776785,
+            "completed_after": 0.541625900001236
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-13",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.043873799997527385,
+            "completed_after": 0.5413497000008647
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-14",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.03523500000301283,
+            "completed_after": 0.5329421999995247
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-15",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.05887779999829945,
+            "completed_after": 0.5603432999996585
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-16",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.024680200000148034,
+            "completed_after": 0.5263966000020446
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-17",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.04568450000078883,
+            "completed_after": 0.5480019000024186
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-18",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.03081419999944046,
+            "completed_after": 0.5349835000015446
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-19",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.07481270000062068,
+            "completed_after": 0.5988443000023835
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-20",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.04889009999897098,
+            "completed_after": 0.5753111000012723
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-21",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.04073970000172267,
+            "completed_after": 0.5737079000027734
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-22",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.044461400000727735,
+            "completed_after": 0.5794625000016822
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-23",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.0905017000004591,
+            "completed_after": 0.6318686000013258
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-24",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.1175130999981775,
+            "completed_after": 0.6591638999998395
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-25",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.047749999997904524,
+            "completed_after": 0.5957772000001569
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-26",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.06064120000155526,
+            "completed_after": 0.6210215999999491
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-27",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.08555429999978514,
+            "completed_after": 0.6592793000017991
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-28",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.0638392999971984,
+            "completed_after": 0.6391669000004185
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-29",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.059768900002382,
+            "completed_after": 0.6392508000026282
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-30",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.06386259999999311,
+            "completed_after": 0.6596558000019286
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-healthy-31",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.04017109999767854,
+            "completed_after": 0.6390399000010802
+          }
+        ]
+      },
+      "paused": {
+        "n": 32,
+        "statuses": {
+          "200": 32
+        },
+        "errors": {},
+        "percentile_method": "nearest_rank",
+        "p50_seconds": 4.670816499998182,
+        "p95_seconds": 4.753797199999099,
+        "p99_seconds": 4.775637500002631,
+        "first_success_seconds": 0.0332245999998122,
+        "all_requests_completed_seconds": 14.159461800001736,
+        "requests": [
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-0",
+            "method": "GET",
+            "status": 200,
+            "seconds": 4.753797199999099,
+            "completed_after": 4.7539933000007295
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-1",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 4.749444900000526,
+            "completed_after": 4.749919199999567
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-2",
+            "method": "GET",
+            "status": 200,
+            "seconds": 4.775637500002631,
+            "completed_after": 4.776328899999498
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-3",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.03220340000189026,
+            "completed_after": 0.0332245999998122
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-4",
+            "method": "GET",
+            "status": 200,
+            "seconds": 4.753245799998695,
+            "completed_after": 4.7544821000010415
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-5",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 4.748719999999594,
+            "completed_after": 4.750295600002573
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-6",
+            "method": "GET",
+            "status": 200,
+            "seconds": 4.747315700002218,
+            "completed_after": 4.74914390000049
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-7",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.03615849999914644,
+            "completed_after": 0.03830680000100983
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-8",
+            "method": "GET",
+            "status": 200,
+            "seconds": 4.741011099999014,
+            "completed_after": 4.774249600002804
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-9",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.013347799998882692,
+            "completed_after": 0.05166820000158623
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-10",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.015578400001686532,
+            "completed_after": 0.06726329999946756
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-11",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.01945549999800278,
+            "completed_after": 0.08673510000153328
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-12",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.016941699999733828,
+            "completed_after": 0.10369350000109989
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-13",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 4.7120266999991145,
+            "completed_after": 4.815735899999709
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-14",
+            "method": "GET",
+            "status": 200,
+            "seconds": 4.6900915000005625,
+            "completed_after": 9.439267100002326
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-15",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.028778899999451824,
+            "completed_after": 4.7787147000017285
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-16",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.028883099999802653,
+            "completed_after": 4.779193599999417
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-17",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.022541800000908552,
+            "completed_after": 4.776579900000797
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-18",
+            "method": "GET",
+            "status": 200,
+            "seconds": 4.673952500001178,
+            "completed_after": 9.428455700002814
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-19",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 4.6935062000011385,
+            "completed_after": 9.467780000002676
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-20",
+            "method": "GET",
+            "status": 200,
+            "seconds": 4.691834199998993,
+            "completed_after": 9.468187700000271
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-21",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 4.744599900001049,
+            "completed_after": 9.521198500002356
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-22",
+            "method": "GET",
+            "status": 200,
+            "seconds": 4.75118040000234,
+            "completed_after": 9.529914200000349
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-23",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 4.676197000000684,
+            "completed_after": 9.455408100002387
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-24",
+            "method": "GET",
+            "status": 200,
+            "seconds": 4.719286999999895,
+            "completed_after": 9.535047400000622
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-25",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 4.670816499998182,
+            "completed_after": 14.099293300001591
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-26",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.08357999999861931,
+            "completed_after": 9.522875400001794
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-27",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.08533059999899706,
+            "completed_after": 9.540753100001893
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-28",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.06194759999925736,
+            "completed_after": 9.529748700002528
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-29",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.07261849999849801,
+            "completed_after": 9.54082610000114
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-30",
+            "method": "GET",
+            "status": 200,
+            "seconds": 4.637595600001077,
+            "completed_after": 14.158817300001829
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-paused-31",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.03254609999930835,
+            "completed_after": 9.555442700002459
+          }
+        ]
+      },
+      "resumed": {
+        "n": 16,
+        "statuses": {
+          "200": 16
+        },
+        "errors": {},
+        "percentile_method": "nearest_rank",
+        "p50_seconds": 0.04047129999889876,
+        "p95_seconds": 0.08785669999997481,
+        "p99_seconds": 0.08785669999997481,
+        "first_success_seconds": 0.028502099998149788,
+        "all_requests_completed_seconds": 0.11523939999824506,
+        "requests": [
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-0",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.030068700001720572,
+            "completed_after": 0.03099110000039218
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-1",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.02896080000209622,
+            "completed_after": 0.03177529999811668
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-2",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.025647299997217488,
+            "completed_after": 0.029531699998187833
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-3",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.023819399997591972,
+            "completed_after": 0.028502099998149788
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-4",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.05316490000041085,
+            "completed_after": 0.059111700000357814
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-5",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.07952099999965867,
+            "completed_after": 0.08649979999972857
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-6",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.03109989999938989,
+            "completed_after": 0.03954389999853447
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-7",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.08785669999997481,
+            "completed_after": 0.0967436999999336
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-8",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.05789770000046701,
+            "completed_after": 0.08642019999751938
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-9",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.04240159999972093,
+            "completed_after": 0.07195520000095712
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-10",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.06923079999978654,
+            "completed_after": 0.10025369999857503
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-11",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.05431509999834816,
+            "completed_after": 0.08611329999985173
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-12",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.04139969999960158,
+            "completed_after": 0.08096149999983027
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-13",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.04047129999889876,
+            "completed_after": 0.09960689999934402
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-14",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.03728209999826504,
+            "completed_after": 0.10925789999964763
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-resumed-15",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.03359139999884064,
+            "completed_after": 0.11457019999943441
+          }
+        ]
+      },
+      "killed": {
+        "n": 32,
+        "statuses": {
+          "200": 32
+        },
+        "errors": {},
+        "percentile_method": "nearest_rank",
+        "p50_seconds": 0.03643299999748706,
+        "p95_seconds": 0.9743995999997423,
+        "p99_seconds": 0.9770012999979372,
+        "first_success_seconds": 0.015501100002438761,
+        "all_requests_completed_seconds": 2.003651200000604,
+        "requests": [
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-0",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.9665654000018549,
+            "completed_after": 0.9667806000034034
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-1",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.9743995999997423,
+            "completed_after": 0.9748802000030992
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-2",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.015019700000266312,
+            "completed_after": 0.015708000002632616
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-3",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.01501520000238088,
+            "completed_after": 0.01590300000316347
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-4",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.9654596000000311,
+            "completed_after": 0.9669921000022441
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-5",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.013570600000093691,
+            "completed_after": 0.015501100002438761
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-6",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.9650834999993094,
+            "completed_after": 0.9672621000026993
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-7",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.03154770000037388,
+            "completed_after": 0.03403790000083973
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-8",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.03902150000067195,
+            "completed_after": 0.0545367000013357
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-9",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.9610670000001846,
+            "completed_after": 0.9767871000003652
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-10",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.9658254999994824,
+            "completed_after": 0.9817429000031552
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-11",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.03643299999748706,
+            "completed_after": 0.07048660000145901
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-12",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.03155410000181291,
+            "completed_after": 0.08610700000281213
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-13",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.9547289000001911,
+            "completed_after": 1.0252316000005521
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-14",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.9552905999989889,
+            "completed_after": 1.0414162000015494
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-15",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.03402700000151526,
+            "completed_after": 1.0008301000016218
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-16",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.9607197999976052,
+            "completed_after": 1.927723500000866
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-17",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.9603028999990784,
+            "completed_after": 1.927573900000425
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-18",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.037329200000385754,
+            "completed_after": 1.0122335000014573
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-19",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.01725119999900926,
+            "completed_after": 0.9940575000000536
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-20",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.9770012999979372,
+            "completed_after": 1.958778700001858
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-21",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.019291599997814046,
+            "completed_after": 1.0133643000008306
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-22",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.9583330000023125,
+            "completed_after": 1.959179800000129
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-23",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.030523499997798353,
+            "completed_after": 1.0427737000027264
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-24",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.9728862999982084,
+            "completed_after": 1.986263400001917
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-25",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.01555720000033034,
+            "completed_after": 1.0408129000024928
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-26",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.9621520000000601,
+            "completed_after": 2.002981000001455
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-27",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.03243289999954868,
+            "completed_after": 1.0738926000012725
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-28",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.018425000002025627,
+            "completed_after": 1.0612118000026385
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-29",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.028181300000142073,
+            "completed_after": 1.089409500000329
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-30",
+            "method": "GET",
+            "status": 200,
+            "seconds": 0.015734900000097696,
+            "completed_after": 1.0896407000000181
+          },
+          {
+            "id": "gateway-final-gateway-address-snapshot-killed-31",
+            "method": "HEAD",
+            "status": 200,
+            "seconds": 0.016175000000657747,
+            "completed_after": 1.1055981000026804
+          }
+        ]
+      }
+    },
+    "passed": true,
+    "stopped_state": {
+      "Running": false,
+      "ExitCode": 137,
+      "OOMKilled": false
+    },
+    "unauthenticated_mutations": [
+      {
+        "id": "gateway-final-gateway-address-snapshot-write-POST",
+        "method": "POST",
+        "status": 401
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-write-PUT",
+        "method": "PUT",
+        "status": 504
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-write-PATCH",
+        "method": "PATCH",
+        "status": 401
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-write-DELETE",
+        "method": "DELETE",
+        "status": 401
+      }
+    ],
+    "gateway_attempts": [
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-6",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.091"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-4",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.082"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-1",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.106"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-7",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.520"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-9",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.401"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-3",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.522"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-5",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.522"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-2",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.531"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-8",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.429"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-0",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.532"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-10",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.410"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-11",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.025"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-16",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.024"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-14",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.035"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-18",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.030"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-13",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.041"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-12",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.044"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-17",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.034"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-15",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.059"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-21",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.030"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-20",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.048"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-22",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.021"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-25",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.049"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-19",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.075"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-26",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.048"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-23",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.094"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-28",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.047"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-31",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.037"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-29",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.051"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-27",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.073"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-30",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.041"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-healthy-24",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.105"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-3",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.021"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-7",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.012"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-9",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.013"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-10",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.015"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-11",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.018"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-12",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.016"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-1",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.059"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-6",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.058"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-5",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.059"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-0",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.051"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-4",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.063"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-8",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.050"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-2",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.088"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-17",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.020"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-15",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.025"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-16",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.025"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-13",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.022"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-18",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.021"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-14",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.035"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-23",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.024"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-19",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.042"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-20",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.026"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-21",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.084"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-26",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.065"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-22",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.106"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-28",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.066"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-24",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.049"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-27",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.064"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-29",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.050"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-31",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.032"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-25",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.035"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-paused-30",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "5.019"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-3",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.020"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-2",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.023"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-0",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.028"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-1",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.027"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-6",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.022"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-4",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.043"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-9",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.043"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-12",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.019"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-11",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.053"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-8",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.059"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-5",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.054"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-7",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.066"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-13",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.021"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-10",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.054"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-14",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.038"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-resumed-15",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "200",
+        "seconds": "0.021"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-3",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.013"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-5",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.012"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-2",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.013"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-7",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.017"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-8",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.014"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-11",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.015"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-12",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.015"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-0",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "0.000"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-4",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "0.000"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-6",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "0.000"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-1",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "0.000"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-9",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "0.000"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-10",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "0.000"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-19",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.016"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-15",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.018"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-18",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.014"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-21",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.019"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-13",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "0.000"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-25",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.015"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-14",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "0.000"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-23",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.015"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-28",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.018"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-27",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.016"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-29",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.015"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-30",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.014"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-31",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "200",
+        "seconds": "0.014"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-17",
+        "method": "HEAD",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "1.016"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-16",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "1.017"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-20",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "1.018"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-22",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "1.014"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-24",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "1.016"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-killed-26",
+        "method": "GET",
+        "status": 200,
+        "upstream": "172.26.0.8:8080, 172.26.0.13:8080",
+        "upstream_status": "504, 200",
+        "seconds": "1.019"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-write-POST",
+        "method": "POST",
+        "status": 401,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "401",
+        "seconds": "0.005"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-write-PUT",
+        "method": "PUT",
+        "status": 504,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "504",
+        "seconds": "1.002"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-write-PATCH",
+        "method": "PATCH",
+        "status": 401,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "401",
+        "seconds": "0.003"
+      },
+      {
+        "id": "gateway-final-gateway-address-snapshot-write-DELETE",
+        "method": "DELETE",
+        "status": 401,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "401",
+        "seconds": "0.003"
+      }
+    ],
+    "victim_restored_healthy": true,
+    "elapsed_seconds": 41.62029099999927,
+    "finished_at": "2026-10-23T14:22:33.568754+00:00"
+  },
+  "writes": {
+    "started_at": "2026-10-23T14:23:29.853224+00:00",
+    "replicas": [
+      "5ff044c98c1c",
+      "1fa9eacdbc17"
+    ],
+    "passed": true,
+    "other_methods": [
+      {
+        "method": "PUT",
+        "status": 504
+      },
+      {
+        "method": "PATCH",
+        "status": 401
+      },
+      {
+        "method": "DELETE",
+        "status": 504
+      }
+    ],
+    "writes": [
+      {
+        "amount": 1000000,
+        "status": 201,
+        "seconds": 0.791147899999487
+      },
+      {
+        "amount": 1001000,
+        "status": 201,
+        "seconds": 0.7903778999971109
+      },
+      {
+        "amount": 1002000,
+        "status": 504,
+        "seconds": 28.052877599999192
+      },
+      {
+        "amount": 1003000,
+        "status": 201,
+        "seconds": 0.7904213000001619
+      },
+      {
+        "amount": 1004000,
+        "status": 201,
+        "seconds": 0.789318799998
+      },
+      {
+        "amount": 1005000,
+        "status": 504,
+        "seconds": 28.052004699999088
+      },
+      {
+        "amount": 1006000,
+        "status": 504,
+        "seconds": 28.058847599997534
+      },
+      {
+        "amount": 1007000,
+        "status": 201,
+        "seconds": 0.7875582999986364
+      }
+    ],
+    "gateway_attempts": [
+      {
+        "id": "write-probe-final-gateway-writes-PATCH",
+        "method": "PATCH",
+        "status": 401,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "401"
+      },
+      {
+        "id": "write-probe-final-gateway-writes-POST-0",
+        "method": "POST",
+        "status": 201,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "201"
+      },
+      {
+        "id": "write-probe-final-gateway-writes-POST-4",
+        "method": "POST",
+        "status": 201,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "201"
+      },
+      {
+        "id": "write-probe-final-gateway-writes-POST-1",
+        "method": "POST",
+        "status": 201,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "201"
+      },
+      {
+        "id": "write-probe-final-gateway-writes-POST-7",
+        "method": "POST",
+        "status": 201,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "201"
+      },
+      {
+        "id": "write-probe-final-gateway-writes-POST-3",
+        "method": "POST",
+        "status": 201,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "201"
+      },
+      {
+        "id": "write-probe-final-gateway-writes-POST-2",
+        "method": "POST",
+        "status": 504,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "504"
+      },
+      {
+        "id": "write-probe-final-gateway-writes-POST-5",
+        "method": "POST",
+        "status": 504,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "504"
+      },
+      {
+        "id": "write-probe-final-gateway-writes-PUT",
+        "method": "PUT",
+        "status": 504,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "504"
+      },
+      {
+        "id": "write-probe-final-gateway-writes-POST-6",
+        "method": "POST",
+        "status": 504,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "504"
+      },
+      {
+        "id": "write-probe-final-gateway-writes-DELETE",
+        "method": "DELETE",
+        "status": 504,
+        "upstream": "172.26.0.8:8080",
+        "upstream_status": "504"
+      }
+    ],
+    "persisted": {
+      "drafts": 8,
+      "duplicate_amounts": 0,
+      "created_events": 8,
+      "query_string_preserved": true,
+      "timed_out_but_committed": 3
+    },
+    "large_file": {
+      "bytes": 12582957,
+      "sha256": "f38f292af99f63d902e64376904d7a6d70433316ee33d2f681b2f8aff24bf83d",
+      "upload_download_seconds": 3.2333072000001266,
+      "passed": true
+    },
+    "assistant": {
+      "status": 200,
+      "seconds": 4.891039900001488
+    },
+    "finished_at": "2026-10-23T14:24:23.312239+00:00"
+  }
+}

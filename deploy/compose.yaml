@@ -2,7 +2,6 @@ x-prod-env: &prod-env
   SPRING_PROFILES_ACTIVE: prod
   JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
   JWT_SECRET: ${JWT_SECRET:?Задайте JWT_SECRET в deploy/.env}
-  DB_PASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в deploy/.env}
   CABINET_VALKEY_ENABLED: "true"
   CABINET_VALKEY_HOST: valkey
   CABINET_VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Задайте VALKEY_PASSWORD в deploy/.env}
@@ -22,12 +21,35 @@ services:
     mem_limit: 64m
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в deploy/.env}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?Задайте IDENTITY_DB_PASSWORD}
+      CREDIT_DB_PASSWORD: ${CREDIT_DB_PASSWORD:?Задайте CREDIT_DB_PASSWORD}
+      ENGAGEMENT_DB_PASSWORD: ${ENGAGEMENT_DB_PASSWORD:?Задайте ENGAGEMENT_DB_PASSWORD}
+      IDENTITY_MIGRATION_PASSWORD: ${IDENTITY_MIGRATION_PASSWORD:?Задайте IDENTITY_MIGRATION_PASSWORD}
+      CREDIT_MIGRATION_PASSWORD: ${CREDIT_MIGRATION_PASSWORD:?Задайте CREDIT_MIGRATION_PASSWORD}
+      ENGAGEMENT_MIGRATION_PASSWORD: ${ENGAGEMENT_MIGRATION_PASSWORD:?Задайте ENGAGEMENT_MIGRATION_PASSWORD}
+  identity-migrate:
+    profiles: [prod]
+    image: cabinet/identity:${CABINET_RELEASE:?Задайте CABINET_RELEASE}
+    environment:
+      DB_PASSWORD: ${IDENTITY_MIGRATION_PASSWORD:?Задайте IDENTITY_MIGRATION_PASSWORD}
+      DEMO_ACCOUNTS: "false"
+  credit-migrate:
+    profiles: [prod]
+    image: cabinet/credit:${CABINET_RELEASE:?Задайте CABINET_RELEASE}
+    environment:
+      DB_PASSWORD: ${CREDIT_MIGRATION_PASSWORD:?Задайте CREDIT_MIGRATION_PASSWORD}
+  engagement-migrate:
+    profiles: [prod]
+    image: cabinet/engagement:${CABINET_RELEASE:?Задайте CABINET_RELEASE}
+    environment:
+      DB_PASSWORD: ${ENGAGEMENT_MIGRATION_PASSWORD:?Задайте ENGAGEMENT_MIGRATION_PASSWORD}
   identity:
     profiles: [prod]
     image: cabinet/identity:${CABINET_RELEASE:?Задайте CABINET_RELEASE}
     mem_limit: 512m
     environment:
       <<: *prod-env
+      DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?Задайте IDENTITY_DB_PASSWORD}
       DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-false}
       IDENTITY_LINK_KEY: ${IDENTITY_LINK_KEY:?Задайте IDENTITY_LINK_KEY в deploy/.env}
       IDENTITY_LINK_KEY_VERSION: ${IDENTITY_LINK_KEY_VERSION:-1}
@@ -38,6 +60,7 @@ services:
     mem_limit: 640m
     environment:
       <<: *prod-env
+      DB_PASSWORD: ${CREDIT_DB_PASSWORD:?Задайте CREDIT_DB_PASSWORD}
       SIM_API_KEY: ${SIM_API_KEY:?Задайте SIM_API_KEY в deploy/.env}
       INFO_REQUEST_TTL: ${INFO_REQUEST_TTL:-P14D}
       OFFER_TTL: ${OFFER_TTL:-P5D}
@@ -48,6 +71,7 @@ services:
     mem_limit: 512m
     environment:
       <<: *prod-env
+      DB_PASSWORD: ${ENGAGEMENT_DB_PASSWORD:?Задайте ENGAGEMENT_DB_PASSWORD}
   external-sim:
     profiles: [prod]
     image: cabinet/external-sim:${CABINET_RELEASE:?Задайте CABINET_RELEASE}

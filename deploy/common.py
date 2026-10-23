@@ -26,10 +26,17 @@ class Deployment:
                 raise ValueError("Ожидается KEY=value без кавычек; используйте configure.py")
             self.values[match[1]] = match[2]
         secret_keys = ["POSTGRES_PASSWORD", "JWT_SECRET", "SIM_API_KEY", "IDENTITY_LINK_KEY", "VALKEY_PASSWORD"]
+        database_secrets = [service + suffix for service in ["IDENTITY", "CREDIT", "ENGAGEMENT"]
+                            for suffix in ["_DB_PASSWORD", "_MIGRATION_PASSWORD"]]
+        secret_keys.extend(database_secrets)
         for key, minimum in [("POSTGRES_PASSWORD", 24), ("JWT_SECRET", 48), ("SIM_API_KEY", 24), ("IDENTITY_LINK_KEY", 48), ("VALKEY_PASSWORD", 32)]:
             value = self.values.get(key, "")
             if len(value) < minimum or not re.fullmatch(r"[A-Za-z0-9_-]+", value) or "CHANGE_ME" in value or value.startswith("dev-"):
                 raise ValueError(f"Нужен отдельный случайный {key}; значение не выводится")
+        for key in database_secrets:
+            value = self.values.get(key, "")
+            if len(value) < 32 or not re.fullmatch(r"[A-Za-z0-9_-]+", value) or value.startswith("dev-") or "CHANGE_ME" in value:
+                raise ValueError(f"Нужен отдельный случайный {key}; добавьте роли через upgrade-database-env.py")
         if len({self.values[key] for key in secret_keys}) != len(secret_keys):
             raise ValueError("Для БД, JWT, симуляторов, одноразовых ссылок и Valkey нужны разные секреты")
         backend = self.values.setdefault("STORAGE_BACKEND", "local")
@@ -87,8 +94,8 @@ class Deployment:
             raise RuntimeError(f"Compose {arguments[0]} не завершён, код {result.returncode}")
         return result.stdout if capture else None
 
-    def container(self, service):
-        result = subprocess.run(["docker", "ps", "-q", "--filter", f"label=com.docker.compose.project={self.project}",
+    def container(self, service, include_stopped=False):
+        result = subprocess.run(["docker", "ps", "-aq" if include_stopped else "-q", "--filter", f"label=com.docker.compose.project={self.project}",
                                  "--filter", f"label=com.docker.compose.service={service}"], capture_output=True, text=True, check=True)
         identifiers = result.stdout.split()
         if len(identifiers) != 1:

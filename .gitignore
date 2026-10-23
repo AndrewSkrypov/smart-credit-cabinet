@@ -35,6 +35,7 @@ deploy/runtime/
 deploy/reports/
 deploy/backups/
 scripts/demo-reports/
+scripts/assistant-eval-reports/
 frontend/coverage/
 ci-artifacts/
 

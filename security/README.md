@@ -1,5 +1,9 @@
 # Проверки безопасности
 
+`python security/db-permissions.py --project cabinet-e2e --report-name db-permissions`
+проверяет реальные runtime-роли через TCP: чужие базы, DDL и изменение аудита запрещены,
+свой CRUD и default grants работают. [Устройство и восстановление прав](../docs/database-isolation.md).
+
 Запускать только на отдельном локальном синтетическом стенде. Матрица и негативные
 проверки разрешают `localhost`/`127.0.0.1`/`::1` и проекты `cabinet-submission`,
 `cabinet-reliability`, `cabinet-e2e` с необязательным суффиксом. `--base` и `--project`

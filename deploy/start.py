@@ -25,7 +25,8 @@ print(f"Проверены {len(active)} компонентов, сумма ли
 if not args.check_only:
     if not args.no_build:
         deployment.assert_build_revision()
-    deployment.compose("stop", "caddy")
+    # Stop existing writers before bootstrap changes ownership and the owners migrate.
+    deployment.compose("stop", "caddy", "identity", "credit", "engagement")
     arguments = ["up", "-d", "--wait", "--wait-timeout", "300", "--no-build" if args.no_build else "--build"]
     deployment.compose(*arguments, *[name for name in active if name != "caddy"])
     count = deployment.block_demo_accounts()

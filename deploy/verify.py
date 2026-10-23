@@ -11,6 +11,7 @@ import time
 import urllib.error
 import urllib.request
 from common import Deployment, ROOT
+from https_readiness import first_response
 
 parser = argparse.ArgumentParser(description="Проверить локальный prod-стенд с внутренним CA без изменения доверия ОС")
 parser.add_argument("--project", default="cabinet-prod-check")
@@ -41,21 +42,8 @@ def check(name, condition):
     report["checks"].append(name)
 
 
-def first_response():
-    # The root CA appears before Caddy has issued the site certificate: the first handshakes
-    # may be reset, so wait for one complete HTTPS answer before checking anything.
-    deadline = time.monotonic() + 30
-    while True:
-        try:
-            return api.request("GET", "/")
-        except (urllib.error.URLError, ConnectionError, ssl.SSLError):
-            if time.monotonic() >= deadline:
-                raise
-            time.sleep(0.5)
-
-
 try:
-    root = first_response()
+    root = first_response(api.request)
     check("HTTPS с проверкой сертификата собственным CA клиента", root["status"] == 200)
     headers = {key.lower(): value for key, value in root["headers"].items()}
     check("HSTS и запрет MIME sniffing", "max-age=" in headers.get("strict-transport-security", "") and headers.get("x-content-type-options") == "nosniff")
@@ -81,7 +69,10 @@ try:
     for service in deployment.active_services():
         if service in {"caddy", "db-init"}:
             continue
-        info = json.loads(subprocess.check_output(["docker", "inspect", deployment.container(service)], text=True))[0]
+        migration = service.endswith("-migrate")
+        info = json.loads(subprocess.check_output(["docker", "inspect", deployment.container(service, include_stopped=migration)], text=True))[0]
+        if migration:
+            check("Одноразовая миграция завершена " + service, info["State"]["Status"] == "exited" and info["State"]["ExitCode"] == 0)
         check("Не опубликован порт " + service, not any(info["NetworkSettings"]["Ports"].values()))
     response = api.request("GET", "/api/v1/products", headers={"X-Forwarded-For": "203.0.113.77", "X-Forwarded-Proto": "http"})
     request_id = next(value for key, value in response["headers"].items() if key.lower() == "x-request-id")

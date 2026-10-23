@@ -9,6 +9,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource
 import org.springframework.transaction.support.TransactionTemplate
 import java.nio.file.Files
 import java.nio.file.Path
+import java.sql.Timestamp
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -36,7 +37,7 @@ class DurableOutboxIntegrationTest {
     private lateinit var jdbc: JdbcTemplate
     private lateinit var transaction: TransactionTemplate
     private lateinit var outbox: DurableOutbox
-    private val clock = MutableClock(Instant.now().plusSeconds(1))
+    private val clock = MutableClock(Instant.EPOCH)
 
     @BeforeTest
     fun prepare() {
@@ -154,7 +155,14 @@ class DurableOutboxIntegrationTest {
         }
     }
 
-    private fun enqueue(key: String): UUID = transaction.execute { outbox.enqueue("test", key, "{}") }!!
+    private fun enqueue(key: String): UUID {
+        val id = transaction.execute { outbox.enqueue("test", key, "{}") }!!
+        // The DB stamps enqueue time. A clock frozen before fixture setup can fall behind
+        // later inserts on a busy host, accidentally testing not-yet-due rows instead of claims.
+        val due = jdbc.queryForObject("select next_attempt_at from delivery_outbox where id=?", Timestamp::class.java, id)!!.toInstant()
+        clock.at = maxOf(clock.at, due)
+        return id
+    }
 
     @Test
     fun `metrics distinguish missing snapshots, queued and failed deliveries with bounded labels`() {

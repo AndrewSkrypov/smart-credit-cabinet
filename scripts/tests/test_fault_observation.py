@@ -8,6 +8,25 @@ spec.loader.exec_module(module)
 
 
 class FaultObservationTest(unittest.TestCase):
+    def test_starting_process_does_not_release_the_next_drills_writes(self):
+        states = iter([{"Running": True, "Health": {"Status": value}}
+                       for value in ("starting", "unhealthy", "healthy")])
+        elapsed = [0]
+        def advance(seconds):
+            elapsed[0] += seconds
+        result = module.wait_for_container_healthy(lambda: next(states), clock=lambda: elapsed[0], sleep=advance)
+        self.assertEqual({"healthy": True, "seconds": 1}, result)
+
+    def test_a_failed_restart_is_not_reported_as_restored(self):
+        with self.assertRaisesRegex(AssertionError, "остановился"):
+            module.wait_for_container_healthy(lambda: {"Running": False})
+        elapsed = [0]
+        def advance(seconds):
+            elapsed[0] += seconds
+        with self.assertRaisesRegex(AssertionError, "не готов"):
+            module.wait_for_container_healthy(lambda: {"Running": True, "Health": {"Status": "starting"}},
+                                              timeout=1, clock=lambda: elapsed[0], sleep=advance)
+
     def test_queued_members_are_allowed_to_reach_enrichment_before_assertion(self):
         states = iter([["ENRICHMENT", "SUBMITTED"], ["ENRICHMENT", "SUBMITTED"], ["ENRICHMENT", "ENRICHMENT"]])
         elapsed = [0]

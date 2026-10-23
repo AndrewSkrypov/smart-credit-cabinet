@@ -1,0 +1,200 @@
+{
+  "checked_at": "2026-10-23T13:33:16.540825+00:00",
+  "implementation_commit": "20ce036ec68c4417cacb7a3dca3fa4bc43ad8bc3",
+  "local_acceptance_passed": true,
+  "ci_verified": false,
+  "fresh": {
+    "checks_total": 87,
+    "denials": 72
+  },
+  "upgrade": {
+    "unchanged_tables": 38,
+    "all_sequences_unchanged": true,
+    "passed": true
+  },
+  "concurrent_migrations": {
+    "migrations": 8,
+    "distinct_versions": 8,
+    "successful": true,
+    "owner": "credit_owner"
+  },
+  "native": {
+    "tests": 170,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suites": 39
+  },
+  "e2e": {
+    "default_passed": 38,
+    "mail_passed": 8,
+    "viewports": [
+      [
+        1440,
+        1000
+      ],
+      [
+        375,
+        812
+      ]
+    ],
+    "initial_concurrent_run": {
+      "passed": 35,
+      "failed": 3,
+      "failures": [
+        "ambiguous INN locator (corrected)",
+        "missing signing session",
+        "limiter unavailable503"
+      ]
+    },
+    "quiescent_retry_used_original_timeouts": true
+  },
+  "linux_secret_file_mode": "0600 verified by Ubuntu unittest",
+  "runtime_artifacts": {
+    "java_replicas": 7,
+    "frontend_files": 62,
+    "byte_match": true
+  },
+  "production": {
+    "local": {
+      "passed": true,
+      "companies": 20,
+      "restored_manifest_version": 1,
+      "peak_sampled_sum_bytes": 2761451105,
+      "source_stopped_before_restore": true,
+      "kept_projects": false,
+      "checks": 16,
+      "source_permissions": {
+        "checks_total": 84,
+        "denials": 72
+      },
+      "restored_permissions": {
+        "checks_total": 84,
+        "denials": 72
+      }
+    },
+    "s3": {
+      "passed": true,
+      "companies": 20,
+      "restored_manifest_version": 2,
+      "peak_sampled_sum_bytes": 2825212915,
+      "source_stopped_before_restore": true,
+      "kept_projects": false,
+      "checks": 16,
+      "source_permissions": {
+        "checks_total": 84,
+        "denials": 72
+      },
+      "restored_permissions": {
+        "checks_total": 84,
+        "denials": 72
+      }
+    }
+  },
+  "shared_state": {
+    "passed": true,
+    "quotas": 7,
+    "revocations": 10,
+    "fault_requests": 14,
+    "fault_p95_seconds": 7.832,
+    "aof_preserved": true,
+    "initial_run": "upload curl28 timeout during concurrent workloads; causal contention not proven"
+  },
+  "runtime_scan": {
+    "checked_at": "2026-10-23T13:28:46.837307+00:00",
+    "source_commit": "20ce036ec68c4417cacb7a3dca3fa4bc43ad8bc3",
+    "working_tree_dirty": true,
+    "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+    "inputs": [
+      {
+        "kind": "image",
+        "reference": "cabinet-release-roles-identity:latest",
+        "image_id": "sha256:4a280dd4c435ff2883d67e0c00f5a389af2c0c82a27ff3f4df8668f835c04260",
+        "seconds": 26.354717600002914,
+        "severity_counts": {
+          "MEDIUM": 29,
+          "LOW": 16
+        },
+        "unique_vulnerability_ids": 31,
+        "suppressed_findings": 2,
+        "secret_findings": 0,
+        "fixable_critical": [],
+        "passed": true
+      },
+      {
+        "kind": "image",
+        "reference": "cabinet-release-roles-credit:latest",
+        "image_id": "sha256:87b9ebad107c4556d5db66e7f49b54fdc34bb81c50a482aae3991c3180102c7e",
+        "seconds": 23.17742890000227,
+        "severity_counts": {
+          "MEDIUM": 30,
+          "LOW": 16
+        },
+        "unique_vulnerability_ids": 32,
+        "suppressed_findings": 2,
+        "secret_findings": 0,
+        "fixable_critical": [],
+        "passed": true
+      },
+      {
+        "kind": "image",
+        "reference": "cabinet-release-roles-engagement:latest",
+        "image_id": "sha256:817bc7f35214e52c821270b163f428eb26b7c7cf88b232185a5a2966ac191111",
+        "seconds": 28.51794450000307,
+        "severity_counts": {
+          "MEDIUM": 29,
+          "LOW": 16
+        },
+        "unique_vulnerability_ids": 31,
+        "suppressed_findings": 2,
+        "secret_findings": 0,
+        "fixable_critical": [],
+        "passed": true
+      },
+      {
+        "kind": "image",
+        "reference": "cabinet-release-roles-external-sim:latest",
+        "image_id": "sha256:827c1f17c36dfe16d72c8d489f986829809d957d49f770970bdb066907e50946",
+        "seconds": 29.40308709999954,
+        "severity_counts": {
+          "MEDIUM": 29,
+          "LOW": 16
+        },
+        "unique_vulnerability_ids": 31,
+        "suppressed_findings": 2,
+        "secret_findings": 0,
+        "fixable_critical": [],
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "source_scan": {
+    "checked_at": "2026-10-23T13:30:56.587901+00:00",
+    "source_commit": "20ce036ec68c4417cacb7a3dca3fa4bc43ad8bc3",
+    "working_tree_dirty": true,
+    "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+    "inputs": [
+      {
+        "kind": "git-head",
+        "archive_sha256": "454c1a6c118340ff99cdd96bf79f713154464d082eb3f5cd3f1bdf33e57fe789",
+        "seconds": 1.8271074000003864,
+        "severity_counts": {
+          "MEDIUM": 35,
+          "HIGH": 19
+        },
+        "unique_vulnerability_ids": 41,
+        "suppressed_findings": 10,
+        "secret_findings": 0,
+        "fixable_critical": [],
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "limitations": [
+    "Local images have working-tree labels; byte equality was verified separately. Final published-SHA lineage and CI remain a distinct gate.",
+    "No source-wide zero-HIGH claim: source scan has 19 HIGH; the four actual runtime Java images have zero HIGH/CRITICAL/secrets.",
+    "Initial failed checks retained; quiescent passes do not prove a resource-contention root cause."
+  ]
+}

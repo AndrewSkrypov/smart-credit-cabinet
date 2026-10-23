@@ -11,11 +11,12 @@ Docker Engine и Compose **2.24.4+**, Python 3.11+ и Git. Можно испол
 [официальной инструкции](https://docs.docker.com/engine/install/ubuntu/).
 
 Профиль `prod` включает три сервиса с БД, симуляторы, frontend, gateway, Caddy, ClamAV и Valkey.
-Spring-сервисы получают `SPRING_PROFILES_ACTIVE=prod`. Сумма лимитов — **4912 MiB** для local
-и **5424 MiB** с S3, включая временный `db-init`. Верхняя граница конфигурации — 6 GiB;
+Spring-сервисы получают `SPRING_PROFILES_ACTIVE=prod`. Сумма лимитов — **5488 MiB** для local
+и **6000 MiB** с S3, включая временные `db-init` и три мигратора. Верхняя граница конфигурации — 6 GiB;
 не менее 2 GiB остаётся ОС, Docker и резерву на машине 8 GiB.
 `credit` — 640 MiB, identity/engagement — по 512, external-sim/PostgreSQL — по 384,
-frontend/Caddy — по 96, gateway — 48, db-init — 64. Heap JVM ограничен 55% лимита.
+frontend/Caddy — по 96, gateway — 48, db-init — 64; миграторы — по 192 MiB.
+Heap JVM ограничен 55% лимита. Миграторы завершаются до старта соответствующего HTTP-сервиса.
 Valkey — 128 MiB (maxmemory 64 MiB/noeviction, AOF always), без опубликованного порта.
 `VALKEY_PASSWORD` генерируется отдельно; существующие env требуют нового URL-safe
 секрета от 32 символов. [Настройки и поведение при отказе](shared-state.md).
@@ -51,7 +52,12 @@ Gateway dev/prod получает общие настройки повторов
 
 ## Подготовка
 
-Работайте с чистым checkout нужного выпуска ветки `feature/submission-kit`. JDK/Node
+Шесть новых переменных и обновление существующего env описаны в
+[database-isolation.md](database-isolation.md). POSTGRES_PASSWORD нужен bootstrap/оператору;
+runtime получает свой *_DB_PASSWORD, мигратор — *_MIGRATION_PASSWORD.
+configure.py создаёт все шесть секретов автоматически.
+
+Работайте с чистым checkout нужного выпуска ветки `main`. JDK/Node
 на сервере не обязательны: обычная сборка проходит внутри Docker. Python-инструменты:
 
 ```bash

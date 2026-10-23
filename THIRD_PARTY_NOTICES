@@ -427,6 +427,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | @eslint/object-schema | 2.1.7 | Apache-2.0 | https://registry.npmjs.org/@eslint%2fobject-schema/2.1.7 |
 | @eslint/plugin-kit | 0.4.1 | Apache-2.0 | https://registry.npmjs.org/@eslint%2fplugin-kit/0.4.1 |
 | @fontsource/inter | 5.3.0 | OFL-1.1 | https://registry.npmjs.org/@fontsource%2finter/5.3.0 |
+| @fontsource/manrope | 5.3.0 | OFL-1.1 | https://registry.npmjs.org/@fontsource%2fmanrope/5.3.0 |
 | @humanfs/core | 0.19.2 | Apache-2.0 | https://registry.npmjs.org/@humanfs%2fcore/0.19.2 |
 | @humanfs/node | 0.16.8 | Apache-2.0 | https://registry.npmjs.org/@humanfs%2fnode/0.16.8 |
 | @humanfs/types | 0.15.0 | Apache-2.0 | https://registry.npmjs.org/@humanfs%2ftypes/0.15.0 |

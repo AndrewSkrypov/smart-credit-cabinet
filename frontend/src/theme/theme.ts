@@ -33,6 +33,8 @@ export const tokens = {
 const touch = '@media (max-width: 899.95px)';
 
 const fontFamily = '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+// Display headings: a geometric grotesque with Cyrillic, close to the bank's heavy headlines (SIL OFL).
+export const fontDisplay = '"Manrope", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
 export const cabinetTheme = createTheme({
   palette: {
@@ -53,9 +55,9 @@ export const cabinetTheme = createTheme({
     fontFamily,
     // Sums and payments line up in columns.
     allVariants: { fontFeatureSettings: '"tnum"' },
-    h4: { fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.2 },
-    h5: { fontSize: '1.875rem', fontWeight: 700, lineHeight: 1.25 },
-    h6: { fontSize: '1.375rem', fontWeight: 700, lineHeight: 1.3 },
+    h4: { fontFamily: fontDisplay, fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.2 },
+    h5: { fontFamily: fontDisplay, fontSize: '1.875rem', fontWeight: 700, lineHeight: 1.25 },
+    h6: { fontFamily: fontDisplay, fontSize: '1.375rem', fontWeight: 700, lineHeight: 1.3 },
     subtitle1: { fontSize: '1.125rem', fontWeight: 500 },
     body1: { fontSize: '1rem' },
     body2: { fontSize: '0.875rem' },

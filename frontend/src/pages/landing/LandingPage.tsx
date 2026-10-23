@@ -10,7 +10,7 @@ import { useApi } from '../../hooks/useApi';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { months, percent, rub } from '../../shared/format';
 import { productArt, purposeArt } from '../../shared/illustrations';
-import { tokens } from '../../theme/theme';
+import { fontDisplay, tokens } from '../../theme/theme';
 import { FinancingPurpose, Product } from '../../types';
 import { LandingCalculator } from './LandingCalculator';
 
@@ -38,7 +38,7 @@ const faq = [
   { q: 'Как подписать договор?', a: 'Простой электронной подписью: кабинет покажет код подтверждения, его нужно ввести в окне подписания.' }
 ];
 
-const sectionTitle = { fontSize: { xs: 28, md: 40 }, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.15 } as const;
+const sectionTitle = { fontFamily: fontDisplay, fontSize: { xs: 28, md: 44 }, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1 } as const;
 
 /** A bright rounded tile of the dark first screen, as on the bank's business pages. */
 function PromoTile({ bg, color = tokens.ink, title, text, art, to, minHeight, artSize = 120, align = 'left' }: {
@@ -80,6 +80,58 @@ function ProductTile({ product, to }: { product: Product | null; to: string }) {
   );
 }
 
+const previewStages = [
+  { label: 'Заявка', state: 'done' },
+  { label: 'Проверка', state: 'done' },
+  { label: 'Оценка', state: 'now' },
+  { label: 'Решение', state: 'next' }
+] as const;
+
+/** What the client sees after sending an application: the stage, what happens now, the assistant. */
+function CabinetPreview() {
+  return (
+    <Box aria-hidden sx={{ width: 300, p: 2.5, borderRadius: '24px', bgcolor: 'rgba(255,255,255,0.86)', backdropFilter: 'blur(16px)',
+      border: '1px solid rgba(255,255,255,0.9)', boxShadow: '0 16px 48px rgba(3,3,6,0.18)', color: tokens.ink }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Typography variant="body2" fontWeight={700}>Заявка в кабинете</Typography>
+        <Box sx={{ px: 1.25, py: 0.25, borderRadius: '99px', bgcolor: '#e5ecff', color: tokens.info, fontSize: 12, fontWeight: 600 }}>Оценка</Box>
+      </Stack>
+      <Stack direction="row" alignItems="center" sx={{ mt: 2 }}>
+        {previewStages.map((stage, index) => (
+          <Stack key={stage.label} direction="row" alignItems="center" sx={{ flex: index < previewStages.length - 1 ? 1 : 'none' }}>
+            <Box sx={{ width: 14, height: 14, borderRadius: '99px', flexShrink: 0,
+              bgcolor: stage.state === 'done' ? tokens.ink : stage.state === 'now' ? tokens.red : '#fff',
+              border: stage.state === 'next' ? `2px solid ${tokens.line}` : 'none', boxShadow: stage.state === 'now' ? `0 0 0 4px rgba(239,49,36,0.18)` : 'none' }} />
+            {index < previewStages.length - 1 && <Box sx={{ flex: 1, height: 2, mx: 0.5, bgcolor: stage.state === 'done' ? tokens.ink : tokens.line }} />}
+          </Stack>
+        ))}
+      </Stack>
+      <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.75 }}>
+        {previewStages.map((stage) => <Typography key={stage.label} sx={{ fontSize: 11, color: tokens.neutral }}>{stage.label}</Typography>)}
+      </Stack>
+      <Typography variant="body2" sx={{ mt: 2, color: tokens.text }}>Банк получил данные из реестра, налоговой и бюро и оценивает заявку.</Typography>
+      <Box sx={{ mt: 2, p: 1.5, borderRadius: '16px 16px 16px 4px', bgcolor: tokens.ink, color: '#fff' }}>
+        <Typography sx={{ fontSize: 12, opacity: 0.7 }}>Помощник</Typography>
+        <Typography variant="body2">Объясню простыми словами, что значит каждый этап и решение банка.</Typography>
+      </Box>
+    </Box>
+  );
+}
+
+const glowBackground = [
+  'radial-gradient(640px 420px at 12% 0%, rgba(239, 49, 36, 0.32), transparent 65%)',
+  'radial-gradient(560px 420px at 92% 18%, rgba(155, 61, 250, 0.26), transparent 65%)',
+  'radial-gradient(520px 360px at 60% 820px, rgba(168, 238, 240, 0.12), transparent 70%)',
+  tokens.night
+].join(', ');
+
+const audiences = [
+  { title: 'Предпринимателю', bg: tokens.red, color: '#fff', art: 'briefcase', action: 'Войти как предприниматель',
+    points: ['Подбор продукта и платёж ещё до заявки', 'Статус и «что нужно от вас» на каждом шаге', 'Предложение, подпись кодом и график платежей в кабинете'] },
+  { title: 'Банку', bg: tokens.dark, color: '#fff', art: 'chart', action: 'Рабочее место банка',
+    points: ['Очередь заявок со сроками рассмотрения', 'Оценка по восьми факторам, расхождения и данные источников', 'Правила с версиями, воронка и время на этапах'] }
+];
+
 export function LandingPage() {
   usePageTitle('Кредит для бизнеса онлайн');
   const { session } = useAuth();
@@ -94,10 +146,12 @@ export function LandingPage() {
   const largest = products.data?.reduce((max, item) => Math.max(max, item.maxAmount), 0);
 
   return (
-    <Box sx={{ bgcolor: tokens.night, minHeight: '100vh' }}>
+    <Box sx={{ background: glowBackground, minHeight: '100vh' }}>
       {/* Header and the first screen share the dark band. */}
-      <Box component="header">
-        <Container maxWidth="lg" sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 4 }, minHeight: { xs: 64, md: 88 } }}>
+      <Box component="header" sx={{ position: 'sticky', top: 0, zIndex: 10, pt: { xs: 1, md: 2 } }}>
+        <Container maxWidth="lg">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 4 }, minHeight: { xs: 56, md: 64 }, px: { xs: 1.5, md: 2.5 }, borderRadius: '99px',
+          bgcolor: 'rgba(28, 28, 30, 0.72)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
           <BrandMark inverted compact />
           <Stack component="nav" aria-label="Разделы страницы" direction="row" spacing={3} sx={{ display: { xs: 'none', md: 'flex' }, flexGrow: 1, ml: 2 }}>
             {[['Кредиты', '#products'], ['Расчёт', '#calculator'], ['Задачи', '#purposes'], ['Как получить', '#steps']].map(([label, href]) => (
@@ -114,6 +168,7 @@ export function LandingPage() {
               <Button component={RouterLink} to="/sign-in" variant="contained">Войти</Button>
             </Stack>
           )}
+        </Box>
         </Container>
       </Box>
 
@@ -122,20 +177,30 @@ export function LandingPage() {
           <Grid container spacing={{ xs: 2, md: 3 }}>
             <Grid item xs={12} md={8}>
               <Stack spacing={{ xs: 2, md: 3 }} sx={{ height: '100%' }}>
-                <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: '32px', bgcolor: tokens.tileSalmon, p: { xs: 3, md: 5 }, minHeight: { xs: 380, md: 420 }, flexGrow: 1 }}>
-                  <Box sx={{ position: 'relative', zIndex: 1, maxWidth: { xs: '100%', sm: '68%' } }}>
-                    <Typography component="h1" fontWeight={700} sx={{ fontSize: { xs: 36, md: 52 }, lineHeight: 1.05, letterSpacing: '-0.02em', color: tokens.ink }}>
+                <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: '32px', bgcolor: tokens.tileSalmon, p: { xs: 3, md: 4.5 }, minHeight: { xs: 380, md: 420 }, flexGrow: 1,
+                  display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Box sx={{ position: 'relative', zIndex: 1, flex: 1, minWidth: 0, maxWidth: { xs: '100%', sm: '68%', md: 'none' } }}>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2.5 }}>
+                      {['Для ИП и малого бизнеса', 'Онлайн, без визита в офис'].map((label) => (
+                        <Box key={label} sx={{ px: 1.5, py: 0.5, borderRadius: '99px', bgcolor: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: 600, color: tokens.ink }}>{label}</Box>
+                      ))}
+                    </Stack>
+                    <Typography component="h1" sx={{ fontFamily: fontDisplay, fontWeight: 800, fontSize: { xs: 36, md: 46 }, lineHeight: 1.04, letterSpacing: '-0.03em', color: tokens.ink }}>
                       Кредит для бизнеса онлайн
                     </Typography>
                     <Typography sx={{ mt: 2, fontSize: { xs: 16, md: 18 }, color: tokens.text }}>
                       Подбор продукта, заявка, решение банка и подписание договора — в одном кабинете, без визита в офис.
                     </Typography>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 4 }}>
+                    <Stack direction={{ xs: 'column', sm: 'row', md: 'column', lg: 'row' }} spacing={1.5} alignItems={{ sm: 'flex-start' }} sx={{ mt: 4 }}>
                       <Button component={RouterLink} to={startPath} variant="contained" size="large" sx={{ whiteSpace: 'nowrap' }}>Оформить заявку онлайн</Button>
                       <Button href="#calculator" size="large" sx={{ whiteSpace: 'nowrap', bgcolor: 'rgba(255,255,255,0.6)', '&:hover': { bgcolor: 'rgba(255,255,255,0.85)' } }}>Рассчитать платёж</Button>
                     </Stack>
                   </Box>
-                  <Box aria-hidden sx={{ position: 'absolute', right: { xs: -20, md: 24 }, bottom: { xs: -24, md: 24 }, width: { xs: 220, md: 300 }, height: { xs: 200, md: 280 }, display: { xs: 'none', sm: 'block' } }}>
+                  <Box aria-hidden sx={{ position: 'relative', flexShrink: 0, display: { xs: 'none', md: 'block' }, zIndex: 1 }}>
+                    <Illustration name="coin" size={150} sx={{ position: 'absolute', right: -40, top: -36, transform: 'rotate(-12deg)', zIndex: -1 }} />
+                    <CabinetPreview />
+                  </Box>
+                  <Box aria-hidden sx={{ position: 'absolute', right: -20, bottom: -24, width: 220, height: 200, display: { xs: 'none', sm: 'block', md: 'none' } }}>
                     <Illustration name="coin" size={{ xs: 170, md: 230 }} sx={{ position: 'absolute', right: 0, top: 0, transform: 'rotate(-8deg)' }} />
                     <Illustration name="credit-card" size={{ xs: 130, md: 170 }} sx={{ position: 'absolute', left: 0, bottom: 0, transform: 'rotate(10deg)' }} />
                     <Illustration name="chart" size={{ xs: 90, md: 110 }} sx={{ position: 'absolute', right: { xs: 10, md: 0 }, bottom: { xs: -10, md: -16 } }} />
@@ -188,6 +253,29 @@ export function LandingPage() {
                 <PromoTile bg={tokens.tilePink} align="center" art="briefcase" to={startPath} minHeight={{ xs: 240, md: 300 }} artSize={150}
                   title="Подобрать кредит под задачу" text="Ответьте на два вопроса — покажем подходящие продукты" />
               </Grid>
+            </Grid>
+          </Container>
+
+          <Container maxWidth="lg" component="section" aria-labelledby="audiences-title" sx={{ pb: { xs: 6, md: 10 } }}>
+            <Typography id="audiences-title" component="h2" sx={{ ...sectionTitle, mb: 4 }}>Один процесс для клиента и банка</Typography>
+            <Grid container spacing={{ xs: 2, md: 3 }}>
+              {audiences.map((audience) => (
+                <Grid item xs={12} md={6} key={audience.title}>
+                  <Box sx={{ position: 'relative', overflow: 'hidden', height: '100%', p: { xs: 3, md: 4.5 }, borderRadius: '32px', bgcolor: audience.bg, color: audience.color }}>
+                    <Illustration name={audience.art} size={{ xs: 72, md: 130 }} sx={{ position: { xs: 'static', md: 'absolute' }, display: 'block', mb: { xs: 1.5, md: 0 }, right: 24, top: 24 }} />
+                    <Typography component="h3" sx={{ fontFamily: fontDisplay, fontWeight: 800, fontSize: { xs: 26, md: 32 }, maxWidth: '65%' }}>{audience.title}</Typography>
+                    <Stack component="ul" spacing={1.5} sx={{ mt: 3, mb: 4, p: 0, listStyle: 'none' }}>
+                      {audience.points.map((point) => (
+                        <Stack component="li" key={point} direction="row" spacing={1.5} alignItems="flex-start">
+                          <Box aria-hidden sx={{ mt: '9px', width: 8, height: 8, borderRadius: '99px', bgcolor: '#fff', opacity: 0.8, flexShrink: 0 }} />
+                          <Typography sx={{ opacity: 0.92 }}>{point}</Typography>
+                        </Stack>
+                      ))}
+                    </Stack>
+                    <Button component={RouterLink} to={cabinet ?? '/sign-in'} sx={{ bgcolor: '#fff', color: tokens.ink, '&:hover': { bgcolor: '#f1f1f1' } }}>{audience.action}</Button>
+                  </Box>
+                </Grid>
+              ))}
             </Grid>
           </Container>
 
@@ -246,29 +334,29 @@ export function LandingPage() {
 
           <Container maxWidth="lg" component="section" id="steps" aria-labelledby="steps-title" sx={{ pb: { xs: 6, md: 10 } }}>
             <Typography id="steps-title" component="h2" sx={{ ...sectionTitle, mb: 4 }}>Как получить кредит</Typography>
-            <Grid container spacing={{ xs: 2, md: 3 }} component="ol" sx={{ listStyle: 'none', p: 0, m: 0 }}>
-              {steps.map((step, index) => (
-                <Grid item xs={12} sm={6} md={3} key={step.title} component="li">
-                  <Box sx={{ height: '100%', p: 3, borderRadius: '28px', bgcolor: tokens.tile }}>
+            <Box sx={{ p: { xs: 3, md: 5 }, borderRadius: '32px', bgcolor: tokens.tile }}>
+              <Grid container spacing={{ xs: 3, md: 4 }} component="ol" sx={{ listStyle: 'none', p: 0, m: 0 }}>
+                {steps.map((step, index) => (
+                  <Grid item xs={12} sm={6} md={3} key={step.title} component="li">
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                      <Box sx={{ width: 40, height: 40, borderRadius: '99px', bgcolor: tokens.ink, color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700 }}>{index + 1}</Box>
-                      <Illustration name={step.art} size={72} />
+                      <Typography aria-hidden sx={{ fontFamily: fontDisplay, fontWeight: 800, fontSize: { xs: 44, md: 56 }, lineHeight: 1, color: tokens.red }}>{index + 1}</Typography>
+                      <Illustration name={step.art} size={64} />
                     </Stack>
                     <Typography component="h3" fontWeight={700} sx={{ mt: 2, fontSize: 20 }}>{step.title}</Typography>
                     <Typography color="text.secondary" sx={{ mt: 1 }}>{step.text}</Typography>
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
           </Container>
 
           <Container maxWidth="lg" sx={{ pb: { xs: 6, md: 10 } }}>
-            <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: '32px', bgcolor: tokens.red, color: '#fff', p: { xs: 3, md: 5 }, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, gap: 3 }}>
+            <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: '32px', background: `linear-gradient(120deg, ${tokens.red} 0%, #c4211a 55%, #4a0d10 100%)`, color: '#fff', p: { xs: 3, md: 5 }, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, gap: 3 }}>
               <Box sx={{ flexGrow: 1, position: 'relative', zIndex: 1 }}>
-                <Typography component="h2" fontWeight={700} sx={{ fontSize: { xs: 24, md: 32 }, lineHeight: 1.2 }}>Подключите компанию за пару минут</Typography>
+                <Typography component="h2" sx={{ fontFamily: fontDisplay, fontWeight: 800, fontSize: { xs: 26, md: 36 }, lineHeight: 1.15 }}>Подключите компанию за пару минут</Typography>
                 <Typography sx={{ mt: 1, opacity: 0.9 }}>Реквизиты подтянутся из реестра по ИНН — останется выбрать продукт</Typography>
               </Box>
-              <Button component={RouterLink} to={startPath} size="large" sx={{ bgcolor: '#fff', color: tokens.ink, position: 'relative', zIndex: 1, alignSelf: { xs: 'flex-start', md: 'center' }, '&:hover': { bgcolor: '#f1f1f1' } }}>
+              <Button component={RouterLink} to={startPath} size="large" sx={{ whiteSpace: 'nowrap', flexShrink: 0, bgcolor: '#fff', color: tokens.ink, position: 'relative', zIndex: 1, alignSelf: { xs: 'flex-start', md: 'center' }, '&:hover': { bgcolor: '#f1f1f1' } }}>
                 {session ? 'Оформить заявку' : 'Подключить компанию'}
               </Button>
               <Illustration name="handshake" size={{ xs: 110, md: 150 }} sx={{ position: { xs: 'absolute', md: 'static' }, right: 16, bottom: -16, opacity: { xs: 0.35, md: 1 } }} />

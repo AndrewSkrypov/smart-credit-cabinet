@@ -41,8 +41,21 @@ def check(name, condition):
     report["checks"].append(name)
 
 
+def first_response():
+    # The root CA appears before Caddy has issued the site certificate: the first handshakes
+    # may be reset, so wait for one complete HTTPS answer before checking anything.
+    deadline = time.monotonic() + 30
+    while True:
+        try:
+            return api.request("GET", "/")
+        except (urllib.error.URLError, ConnectionError, ssl.SSLError):
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.5)
+
+
 try:
-    root = api.request("GET", "/")
+    root = first_response()
     check("HTTPS с проверкой сертификата собственным CA клиента", root["status"] == 200)
     headers = {key.lower(): value for key, value in root["headers"].items()}
     check("HSTS и запрет MIME sniffing", "max-age=" in headers.get("strict-transport-security", "") and headers.get("x-content-type-options") == "nosniff")

@@ -5,6 +5,7 @@ import { authApi } from '../api/client';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { BrandMark } from '../components/BrandMark';
 import { tokens } from '../theme/theme';
+import { Illustration } from '../components/Illustration';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { generateTestInn, isValidInn } from '../shared/inn';
 
@@ -28,9 +29,14 @@ export function AuthFrame({ title, children }: { title: string; children: React.
   usePageTitle(title);
   return (
     <Box sx={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, bgcolor: 'background.default' }}>
-      <Box component="aside" sx={{ display: { xs: 'none', md: 'flex' }, flexDirection: 'column', justifyContent: 'space-between', bgcolor: tokens.dark, color: '#fff', p: 6 }}>
+      <Box component="aside" sx={{ display: { xs: 'none', md: 'flex' }, flexDirection: 'column', justifyContent: 'space-between', bgcolor: tokens.night, color: '#fff', p: 6, position: 'relative', overflow: 'hidden' }}>
         <BrandMark inverted />
         <Box>
+          <Box aria-hidden sx={{ position: 'relative', height: 200, mb: 4 }}>
+            <Illustration name="coin" size={170} sx={{ position: 'absolute', left: 0, top: 0, transform: 'rotate(-8deg)' }} />
+            <Illustration name="credit-card" size={140} sx={{ position: 'absolute', left: 150, top: 50, transform: 'rotate(10deg)' }} />
+            <Illustration name="chart" size={90} sx={{ position: 'absolute', left: 280, top: 10 }} />
+          </Box>
           <Typography variant="h4" component="p" fontWeight={700} sx={{ maxWidth: 420 }}>Кредит для бизнеса онлайн</Typography>
           <Stack component="ul" spacing={2} sx={{ mt: 4, p: 0, listStyle: 'none' }}>
             {promises.map((text) => (

@@ -15,7 +15,18 @@ export const tokens = {
   page: '#f3f4f5',
   success: '#0d7f4f',
   warning: '#b75c00',
-  info: '#2a5bd7'
+  info: '#2a5bd7',
+  // The bank's business pages: a near-black band with bright promo tiles on it, then a white sheet.
+  night: '#121213',
+  nightButton: '#2c2c30',
+  tile: '#f3f4f5',
+  tileSalmon: '#fcb2a8',
+  tilePurple: '#9b3dfa',
+  tileCyan: '#a8eef0',
+  tileGreen: '#c9f2ad',
+  tilePeach: '#ffe4cc',
+  tileLime: '#ecfcb7',
+  tilePink: '#ffd3d3'
 } as const;
 
 // Phones and tablets are used with a finger: interactive elements there are at least 44×44 px.

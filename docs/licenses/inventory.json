@@ -10458,6 +10458,13 @@
       "note": "Шрифт поставляется в frontend через @fontsource/inter; оригинальное уведомление есть в пакете LICENSE."
     },
     {
+      "name": "Fluent Emoji (3D)",
+      "version": "microsoft/fluentui-emoji, main, 23.10.2026",
+      "license": "MIT",
+      "source": "https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE",
+      "note": "22 объёмных иллюстрации в frontend/public/illustrations (лендинг, вход, кабинет); файлы без изменений, имена сокращены."
+    },
+    {
       "name": "Qwen2.5-3B-Instruct",
       "version": "Ollama qwen2.5:3b",
       "license": "Qwen Research License",

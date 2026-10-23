@@ -8,6 +8,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
 import { LoadingBlock } from '../components/LoadingBlock';
 import { PageHeader } from '../components/PageHeader';
+import { Illustration } from '../components/Illustration';
 import { useApi } from '../hooks/useApi';
 import { FINISHED_STATUSES, statusTitle, statusTone } from '../shared/applicationText';
 import { formatDateTime, months, rub } from '../shared/format';
@@ -118,9 +119,10 @@ export function ClientHomePage() {
                 ))}
               </Stack>
             </Paper>
-            <Paper sx={{ p: { xs: 2, md: 3 }, bgcolor: tokens.dark, color: '#fff' }}>
-              <Typography variant="subtitle1" component="h2" fontWeight={700}>Нужны деньги на бизнес?</Typography>
-              <Typography sx={{ mt: 1, color: 'rgba(255,255,255,0.72)' }}>Подберём продукт под задачу и сразу покажем платёж.</Typography>
+            <Paper sx={{ p: { xs: 2, md: 3 }, bgcolor: tokens.tilePurple, color: '#fff', position: 'relative', overflow: 'hidden' }}>
+              <Illustration name="coin" size={96} sx={{ position: 'absolute', right: -8, top: -8, transform: 'rotate(-10deg)' }} />
+              <Typography variant="subtitle1" component="h2" fontWeight={700} sx={{ maxWidth: '70%' }}>Нужны деньги на бизнес?</Typography>
+              <Typography sx={{ mt: 1, color: 'rgba(255,255,255,0.85)', maxWidth: '80%' }}>Подберём продукт под задачу и сразу покажем платёж.</Typography>
               <Button component={RouterLink} to="/client/new" variant="contained" sx={{ mt: 2 }}>Подобрать</Button>
             </Paper>
           </Stack>

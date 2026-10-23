@@ -6,10 +6,12 @@ import { useNavigate } from 'react-router-dom';
 import { applicationsApi, productsApi } from '../../api/client';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingBlock } from '../../components/LoadingBlock';
+import { Illustration } from '../../components/Illustration';
 import { MoneyField } from '../../components/MoneyField';
 import { PageHeader } from '../../components/PageHeader';
 import { useApi } from '../../hooks/useApi';
 import { months, rub, rubExact } from '../../shared/format';
+import { purposeArt } from '../../shared/illustrations';
 import { tokens } from '../../theme/theme';
 import { FinancingPurpose, ProductMatch } from '../../types';
 
@@ -69,7 +71,9 @@ export function NeedsWizardPage() {
             {purposes.data.map((item) => (
               <Grid item xs={12} sm={6} md={4} key={item.code}>
                 <Card elevation={0} sx={{ height: '100%', bgcolor: purpose === item.code ? '#fff' : tokens.inputFill, boxShadow: purpose === item.code ? `inset 0 0 0 2px ${tokens.red}` : 'none' }}>
-                  <CardActionArea sx={{ height: '100%', p: 2 }} aria-pressed={purpose === item.code} onClick={() => { setPurpose(item.code); setMatches(null); }}>
+                  <CardActionArea sx={{ height: '100%', p: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1.5 }} aria-pressed={purpose === item.code}
+                    onClick={() => { setPurpose(item.code); setMatches(null); }}>
+                    <Illustration name={purposeArt[item.code] ?? 'coin'} size={44} />
                     <Typography fontWeight={600}>{item.title}</Typography>
                   </CardActionArea>
                 </Card>

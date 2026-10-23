@@ -1009,6 +1009,7 @@ npm — из lock-файлов, дополненных license-checker для п
 ## Шрифт, веса модели и Python-инструменты
 
 - Inter, @fontsource/inter 5.3.0 (точная версия — npm lock): SIL Open Font License 1.1. https://github.com/rsms/inter/blob/master/LICENSE.txt. Шрифт поставляется в frontend через @fontsource/inter; оригинальное уведомление есть в пакете LICENSE.
+- Fluent Emoji (3D), microsoft/fluentui-emoji, main, 23.10.2026: MIT. https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE. 22 объёмных иллюстрации в frontend/public/illustrations (лендинг, вход, кабинет); файлы без изменений, имена сокращены.
 - Qwen2.5-3B-Instruct, Ollama qwen2.5:3b: Qwen Research License. https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/blob/main/LICENSE. Модель помощника по умолчанию; необязательные открытые веса, скачиваются профилем ai. Лицензия разрешает исследовательское и некоммерческое использование, коммерческое — по отдельному соглашению с Alibaba Cloud; для промышленного запуска заменить через ASSISTANT_MODEL на модель под Apache-2.0 (qwen2.5:1.5b или qwen2.5:7b). Тег Ollama не является digest весов; смена ASSISTANT_MODEL требует повторной проверки лицензии.
 - PyYAML, 6.0.3: MIT. https://github.com/yaml/pyyaml/blob/6.0.3/LICENSE. Инструмент экспорта контрактов; версия из scripts/requirements-tools.txt.
 - su-exec, 0.3-r0 (Alpine): MIT. https://github.com/ncopa/su-exec/blob/v0.3/LICENSE. Заменяет gosu в локальном рецепте PostgreSQL; выполняет переключение UID/GID без статического Go runtime.

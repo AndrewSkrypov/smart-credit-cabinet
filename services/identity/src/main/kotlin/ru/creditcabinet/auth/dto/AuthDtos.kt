@@ -32,4 +32,4 @@ data class SignUpRequest(
 data class UserSessionResponse(val token: String, val user: UserResponse)
 
 /** What the sign-in page may offer: one-click demo accounts exist only where they are enabled. */
-data class AuthOptionsResponse(val demoAccounts: Boolean)
+data class AuthOptionsResponse(val demoAccounts: Boolean, val mailAvailable: Boolean = false)

@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: [main, feature/submission-kit]
+    branches: [main, feature/submission-kit, feature/release-hardening]
   pull_request:
 
 permissions:
@@ -35,10 +35,55 @@ jobs:
         env:
           PGPASSWORD: cabinet
         run: |
-          for db in identity credit engagement; do
+          for db in identity credit engagement common_test; do
             psql -h localhost -U cabinet -d cabinet -c "create database $db"
           done
+      - name: Start the real scanner for infected-file integration tests
+        run: |
+          docker run -d --name cabinet-ci-clamav --memory 2g -p 127.0.0.1:33102:3310 \
+            --mount type=bind,source="$PWD/docker/clamav/clamd.conf",target=/cabinet/clamd.conf,readonly \
+            --mount type=bind,source="$PWD/docker/clamav/healthcheck.sh",target=/cabinet/healthcheck.sh,readonly \
+            -e TZ=UTC \
+            --entrypoint /bin/sh \
+            clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e \
+            -c 'cp /cabinet/clamd.conf /etc/clamav/clamd.conf && exec /init'
+          for attempt in $(seq 1 120); do
+            if docker exec cabinet-ci-clamav sh /cabinet/healthcheck.sh; then break; fi
+            sleep 3
+          done
+          docker exec cabinet-ci-clamav sh /cabinet/healthcheck.sh
+          docker run --rm --network none --mount type=bind,source="$PWD/docker/clamav",target=/cabinet,readonly \
+            --entrypoint /bin/sh clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e \
+            /cabinet/test-healthcheck.sh
+      - name: Start real private S3 for storage integration tests
+        run: |
+          docker run -d --name cabinet-ci-seaweedfs --memory 512m -p 127.0.0.1:18333:8333 \
+            --mount type=bind,source="$PWD/docker/seaweedfs/start.sh",target=/cabinet/start.sh,readonly \
+            -e S3_BUCKET=cabinet-documents -e S3_ACCESS_KEY=dev-cabinet-storage \
+            -e S3_SECRET_KEY=dev-storage-secret-change-me -e S3_ADMIN_ACCESS_KEY=dev-storage-operator \
+            -e S3_ADMIN_SECRET_KEY=dev-storage-operator-secret-change-me -e GOMEMLIMIT=384MiB \
+            --entrypoint /bin/sh \
+            chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d \
+            /cabinet/start.sh
+          for attempt in $(seq 1 60); do
+            if test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18333/cabinet-documents/)" = 403; then break; fi
+            sleep 2
+          done
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18333/cabinet-documents/)" = 403
+      - name: Start real Valkey for shared limits and revocation tests
+        run: |
+          docker run -d --name cabinet-ci-valkey --memory 128m -p 127.0.0.1:16379:6379 \
+            --mount type=bind,source="$PWD/docker/valkey/start.sh",target=/cabinet/start.sh,readonly \
+            -e VALKEY_PASSWORD=dev-valkey-integration-password --entrypoint /bin/sh \
+            valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11 /cabinet/start.sh
+          for attempt in $(seq 1 30); do
+            if docker exec -e VALKEYCLI_AUTH=dev-valkey-integration-password cabinet-ci-valkey valkey-cli ping | grep -qx PONG; then break; fi
+            sleep 1
+          done
+          docker exec -e VALKEYCLI_AUTH=dev-valkey-integration-password cabinet-ci-valkey valkey-cli ping | grep -qx PONG
       - name: Build, ktlint and tests
+        env:
+          OUTBOX_WORKER_ENABLED: "false"
         run: ./gradlew build --no-daemon
       - name: Test and coverage reports
         if: always()
@@ -62,7 +107,7 @@ jobs:
             ci-artifacts/backend.sha256
       - name: Stop the isolated database
         if: always()
-        run: docker rm -f cabinet-ci-postgres
+        run: docker rm -f cabinet-ci-postgres cabinet-ci-clamav cabinet-ci-seaweedfs
 
   frontend:
     runs-on: ubuntu-24.04
@@ -222,6 +267,14 @@ jobs:
             image: caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd
           - name: ollama
             image: ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8
+          - name: mailpit
+            image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
+          - name: clamav
+            image: clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e
+          - name: seaweedfs
+            image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+          - name: valkey
+            image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     steps:
       - uses: actions/checkout@v4
       - name: Pull the pinned infrastructure image
@@ -252,6 +305,10 @@ jobs:
     needs: [backend, frontend]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        storage: [local, s3]
     env:
       SOURCE_REVISION: ${{ github.sha }}
     steps:
@@ -273,14 +330,100 @@ jobs:
       - name: Build deployment images from tested artifacts
         run: docker compose -p cabinet-deploy-build -f docker-compose.yml -f ci/compose.yaml build
       - name: Exercise TLS, production memory limits and an independent restore
-        run: '"$RUNNER_TEMP/cabinet-deployment/bin/python" deploy/test-local.py --image-prefix cabinet-deploy-build --companies 20 --expected-revision "$GITHUB_SHA"'
+        run: '"$RUNNER_TEMP/cabinet-deployment/bin/python" deploy/test-local.py --image-prefix cabinet-deploy-build --companies 20 --storage "${{ matrix.storage }}" --expected-revision "$GITHUB_SHA"'
       - name: Deployment measurements without credentials or database dumps
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: deployment-reports
+          name: deployment-reports-${{ matrix.storage }}
           path: deploy/reports/test-*/*.json
           retention-days: 14
+
+  storage:
+    needs: [backend, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      COMPOSE_PROJECT_NAME: cabinet-e2e
+      COMPOSE_FILE: docker-compose.yml:ci/compose.yaml
+      SOURCE_REVISION: ${{ github.sha }}
+      STORAGE_BACKEND: s3
+      MAIL_MODE: "off"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-backend-jars
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-frontend-dist
+      - name: Verify producer checksums and install pinned storage tools
+        run: |
+          sha256sum -c ci-artifacts/backend.sha256
+          sha256sum -c ci-artifacts/frontend.sha256
+          python3 -m venv "$RUNNER_TEMP/cabinet-storage"
+          "$RUNNER_TEMP/cabinet-storage/bin/pip" install -r scripts/requirements-storage.txt
+      - name: Start two credit replicas with actual S3 and antivirus
+        run: docker compose --profile storage up -d --build --scale credit=2 --wait --wait-timeout 300
+      - name: Reject uploads during storage and scanner faults, then verify recovery
+        run: python3 load/storage.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-storage
+      - name: Verify interrupted transfer, replay and reverse migration through the API
+        run: '"$RUNNER_TEMP/cabinet-storage/bin/python" load/storage-transfer.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-storage-transfer'
+      - name: Storage verification without tokens or document contents
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storage-reports
+          path: |
+            load/reports/ci-storage/*.json
+            load/reports/ci-storage-transfer/*.json
+          retention-days: 14
+      - name: Stop only the disposable storage project
+        if: always()
+        run: docker compose --profile storage down -v --remove-orphans
+
+  shared-state:
+    needs: [backend, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      COMPOSE_PROJECT_NAME: cabinet-e2e
+      COMPOSE_FILE: docker-compose.yml:ci/compose.yaml
+      SOURCE_REVISION: ${{ github.sha }}
+      MAIL_MODE: "on"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-backend-jars
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-frontend-dist
+      - name: Verify tested artifacts
+        run: |
+          sha256sum -c ci-artifacts/backend.sha256
+          sha256sum -c ci-artifacts/frontend.sha256
+      - name: Start two real replicas of identity, credit and engagement
+        run: docker compose --profile mail up -d --build --scale identity=2 --scale credit=2 --scale engagement=2 --wait --wait-timeout 300
+      - name: Exercise shared limits, session revocation, persistence and actual failures
+        run: python3 load/shared-state.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-shared-state
+      - name: Bound gateway failures and never replay writes
+        run: |
+          python3 load/gateway-fault.py --project "$COMPOSE_PROJECT_NAME" --label ci-gateway --expect-hardened
+          python3 load/gateway-write-fault.py --project "$COMPOSE_PROJECT_NAME" --label ci-gateway-writes
+      - name: Publish measurements without credentials
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-state-reports
+          path: |
+            load/reports/ci-shared-state/*.json
+            load/reports/ci-gateway/gateway-fault.json
+            load/reports/ci-gateway-writes/gateway-writes.json
+          retention-days: 14
+      - name: Stop only the disposable shared-state project
+        if: always()
+        run: docker compose --profile mail down -v --remove-orphans
 
   demo-history:
     needs: [backend, frontend]
@@ -322,7 +465,8 @@ jobs:
   e2e:
     needs: [backend, frontend]
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # Includes cold browser installation, both viewports, contracts and sequential fault drills.
+    timeout-minutes: 60
     env:
       COMPOSE_PROJECT_NAME: cabinet-e2e
       COMPOSE_FILE: docker-compose.yml:ci/compose.yaml
@@ -376,6 +520,9 @@ jobs:
       - name: Restore policy after a controlled test failure
         run: npm run test:recovery
         working-directory: contracts/postman
+      - name: Verify the contract runner after an idle connection closes
+        run: npm run test:keepalive
+        working-directory: contracts/postman
       - name: Exercise two replicas and measure a concurrent cohort
         run: |
           python3 load/start.py --project "$COMPOSE_PROJECT_NAME" --replicas 2
@@ -406,6 +553,14 @@ jobs:
         run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" security/matrix.py --project "$COMPOSE_PROJECT_NAME"'
       - name: Reject forged tokens, foreign objects and unsafe inputs
         run: python3 security/negative.py --project "$COMPOSE_PROJECT_NAME"
+      - name: Recover notifications after receiver and sender failures
+        run: python3 load/notifications.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-notifications
+      - name: Enable the optional mail profile and verify delivery through the UI
+        run: |
+          docker compose --profile mail up -d --no-build --scale credit=2 --wait --wait-timeout 180
+          MAIL_TESTS=1 npm test --prefix e2e -- tests/release-notifications.spec.ts tests/release-accounts.spec.ts
+          python3 load/mail.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-mail
+          python3 load/account-mail.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-account-mail
       - name: Capture service diagnostics
         if: failure()
         run: |
@@ -462,4 +617,4 @@ jobs:
           path: monitoring/reports/*.json
       - name: Stop the test cabinet
         if: always()
-        run: docker compose --profile monitoring down -v --remove-orphans
+        run: docker compose --profile monitoring --profile mail down -v --remove-orphans

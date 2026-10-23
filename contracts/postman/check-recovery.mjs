@@ -27,5 +27,29 @@ const after = JSON.parse(readFileSync(path.join(directory, 'reports/recovery-int
 assert.equal(after.version, before.version + 2, 'Одна версия изменяет параметры, вторая восстанавливает');
 assert.ok(isDeepStrictEqual(after.params, before.params), 'Параметры должны полностью совпадать');
 const summary = { passed: true, expectedFailureExit: result.status, beforeVersion: before.version, afterVersion: after.version, parametersRestored: true };
+const productCollection = JSON.parse(readFileSync(path.join(directory, 'cabinet.postman_collection.json'), 'utf8'));
+const prepareProduct = productCollection.item.find((item) => item.name.startsWith('78.')).event.find((event) => event.listen === 'prerequest');
+productCollection.item = productCollection.item.filter((item) => /^(42|76|79)\./.test(item.name));
+assert.equal(productCollection.item.length, 3);
+productCollection.item[2].event.unshift(prepareProduct);
+productCollection.item[2].event.find((event) => event.listen === 'test').script.exec.push(
+  'pm.test("Контролируемая ошибка после записи продукта",()=>pm.expect(true).to.equal(false));'
+);
+const productFixture = path.join(directory, 'reports/product-recovery-intentional.postman_collection.json');
+writeFileSync(productFixture, JSON.stringify(productCollection, null, 2) + '\n');
+const productResult = spawnSync(process.execPath, ['run-newman.mjs', productFixture], {
+  cwd: directory, encoding: 'utf8', env: { ...process.env, NEWMAN_REPORT_NAME: 'product-recovery-intentional' }
+});
+writeFileSync(path.join(directory, 'reports/product-recovery-intentional.log'), (productResult.stdout ?? '') + (productResult.stderr ?? ''));
+assert.equal(productResult.status, 1, 'Ошибка после изменения продукта должна завершить коллекцию с кодом 1');
+const productBefore = JSON.parse(readFileSync(path.join(directory, 'reports/product-recovery-intentional-products-before.json'), 'utf8')).find((product) => product.code === 'WORKING_CAPITAL');
+const productAfter = JSON.parse(readFileSync(path.join(directory, 'reports/product-recovery-intentional-products-after.json'), 'utf8')).find((product) => product.code === 'WORKING_CAPITAL');
+const { version: beforeProductVersion, ...beforeProductParams } = productBefore;
+const { version: afterProductVersion, ...afterProductParams } = productAfter;
+beforeProductParams.purposes.sort();
+afterProductParams.purposes.sort();
+assert.equal(afterProductVersion, beforeProductVersion + 2, 'Изменённые условия восстановлены отдельной новой версией');
+assert.ok(isDeepStrictEqual(beforeProductParams, afterProductParams), 'Все параметры продукта должны совпасть');
+Object.assign(summary, { productBeforeVersion: beforeProductVersion, productAfterVersion: afterProductVersion, productParametersRestored: true });
 writeFileSync(path.join(directory, 'reports/recovery-check.json'), JSON.stringify(summary, null, 2) + '\n');
-console.log('Контролируемая ошибка Newman воспроизведена; исходные правила автоматически восстановлены.');
+console.log('Контролируемые ошибки Newman воспроизведены; исходные правила и продукт автоматически восстановлены новыми версиями.');

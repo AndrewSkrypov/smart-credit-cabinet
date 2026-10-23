@@ -31,6 +31,7 @@ import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.application.service.toActor
 import ru.creditcabinet.assessment.domain.DecisionRepository
+import ru.creditcabinet.chat.application.ChatService
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.document.DocumentService
@@ -56,11 +57,15 @@ class ApplicationController(
     private val decisions: DecisionRepository,
     private val signing: SigningSessions,
     private val loans: Loans,
+    private val chat: ChatService,
 ) {
     @Operation(summary = "Заявки: клиенту — его компании, сотрудникам банка — очередь без черновиков")
     @GetMapping
-    fun list(@RequestParam(required = false) status: Set<ApplicationStatus>?): List<ApplicationSummary> =
-        service.list(status).map(::summary)
+    fun list(@RequestParam(required = false) status: Set<ApplicationStatus>?): List<ApplicationSummary> {
+        val applications = service.list(status)
+        val unread = chat.unread(applications)
+        return applications.map { summary(it).copy(unreadChatCount = unread[it.id] ?: 0) }
+    }
 
     @Operation(summary = "Создать черновик заявки")
     @PostMapping
@@ -82,7 +87,8 @@ class ApplicationController(
         @PathVariable id: UUID,
         @Parameter(description = "Повтор с тем же ключом вернёт результат первого запроса")
         @RequestHeader("Idempotency-Key", required = false) idempotencyKey: String?,
-    ): ApplicationResponse = detail(service.submit(id, idempotencyKey?.trim()?.takeIf { it.isNotEmpty() }?.take(128)))
+        @RequestBody(required = false) request: SubmitRequest?,
+    ): ApplicationResponse = detail(service.submit(id, idempotencyKey?.trim()?.takeIf { it.isNotEmpty() }?.take(128), request?.acceptedProductVersion))
 
     @Operation(summary = "Отозвать заявку (T21)")
     @PostMapping("/{id}/withdraw")
@@ -120,7 +126,7 @@ class ApplicationController(
         val application = service.get(id)
         val loan = loans.find(application.id)
         val offer = offers.current(application.id) ?: throw NotFoundException("Графика пока нет: банк ещё не сделал предложение")
-        val product = service.product(offer.productCode)
+        val product = service.product(application, offer.productCode)
         return LoanMath.calculate(loan?.amount ?: offer.amount, loan?.rate ?: offer.rate, loan?.termMonths ?: offer.termMonths, product.revolving)
     }
 
@@ -170,7 +176,7 @@ class ApplicationController(
             offer = offer?.let {
                 OfferView.of(
                     it,
-                    service.product(it.productCode).name,
+                    service.product(application, it.productCode).name,
                     if (decision?.decidedByType ==
                         ActorType.SYSTEM
                     ) {
@@ -187,7 +193,7 @@ class ApplicationController(
     }
 
     private fun summary(application: LoanApplication): ApplicationSummary {
-        val product = service.product(application.terms.productCode)
+        val product = service.product(application)
         return ApplicationSummary(
             id = application.id,
             number = application.number,
@@ -206,7 +212,7 @@ class ApplicationController(
 
     private fun detail(application: LoanApplication): ApplicationResponse {
         val claims = CurrentCaller.claims()
-        val product = service.product(application.terms.productCode)
+        val product = service.product(application)
         val terms = application.terms
         val uploaded = documents.list(application.id)
         val isOwnClient = claims.isClient && claims.companyId == application.company.id
@@ -226,7 +232,8 @@ class ApplicationController(
             status = application.status,
             closeReason = application.closeReason,
             company = with(application.company) { CompanyView(id, inn, name, legalForm) },
-            product = ProductView(product.code, product.name, product.revolving),
+            product = ProductView(product.code, product.name, product.revolving, product.version),
+            currentProduct = if (application.status == ApplicationStatus.DRAFT) service.currentProduct(product.code) else null,
             purpose = terms.purpose,
             purposeTitle = terms.purpose.title,
             purposeComment = terms.purposeComment,
@@ -242,7 +249,12 @@ class ApplicationController(
             allowedActions = actions,
             editable = isOwnClient && application.status == ApplicationStatus.DRAFT,
             canUploadDocuments = isOwnClient && application.status in setOf(ApplicationStatus.DRAFT, ApplicationStatus.INFO_REQUESTED),
-            submissionProblems = if (application.status == ApplicationStatus.DRAFT) application.submissionProblems(product) else emptyList(),
+            submissionProblems = if (application.status == ApplicationStatus.DRAFT) {
+                val current = service.currentProduct(product.code)
+                if (current?.active != true) listOf("Продукт выключен из каталога — выберите другой продукт") else application.submissionProblems(current)
+            } else {
+                emptyList()
+            },
             requiredDocuments = DocumentRequirements.required(product, terms.amount, application.company.legalForm).map { requirement ->
                 RequiredDocumentView(requirement.type, requirement.type.title, requirement.reason, uploaded.any { it.type == requirement.type })
             },

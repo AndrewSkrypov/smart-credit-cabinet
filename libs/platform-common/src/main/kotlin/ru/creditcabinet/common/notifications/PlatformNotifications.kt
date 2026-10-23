@@ -1,120 +1,112 @@
 package ru.creditcabinet.common.notifications
 
-import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.DisposableBean
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
-import org.springframework.transaction.support.TransactionSynchronization
-import org.springframework.transaction.support.TransactionSynchronizationManager
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
+import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.client.RestClient
+import ru.creditcabinet.common.outbox.DeliveryHandler
+import ru.creditcabinet.common.outbox.DurableOutbox
+import ru.creditcabinet.common.outbox.OutboxMetrics
+import ru.creditcabinet.common.outbox.OutboxSettings
+import ru.creditcabinet.common.outbox.OutboxWorker
 import java.time.Duration
 import java.util.UUID
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
+import javax.sql.DataSource
 
-/**
- * One notification for the bell in the header; stored and shown by engagement. Addressed to one
- * person, to everyone of a company, or to everyone with a bank role: exactly one is set, and
- * engagement turns the address into people.
- */
 data class PlatformNotification(
     val recipientId: UUID? = null,
     val recipientCompanyId: UUID? = null,
     val recipientRole: String? = null,
-    /** One of engagement's notification types, e.g. [APPLICATION_STATUS]. */
     val type: String,
     val title: String,
     val body: String,
-    /** A path inside the cabinet, e.g. "/client/applications/<id>". */
     val link: String?,
-    /** The same key for the same event: a repeated delivery is stored once. */
     val dedupKey: String,
+    val email: NotificationEmail? = null,
 ) {
     init {
         require(listOfNotNull(recipientId, recipientCompanyId, recipientRole).size == 1) { "A notification has exactly one address" }
     }
 
     companion object {
-        /** The application moved to another stage; nothing is required from the client. */
         const val APPLICATION_STATUS = "APPLICATION_STATUS"
-
-        /** The client has to do something: add documents, accept an offer, sign. */
         const val ACTION_REQUIRED = "ACTION_REQUIRED"
-
-        /** Bank: an application waits for a manual decision. */
         const val NEW_REVIEW = "NEW_REVIEW"
     }
 }
 
-/**
- * Hands notifications to engagement once the caller's transaction has committed. Never
- * throws and never waits: a notification must not undo or slow down the action it is about.
- */
+enum class NotificationEmailKind { DOCUMENTS_REQUESTED, OFFER_READY, SIGNING_READY, DISBURSED, REFUSED, REVIEW_REQUIRED }
+
+data class NotificationEmail(val kind: NotificationEmailKind, val deadline: String? = null)
+
+/** Persists in the caller's business transaction; network delivery never runs on that path. */
 fun interface PlatformNotifications {
     fun send(items: List<PlatformNotification>)
 }
 
-/**
- * Posts to engagement's /internal/v1/notifications on a background thread after the commit.
- * If engagement is down the notification is logged and dropped: the action itself stands.
- * No retries, so no duplicates; the dedup key also covers a request that was retried below.
- */
-class EngagementNotificationsClient(private val client: RestClient) :
-    PlatformNotifications,
-    DisposableBean {
-    private val log = LoggerFactory.getLogger(javaClass)
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "notifications-sender").apply { isDaemon = true }
-    }
-
+class OutboxNotifications(private val outbox: DurableOutbox, private val mapper: ObjectMapper) : PlatformNotifications {
     override fun send(items: List<PlatformNotification>) {
-        if (items.isEmpty()) return
-        val deliver = { executor.execute { post(items) } }
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(
-                object : TransactionSynchronization {
-                    override fun afterCommit() = deliver()
-                },
-            )
-        } else {
-            deliver()
-        }
+        items.forEach { outbox.enqueue("notification", it.dedupKey, mapper.writeValueAsString(it)) }
     }
+}
 
-    private fun post(items: List<PlatformNotification>) {
-        try {
-            client.post().uri("/internal/v1/notifications").contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("items" to items)).retrieve().toBodilessEntity()
-        } catch (exception: Exception) {
-            log.warn("Notifications not delivered ({}): {}", items.joinToString { it.dedupKey }, exception.message)
-        }
-    }
+/** The worker owns retries and leases; an HTTP failure must propagate to it. */
+class EngagementNotificationsClient(private val client: RestClient, private val mapper: ObjectMapper) : DeliveryHandler {
+    override val channel = "notification"
 
-    override fun destroy() {
-        executor.shutdown()
-        executor.awaitTermination(5, TimeUnit.SECONDS)
+    override fun deliver(payload: String) {
+        val item = mapper.readValue(payload, PlatformNotification::class.java)
+        client.post().uri("/internal/v1/notifications").contentType(MediaType.APPLICATION_JSON)
+            .body(mapOf("items" to listOf(item))).retrieve().toBodilessEntity()
     }
 }
 
 @Configuration
+@ConditionalOnProperty(name = ["cabinet.outbox.enabled"], havingValue = "false", matchIfMissing = true)
+class DisabledNotificationsConfig {
+    @Bean
+    fun platformNotifications(): PlatformNotifications = PlatformNotifications { items -> check(items.isEmpty()) { "Notification outbox is not enabled" } }
+}
+
+@Configuration
+@EnableScheduling
+@EnableConfigurationProperties(OutboxSettings::class)
+@ConditionalOnProperty(name = ["cabinet.outbox.enabled"], havingValue = "true")
 class PlatformNotificationsConfig {
     @Bean
-    fun platformNotifications(
+    fun durableOutbox(dataSource: DataSource, transactionManager: PlatformTransactionManager, mapper: ObjectMapper): DurableOutbox =
+        DurableOutbox(NamedParameterJdbcTemplate(dataSource), TransactionTemplate(transactionManager), mapper)
+
+    @Bean
+    fun platformNotifications(outbox: DurableOutbox, mapper: ObjectMapper): PlatformNotifications = OutboxNotifications(outbox, mapper)
+
+    @Bean
+    fun notificationDelivery(
         @Value("\${cabinet.engagement.url:}") engagementUrl: String,
-        restClientBuilder: RestClient.Builder,
-    ): PlatformNotifications {
-        if (engagementUrl.isBlank()) {
-            val log = LoggerFactory.getLogger(PlatformNotifications::class.java)
-            return PlatformNotifications { items -> log.info("Notifications not sent (cabinet.engagement.url is not set): {}", items.map { it.dedupKey }) }
-        }
+        builder: RestClient.Builder,
+        mapper: ObjectMapper,
+    ): DeliveryHandler {
         val requestFactory = SimpleClientHttpRequestFactory().apply {
             setConnectTimeout(Duration.ofSeconds(2))
             setReadTimeout(Duration.ofSeconds(5))
         }
-        return EngagementNotificationsClient(restClientBuilder.clone().baseUrl(engagementUrl).requestFactory(requestFactory).build())
+        return EngagementNotificationsClient(builder.clone().baseUrl(engagementUrl).requestFactory(requestFactory).build(), mapper)
     }
+
+    @Bean
+    fun outboxMetrics(registry: MeterRegistry, dataSource: DataSource): OutboxMetrics = OutboxMetrics(registry, dataSource)
+
+    @Bean
+    fun outboxWorker(outbox: DurableOutbox, handlers: List<DeliveryHandler>, settings: OutboxSettings, metrics: OutboxMetrics): OutboxWorker =
+        OutboxWorker(outbox, handlers, settings, observation = metrics)
 }

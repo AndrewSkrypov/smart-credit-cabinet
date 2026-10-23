@@ -27,7 +27,9 @@ const SAVE_DELAY_MS = 700;
  */
 export function DraftForm({ application, onSaved, onSubmitted }: { application: Application; onSaved: (next: Application) => void; onSubmitted: (next: Application) => void }) {
   const products = useApi(productsApi.list);
-  const product = products.data?.find((item) => item.code === application.product.code);
+  const product = application.currentProduct ?? products.data?.find((item) => item.code === application.product.code);
+  const changed = product?.version !== undefined && product.version !== application.product.version;
+  const [acceptedVersion, setAcceptedVersion] = useState<number | null>(null);
   const [form, setForm] = useState<ApplicationInput>(() => toInput(application));
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +64,7 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
   };
 
   const submit = async () => {
+    if (sending || (changed && acceptedVersion !== product?.version) || product?.active === false) return;
     setSending(true);
     setError(null);
     const saved = saveState === 'saved' ? application : await save();
@@ -75,9 +78,10 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
     }
     try {
       // One key per application: a repeated click or a retry returns the first result.
-      onSubmitted(await applicationsApi.submit(application.id, `submit-${application.id}`));
+      onSubmitted(await applicationsApi.submit(application.id, `submit-${application.id}`, changed ? acceptedVersion ?? undefined : undefined));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Не удалось отправить заявку');
+      try { onSaved(await applicationsApi.get(application.id)); } catch { /* Keep the actionable submission error when refresh is unavailable. */ }
       setSending(false);
     }
   };
@@ -94,6 +98,14 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
         </Typography>
       </Stack>
       <Typography color="text.secondary" sx={{ mb: 2 }}>{application.product.name} · {application.purposeTitle}</Typography>
+      {product?.active === false ? <Alert severity="warning" sx={{ mb: 2 }}>Продукт выключен из каталога. Выберите другой продукт и создайте новую заявку.</Alert> : changed && product && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography fontWeight={600}>Условия продукта изменились</Typography>
+          <Typography>Новая версия {product.version}: {product.name}. Ставка {product.baseRate}%, сумма от {rub(product.minAmount)} до {rub(product.maxAmount)}, срок от {product.minTermMonths} до {product.maxTermMonths} месяцев. {product.revolving ? 'Возобновляемый лимит.' : 'Разовая выдача.'}</Typography>
+          <Typography>{product.description}</Typography>
+          <FormControlLabel control={<Checkbox checked={acceptedVersion === product.version} onChange={(_, checked) => setAcceptedVersion(checked ? product.version ?? null : null)} />} label="Проверил новые условия продукта и согласен отправить заявку по ним" />
+        </Alert>
+      )}
 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6}>
@@ -145,7 +157,7 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
-        <Button variant="contained" size="large" onClick={submit} disabled={sending || saveState === 'saving' || (saveState === 'saved' && application.submissionProblems.length > 0)}>
+        <Button variant="contained" size="large" onClick={submit} disabled={sending || saveState === 'saving' || (changed && acceptedVersion !== product?.version) || product?.active === false || (saveState === 'saved' && application.submissionProblems.length > 0)}>
           {sending ? 'Отправляем…' : 'Отправить в банк'}
         </Button>
       </Stack>

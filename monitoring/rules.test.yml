@@ -4,6 +4,38 @@ evaluation_interval: 1m
 tests:
   - interval: 1m
     input_series:
+      - series: 'cabinet_delivery_outbox_messages{application="credit",instance="a",channel="notification",state="FAILED"}'
+        values: '1+0x4'
+      - series: 'cabinet_delivery_outbox_messages{application="credit",instance="b",channel="notification",state="FAILED"}'
+        values: '1+0x4'
+    promql_expr_test:
+      - expr: sum(max by (application,channel,state) (cabinet_delivery_outbox_messages{state="FAILED"}))
+        eval_time: 2m
+        exp_samples:
+          - labels: '{}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: CabinetNotificationDeliveryFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: 'Есть недоставленные уведомления или письма'
+  - interval: 1m
+    input_series:
+      - series: 'cabinet_delivery_outbox_oldest_seconds{application="engagement",channel="email-notification"}'
+        values: '0 180 180 180 180'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CabinetNotificationDeliveryDelayed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: 'Очередь уведомлений или писем ждёт больше двух минут'
+  - interval: 1m
+    input_series:
       - series: 'cabinet_pipeline_jobs{instance="a",status="FAILED",attempts="2-4"}'
         values: '1+0x4'
       - series: 'cabinet_pipeline_jobs{instance="b",status="FAILED",attempts="2-4"}'

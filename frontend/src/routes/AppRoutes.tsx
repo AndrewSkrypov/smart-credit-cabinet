@@ -2,10 +2,14 @@ import { Route, Routes } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { RoleGuard } from '../components/RoleGuard';
 import { SignInPage, SignUpPage } from '../pages/AuthPages';
+import { ProfilePage } from '../pages/ProfilePage';
+import { AcceptInvitationPage, PasswordRecoveryPage, PasswordResetPage } from '../pages/AccountAccessPages';
+import { EmployeesPage } from '../pages/client/EmployeesPage';
 import { AnalyticsPage } from '../pages/bank/AnalyticsPage';
 import { BankApplicationPage } from '../pages/bank/application/BankApplicationPage';
 import { BankQueuePage } from '../pages/bank/BankQueuePage';
 import { RulesPage } from '../pages/bank/RulesPage';
+import { ProductsPage } from '../pages/bank/ProductsPage';
 import { LandingPage } from '../pages/landing/LandingPage';
 import { ClientHomePage } from '../pages/ClientHomePage';
 import { ApplicationPage } from '../pages/client/application/ApplicationPage';
@@ -19,10 +23,19 @@ export function AppRoutes() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/sign-up" element={<SignUpPage />} />
+      <Route path="/password-recovery" element={<PasswordRecoveryPage />} />
+      <Route path="/reset-password" element={<PasswordResetPage />} />
+      <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+      <Route element={<RoleGuard roles={['CLIENT', ...bankRoles]} />}>
+        <Route element={<AppShell />}>
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
+      </Route>
       <Route element={<RoleGuard roles={['CLIENT']} />}>
         <Route element={<AppShell />}>
           <Route path="/client" element={<ClientHomePage />} />
           <Route path="/client/new" element={<NeedsWizardPage />} />
+          <Route path="/client/employees" element={<EmployeesPage />} />
           <Route path="/client/applications/:id" element={<ApplicationPage />} />
         </Route>
       </Route>
@@ -32,6 +45,7 @@ export function AppRoutes() {
           <Route path="/bank/applications/:id" element={<BankApplicationPage />} />
           <Route path="/bank/analytics" element={<AnalyticsPage />} />
           <Route path="/bank/rules" element={<RulesPage />} />
+          <Route path="/bank/products" element={<ProductsPage />} />
         </Route>
       </Route>
       <Route path="/access-denied" element={<AccessDeniedPage />} />

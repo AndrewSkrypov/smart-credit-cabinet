@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import ru.creditcabinet.common.notifications.NotificationEmail
 import java.util.UUID
 
 @Tag(name = "Уведомления в кабинете")
@@ -48,7 +49,8 @@ data class InternalNotificationRequest(@field:Valid @field:Size(min = 1, max = 1
         @field:NotBlank @field:Size(max = 255) val title: String,
         @field:NotBlank @field:Size(max = 1000) val body: String,
         @field:Size(max = 512) val link: String? = null,
-        @field:Size(max = 255) val dedupKey: String? = null,
+        @field:NotBlank @field:Size(max = 255) val dedupKey: String,
+        val email: NotificationEmail? = null,
     )
 }
 
@@ -62,7 +64,15 @@ class InternalNotificationController(private val service: NotificationService) {
         mapOf(
             "stored" to service.deliver(
                 request.items.map {
-                    NewNotification(Audience(it.recipientId, it.recipientCompanyId, it.recipientRole), it.type, it.title, it.body, it.link, it.dedupKey)
+                    NewNotification(
+                        Audience(it.recipientId, it.recipientCompanyId, it.recipientRole),
+                        it.type,
+                        it.title,
+                        it.body,
+                        it.link,
+                        it.dedupKey,
+                        it.email,
+                    )
                 },
             ),
         )

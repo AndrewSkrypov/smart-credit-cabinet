@@ -5,6 +5,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
+import math
 from pathlib import Path
 import re
 import subprocess
@@ -24,7 +25,7 @@ parser.add_argument("--cohort", required=True, help="Метка когорты l
 parser.add_argument("--base", default="http://localhost:8080")
 parser.add_argument("--project", default="cabinet-submission")
 args = parser.parse_args()
-if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e)(?:-[a-z0-9]+)?", args.project):
+if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e|release)(?:-[a-z0-9]+)?", args.project):
     parser.error("Неверное имя отдельного тестового проекта")
 if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", args.cohort):
     parser.error("Неверная метка когорты")
@@ -34,6 +35,22 @@ api = Cabinet(args.base)
 clients = cohort["clients"]
 bank = cohort["underwriter"]
 result = {"mode": args.mode, "project": args.project, "cohort": args.cohort, "started_at": datetime.now(timezone.utc).isoformat()}
+observations = []
+
+
+def observed_request(method, path, *arguments, **kwargs):
+    started = time.monotonic()
+    row = {"method": method}
+    try:
+        response = api.request(method, path, *arguments, **kwargs)
+        row["status"] = response["status"]
+        return response
+    except (TimeoutError, ConnectionError, URLError) as error:
+        row["error"] = type(error).__name__
+        raise
+    finally:
+        row["seconds"] = time.monotonic() - started
+        observations.append(row)
 
 
 def docker(*arguments, check=True):
@@ -89,7 +106,7 @@ def finish(client):
     deadline = time.monotonic() + 240
     while time.monotonic() < deadline:
         try:
-            response = api.request("GET", f"/api/v1/applications/{client['id']}", token=client["token"], expected=(200, 502, 503, 504), timeout=5)
+            response = observed_request("GET", f"/api/v1/applications/{client['id']}", token=client["token"], expected=(200, 502, 503, 504), timeout=15)
         except (TimeoutError, ConnectionError, URLError) as error:
             result.setdefault("transient_network", []).append({"id": client["id"], "error": type(error).__name__})
             time.sleep(0.5)
@@ -102,9 +119,9 @@ def finish(client):
                 return
             if app["status"] == "MANUAL_REVIEW":
                 try:
-                    action = api.request("POST", f"/api/v1/underwriting/applications/{client['id']}/approve", {
+                    action = observed_request("POST", f"/api/v1/underwriting/applications/{client['id']}/approve", {
                         "comment": "Синтетическая проверка восстановления: сведения рассмотрены андеррайтером",
-                    }, bank, expected=(200, 409, 502, 503, 504), timeout=5)
+                    }, bank, expected=(200, 409, 502, 503, 504), timeout=15)
                     if action["status"] != 200:
                         result.setdefault("transient_http", []).append({"id": client["id"], "status": action["status"], "action": "approve"})
                 except (TimeoutError, ConnectionError, URLError) as error:
@@ -296,6 +313,18 @@ except Exception as error:
     result.update(passed=False, error=str(error), jobs_at_failure=jobs())
     raise
 finally:
+    if observations:
+        values = sorted(row["seconds"] for row in observations)
+        result["recovery_http"] = {
+            "n": len(values), "client_timeout_seconds": 15,
+            "statuses": dict(Counter(str(row.get("status", "network_error")) for row in observations)),
+            "errors": dict(Counter(row["error"] for row in observations if "error" in row)),
+            "percentile_method": "nearest_rank",
+            "p50_seconds": values[math.ceil(len(values) * .5) - 1],
+            "p95_seconds": values[math.ceil(len(values) * .95) - 1],
+            "p99_seconds": values[math.ceil(len(values) * .99) - 1],
+            "requests": observations,
+        }
     result["finished_at"] = datetime.now(timezone.utc).isoformat()
     (directory / f"{args.mode}.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({key: value for key, value in result.items() if key not in {"applications", "jobs", "running_at_crash", "before_crash", "jobs_at_failure"}}, ensure_ascii=False, indent=2))

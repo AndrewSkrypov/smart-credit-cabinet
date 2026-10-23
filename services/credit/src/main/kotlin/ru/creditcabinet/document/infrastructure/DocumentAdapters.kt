@@ -5,9 +5,11 @@ import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Component
 import ru.creditcabinet.document.domain.ApplicationDocument
+import ru.creditcabinet.document.domain.DocumentContext
 import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.document.domain.FileStore
+import ru.creditcabinet.document.domain.StorageBackend
 import ru.creditcabinet.document.domain.StoredFile
 import java.io.InputStream
 import java.nio.file.Files
@@ -29,12 +31,15 @@ class JdbcDocumentRepository(private val jdbc: NamedParameterJdbcTemplate) : Doc
             sizeBytes = rs.getLong("size_bytes"),
             uploadedBy = rs.getObject("uploaded_by", UUID::class.java),
             uploadedAt = rs.getTimestamp("uploaded_at").toInstant(),
+            context = DocumentContext.valueOf(rs.getString("context")),
+            storageBackend = StorageBackend.valueOf(rs.getString("storage_backend")),
+            checksumSha256 = rs.getString("checksum_sha256"),
         )
     }
 
     override fun list(applicationId: UUID): List<ApplicationDocument> =
         jdbc.query(
-            "select * from documents where application_id = :application and deleted_at is null order by uploaded_at",
+            "select * from documents where application_id = :application and context = 'BUSINESS' and deleted_at is null order by uploaded_at",
             mapOf("application" to applicationId),
             mapper,
         )
@@ -49,8 +54,8 @@ class JdbcDocumentRepository(private val jdbc: NamedParameterJdbcTemplate) : Doc
     override fun save(document: ApplicationDocument) {
         jdbc.update(
             """
-            insert into documents (id, application_id, type, file_name, stored_name, size_bytes, uploaded_by, uploaded_at)
-            values (:id, :application, :type, :fileName, :storedName, :size, :uploadedBy, :uploadedAt)
+            insert into documents (id, application_id, type, file_name, stored_name, size_bytes, uploaded_by, uploaded_at, context, storage_backend, checksum_sha256)
+            values (:id, :application, :type, :fileName, :storedName, :size, :uploadedBy, :uploadedAt, :context, :backend, :checksum)
             """.trimIndent(),
             mapOf(
                 "id" to document.id,
@@ -61,6 +66,9 @@ class JdbcDocumentRepository(private val jdbc: NamedParameterJdbcTemplate) : Doc
                 "size" to document.sizeBytes,
                 "uploadedBy" to document.uploadedBy,
                 "uploadedAt" to Timestamp.from(document.uploadedAt),
+                "context" to document.context.name,
+                "backend" to document.storageBackend.name,
+                "checksum" to document.checksumSha256,
             ),
         )
     }
@@ -69,6 +77,12 @@ class JdbcDocumentRepository(private val jdbc: NamedParameterJdbcTemplate) : Doc
     override fun markDeleted(documentId: UUID, at: Instant) {
         jdbc.update("update documents set deleted_at = :at where id = :id", mapOf("id" to documentId, "at" to Timestamp.from(at)))
     }
+
+    override fun isChatAttached(documentId: UUID): Boolean = jdbc.queryForObject(
+        "select exists(select 1 from message_attachments where document_id=:id)",
+        mapOf("id" to documentId),
+        Boolean::class.java,
+    )!!
 }
 
 /** Files in a local directory (a docker volume). Names are random and never come from a request. */
@@ -81,7 +95,15 @@ class LocalFileStore(@Value("\${cabinet.storage.local-dir:./uploads}") directory
     }
 
     override fun put(storedName: String, content: InputStream, sizeBytes: Long) {
-        Files.copy(content, resolve(storedName), StandardCopyOption.REPLACE_EXISTING)
+        val target = resolve(storedName)
+        val temporary = Files.createTempFile(root, ".upload-", ".tmp")
+        try {
+            Files.copy(content, temporary, StandardCopyOption.REPLACE_EXISTING)
+            if (Files.size(temporary) != sizeBytes) throw java.io.IOException("Incomplete document write")
+            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        } finally {
+            Files.deleteIfExists(temporary)
+        }
     }
 
     override fun get(storedName: String): StoredFile? {

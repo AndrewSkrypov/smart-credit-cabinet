@@ -1,0 +1,377 @@
+{
+  "checked_at": "2026-10-23T10:28:29.701528+00:00",
+  "scope": "Локальная проверка S3 и антивируса; блок 5 в целом ещё не завершён",
+  "published_head": "35f3c3a48154af5e9b390c06077eea53e7b384b2",
+  "runtime_revision": "working-tree",
+  "credit_main_fingerprint_sha256": "52aab9228e02400a5e15d319916776068473d56321e293e62e68435be8e8ef27",
+  "tested_jar_sha256": "11d9c8e833d1717a57859f18ce6a8e5d474bdc2e7a5e4839addc3264664b0d3d",
+  "image_ids": [
+    "sha256:128681dc5feed8388895efb9441459cd4dfc799caba5d958223e27d69cbea23a"
+  ],
+  "credit_tests": {
+    "tests": 79,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "e2e": {
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "viewports": [
+    1440,
+    375
+  ],
+  "s3_regression": {
+    "before": "Серия небольших PDF воспроизводила payload checksum does not match в SeaweedFS",
+    "change": "PUT с фиксированной длиной и SHA-256",
+    "after": "20 PDF в одном реальном SDK-клиенте: каждое чтение побайтно совпало"
+  },
+  "persistence": {
+    "verified_before_latest_checksum_fix": true,
+    "total": 104,
+    "local": 98,
+    "s3": 6,
+    "all_hashes_equal_after_seaweedfs_restart": true
+  },
+  "faults": [
+    {
+      "service": "clamav",
+      "rejected": [
+        {
+          "replica": "7275db39134c",
+          "context": "BUSINESS",
+          "status": 503,
+          "seconds": 4.06
+        },
+        {
+          "replica": "7275db39134c",
+          "context": "CHAT",
+          "status": 503,
+          "seconds": 0.349
+        },
+        {
+          "replica": "a3c0e259dd8a",
+          "context": "BUSINESS",
+          "status": 503,
+          "seconds": 3.999
+        },
+        {
+          "replica": "a3c0e259dd8a",
+          "context": "CHAT",
+          "status": 503,
+          "seconds": 0.257
+        }
+      ],
+      "recovered": [
+        {
+          "replica": "7275db39134c",
+          "context": "BUSINESS",
+          "status": 201,
+          "seconds": 0.841
+        },
+        {
+          "replica": "7275db39134c",
+          "context": "CHAT",
+          "status": 200,
+          "seconds": 0.29
+        },
+        {
+          "replica": "a3c0e259dd8a",
+          "context": "BUSINESS",
+          "status": 201,
+          "seconds": 0.254
+        },
+        {
+          "replica": "a3c0e259dd8a",
+          "context": "CHAT",
+          "status": 200,
+          "seconds": 0.27
+        }
+      ],
+      "no_database_changes": true,
+      "recovery_health_seconds": 15.614,
+      "recovery_retries": [],
+      "download_bytes_verified": true,
+      "all_replicas_recovered_seconds": 21.098
+    },
+    {
+      "service": "seaweedfs",
+      "rejected": [
+        {
+          "replica": "7275db39134c",
+          "context": "BUSINESS",
+          "status": 503,
+          "seconds": 6.816
+        },
+        {
+          "replica": "7275db39134c",
+          "context": "CHAT",
+          "status": 503,
+          "seconds": 8.822
+        },
+        {
+          "replica": "a3c0e259dd8a",
+          "context": "BUSINESS",
+          "status": 503,
+          "seconds": 8.299
+        },
+        {
+          "replica": "a3c0e259dd8a",
+          "context": "CHAT",
+          "status": 503,
+          "seconds": 4.046
+        }
+      ],
+      "recovered": [
+        {
+          "replica": "7275db39134c",
+          "context": "BUSINESS",
+          "status": 201,
+          "seconds": 0.29
+        },
+        {
+          "replica": "7275db39134c",
+          "context": "CHAT",
+          "status": 200,
+          "seconds": 0.259
+        },
+        {
+          "replica": "a3c0e259dd8a",
+          "context": "BUSINESS",
+          "status": 201,
+          "seconds": 0.301
+        },
+        {
+          "replica": "a3c0e259dd8a",
+          "context": "CHAT",
+          "status": 200,
+          "seconds": 0.32
+        }
+      ],
+      "no_database_changes": true,
+      "recovery_health_seconds": 7.139,
+      "recovery_retries": [],
+      "download_bytes_verified": true,
+      "all_replicas_recovered_seconds": 11.695
+    }
+  ],
+  "protected": true,
+  "new_source_ci_verified": false,
+  "remaining": [
+    "Valkey: общие лимиты и отзыв; повтор ресурсоёмких проверок после его включения",
+    "Устранение пяти HIGH Jackson и повторное сканирование образов",
+    "Полная приёмка блока 5 и CI нового SHA"
+  ],
+  "migration": {
+    "started_at": "2026-10-23T09:27:07.814465+00:00",
+    "project": "cabinet-release-work",
+    "passed": true,
+    "checks": [
+      {
+        "stage": "before",
+        "documents": 4,
+        "owner_bank_downloads": 8,
+        "foreign_denied": 4
+      },
+      {
+        "stage": "after_forward_resume",
+        "documents": 4,
+        "owner_bank_downloads": 8,
+        "foreign_denied": 4
+      },
+      {
+        "stage": "after_reverse_including_new_upload",
+        "documents": 5,
+        "owner_bank_downloads": 10,
+        "foreign_denied": 5
+      },
+      {
+        "stage": "after_final_s3",
+        "documents": 5,
+        "owner_bank_downloads": 10,
+        "foreign_denied": 5
+      }
+    ],
+    "concurrent_transfer_rejected": true,
+    "abrupt_exit": 77,
+    "interrupted_metadata_unchanged": true,
+    "replay_without_copy": 125,
+    "different_target_rejected_without_metadata_changes": true,
+    "documents_verified": 126,
+    "finished_at": "2026-10-23T09:36:21.775540+00:00",
+    "atomic_report_interruption_test": true
+  },
+  "python_storage_dependency_scan": {
+    "versions": {
+      "botocore": "1.43.118",
+      "jmespath": "1.1.0",
+      "python-dateutil": "2.9.0.post0",
+      "six": "1.17.0",
+      "urllib3": "2.8.0"
+    },
+    "recognized_packages": 5,
+    "vulnerabilities": 0,
+    "source": "exact requirements-storage.txt scanned with pinned Trivy"
+  },
+  "production_twenty_companies": {
+    "started_at": "2026-10-23T10:02:46.690796+00:00",
+    "source_project": "cabinet-prod-test-e91c22bf919d",
+    "target_project": "cabinet-prod-restore-test-e91c22bf919d",
+    "image_prefix": "cabinet-release-work",
+    "companies": 20,
+    "storage": "s3",
+    "checks": [
+      "Все компании дошли до DISBURSED при производственных лимитах памяти",
+      "Backup отклонён при занятой блокировке переноса до остановки записи",
+      "Согласованная копия завершена, исходные writers восстановлены",
+      "Копия охватывает выбранный backend",
+      "Смена секрета JWT при восстановлении отклоняет прежний токен",
+      "Восстановленная учётная запись входит с прежним паролем",
+      "Сохранён итоговый статус заявки",
+      "График платежей совпадает побайтно по структуре JSON",
+      "Загруженный PDF доступен после восстановления и совпадает по SHA256",
+      "Сохранена привязка вложения к сообщению",
+      "Вложение чата совпадает по SHA256 после восстановления",
+      "Сохранены все выданные кредиты",
+      "Повторное восстановление в непустой проект отклоняется без изменения данных",
+      "Нет OOM/restart при наблюдаемой нагрузке"
+    ],
+    "passed": true,
+    "app_images": {
+      "identity": "sha256:a0515cd7ec64af7453322354ac017c7280fbc93f1def1a382346f8217759de6b",
+      "credit": "sha256:128681dc5feed8388895efb9441459cd4dfc799caba5d958223e27d69cbea23a",
+      "engagement": "sha256:739ed0ce139994cfd72db9142c0c8369d5d0d979b737ad6a60841de3f7e47a61",
+      "external-sim": "sha256:6759fc66a977884ef3639515bd134f27438a3848f38925c6600be921940fd303",
+      "frontend": "sha256:ab633bd21aebfe2fc6bd8d9e37c32269a601e46fe993295f5d0d307711ddffdc"
+    },
+    "app_source_revisions": {
+      "identity": "working-tree",
+      "credit": "working-tree",
+      "engagement": "working-tree",
+      "external-sim": "working-tree",
+      "frontend": "working-tree"
+    },
+    "restored_manifest_version": 2,
+    "source_stopped_before_restore": true,
+    "peak_sampled_sum_bytes": 2799627662,
+    "finished_at": "2026-10-23T10:11:44.237453+00:00"
+  },
+  "antivirus_startup_regression": {
+    "before": "PONG healthy while the loaded daily database remained five days old after an update missed the startup socket. SelfCheck alone could also miss an update during initial load.",
+    "after": "Health checks compare loaded and disk serials, request bounded RELOAD, and require a current loaded date. Sequential reload fits 2 GiB.",
+    "native_tests": 7,
+    "readiness_cases": 14,
+    "browser_tests": 2,
+    "source_and_restored_s3_20_companies_passed": true
+  },
+  "credit_image_scan": {
+    "checked_at": "2026-10-23T10:10:24.896742+00:00",
+    "source_commit": "35f3c3a48154af5e9b390c06077eea53e7b384b2",
+    "working_tree_dirty": true,
+    "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+    "inputs": [
+      {
+        "kind": "image",
+        "reference": "cabinet-release-work-credit",
+        "image_id": "sha256:128681dc5feed8388895efb9441459cd4dfc799caba5d958223e27d69cbea23a",
+        "seconds": 35.098277099999905,
+        "severity_counts": {
+          "MEDIUM": 36,
+          "LOW": 16,
+          "HIGH": 5
+        },
+        "unique_vulnerability_ids": 43,
+        "suppressed_findings": 2,
+        "secret_findings": 0,
+        "fixable_critical": [],
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "remaining_high_assessment": "5 HIGH в Jackson 2.21.4, входящем в прежний Spring Boot BOM. DoS JSON-парсинга не объявляется неприменимым; исправление совместимой patch-версией и повторные build/scan включены в оставшуюся проверку зависимостей блока 5. Нулевая уязвимость образа не заявляется."
+  },
+  "production_local_legacy_twenty_companies": {
+    "started_at": "2026-10-23T10:19:19.104577+00:00",
+    "source_project": "cabinet-prod-test-a55d7688ae2a",
+    "target_project": "cabinet-prod-restore-test-a55d7688ae2a",
+    "image_prefix": "cabinet-release-work",
+    "companies": 20,
+    "storage": "local",
+    "checks": [
+      "Все компании дошли до DISBURSED при производственных лимитах памяти",
+      "Backup отклонён при занятой блокировке переноса до остановки записи",
+      "Согласованная копия завершена, исходные writers восстановлены",
+      "Копия охватывает выбранный backend",
+      "Смена секрета JWT при восстановлении отклоняет прежний токен",
+      "Восстановленная учётная запись входит с прежним паролем",
+      "Сохранён итоговый статус заявки",
+      "График платежей совпадает побайтно по структуре JSON",
+      "Загруженный PDF доступен после восстановления и совпадает по SHA256",
+      "Сохранена привязка вложения к сообщению",
+      "Вложение чата совпадает по SHA256 после восстановления",
+      "Сохранены все выданные кредиты",
+      "Повторное восстановление в непустой проект отклоняется без изменения данных",
+      "Нет OOM/restart при наблюдаемой нагрузке"
+    ],
+    "passed": true,
+    "app_images": {
+      "identity": "sha256:a0515cd7ec64af7453322354ac017c7280fbc93f1def1a382346f8217759de6b",
+      "credit": "sha256:128681dc5feed8388895efb9441459cd4dfc799caba5d958223e27d69cbea23a",
+      "engagement": "sha256:739ed0ce139994cfd72db9142c0c8369d5d0d979b737ad6a60841de3f7e47a61",
+      "external-sim": "sha256:6759fc66a977884ef3639515bd134f27438a3848f38925c6600be921940fd303",
+      "frontend": "sha256:ab633bd21aebfe2fc6bd8d9e37c32269a601e46fe993295f5d0d307711ddffdc"
+    },
+    "app_source_revisions": {
+      "identity": "working-tree",
+      "credit": "working-tree",
+      "engagement": "working-tree",
+      "external-sim": "working-tree",
+      "frontend": "working-tree"
+    },
+    "restored_manifest_version": 1,
+    "source_stopped_before_restore": true,
+    "peak_sampled_sum_bytes": 2673226018,
+    "finished_at": "2026-10-23T10:27:27.217270+00:00"
+  },
+  "subsequent_published_ci": {
+    "checked_at": "2026-10-23T11:28:08.528636+00:00",
+    "sha": "4f3e7dd0328ea831b67066cd6307d1ded7480e53",
+    "run": 39939857610,
+    "all_25_jobs_success": true,
+    "ui": {
+      "default": {
+        "tests": 36,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "mail": {
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "access_checks": 444,
+    "extra_access_checks": 6,
+    "negative_passed": true,
+    "negative_checks": 63,
+    "storage_documents_verified": 11,
+    "production": {
+      "local": {
+        "passed": true,
+        "companies": 20,
+        "peak_bytes": 2485415570
+      },
+      "s3": {
+        "passed": true,
+        "companies": 20,
+        "peak_bytes": 2573676310
+      }
+    },
+    "passed": true
+  }
+}

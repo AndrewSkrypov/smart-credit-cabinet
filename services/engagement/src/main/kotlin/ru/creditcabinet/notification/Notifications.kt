@@ -12,6 +12,9 @@ enum class NotificationType {
 
     /** Bank: an application waits for a manual decision. */
     NEW_REVIEW,
+
+    /** A participant wrote in the application's conversation. */
+    APPLICATION_MESSAGE,
 }
 
 data class Notification(
@@ -46,4 +49,8 @@ interface NotificationStore {
 interface PeopleDirectory {
     fun ofCompany(companyId: UUID): List<UUID>
     fun withRole(role: String): List<UUID>
+}
+
+interface NotificationReceipts {
+    fun claim(item: NewNotification): Boolean
 }

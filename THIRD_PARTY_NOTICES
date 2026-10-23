@@ -20,14 +20,18 @@ npm — из lock-файлов, дополненных license-checker для п
 | ch.qos.logback:logback-core | 1.5.34 | EPL-2.0; LGPL-2.1-only | http://www.qos.ch ; https://www.eclipse.org/legal/epl-v20.html ; https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html |
 | com.fasterxml.jackson.core:jackson-annotations | 2.21 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | https://github.com/FasterXML/jackson ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | com.fasterxml.jackson.core:jackson-core | 2.21.4 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-core ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| com.fasterxml.jackson.core:jackson-core | 2.21.7 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-core ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | com.fasterxml.jackson.core:jackson-databind | 2.21.4 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson ; https://www.apache.org/licenses/LICENSE-2.0.txt |
-| com.fasterxml.jackson.dataformat:jackson-dataformat-toml | 2.21.4 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-dataformats-text ; https://www.apache.org/licenses/LICENSE-2.0.txt |
-| com.fasterxml.jackson.dataformat:jackson-dataformat-yaml | 2.21.4 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-dataformats-text ; https://www.apache.org/licenses/LICENSE-2.0.txt |
-| com.fasterxml.jackson.datatype:jackson-datatype-jdk8 | 2.21.4 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jdk8 |
-| com.fasterxml.jackson.datatype:jackson-datatype-jsr310 | 2.21.4 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310 |
-| com.fasterxml.jackson.module:jackson-module-kotlin | 2.21.4 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-module-kotlin ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| com.fasterxml.jackson.core:jackson-databind | 2.21.7 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| com.fasterxml.jackson.dataformat:jackson-dataformat-toml | 2.21.7 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-dataformats-text ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| com.fasterxml.jackson.dataformat:jackson-dataformat-yaml | 2.21.7 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-dataformats-text ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| com.fasterxml.jackson.datatype:jackson-datatype-jdk8 | 2.21.7 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jdk8 |
+| com.fasterxml.jackson.datatype:jackson-datatype-jsr310 | 2.21.7 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-modules-java8/jackson-datatype-jsr310 |
+| com.fasterxml.jackson.module:jackson-module-kotlin | 2.21.7 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-module-kotlin ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | com.fasterxml.jackson.module:jackson-module-parameter-names | 2.21.4 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-modules-java8/jackson-module-parameter-names |
+| com.fasterxml.jackson.module:jackson-module-parameter-names | 2.21.7 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-modules-java8/jackson-module-parameter-names |
 | com.fasterxml.jackson:jackson-bom | 2.21.4 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-bom |
+| com.fasterxml.jackson:jackson-bom | 2.21.7 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/jackson-bom |
 | com.fasterxml:classmate | 1.7.3 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/FasterXML/java-classmate ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | com.github.ajalt.clikt:clikt | 5.0.2 | Apache-2.0 | https://github.com/ajalt/clikt/ ; https://www.apache.org/licenses/LICENSE-2.0 |
 | com.github.ajalt.clikt:clikt-jvm | 5.0.2 | Apache-2.0 | https://github.com/ajalt/clikt/ ; https://www.apache.org/licenses/LICENSE-2.0 |
@@ -35,7 +39,9 @@ npm — из lock-файлов, дополненных license-checker для п
 | com.github.jk1:gradle-license-report | 3.1.4 | Apache-2.0 | https://github.com/jk1/Gradle-License-Report ; https://www.apache.org/licenses/LICENSE-2.0 |
 | com.google.code.findbugs:jsr305 | 3.0.2 | The Apache Software License, Version 2.0 | http://findbugs.sourceforge.net/ ; http://www.apache.org/licenses/LICENSE-2.0.txt |
 | com.google.code.gson:gson | 2.11.0 | Apache-2.0 | https://github.com/google/gson ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| com.google.code.gson:gson | 2.13.2 | Apache-2.0 | https://github.com/google/gson ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | com.google.errorprone:error_prone_annotations | 2.27.0 | Apache 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://errorprone.info/error_prone_annotations |
+| com.google.errorprone:error_prone_annotations | 2.41.0 | Apache 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://errorprone.info/error_prone_annotations |
 | com.jayway.jsonpath:json-path | 2.9.0 | The Apache Software License, Version 2.0 | https://github.com/jayway/JsonPath ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | com.pinterest.ktlint:ktlint-cli | 1.5.0 | MIT | https://github.com/pinterest/ktlint ; https://opensource.org/licenses/MIT |
 | com.pinterest.ktlint:ktlint-cli-reporter-baseline | 1.5.0 | MIT | https://github.com/pinterest/ktlint ; https://opensource.org/licenses/MIT |
@@ -87,6 +93,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | io.swagger.core.v3:swagger-annotations-jakarta | 2.2.30 | Apache License 2.0; Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.html ; https://github.com/swagger-api/swagger-core/modules/swagger-annotations ; https://www.apache.org/licenses/LICENSE-2.0 |
 | io.swagger.core.v3:swagger-core-jakarta | 2.2.30 | Apache License 2.0; Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.html ; https://github.com/swagger-api/swagger-core/modules/swagger-core ; https://www.apache.org/licenses/LICENSE-2.0 |
 | io.swagger.core.v3:swagger-models-jakarta | 2.2.30 | Apache License 2.0; Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.html ; https://github.com/swagger-api/swagger-core/modules/swagger-models ; https://www.apache.org/licenses/LICENSE-2.0 |
+| io.valkey:valkey-java | 5.5.0 | MIT | https://github.com/valkey-io/valkey-java ; https://github.com/valkey-io/valkey-java/blob/master/LICENSE |
 | io.zipkin.aws:brave-propagation-aws | 1.3.0 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | io.zipkin.brave:brave | 6.1.0 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt ; https://zipkin.io/ |
 | io.zipkin.brave:brave-context-slf4j | 6.1.0 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt ; https://zipkin.io/ |
@@ -111,9 +118,12 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.apache.commons:commons-compress | 1.27.1 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-compress/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.commons:commons-lang3 | 3.16.0 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-lang/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.commons:commons-lang3 | 3.17.0 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-lang/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.commons:commons-pool2 | 2.12.1 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-pool/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.httpcomponents.client5:httpclient5 | 5.5.2 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.httpcomponents.core5:httpcore5 | 5.3.6 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.httpcomponents.core5:httpcore5 | 5.4.4 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.httpcomponents.core5:httpcore5-h2 | 5.3.6 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.httpcomponents.core5:httpcore5-h2 | 5.4.4 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.logging.log4j:log4j-api | 2.24.3 | Apache License, Version 2.0; Apache-2.0 | https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.logging.log4j:log4j-to-slf4j | 2.24.3 | Apache License, Version 2.0; Apache-2.0 | https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.tomcat.embed:tomcat-embed-core | 10.1.60 | Apache License, Version 2.0; Eclipse Public License - v 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://tomcat.apache.org/ ; https://www.apache.org/licenses/LICENSE-2.0.txt ; https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt |
@@ -126,6 +136,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.checkerframework:checker-qual | 3.55.1 | MIT; The MIT License | https://checkerframework.org/ ; https://opensource.org/licenses/MIT |
 | org.ec4j.core:ec4j-core | 1.1.0 | Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.eclipse.angus:angus-activation | 2.0.3 | EDL 1.0; Eclipse Public License v. 2.0; GNU General Public License, version 2 with the GNU Classpath Exception | http://www.eclipse.org/org/documents/edl-v10.php ; https://www.eclipse.org ; https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt ; https://www.gnu.org/software/classpath/license.html |
+| org.eclipse.angus:jakarta.mail | 2.0.5 | EDL 1.0; EPL 2.0; Eclipse Public License - v 2.0; Eclipse Public License v. 2.0; GNU General Public License, version 2 with the GNU Classpath Exception; GPL2 w/ CPE | http://www.eclipse.org/legal/epl-2.0 ; http://www.eclipse.org/org/documents/edl-v10.php ; https://www.eclipse.org ; https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt ; https://www.gnu.org/software/classpath/license.html |
 | org.flywaydb:flyway-core | 11.7.2 | Apache License, Version 2.0 | https://flywaydb.org/licenses/flyway-oss |
 | org.flywaydb:flyway-database-postgresql | 11.7.2 | Apache License, Version 2.0 | https://flywaydb.org/licenses/flyway-oss |
 | org.glassfish.jaxb:jaxb-core | 4.0.9 | Eclipse Distribution License - v 1.0; Eclipse Public License v. 2.0; GNU General Public License, version 2 with the GNU Classpath Exception | http://www.eclipse.org/org/documents/edl-v10.php ; https://eclipse-ee4j.github.io/jaxb-ri/ ; https://www.eclipse.org ; https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt ; https://www.gnu.org/software/classpath/license.html |
@@ -226,6 +237,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.jetbrains.kotlinx:kotlinx-serialization-json-jvm | 1.6.3 | The Apache Software License, Version 2.0 | https://github.com/Kotlin/kotlinx.serialization ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.jetbrains:annotations | 13.0 | The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; http://www.jetbrains.org |
 | org.jlleitschuh.gradle:ktlint-gradle | 13.1.0 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0 |
+| org.json:json | 20240303 | Public Domain | https://github.com/douglascrockford/JSON-java ; https://github.com/stleary/JSON-java/blob/master/LICENSE |
 | org.jspecify:jspecify | 1.0.0 | The Apache License, Version 2.0 | http://jspecify.org/ ; http://www.apache.org/licenses/LICENSE-2.0.txt ; https://jspecify.dev/docs/start-here ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.junit.jupiter:junit-jupiter | 5.12.2 | Eclipse Public License - v 2.0; Eclipse Public License v2.0 | https://junit.org/junit5/ ; https://www.eclipse.org/legal/epl-v20.html ; https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt |
 | org.junit.jupiter:junit-jupiter-api | 5.12.2 | Eclipse Public License - v 2.0; Eclipse Public License v2.0 | https://junit.org/junit5/ ; https://www.eclipse.org/legal/epl-v20.html ; https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt |
@@ -246,6 +258,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.ow2.asm:asm-commons | 9.10.1 | BSD-3-Clause; The Apache Software License, Version 2.0 | http://asm.ow2.io/ ; http://asm.ow2.org ; http://www.apache.org/licenses/LICENSE-2.0.txt ; https://asm.ow2.io/LICENSE.txt ; https://asm.ow2.io/license.html |
 | org.ow2.asm:asm-tree | 9.10.1 | BSD-3-Clause; The Apache Software License, Version 2.0 | http://asm.ow2.io/ ; http://asm.ow2.org ; http://www.apache.org/licenses/LICENSE-2.0.txt ; https://asm.ow2.io/LICENSE.txt ; https://asm.ow2.io/license.html |
 | org.postgresql:postgresql | 42.7.13 | BSD-2-Clause | https://jdbc.postgresql.org ; https://jdbc.postgresql.org/ ; https://jdbc.postgresql.org/about/license.html |
+| org.reactivestreams:reactive-streams | 1.0.4 | MIT-0 | http://reactive-streams.org ; http://www.reactive-streams.org/ ; https://spdx.org/licenses/MIT-0.html |
 | org.skyscreamer:jsonassert | 1.5.3 | The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/skyscreamer/JSONassert |
 | org.slf4j:jul-to-slf4j | 2.0.18 | MIT | http://www.slf4j.org ; https://opensource.org/license/mit |
 | org.slf4j:slf4j-api | 1.7.36 | MIT License | http://www.opensource.org/licenses/mit-license.php ; http://www.slf4j.org |
@@ -266,6 +279,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.springframework.boot:spring-boot-starter-jdbc | 3.5.16 | Apache License, Version 2.0 | https://spring.io/projects/spring-boot ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework.boot:spring-boot-starter-json | 3.5.16 | Apache License, Version 2.0 | https://spring.io/projects/spring-boot ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework.boot:spring-boot-starter-logging | 3.5.16 | Apache License, Version 2.0 | https://spring.io/projects/spring-boot ; https://www.apache.org/licenses/LICENSE-2.0 |
+| org.springframework.boot:spring-boot-starter-mail | 3.5.16 | Apache License, Version 2.0 | https://spring.io/projects/spring-boot ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework.boot:spring-boot-starter-security | 3.5.16 | Apache License, Version 2.0 | https://spring.io/projects/spring-boot ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework.boot:spring-boot-starter-test | 3.5.16 | Apache License, Version 2.0 | https://spring.io/projects/spring-boot ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework.boot:spring-boot-starter-tomcat | 3.5.16 | Apache License, Version 2.0 | https://spring.io/projects/spring-boot ; https://www.apache.org/licenses/LICENSE-2.0 |
@@ -284,6 +298,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.springframework:spring-aspects | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework:spring-beans | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework:spring-context | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
+| org.springframework:spring-context-support | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework:spring-core | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework:spring-expression | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework:spring-jcl | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
@@ -298,6 +313,38 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.webjars:webjars-locator-lite | 1.1.3 | MIT | https://github.com/webjars/webjars-locator-lite/blob/main/LICENSE.md ; https://webjars.org |
 | org.xmlunit:xmlunit-core | 2.10.4 | The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://www.xmlunit.org/ |
 | org.yaml:snakeyaml | 2.4 | Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://bitbucket.org/snakeyaml/snakeyaml |
+| software.amazon.awssdk:annotations | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 |
+| software.amazon.awssdk:apache5-client | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 |
+| software.amazon.awssdk:arns | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:auth | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:aws-core | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:aws-query-protocol | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:aws-xml-protocol | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:bom | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:checksums | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:checksums-spi | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:crt-core | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:endpoints-spi | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 |
+| software.amazon.awssdk:http-auth | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:http-auth-aws | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:http-auth-aws-eventstream | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:http-auth-spi | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:http-client-spi | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 |
+| software.amazon.awssdk:identity-spi | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:json-utils | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:metrics-spi | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 |
+| software.amazon.awssdk:profiles | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:protocol-core | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:regions | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 |
+| software.amazon.awssdk:retries | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 |
+| software.amazon.awssdk:retries-spi | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 |
+| software.amazon.awssdk:s3 | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:sdk-core | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:third-party-jackson-core | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.awssdk:url-connection-client | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 |
+| software.amazon.awssdk:utils | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 |
+| software.amazon.awssdk:utils-lite | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://aws.amazon.com/sdkforjava |
+| software.amazon.eventstream:eventstream | 1.0.1 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 ; https://github.com/awslabs/aws-eventstream-java |
 
 ## npm: frontend
 
@@ -947,13 +994,17 @@ npm — из lock-файлов, дополненных license-checker для п
 | swaggerapi/swagger-ui:v5.34.0@sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0 | Swagger UI | Apache-2.0 | https://github.com/swagger-api/swagger-ui/blob/v5.34.0/LICENSE |
 | ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8 | Ollama | MIT; дополнительные компоненты перечислены upstream | https://github.com/ollama/ollama/blob/v0.40.8/LICENSE |
 | gradle:8.10.2-jdk21 | Gradle / OpenJDK | Apache-2.0 / GPL-2.0-with-classpath-exception | https://github.com/gradle/gradle/blob/v8.10.2/LICENSE |
-| eclipse-temurin:21-jre-jammy | Eclipse Temurin / OpenJDK | GPL-2.0-with-classpath-exception; Apache-2.0 (рецепт образа) | https://adoptium.net/about/faq/ |
+| eclipse-temurin:21-jre-jammy@sha256:affcab5356e1270ac35d2361ee83135af2f03e8d580eca78a6d5d6fdbf048db0 | Eclipse Temurin / OpenJDK | GPL-2.0-with-classpath-exception; Apache-2.0 (рецепт образа) | https://adoptium.net/about/faq/ |
 | node:20-alpine | Node.js | MIT; встроенные компоненты имеют свои лицензии | https://github.com/nodejs/node/blob/v20.x/LICENSE |
 | grafana/k6:1.3.0 | k6, отдельный нагрузочный инструмент | AGPL-3.0 | https://github.com/grafana/k6/blob/v1.3.0/LICENSE.md |
 | aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c | Trivy, отдельный сканер | Apache-2.0 | https://github.com/aquasecurity/trivy/blob/v0.76.1/LICENSE |
 | prom/prometheus:v3.15.1 | Prometheus | Apache-2.0 | https://github.com/prometheus/prometheus/blob/v3.15.1/LICENSE |
 | grafana/grafana:13.2.4 | Grafana OSS | AGPL-3.0 | https://github.com/grafana/grafana/blob/v13.2.4/LICENSE |
 | caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd | Caddy | Apache-2.0 | https://github.com/caddyserver/caddy/blob/v2.11.7/LICENSE |
+| axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387 | Mailpit, отдельный локальный SMTP-перехватчик | MIT | https://github.com/axllent/mailpit/blob/v1.31.6/LICENSE |
+| chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d | SeaweedFS, отдельное приватное хранилище S3 | Apache-2.0 | https://github.com/seaweedfs/seaweedfs/blob/4.48/LICENSE |
+| clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e | ClamAV, отдельный антивирусный контейнер; взаимодействие по TCP INSTREAM без связывания с кодом приложения | GPL-2.0 | https://github.com/Cisco-Talos/clamav/blob/clamav-1.5.4/COPYING |
+| valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11 | Valkey, отдельное хранилище общих лимитов и отзыва | BSD-3-Clause | https://github.com/valkey-io/valkey/blob/9.1.2/COPYING |
 
 ## Шрифт, веса модели и Python-инструменты
 
@@ -962,6 +1013,11 @@ npm — из lock-файлов, дополненных license-checker для п
 - PyYAML, 6.0.3: MIT. https://github.com/yaml/pyyaml/blob/6.0.3/LICENSE. Инструмент экспорта контрактов; версия из scripts/requirements-tools.txt.
 - su-exec, 0.3-r0 (Alpine): MIT. https://github.com/ncopa/su-exec/blob/v0.3/LICENSE. Заменяет gosu в локальном рецепте PostgreSQL; выполняет переключение UID/GID без статического Go runtime.
 - bcrypt (инструмент начальной настройки банка), 5.0.0: Apache-2.0. https://github.com/pyca/bcrypt/blob/5.0.0/LICENSE. Используется только локальным deploy/provision-bank-user.py, не добавляет публичных API и не выводит пароль.
+- botocore, 1.43.118: Apache-2.0. https://github.com/boto/botocore/blob/1.43.118/LICENSE.txt. Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel.
+- jmespath, 1.1.0: MIT. https://github.com/jmespath/jmespath.py/blob/1.1.0/LICENSE. Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel.
+- python-dateutil, 2.9.0.post0: Apache-2.0 AND BSD-3-Clause. https://github.com/dateutil/dateutil/blob/2.9.0.post0/LICENSE. Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel.
+- six, 1.17.0: MIT. https://github.com/benjaminp/six/blob/1.17.0/LICENSE. Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel.
+- urllib3, 2.8.0: MIT. https://github.com/urllib3/urllib3/blob/2.8.0/LICENSE.txt. Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel.
 
 ## Смоделированные интеграции
 

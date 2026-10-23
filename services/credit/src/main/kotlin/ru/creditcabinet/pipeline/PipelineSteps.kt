@@ -44,6 +44,8 @@ import ru.creditcabinet.offer.OfferRepository
 import ru.creditcabinet.offer.OfferStatus
 import ru.creditcabinet.offer.SigningSessions
 import ru.creditcabinet.product.domain.ProductCatalog
+import ru.creditcabinet.product.domain.applicationCatalog
+import ru.creditcabinet.product.domain.forApplication
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -114,7 +116,7 @@ class PipelineSteps(
             jobs.retry(job.id, clock.instant().plus(settings.sourceRetryDelay(job.attempts)), exception.message)
             return
         }
-        val product = products.find(application.terms.productCode)!!
+        val product = products.forApplication(application)
         val now = clock.instant()
         val uploaded = documents.list(application.id).map { it.type }.toSet()
         val missing = DocumentRequirements.required(product, application.terms.amount, application.company.legalForm, bank.client)
@@ -223,10 +225,10 @@ class PipelineSteps(
             bank = stored[SourceKind.BANK] as BankInfo,
         )
         val rules = ruleSets.current()
-        val product = products.find(application.terms.productCode)!!
+        val product = products.forApplication(application)
         val now = clock.instant()
         val assessment = Scorecard.assess(application.terms, product, data, rules, now.atZone(ZONE).toLocalDate())
-        val policy = CreditPolicy.decide(application.terms, product, products.all(), assessment, rules)
+        val policy = CreditPolicy.decide(application.terms, product, products.applicationCatalog(application), assessment, rules)
         val decision = Decision(
             applicationId = application.id,
             ruleSetVersion = rules.version,
@@ -312,7 +314,7 @@ class PipelineSteps(
                     offer.amount,
                     offer.termMonths,
                     offer.rate,
-                    products.find(offer.productCode)!!.revolving,
+                    products.version(offer.productCode, offer.productVersion)!!.revolving,
                     session.signatureId!!,
                 ),
             )
@@ -338,7 +340,7 @@ class PipelineSteps(
                     amount = offer.amount,
                     termMonths = offer.termMonths,
                     rate = offer.rate,
-                    revolving = products.find(offer.productCode)!!.revolving,
+                    revolving = products.version(offer.productCode, offer.productVersion)!!.revolving,
                     disbursedAt = booked.disbursedAt,
                     maturityDate = booked.maturityDate,
                 ),

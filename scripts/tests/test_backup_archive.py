@@ -4,6 +4,8 @@ from pathlib import Path
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import Mock
+import json
 
 spec = importlib.util.spec_from_file_location("backup_support", Path(__file__).resolve().parents[2] / "deploy/backup_support.py")
 module = importlib.util.module_from_spec(spec)
@@ -11,6 +13,48 @@ spec.loader.exec_module(module)
 
 
 class BackupArchiveTest(unittest.TestCase):
+    def test_inactive_storage_volume_is_resolved_without_starting_it(self):
+        deployment = Mock(project="cabinet-prod-test")
+        deployment.config.return_value = {"volumes": {"cabinet-documents": {"name": "cabinet-prod-test_cabinet-documents"}}}
+        deployment.compose.return_value = json.dumps({"volumes": {"cabinet-seaweedfs": {"name": "cabinet-prod-test_cabinet-seaweedfs"}}})
+        self.assertEqual(module.storage_volume(deployment, "cabinet-seaweedfs"), "cabinet-prod-test_cabinet-seaweedfs")
+        deployment.compose.assert_called_once_with("--profile", "storage", "config", "--format", "json", capture=True)
+        deployment.compose.return_value = json.dumps({"volumes": {"cabinet-seaweedfs": {"name": "another-project_data"}}})
+        with self.assertRaises(AssertionError):
+            module.storage_volume(deployment, "cabinet-seaweedfs")
+
+    def manifest(self, version=2, s3=False):
+        files = {name: {} for name in ["identity.dump", "credit.dump", "engagement.dump", "documents.tar.gz"]}
+        result = {"format_version": version, "backup_complete": True, "documents": {"old.pdf": {}}, "files": files}
+        if version == 2:
+            result["storage"] = {"backends": {"LOCAL": 1, "S3": int(s3)}, "s3_volume_included": s3}
+            if s3:
+                result["storage"]["seaweedfs_files"] = {"volume.dat": {}}
+                files["seaweedfs.tar.gz"] = {}
+        return result
+
+    def test_legacy_local_backup_remains_readable(self):
+        self.assertEqual(set(module.backup_archives(self.manifest(version=1))), {"documents.tar.gz"})
+
+    def test_s3_backup_requires_both_volumes(self):
+        manifest = self.manifest(s3=True)
+        self.assertEqual(set(module.backup_archives(manifest)), {"documents.tar.gz", "seaweedfs.tar.gz"})
+        del manifest["files"]["seaweedfs.tar.gz"]
+        with self.assertRaises(AssertionError):
+            module.backup_archives(manifest)
+
+    def test_s3_rows_cannot_claim_local_only_backup(self):
+        manifest = self.manifest()
+        manifest["storage"]["backends"]["S3"] = 1
+        with self.assertRaises(AssertionError):
+            module.backup_archives(manifest)
+
+    def test_unexpected_archive_path_is_rejected(self):
+        manifest = self.manifest()
+        manifest["files"]["../outside.tar.gz"] = {}
+        with self.assertRaises(AssertionError):
+            module.backup_archives(manifest)
+
     def archive(self, directory, names, link=False):
         path = Path(directory) / "documents.tar.gz"
         with tarfile.open(path, "w:gz") as stream:

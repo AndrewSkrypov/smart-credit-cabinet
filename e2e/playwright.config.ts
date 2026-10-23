@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const profile = process.env.MAIL_TESTS === '1' ? 'mail' : 'default';
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
@@ -8,7 +10,8 @@ export default defineConfig({
   retries: 0,
   timeout: 120_000,
   expect: { timeout: 15_000 },
-  reporter: [['list'], ['html', { open: 'never' }], ['junit', { outputFile: 'test-results/junit.xml' }]],
+  outputDir: `test-results/${profile}/artifacts`,
+  reporter: [['list'], ['html', { open: 'never', outputFolder: `playwright-report/${profile}` }], ['junit', { outputFile: `test-results/${profile}/junit.xml` }]],
   use: {
     baseURL: process.env.CABINET_URL ?? 'http://localhost:8080',
     locale: 'ru-RU',
@@ -19,6 +22,6 @@ export default defineConfig({
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 1000 } } },
-    { name: 'mobile', use: { ...devices['Pixel 7'] } }
+    { name: 'mobile', use: { ...devices['Pixel 7'], viewport: { width: 375, height: 812 } } }
   ]
 });

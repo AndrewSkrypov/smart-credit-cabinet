@@ -23,7 +23,7 @@ parser.add_argument("--revenue", type=int, default=24_000_000, help="Заявл�
 parser.add_argument("--label", default=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
 parser.add_argument("--prepare-only", action="store_true")
 args = parser.parse_args()
-if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e)(?:-[a-z0-9]+)?", args.project):
+if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e|release)(?:-[a-z0-9]+)?", args.project):
     parser.error("Разрешён только отдельный проект cabinet-submission/cabinet-reliability/cabinet-e2e")
 if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", args.label) or not 1 <= args.companies <= 200:
     parser.error("Метка: 1–64 буквы/цифры/_/-, компаний: 1–200")

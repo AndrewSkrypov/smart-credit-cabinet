@@ -17,6 +17,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+from cabinet_api import local_request
 
 BASE = os.environ.get("CABINET_URL", "http://localhost:8080")
 API = BASE + "/api/v1"
@@ -31,7 +32,7 @@ ACCOUNTS = {
 
 def call(method, path, token=None, body=None, raw=None, content_type="application/json"):
     data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
-    request = urllib.request.Request(API + path, data=data, method=method)
+    request = local_request(API + path, data=data, method=method)
     if data is not None:
         request.add_header("Content-Type", content_type)
     if token:

@@ -105,8 +105,18 @@ class OpenApiConfig(
                         error(409, "Конфликт состояния, версии или повторной операции", "Данные только что изменились — обновите страницу и повторите действие")
                     }
                 }
-                if (path.contains("/auth/") || path.contains("/documents") || path.contains("/assistant/messages")) {
+                if (path.contains("/auth/") || path.contains("/documents") || path.contains("/messages")) {
                     error(429, "Превышено ограничение частоты запросов", "Слишком много запросов — повторите позже")
+                }
+                if ((!public && !system) || path == "/api/v1/auth/password-recovery") {
+                    error(503, "Проверка сессии или почтовый канал временно недоступны", "Сервис временно недоступен — попробуйте позже")
+                }
+                if (path in setOf("/api/v1/auth/password-reset", "/api/v1/auth/invitations/inspect", "/api/v1/auth/invitations/accept")) {
+                    error(
+                        410,
+                        "Одноразовая ссылка истекла, отменена, использована или не найдена",
+                        "Ссылка недействительна или срок её действия истёк. Запросите новую.",
+                    )
                 }
             }
         }
@@ -119,7 +129,9 @@ class OpenApiConfig(
             403 to "Forbidden",
             404 to "Not Found",
             409 to "Conflict",
+            410 to "Gone",
             429 to "Too Many Requests",
+            503 to "Service Unavailable",
         )
     }
 }

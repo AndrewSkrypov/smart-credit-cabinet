@@ -29,6 +29,9 @@ springdoc:
     path: /swagger-ui.html
 
 cabinet:
+  outbox:
+    enabled: true
+    worker-enabled: ${OUTBOX_WORKER_ENABLED:true}
   # The product line, the needs wizard and the calculator are public: the landing page shows
   # them before sign-in, and they carry no personal data. Everything else requires a token.
   security:
@@ -42,7 +45,7 @@ cabinet:
   # Empty = only signature and expiry are checked.
   identity:
     url: ${IDENTITY_URL:}
-  # Notifications under the bell; empty = they are only logged.
+  # An unavailable destination leaves notifications in the durable outbox.
   engagement:
     url: ${ENGAGEMENT_URL:}
   openapi:
@@ -50,9 +53,23 @@ cabinet:
   auth:
     jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}
   storage:
+    mode: ${STORAGE_BACKEND:local}
+    uploads-enabled: ${DOCUMENT_UPLOADS_ENABLED:true}
     # Documents of applications: a docker volume mounted at /app/uploads under compose.
     local-dir: ${UPLOAD_DIR:./uploads}
     max-size-bytes: ${UPLOAD_MAX_SIZE_BYTES:20971520}
+    s3:
+      endpoint: ${S3_ENDPOINT:http://seaweedfs:8333}
+      region: ${S3_REGION:us-east-1}
+      bucket: ${S3_BUCKET:cabinet-documents}
+      access-key: ${S3_ACCESS_KEY:dev-cabinet-storage}
+      secret-key: ${S3_SECRET_KEY:dev-storage-secret-change-me}
+  antivirus:
+    enabled: ${ANTIVIRUS_ENABLED:true}
+    host: ${ANTIVIRUS_HOST:localhost}
+    port: ${ANTIVIRUS_PORT:3310}
+    timeout: ${ANTIVIRUS_TIMEOUT:PT10S}
+    max-signature-age: ${ANTIVIRUS_MAX_SIGNATURE_AGE:PT72H}
   # External systems (the external-sim service locally): registries, tax service, bureau, bank
   # data, signing, core banking.
   external:

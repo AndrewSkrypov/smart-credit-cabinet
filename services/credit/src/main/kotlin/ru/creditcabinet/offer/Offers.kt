@@ -24,6 +24,7 @@ data class Offer(
     val status: OfferStatus = OfferStatus.ISSUED,
     val createdAt: Instant,
     val decidedAt: Instant? = null,
+    val productVersion: Long = 1,
 )
 
 data class SigningSessionRecord(

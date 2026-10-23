@@ -13,6 +13,7 @@ import ru.creditcabinet.auth.application.AuthService
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.user.domain.UserDataPort
 import ru.creditcabinet.user.domain.UserRole
+import ru.creditcabinet.user.domain.UserStatus
 import ru.creditcabinet.user.dto.UserResponse
 import java.util.UUID
 
@@ -41,7 +42,7 @@ class InternalUserController(private val users: UserDataPort) {
         @RequestParam(required = false) role: UserRole?,
     ): List<UserResponse> {
         val found = when {
-            companyId != null -> users.findByCompany(companyId)
+            companyId != null -> users.findByCompany(companyId).filter { it.status == UserStatus.ACTIVE }
             role != null -> users.findByRole(role)
             else -> users.findByIds(ids.orEmpty().distinct().take(MAX_IDS))
         }
@@ -54,7 +55,8 @@ class InternalUserController(private val users: UserDataPort) {
     /** For the token check of other services: a token older than this version is revoked. */
     @GetMapping("/{id}/credentials")
     fun credentials(@PathVariable id: UUID): CredentialsResponse =
-        users.findById(id)?.let { CredentialsResponse(it.credentialsVersion) } ?: throw NotFoundException("Пользователь не найден")
+        users.findById(id)?.takeIf { it.status == UserStatus.ACTIVE }?.let { CredentialsResponse(it.credentialsVersion) }
+            ?: throw NotFoundException("Пользователь не найден")
 
     data class CredentialsResponse(val credentialsVersion: Int)
 

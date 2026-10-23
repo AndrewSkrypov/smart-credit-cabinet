@@ -53,9 +53,35 @@ def document_inventory(archive):
 
 
 def document_volume(deployment):
-    name = deployment.config()["volumes"]["cabinet-documents"]["name"]
+    return storage_volume(deployment, "cabinet-documents")
+
+
+def storage_volume(deployment, key):
+    assert key in {"cabinet-documents", "cabinet-seaweedfs"}
+    config = deployment.config()
+    if key not in config.get("volumes", {}):
+        # Compose omits resources belonging only to an inactive profile. Render it without starting anything.
+        config = json.loads(deployment.compose("--profile", "storage", "config", "--format", "json", capture=True))
+    name = config["volumes"][key]["name"]
     assert name.startswith(deployment.project + "_"), "Нужен собственный том документов выбранного проекта"
     return name
+
+
+def backup_archives(manifest):
+    """Accept legacy local v1 and explicit local/S3 v2; never accept arbitrary archive paths."""
+    assert manifest["format_version"] in (1, 2) and manifest["backup_complete"], "Копия не завершена или формат неизвестен"
+    archives = {"documents.tar.gz": ("cabinet-documents", manifest["documents"])}
+    if manifest["format_version"] == 2:
+        storage = manifest["storage"]
+        assert isinstance(storage["s3_volume_included"], bool)
+        assert set(storage["backends"]) <= {"LOCAL", "S3"}
+        assert all(isinstance(n, int) and n >= 0 for n in storage["backends"].values())
+        assert not storage["backends"].get("S3", 0) or storage["s3_volume_included"], "Нет копии S3 для документов S3"
+        if storage["s3_volume_included"]:
+            archives["seaweedfs.tar.gz"] = ("cabinet-seaweedfs", storage["seaweedfs_files"])
+    expected = {db + ".dump" for db in DATABASES} | set(archives)
+    assert set(manifest["files"]) == expected, "Неожиданный состав копии"
+    return archives
 
 
 def checked_docker(*arguments, **kwargs):

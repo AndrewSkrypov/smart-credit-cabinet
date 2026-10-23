@@ -67,6 +67,31 @@ class NotificationApiTest {
     }
 
     @Test
+    fun `replay freezes the first committed audience and rejects changing an existing event`() {
+        val dedup = "audience-${UUID.randomUUID()}"
+        val body = """{"items":[${item("recipientCompanyId\":\"$companyId", dedup)}]}"""
+        assertEquals(200, deliver(body).status)
+        val laterEmployee = UUID.randomUUID()
+        whenever(people.ofCompany(companyId)).thenReturn(listOf(owner, accountant, laterEmployee))
+        assertEquals(0, mapper.readTree(deliver(body).contentAsString)["stored"].asInt())
+        assertEquals(0, unread(laterEmployee, "CLIENT"))
+        val changed = body.replace("Откройте заявку", "Другой текст")
+        assertEquals(400, deliver(changed).status)
+    }
+
+    @Test
+    fun `a failed batch rolls back its receipt as well as its recipients`() {
+        val dedup = "rollback-${UUID.randomUUID()}"
+        val valid = item("recipientId\":\"$owner", dedup)
+        val invalid = item("recipientId\":\"$owner", "bad-${UUID.randomUUID()}", "https://evil.example")
+        assertEquals(400, deliver("""{"items":[$valid,$invalid]}""").status)
+        assertEquals(0, unread(owner, "CLIENT"))
+        val replay = deliver("""{"items":[$valid]}""")
+        assertEquals(200, replay.status)
+        assertEquals(1, mapper.readTree(replay.contentAsString)["stored"].asInt())
+    }
+
+    @Test
     fun `a role address reaches the bank staff, each reads only their own`() {
         deliver("""{"items":[${item("recipientRole\":\"UNDERWRITER", "review-${UUID.randomUUID()}", "/bank/applications/1")}]}""")
         val token = verifier.tokenFor(underwriter, "UNDERWRITER")

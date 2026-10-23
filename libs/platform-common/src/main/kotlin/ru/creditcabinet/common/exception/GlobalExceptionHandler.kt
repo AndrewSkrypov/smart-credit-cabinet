@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import ru.creditcabinet.common.dto.ErrorResponse
+import ru.creditcabinet.common.limits.SharedLimitExceeded
 import java.time.LocalDate
 import java.time.temporal.Temporal
 import java.util.UUID
@@ -30,7 +31,9 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException::class)
     fun handleApiException(exception: ApiException, request: HttpServletRequest): ResponseEntity<ErrorResponse> =
-        ResponseEntity.status(exception.httpStatus).body(
+        ResponseEntity.status(exception.httpStatus).headers { headers ->
+            if (exception is SharedLimitExceeded) headers.set("Retry-After", exception.retryAfterSeconds.toString())
+        }.body(
             ErrorResponse(
                 status = exception.httpStatus.value(),
                 error = exception.httpStatus.reasonPhrase,

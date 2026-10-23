@@ -99,6 +99,31 @@ components:
       - total
       - unread
       type: object
+    NotificationPreference:
+      properties:
+        emailEnabled:
+          type: boolean
+        version:
+          format: int64
+          type: integer
+      required:
+      - emailEnabled
+      - version
+      type: object
+    NotificationSettings:
+      properties:
+        emailAvailable:
+          type: boolean
+        emailEnabled:
+          type: boolean
+        version:
+          format: int64
+          type: integer
+      required:
+      - emailAvailable
+      - emailEnabled
+      - version
+      type: object
     NotificationView:
       properties:
         body:
@@ -120,6 +145,7 @@ components:
           - APPLICATION_STATUS
           - ACTION_REQUIRED
           - NEW_REVIEW
+          - APPLICATION_MESSAGE
           type: string
       required:
       - body
@@ -256,6 +282,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/assistant/messages
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Вопрос помощнику о продуктах, статусе и решении по заявке
@@ -297,6 +336,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/assistant/status
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: 'Режим помощника: модель с открытыми весами или справочные ответы по правилам'
@@ -353,6 +405,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/notifications
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Мои уведомления, новые сверху
@@ -423,11 +488,163 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/notifications/read-all
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Отметить все свои уведомления прочитанными
       tags:
       - Уведомления в кабинете
+  /api/v1/notifications/settings:
+    get:
+      operationId: get
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/notifications/settings
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/notifications/settings
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/notifications/settings
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Настройки моих уведомлений и доступность почтового канала
+      tags:
+      - Настройки уведомлений
+    put:
+      operationId: save
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreference'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/notifications/settings
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/notifications/settings
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/notifications/settings
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/notifications/settings
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/notifications/settings
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Изменить дублирование важных уведомлений на почту
+      tags:
+      - Настройки уведомлений
   /api/v1/notifications/unread-count:
     get:
       operationId: unread
@@ -467,6 +684,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/notifications/unread-count
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Число непрочитанных уведомлений текущего пользователя
@@ -550,6 +780,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/notifications/{id}/read
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Отметить своё уведомление прочитанным; чужое возвращает 404

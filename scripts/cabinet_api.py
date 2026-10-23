@@ -1,12 +1,26 @@
 """Small HTTP client shared by repeatable synthetic cabinet checks."""
 import json
+import os
 import secrets
 import time
 import re
 import subprocess
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit, urlunsplit
+from uuid import uuid4
+
+
+def local_request(url, **kwargs):
+    """Keep local HTTP checks off Windows' slow localhost address fallback, preserving Host."""
+    parts = urlsplit(url)
+    if os.name == "nt" and parts.scheme == "http" and parts.hostname == "localhost" and parts.username is None:
+        request_headers = dict(kwargs.pop("headers", {}))
+        if not any(key.lower() == "host" for key in request_headers):
+            request_headers["Host"] = parts.netloc
+        address = "127.0.0.1" + (f":{parts.port}" if parts.port is not None else "")
+        return Request(urlunsplit(parts._replace(netloc=address)), headers=request_headers, **kwargs)
+    return Request(url, **kwargs)
 
 
 def synthetic_inn():
@@ -27,7 +41,7 @@ class Cabinet:
         if body is not None:
             data = json.dumps(body, ensure_ascii=False).encode("utf-8")
             request_headers["Content-Type"] = "application/json"
-        request = Request(self.base + path, method=method, headers=request_headers, data=data)
+        request = local_request(self.base + path, method=method, headers=request_headers, data=data)
         started = time.monotonic()
         try:
             response = urlopen(request, timeout=timeout, context=self.ssl_context)
@@ -77,20 +91,27 @@ class Cabinet:
         raise AssertionError(f"Заявка {application_id}: ожидались {statuses}, получено {app['status']}")
 
     def upload(self, token, application_id, document_type, content, filename="synthetic.pdf", expected=(201,)):
+        return self._upload(token, f"/api/v1/applications/{application_id}/documents?type={document_type}", content, filename, expected)
+
+    def upload_chat(self, token, application_id, content, filename="synthetic.pdf", key=None, expected=(200,)):
+        return self._upload(token, f"/api/v1/applications/{application_id}/messages/attachments", content, filename, expected,
+                            {"Idempotency-Key": key or str(uuid4())})
+
+    def _upload(self, token, route, content, filename, expected, headers=None):
         boundary = "cabinet-" + secrets.token_hex(12)
         raw = (
             f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\n'
             "Content-Type: application/pdf\r\n\r\n"
         ).encode() + content + f"\r\n--{boundary}--\r\n".encode()
-        return self.request("POST", f"/api/v1/applications/{application_id}/documents?type={document_type}",
-                            token=token, raw=raw, headers={"Content-Type": f"multipart/form-data; boundary={boundary}"}, expected=expected)
+        return self.request("POST", route, token=token, raw=raw,
+                            headers={**(headers or {}), "Content-Type": f"multipart/form-data; boundary={boundary}"}, expected=expected)
 
 
 class DockerCabinet(Cabinet):
     """Access internal test fixtures only in explicitly named local demo projects."""
     def __init__(self, base="http://localhost:8080", project="cabinet-submission"):
         super().__init__(base)
-        if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e)(?:-[a-z0-9]+)?", project):
+        if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e|release)(?:-[a-z0-9]+)?", project):
             raise ValueError("Нужен отдельный синтетический тестовый проект")
         if urlparse(base).hostname not in {"localhost", "127.0.0.1", "::1"}:
             raise ValueError("Внутренние фикстуры разрешены только для локального стенда")

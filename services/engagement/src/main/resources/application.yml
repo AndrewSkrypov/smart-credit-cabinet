@@ -25,6 +25,9 @@ springdoc:
     path: /swagger-ui.html
 
 cabinet:
+  outbox:
+    enabled: true
+    worker-enabled: ${OUTBOX_WORKER_ENABLED:true}
   # identity inside the network: tokens revoked by a password change or a block are refused.
   # Empty = only signature and expiry are checked.
   identity:

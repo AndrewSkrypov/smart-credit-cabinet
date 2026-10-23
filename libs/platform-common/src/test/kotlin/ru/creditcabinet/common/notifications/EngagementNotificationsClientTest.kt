@@ -1,67 +1,48 @@
 package ru.creditcabinet.common.notifications
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.springframework.http.HttpMethod
-import org.springframework.test.web.client.ExpectedCount
 import org.springframework.test.web.client.MockRestServiceServer
 import org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath
 import org.springframework.test.web.client.match.MockRestRequestMatchers.method
 import org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo
 import org.springframework.test.web.client.response.MockRestResponseCreators.withServerError
 import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
-import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.RestClientResponseException
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
-import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class EngagementNotificationsClientTest {
-    private val item =
-        PlatformNotification(
-            recipientId = UUID.randomUUID(),
-            type = PlatformNotification.ACTION_REQUIRED,
-            title = "Нужны документы",
-            body = "Загрузите декларацию",
-            link = "/client/applications/1",
-            dedupKey = "info-requested:1",
-        )
-    private val requests = AtomicInteger()
+    private val mapper = jacksonObjectMapper()
+    private val item = PlatformNotification(
+        recipientId = UUID.randomUUID(),
+        type = PlatformNotification.ACTION_REQUIRED,
+        title = "Нужны документы",
+        body = "Загрузите декларацию",
+        link = "/client/applications/1",
+        dedupKey = "info-requested:1",
+    )
 
-    private fun client(configure: (MockRestServiceServer) -> Unit): Pair<EngagementNotificationsClient, MockRestServiceServer> {
+    @Test
+    fun `the worker posts the persisted event with its stable key`() {
         val builder = RestClient.builder().baseUrl("http://engagement")
-            .requestInterceptor { request, body, execution -> requests.incrementAndGet().let { execution.execute(request, body) } }
         val server = MockRestServiceServer.bindTo(builder).build()
-        configure(server)
-        return EngagementNotificationsClient(builder.build()) to server
-    }
-
-    @Test
-    fun `posts after the commit, not before`() {
-        val (client, server) = client {
-            it.expect(ExpectedCount.once(), requestTo("http://engagement/internal/v1/notifications")).andExpect(method(HttpMethod.POST))
-                .andExpect(jsonPath("$.items[0].dedupKey").value("info-requested:1"))
-                .andRespond(withSuccess())
-        }
-        TransactionSynchronizationManager.initSynchronization()
-        try {
-            client.send(listOf(item))
-            Thread.sleep(200)
-            assertEquals(0, requests.get(), "nothing goes out while the transaction is open")
-            TransactionSynchronizationManager.getSynchronizations().forEach { it.afterCommit() }
-        } finally {
-            TransactionSynchronizationManager.clearSynchronization()
-        }
-        // Waits for the background sender to finish.
-        client.destroy()
+        server.expect(requestTo("http://engagement/internal/v1/notifications")).andExpect(method(HttpMethod.POST))
+            .andExpect(jsonPath("$.items[0].dedupKey").value("info-requested:1")).andRespond(withSuccess())
+        EngagementNotificationsClient(builder.build(), mapper).deliver(mapper.writeValueAsString(item))
         server.verify()
-        assertEquals(1, requests.get())
     }
 
     @Test
-    fun `a engagement outage is logged, never thrown at the caller`() {
-        val (client, server) = client { it.expect(requestTo("http://engagement/internal/v1/notifications")).andRespond(withServerError()) }
-        client.send(listOf(item))
-        client.destroy()
+    fun `an engagement outage reaches the worker so the persisted event can be retried`() {
+        val builder = RestClient.builder().baseUrl("http://engagement")
+        val server = MockRestServiceServer.bindTo(builder).build()
+        server.expect(requestTo("http://engagement/internal/v1/notifications")).andRespond(withServerError())
+        assertFailsWith<RestClientResponseException> {
+            EngagementNotificationsClient(builder.build(), mapper).deliver(mapper.writeValueAsString(item))
+        }
         server.verify()
     }
 }

@@ -12,6 +12,7 @@ dependencyManagement {
         // and break the Kotlin compiler, so align it with the Kotlin Gradle plugin.
         mavenBom(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES) {
             bomProperty("kotlin.version", org.jetbrains.kotlin.gradle.plugin.getKotlinPluginVersion(logger))
+            bomProperty("jackson-bom.version", versionCatalogs.named("libs").findVersion("jackson").get().requiredVersion)
         }
     }
 }

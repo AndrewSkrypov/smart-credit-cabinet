@@ -22,7 +22,6 @@ import ru.creditcabinet.assessment.domain.OfferTerms
 import ru.creditcabinet.assessment.domain.RejectReason
 import ru.creditcabinet.assessment.domain.RuleSets
 import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
@@ -31,6 +30,7 @@ import ru.creditcabinet.offer.OfferKind
 import ru.creditcabinet.pipeline.PipelineSettings
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.ProductMatcher.rubles
+import ru.creditcabinet.product.domain.forApplication
 import java.time.Clock
 import java.util.UUID
 
@@ -56,7 +56,7 @@ class UnderwritingService(
     fun approve(id: UUID, comment: String?): LoanApplication {
         val (claims, application, automatic) = reviewed(id, Roles.UNDERWRITER)
         requireJustified(automatic, DecisionOutcome.APPROVE, comment)
-        val product = products.find(application.terms.productCode)!!
+        val product = products.forApplication(application)
         val terms = OfferTerms.of(
             product,
             application.terms.amount,
@@ -76,7 +76,7 @@ class UnderwritingService(
     @Transactional
     fun counterOffer(id: UUID, productCode: String?, amount: Long, termMonths: Int, comment: String?): LoanApplication {
         val (claims, application, automatic) = reviewed(id, Roles.UNDERWRITER)
-        val product = products.find(productCode ?: application.terms.productCode) ?: throw NotFoundException("Продукт не найден")
+        val product = products.forApplication(application, productCode ?: application.terms.productCode)
         require(product.amountFits(amount)) { "Сумма для «${product.name}» — от ${rubles(product.minAmount)} до ${rubles(product.maxAmount)}" }
         require(product.termFits(termMonths)) { "Срок для «${product.name}» — от ${product.minTermMonths} до ${product.maxTermMonths} мес." }
         val sameAsRecommended =

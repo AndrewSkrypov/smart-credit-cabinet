@@ -1,11 +1,54 @@
 components:
   schemas:
+    AcceptInvitationRequest:
+      properties:
+        fullName:
+          maxLength: 255
+          minLength: 0
+          type: string
+        password:
+          minLength: 1
+          type: string
+        personalDataConsent:
+          type: boolean
+        token:
+          maxLength: 100
+          minLength: 0
+          type: string
+      required:
+      - fullName
+      - password
+      - personalDataConsent
+      - token
+      type: object
+    AccessMessage:
+      properties:
+        message:
+          type: string
+      required:
+      - message
+      type: object
     AuthOptionsResponse:
       properties:
         demoAccounts:
           type: boolean
+        mailAvailable:
+          type: boolean
       required:
       - demoAccounts
+      - mailAvailable
+      type: object
+    ChangePasswordRequest:
+      properties:
+        currentPassword:
+          minLength: 1
+          type: string
+        password:
+          minLength: 1
+          type: string
+      required:
+      - currentPassword
+      - password
       type: object
     CompanyMemberResponse:
       properties:
@@ -45,6 +88,26 @@ components:
       - legalForm
       - members
       type: object
+    EmployeeListResponse:
+      properties:
+        canManage:
+          type: boolean
+        invitations:
+          items:
+            $ref: '#/components/schemas/InvitationResponse'
+          type: array
+        mailAvailable:
+          type: boolean
+        members:
+          items:
+            $ref: '#/components/schemas/UserResponse'
+          type: array
+      required:
+      - canManage
+      - invitations
+      - mailAvailable
+      - members
+      type: object
     ErrorResponse:
       description: Ошибка API
       properties:
@@ -70,6 +133,89 @@ components:
         timestamp:
           format: date-time
           type: string
+    InspectInvitationRequest:
+      properties:
+        token:
+          maxLength: 100
+          minLength: 0
+          type: string
+      required:
+      - token
+      type: object
+    InvitationPreview:
+      properties:
+        canSign:
+          type: boolean
+        companyName:
+          type: string
+        email:
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+      required:
+      - canSign
+      - companyName
+      - email
+      - expiresAt
+      type: object
+    InvitationResponse:
+      properties:
+        canSign:
+          type: boolean
+        email:
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        id:
+          format: uuid
+          type: string
+        link:
+          type: string
+        status:
+          type: string
+      required:
+      - canSign
+      - email
+      - expiresAt
+      - id
+      - status
+      type: object
+    InviteEmployeeRequest:
+      properties:
+        canSign:
+          type: boolean
+        email:
+          maxLength: 255
+          minLength: 0
+          type: string
+      required:
+      - canSign
+      - email
+      type: object
+    RecoveryRequest:
+      properties:
+        email:
+          maxLength: 255
+          minLength: 0
+          type: string
+      required:
+      - email
+      type: object
+    ResetPasswordRequest:
+      properties:
+        password:
+          minLength: 1
+          type: string
+        token:
+          maxLength: 100
+          minLength: 0
+          type: string
+      required:
+      - password
+      - token
+      type: object
     SignInRequest:
       properties:
         email:
@@ -180,6 +326,249 @@ info:
   version: 0.1.0
 openapi: 3.1.0
 paths:
+  /api/v1/auth/invitations/accept:
+    post:
+      operationId: accept
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/UserSessionResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/auth/invitations/accept
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/auth/invitations/accept
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '410':
+          content:
+            application/json:
+              example:
+                error: Gone
+                message: Ссылка недействительна или срок её действия истёк. Запросите новую.
+                path: /api/v1/auth/invitations/accept
+                requestId: example-request-id
+                status: 410
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Одноразовая ссылка истекла, отменена, использована или не найдена
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/auth/invitations/accept
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+      security: []
+      summary: Принять одноразовое приглашение с паролем и согласием на обработку данных
+      tags:
+      - Пароли и сотрудники компании
+  /api/v1/auth/invitations/inspect:
+    post:
+      operationId: inspect
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectInvitationRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/InvitationPreview'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/auth/invitations/inspect
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/auth/invitations/inspect
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '410':
+          content:
+            application/json:
+              example:
+                error: Gone
+                message: Ссылка недействительна или срок её действия истёк. Запросите новую.
+                path: /api/v1/auth/invitations/inspect
+                requestId: example-request-id
+                status: 410
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Одноразовая ссылка истекла, отменена, использована или не найдена
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/auth/invitations/inspect
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+      security: []
+      summary: Проверить одноразовую ссылку приглашения без входа
+      tags:
+      - Пароли и сотрудники компании
+  /api/v1/auth/logout-all:
+    post:
+      operationId: logoutAll
+      parameters:
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AccessMessage'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/auth/logout-all
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/auth/logout-all
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/auth/logout-all
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/auth/logout-all
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/auth/logout-all
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/auth/logout-all
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Выйти на всех устройствах и отменить ожидающие ссылки восстановления
+      tags:
+      - Пароли и сотрудники компании
   /api/v1/auth/options:
     get:
       operationId: options
@@ -207,6 +596,255 @@ paths:
       summary: 'Настройки входа: доступность демо-учётных записей'
       tags:
       - Вход и регистрация
+  /api/v1/auth/password:
+    post:
+      operationId: change
+      parameters:
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AccessMessage'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/auth/password
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/auth/password
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/auth/password
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/auth/password
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/auth/password
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/auth/password
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Сменить пароль с проверкой текущего и отозвать все сессии
+      tags:
+      - Пароли и сотрудники компании
+  /api/v1/auth/password-recovery:
+    post:
+      operationId: recover
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecoveryRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AccessMessage'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/auth/password-recovery
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/auth/password-recovery
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/auth/password-recovery
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/auth/password-recovery
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security: []
+      summary: Запросить одноразовую ссылку восстановления; ответ не раскрывает наличие адреса
+      tags:
+      - Пароли и сотрудники компании
+  /api/v1/auth/password-reset:
+    post:
+      operationId: reset
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AccessMessage'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/auth/password-reset
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/auth/password-reset
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '410':
+          content:
+            application/json:
+              example:
+                error: Gone
+                message: Ссылка недействительна или срок её действия истёк. Запросите новую.
+                path: /api/v1/auth/password-reset
+                requestId: example-request-id
+                status: 410
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Одноразовая ссылка истекла, отменена, использована или не найдена
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/auth/password-reset
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+      security: []
+      summary: Установить пароль по одноразовой ссылке за 30 минут и отозвать все сессии
+      tags:
+      - Пароли и сотрудники компании
   /api/v1/auth/session:
     get:
       operationId: session
@@ -262,6 +900,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/auth/session
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Проверить текущего пользователя и обновить JWT с актуальными правами
@@ -421,11 +1072,515 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/companies/me
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Компания и представители текущего клиента; компания определяется подписанным токеном
       tags:
       - Компания клиента
+  /api/v1/companies/me/employees:
+    get:
+      operationId: employees
+      parameters:
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/EmployeeListResponse'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/companies/me/employees
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/companies/me/employees
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/companies/me/employees
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Получить сотрудников и приглашения своей компании
+      tags:
+      - Пароли и сотрудники компании
+  /api/v1/companies/me/employees/{id}/access:
+    delete:
+      operationId: revoke
+      parameters:
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AccessMessage'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/companies/me/employees/{id}/access
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/companies/me/employees/{id}/access
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/companies/me/employees/{id}/access
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/companies/me/employees/{id}/access
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/companies/me/employees/{id}/access
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/companies/me/employees/{id}/access
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Отозвать доступ сотрудника и все его сессии; последнего подписанта отозвать нельзя
+      tags:
+      - Пароли и сотрудники компании
+  /api/v1/companies/me/invitations:
+    post:
+      operationId: invite
+      parameters:
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteEmployeeRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/InvitationResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/companies/me/invitations
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/companies/me/invitations
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/companies/me/invitations
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/companies/me/invitations
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/companies/me/invitations
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Пригласить сотрудника на 72 часа; нужно право подписи; без почты ссылка возвращается один раз
+      tags:
+      - Пароли и сотрудники компании
+  /api/v1/companies/me/invitations/{id}:
+    delete:
+      operationId: cancel
+      parameters:
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AccessMessage'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/companies/me/invitations/{id}
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/companies/me/invitations/{id}
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/companies/me/invitations/{id}
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/companies/me/invitations/{id}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/companies/me/invitations/{id}
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/companies/me/invitations/{id}
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Отменить ещё не принятое приглашение; нужно право подписи
+      tags:
+      - Пароли и сотрудники компании
+  /api/v1/companies/me/invitations/{id}/resend:
+    post:
+      operationId: resend
+      parameters:
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/InvitationResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/companies/me/invitations/{id}/resend
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/companies/me/invitations/{id}/resend
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/companies/me/invitations/{id}/resend
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/companies/me/invitations/{id}/resend
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/companies/me/invitations/{id}/resend
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/companies/me/invitations/{id}/resend
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Заменить приглашение новым и отменить прежнюю ссылку; нужно право подписи
+      tags:
+      - Пароли и сотрудники компании
   /api/v1/users/me:
     get:
       operationId: me
@@ -468,6 +1623,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/users/me
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Профиль текущего пользователя и его роль

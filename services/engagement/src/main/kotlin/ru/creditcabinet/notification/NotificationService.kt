@@ -3,6 +3,7 @@ package ru.creditcabinet.notification
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.common.exception.NotFoundException
+import ru.creditcabinet.common.notifications.NotificationEmail
 import ru.creditcabinet.common.security.CurrentCaller
 import java.time.Clock
 import java.util.UUID
@@ -20,7 +21,8 @@ data class NewNotification(
     val title: String,
     val body: String,
     val link: String?,
-    val dedupKey: String?,
+    val dedupKey: String,
+    val email: NotificationEmail? = null,
 )
 
 data class NotificationPage(val items: List<NotificationView>, val page: Int, val size: Int, val total: Int, val unread: Int)
@@ -53,19 +55,22 @@ class NotificationService(
     private val store: NotificationStore,
     private val people: PeopleDirectory,
     private val clock: Clock,
+    private val receipts: NotificationReceipts,
+    private val emailDelivery: NotificationEmailDelivery,
 ) {
     /** Turns each address into people and stores one row per person; a repeated delivery is stored once. */
     @Transactional
     fun deliver(items: List<NewNotification>): Int {
         val now = clock.instant()
-        val rows = items.flatMap { item ->
+        return items.sumOf { item ->
             require(item.link == null || Notification.INTERNAL_LINK.matches(item.link)) { "Ссылка уведомления должна вести внутрь кабинета" }
+            if (!receipts.claim(item)) return@sumOf 0
             val recipients = when {
                 item.audience.userId != null -> listOf(item.audience.userId)
                 item.audience.companyId != null -> people.ofCompany(item.audience.companyId)
                 else -> people.withRole(item.audience.role!!)
             }
-            recipients.distinct().map { recipient ->
+            val rows = recipients.distinct().map { recipient ->
                 Notification(
                     recipientId = recipient,
                     type = item.type,
@@ -76,8 +81,10 @@ class NotificationService(
                     createdAt = now,
                 )
             }
+            val inserted = store.insertNew(rows)
+            rows.forEach { row -> emailDelivery.enqueue(row, item.email) }
+            inserted
         }
-        return store.insertNew(rows)
     }
 
     fun page(page: Int, size: Int): NotificationPage {

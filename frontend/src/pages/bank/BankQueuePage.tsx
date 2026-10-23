@@ -104,6 +104,7 @@ function QueueCard({ item, onOpen }: { item: ApplicationSummary; onOpen: () => v
         <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
           <Typography fontWeight={600}>{rub(item.amount)} · {months(item.termMonths)}</Typography>
           <Chip size="small" label={statusTitle(item.status)} color={tone === 'default' ? 'default' : tone} />
+          {(item.unreadChatCount ?? 0) > 0 && <Chip size="small" color="info" label={`Сообщений: ${item.unreadChatCount}`} />}
         </Stack>
       </ButtonBase>
     </Box>
@@ -118,6 +119,7 @@ function QueueRow({ item, onOpen }: { item: ApplicationSummary; onOpen: () => vo
       <TableCell>
         <Typography fontWeight={700}>№ {item.number}</Typography>
         <Typography variant="body2" color="text.secondary">{item.productName}</Typography>
+        {(item.unreadChatCount ?? 0) > 0 && <Chip size="small" color="info" label={`Сообщений: ${item.unreadChatCount}`} />}
       </TableCell>
       <TableCell>
         <Typography>{item.companyName ?? '—'}</Typography>

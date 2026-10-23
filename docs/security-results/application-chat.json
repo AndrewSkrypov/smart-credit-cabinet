@@ -1,0 +1,251 @@
+{
+  "checked_at": "2026-10-22T15:01:04.361875+00:00",
+  "source_revision": "573cb7c04f713440888deeae5adb01858c89e5be",
+  "runtime_revision": "working-tree",
+  "scope": "Локальный синтетический cabinet-release-work, две реплики credit; опубликованный CI проверяется отдельно.",
+  "passed": true,
+  "backend": {
+    "at": "2026-10-22T14:28:50.308781+00:00",
+    "source_revision": "working-tree",
+    "modules": {
+      "libs/platform-common": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "services/identity": {
+        "tests": 20,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "services/credit": {
+        "tests": 66,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "services/engagement": {
+        "tests": 23,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "services/external-sim": {
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "total_tests": 147,
+    "full_build_passed": true
+  },
+  "frontend": {
+    "tests": 22,
+    "build": true,
+    "lint": true
+  },
+  "e2e": {
+    "chat-e2e.xml": {
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "94.74069800000001"
+    },
+    "chat-full-e2e.xml": {
+      "tests": "34",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "459.16046600000004"
+    }
+  },
+  "viewports": [
+    1440,
+    375
+  ],
+  "newman": {
+    "collection_items": 105,
+    "executed_requests": 114,
+    "assertions": 196,
+    "failures": 0,
+    "rules_and_products_recovery": {
+      "passed": true,
+      "expectedFailureExit": 1,
+      "beforeVersion": 46,
+      "afterVersion": 48,
+      "parametersRestored": true,
+      "productBeforeVersion": 49,
+      "productAfterVersion": 51,
+      "productParametersRestored": true
+    },
+    "idle_connection_regression": {
+      "passed": true,
+      "fixture": "isolated synthetic HTTP server; not an application integration test",
+      "serverKeepAliveMs": 1000,
+      "advertisedKeepAliveSeconds": 120,
+      "collectionPauseMs": 4000,
+      "beforeAndAfterReads": 3
+    }
+  },
+  "access": {
+    "operations": 74,
+    "roles": 6,
+    "checks": 444,
+    "extra_checks": 6,
+    "cleanup_errors": []
+  },
+  "original_scenarios": {
+    "checked_at": "2026-10-22T15:00:11.242471+00:00",
+    "source_revision": "working-tree",
+    "passed": true,
+    "checks": [
+      {
+        "account": "client",
+        "expected_markers_from_integrations": [
+          "OFFER_ISSUED",
+          "APPROVED: 1 000 000",
+          "20.0%",
+          "DISBURSED"
+        ],
+        "observed": "OFFER_ISSUED | APPROVED: 1 000 000 ₽, 12 мес., 20.0% | подписано кодом [скрыто] → DISBURSED, договор КД-2026-915526963226",
+        "passed": true
+      },
+      {
+        "account": "mebel",
+        "expected_markers_from_integrations": [
+          "INFO_REQUESTED",
+          "COUNTER: 2 630 000",
+          "36 мес.",
+          "21.5%"
+        ],
+        "observed": "INFO_REQUESTED | загружены TAX_RETURN, FINANCIAL_STATEMENTS → OFFER_ISSUED | COUNTER: 2 630 000 ₽, 36 мес., 21.5% | сумма уменьшена до 2 630 000 ₽, чтобы платежи не превышали 35% выручки | срок увеличен до 36 мес.",
+        "passed": true
+      },
+      {
+        "account": "logistic",
+        "expected_markers_from_integrations": [
+          "MANUAL_REVIEW",
+          "RATING_C"
+        ],
+        "observed": "MANUAL_REVIEW | RATING_C; баллы 58, рейтинг C",
+        "passed": true
+      },
+      {
+        "account": "romashka",
+        "expected_markers_from_integrations": [
+          "REJECTED",
+          "SF_STATUS"
+        ],
+        "observed": "REJECTED | SF_STATUS — По данным ЕГРЮЛ/ЕГРИП компания не действует",
+        "passed": true
+      },
+      {
+        "account": "gromov",
+        "expected_markers_from_integrations": [
+          "REJECTED",
+          "SF_OVERDUE_90"
+        ],
+        "observed": "REJECTED | SF_OVERDUE_90 — Есть просроченная более 90 дней задолженность",
+        "passed": true
+      },
+      {
+        "account": "belova",
+        "expected_markers_from_integrations": [
+          "REJECTED",
+          "R_SCORE"
+        ],
+        "observed": "REJECTED | R_SCORE — Сейчас риск выше, чем допускает продукт",
+        "passed": true
+      },
+      {
+        "account": "technopark",
+        "expected_markers_from_integrations": [
+          "INFO_REQUESTED",
+          "APPROVED: 4 000 000",
+          "20.0%"
+        ],
+        "observed": "INFO_REQUESTED | загружены TAX_RETURN, FINANCIAL_STATEMENTS, BANK_STATEMENT → OFFER_ISSUED | APPROVED: 4 000 000 ₽, 12 мес., 20.0%",
+        "passed": true
+      },
+      {
+        "account": "agro",
+        "expected_markers_from_integrations": [
+          "ENRICHMENT",
+          "источник не отвечает"
+        ],
+        "observed": "ENRICHMENT | источник не отвечает, попыток: 2; через SOURCE_TIMEOUT — андеррайтеру",
+        "passed": true
+      },
+      {
+        "account": "novikov",
+        "expected_markers_from_integrations": [
+          "REJECTED",
+          "SF_TOO_YOUNG"
+        ],
+        "observed": "REJECTED | SF_TOO_YOUNG — Бизнес зарегистрирован меньше 3 месяцев назад",
+        "passed": true
+      },
+      {
+        "account": "stroygrad",
+        "expected_markers_from_integrations": [
+          "MANUAL_REVIEW",
+          "HIGH_RISK_INDUSTRY"
+        ],
+        "observed": "MANUAL_REVIEW | HIGH_RISK_INDUSTRY; баллы 86, рейтинг A",
+        "passed": true
+      }
+    ],
+    "agro_eventual_status": "MANUAL_REVIEW",
+    "source_timeout_setting": "PT3M",
+    "agro_seconds_to_manual": 180.926233,
+    "agro_reasons": [
+      "SOURCE_UNAVAILABLE"
+    ],
+    "redactions": [
+      "consumed demo signing code"
+    ]
+  },
+  "protected": {
+    "at": "2026-10-22T14:49:05.818095+00:00",
+    "baseline_protected_and_migration_git_blobs_identical": 16,
+    "published_migrations_identical": 14,
+    "v7_applied_do_not_edit": "a42e08127e26040ea91e433c242046f900eb15b0b589dde3a63941712d9bb322",
+    "passed": true
+  },
+  "upgrade_observed": {
+    "before_migration": {
+      "applications": 239,
+      "offers": 125,
+      "loans": 41,
+      "documents": 65,
+      "journal": 1586,
+      "offer_fingerprint": "c1ebc135edbe0f2fbde224e7aaa76cc1"
+    },
+    "after_migration_before_fixtures": {
+      "applications": 239,
+      "offers": 125,
+      "loans": 41,
+      "documents": 65,
+      "journal": 1586
+    },
+    "legacy_business_documents_after_migration": 65,
+    "offer_fingerprint_not_rechecked_in_this_block": true
+  },
+  "chat_specific_verified": [
+    "Сохранность статуса, версии, бизнес-документов и бизнес-журнала",
+    "Чужая компания404, клиентский аудит403, закрытая заявка409",
+    "Монотонные курсоры и страницы без пропусков",
+    "Конкуренция отправки с закрытием и откат вместе с outbox",
+    "Повтор ключа без дубля и конфликт другого тела409",
+    "Неопубликованный файл доступен только загрузившему; опубликованный скачивается банком",
+    "HTML-подобный текст выводится буквально; PDF байты совпадают",
+    "Файлы CHAT не удовлетворяют финансовые запросы документов"
+  ],
+  "new_dependencies": [],
+  "new_images": [],
+  "ci_pending_for_this_source": true
+}

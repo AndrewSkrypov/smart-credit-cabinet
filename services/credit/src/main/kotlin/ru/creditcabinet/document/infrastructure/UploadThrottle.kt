@@ -3,6 +3,8 @@ package ru.creditcabinet.document.infrastructure
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import ru.creditcabinet.common.exception.ApiException
+import ru.creditcabinet.common.limits.LimitWindow
+import ru.creditcabinet.common.limits.SharedLimits
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -11,13 +13,17 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Uploads per person: at most [MAX_UPLOADS] in [WINDOW], so one account cannot fill the
- * storage. Counted per instance, like the sign-in limit in identity.
+ * storage. Valkey counts all replicas; local state is only for isolated development/tests.
  */
 @Component
-class UploadThrottle(private val clock: Clock = Clock.systemUTC()) {
+class UploadThrottle(private val shared: SharedLimits, private val clock: Clock = Clock.systemUTC()) {
     private val uploads = ConcurrentHashMap<UUID, List<Instant>>()
 
     fun acquire(userId: UUID) {
+        if (shared.enabled) {
+            shared.acquire("Слишком много загрузок подряд. Попробуйте через несколько минут.", LimitWindow("upload", userId.toString(), MAX_UPLOADS, WINDOW))
+            return
+        }
         val now = clock.instant()
         val since = now.minus(WINDOW)
         if (uploads.size > MAX_TRACKED) uploads.keys.forEach { key -> if (uploads[key].orEmpty().none { it.isAfter(since) }) uploads.remove(key) }

@@ -66,6 +66,9 @@ data class LoanApplication(
     val statusChangedAt: Instant = createdAt,
     /** Optimistic lock; null until the application is first saved. */
     val version: Long? = null,
+    /** In a draft this is the version the client originally chose; after submission it is pinned. */
+    val productVersion: Long = 1,
+    val productCatalogSnapshot: Map<String, Long> = emptyMap(),
 ) {
     val isActive: Boolean get() = !status.terminal
 

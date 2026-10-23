@@ -65,7 +65,9 @@ try:
                              "-X", "PUT", "-H", "Content-Type: application/json", "--data", '{"mode":"DOWN"}',
                              "http://localhost:8080/sim/control/sources/BUREAU"], capture_output=True, text=True, check=True)
     check("Даже внутреннее управление сбоями запрещено", direct.stdout == "403")
-    for service in ["postgres", "identity", "credit", "engagement", "external-sim", "frontend", "gateway"]:
+    for service in deployment.active_services():
+        if service in {"caddy", "db-init"}:
+            continue
         info = json.loads(subprocess.check_output(["docker", "inspect", deployment.container(service)], text=True))[0]
         check("Не опубликован порт " + service, not any(info["NetworkSettings"]["Ports"].values()))
     response = api.request("GET", "/api/v1/products", headers={"X-Forwarded-For": "203.0.113.77", "X-Forwarded-Proto": "http"})
@@ -75,8 +77,8 @@ try:
     check("Gateway видит HTTPS и доверяет только Caddy", "proto=https" in line and "peer=" + deployment.values.get("CADDY_EDGE_IP", "172.30.40.2") in line)
     check("Внешний X-Forwarded-For не подменяет адрес лимитера", not line.startswith("203.0.113.77 "))
     report["gateway_observation"] = line
-    limits = {name: int(service["mem_limit"]) for name, service in deployment.config()["services"].items() if "prod" in service.get("profiles", [])}
-    check("Лимиты оставляют не менее 1 GiB из 4 GiB для ОС", sum(limits.values()) <= 3 * 1024**3)
+    limits = {name: int(service["mem_limit"]) for name, service in deployment.active_services().items()}
+    check("Лимиты оставляют не менее 2 GiB из 8 GiB для ОС", sum(limits.values()) <= 6 * 1024**3)
     report["memory_limits_bytes"] = limits
     report["passed"] = True
 finally:

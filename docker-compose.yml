@@ -1,5 +1,5 @@
 # The whole cabinet on one machine: docker compose up --build, then http://localhost:8080.
-# Memory: about 3 GB without the assistant model, see README for the "ai" profile.
+# Allow 8 GiB with the antivirus engine; the optional assistant model needs additional memory.
 # A fixed project name: the default comes from the folder name, which may not be ASCII.
 name: smart-credit-cabinet
 
@@ -23,6 +23,17 @@ x-service-env: &service-env
   DB_USER: ${POSTGRES_USER:-cabinet}
   DB_PASSWORD: ${POSTGRES_PASSWORD:-cabinet}
   JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-32bytes+}
+  CABINET_VALKEY_ENABLED: "true"
+  CABINET_VALKEY_HOST: valkey
+  CABINET_VALKEY_PASSWORD: ${VALKEY_PASSWORD:-dev-valkey-password-change-before-deployment}
+  CABINET_MAIL_MODE: ${MAIL_MODE:-auto}
+  CABINET_MAIL_HOST: ${SMTP_HOST:-mailpit}
+  CABINET_MAIL_PORT: ${SMTP_PORT:-1025}
+  CABINET_MAIL_FROM: ${SMTP_FROM:-cabinet@demo.test}
+  CABINET_MAIL_USERNAME: ${SMTP_USERNAME:-}
+  CABINET_MAIL_PASSWORD: ${SMTP_PASSWORD:-}
+  CABINET_MAIL_STARTTLS: ${SMTP_START_TLS:-false}
+  CABINET_MAIL_PUBLICCABINETURL: ${PUBLIC_CABINET_URL:-http://localhost:8080}
 
 x-postgres: &postgres
   image: cabinet/postgres:16.15-alpine-su-exec-0.3
@@ -31,6 +42,79 @@ x-postgres: &postgres
     dockerfile: docker/postgres/Dockerfile
 
 services:
+  valkey:
+    image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+    mem_limit: 128m
+    restart: unless-stopped
+    entrypoint: [/bin/sh, /cabinet/start.sh]
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-dev-valkey-password-change-before-deployment}
+    volumes:
+      - ./docker/valkey/start.sh:/cabinet/start.sh:ro
+      - cabinet-valkey:/data
+    healthcheck:
+      test: [CMD-SHELL, 'VALKEYCLI_AUTH="$$VALKEY_PASSWORD" valkey-cli ping | grep -qx PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [cabinet]
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    profiles: [storage]
+    mem_limit: 512m
+    restart: unless-stopped
+    entrypoint: [/bin/sh, /cabinet/start.sh]
+    environment:
+      S3_BUCKET: ${S3_BUCKET:-cabinet-documents}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-dev-cabinet-storage}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-dev-storage-secret-change-me}
+      S3_ADMIN_ACCESS_KEY: ${S3_ADMIN_ACCESS_KEY:-dev-storage-operator}
+      S3_ADMIN_SECRET_KEY: ${S3_ADMIN_SECRET_KEY:-dev-storage-operator-secret-change-me}
+      GOMEMLIMIT: 384MiB
+    volumes:
+      - ./docker/seaweedfs/start.sh:/cabinet/start.sh:ro
+      - cabinet-seaweedfs:/data
+    healthcheck:
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1:9333/cluster/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [cabinet]
+  clamav:
+    image: clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e
+    # The official image is built for x86-64 only; on ARM hosts (Apple Silicon) Docker runs it emulated.
+    platform: linux/amd64
+    mem_limit: 2g
+    restart: unless-stopped
+    environment:
+      TZ: UTC
+      ANTIVIRUS_MAX_SIGNATURE_AGE: ${ANTIVIRUS_MAX_SIGNATURE_AGE:-PT72H}
+    # The image initializes its main config; keep our read-only source at a separate path.
+    entrypoint: [/bin/sh, -c, "cp /cabinet/clamd.conf /etc/clamav/clamd.conf && exec /init"]
+    volumes:
+      - ./docker/clamav/clamd.conf:/cabinet/clamd.conf:ro
+      - ./docker/clamav/healthcheck.sh:/cabinet/healthcheck.sh:ro
+      - cabinet-clamav-signatures:/var/lib/clamav
+    healthcheck:
+      test: [CMD, /bin/sh, /cabinet/healthcheck.sh]
+      interval: 10s
+      timeout: 5s
+      retries: 36
+      start_period: 60s
+    networks: [cabinet]
+  mailpit:
+    image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
+    profiles: [mail]
+    mem_limit: 128m
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: 1000
+    volumes:
+      - cabinet-mailpit:/data
+    networks: [cabinet]
   prometheus:
     image: prom/prometheus:v3.15.1
     profiles: ["monitoring"]
@@ -120,10 +204,15 @@ services:
     environment:
       <<: *service-env
       DB_NAME: identity
+      IDENTITY_LINK_KEY: ${IDENTITY_LINK_KEY:-dev-identity-links-change-before-deployment-48bytes}
+      IDENTITY_LINK_KEY_VERSION: ${IDENTITY_LINK_KEY_VERSION:-1}
       DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-true}
       REGISTRY_URL: http://external-sim:8080
+      ENGAGEMENT_URL: http://engagement:8080
       SIM_API_KEY: ${SIM_API_KEY:-dev-sim-api-key}
     depends_on:
+      valkey:
+        condition: service_healthy
       db-init:
         condition: service_completed_successfully
 
@@ -138,6 +227,17 @@ services:
     environment:
       <<: *service-env
       DB_NAME: credit
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      DOCUMENT_UPLOADS_ENABLED: ${DOCUMENT_UPLOADS_ENABLED:-true}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://seaweedfs:8333}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-cabinet-documents}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-dev-cabinet-storage}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-dev-storage-secret-change-me}
+      ANTIVIRUS_ENABLED: "true"
+      ANTIVIRUS_HOST: clamav
+      ANTIVIRUS_TIMEOUT: ${ANTIVIRUS_TIMEOUT:-PT10S}
+      ANTIVIRUS_MAX_SIGNATURE_AGE: ${ANTIVIRUS_MAX_SIGNATURE_AGE:-PT72H}
       IDENTITY_URL: http://identity:8080
       ENGAGEMENT_URL: http://engagement:8080
       EXTERNAL_SIM_URL: http://external-sim:8080
@@ -149,8 +249,12 @@ services:
     volumes:
       - cabinet-documents:/app/uploads
     depends_on:
+      valkey:
+        condition: service_healthy
       db-init:
         condition: service_completed_successfully
+      clamav:
+        condition: service_healthy
 
   engagement:
     <<: *service
@@ -169,6 +273,8 @@ services:
       OLLAMA_URL: http://ollama:11434
       ASSISTANT_MODEL: ${ASSISTANT_MODEL:-qwen2.5:3b}
     depends_on:
+      valkey:
+        condition: service_healthy
       db-init:
         condition: service_completed_successfully
 
@@ -255,6 +361,10 @@ services:
       - cabinet
 
 volumes:
+  cabinet-valkey:
+  cabinet-seaweedfs:
+  cabinet-clamav-signatures:
+  cabinet-mailpit:
   cabinet-prometheus:
   cabinet-grafana:
   cabinet-postgres-data:

@@ -1,0 +1,361 @@
+{
+  "checked_at": "2026-10-22T13:51:51.153212+00:00",
+  "source_revision": "c41a6eefb37072f628143ab0f5efede59aab5b1d",
+  "runtime_revision": "working-tree",
+  "scope": "Локальный релизный стенд cabinet-release-work; синтетические данные. Полный CI опубликованного кандидата проверяется отдельно.",
+  "passed": true,
+  "backend": {
+    "at": "2026-10-22T13:15:27.158813+00:00",
+    "source_revision": "working-tree",
+    "modules": {
+      "libs/platform-common": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "services/identity": {
+        "tests": 20,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "services/credit": {
+        "tests": 56,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "services/engagement": {
+        "tests": 23,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "services/external-sim": {
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "total_tests": 137,
+    "domain_coverage_passed": true
+  },
+  "frontend_tests": 20,
+  "e2e": {
+    "full_default": 30,
+    "product_followup": 6,
+    "failures": 0,
+    "viewports": [
+      "1440x1000",
+      "375x812"
+    ],
+    "read_only_ui_capture": {
+      "captured_at": "2026-10-22T13:43:14.732Z",
+      "source": "real working-tree cabinet-release-work",
+      "browser": "156.0.8078.4",
+      "synthetic": true,
+      "views": [
+        {
+          "view": "product-editor",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "overflow_px": 0
+        },
+        {
+          "view": "product-editor-actions",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "overflow_px": 0
+        },
+        {
+          "view": "product-history",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "overflow_px": 0
+        },
+        {
+          "view": "product-editor",
+          "viewport": {
+            "width": 375,
+            "height": 812
+          },
+          "overflow_px": 0
+        },
+        {
+          "view": "product-editor-actions",
+          "viewport": {
+            "width": 375,
+            "height": 812
+          },
+          "overflow_px": 0
+        },
+        {
+          "view": "product-history",
+          "viewport": {
+            "width": 375,
+            "height": 812
+          },
+          "overflow_px": 0
+        }
+      ],
+      "alignment": [
+        {
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "title_left": 176,
+          "rate_left": 176
+        },
+        {
+          "viewport": {
+            "width": 375,
+            "height": 812
+          },
+          "title_left": 40,
+          "rate_left": 40
+        }
+      ],
+      "passed": true
+    }
+  },
+  "access": {
+    "operations": 69,
+    "roles": [
+      "anonymous",
+      "owner",
+      "other_client",
+      "manager",
+      "underwriter",
+      "risk_admin"
+    ],
+    "expected_checks": 414,
+    "matched": 414,
+    "extra_checks": 6,
+    "cleanup_errors": []
+  },
+  "newman": {
+    "source_requests": 81,
+    "executed_requests": 89,
+    "assertions": 156,
+    "failures": 0,
+    "controlled_recovery": {
+      "passed": true,
+      "expectedFailureExit": 1,
+      "beforeVersion": 37,
+      "afterVersion": 39,
+      "parametersRestored": true,
+      "productBeforeVersion": 34,
+      "productAfterVersion": 36,
+      "productParametersRestored": true
+    },
+    "closed_connection_regression": {
+      "passed": true,
+      "fixture": "isolated synthetic HTTP server; not an application integration test",
+      "serverKeepAliveMs": 1000,
+      "advertisedKeepAliveSeconds": 120,
+      "collectionPauseMs": 4000,
+      "beforeAndAfterReads": 3
+    }
+  },
+  "upgrade": {
+    "at": "2026-10-22T13:02:42.892547+00:00",
+    "project": "cabinet-release-work",
+    "before": {
+      "applications": 165,
+      "offers": 85,
+      "loans": 25,
+      "offer_fingerprint": "4332f7a030df8c8b718f259a5f78cca9",
+      "loan_fingerprint": "1e0f627ae90af6a1ec639ab9be1ab176"
+    },
+    "after": {
+      "applications": 165,
+      "offers": 85,
+      "loans": 25,
+      "offer_fingerprint": "4332f7a030df8c8b718f259a5f78cca9",
+      "loan_fingerprint": "1e0f627ae90af6a1ec639ab9be1ab176"
+    },
+    "backfill": {
+      "versions": 5,
+      "applications_pinned": 165,
+      "submitted_snapshots": 153,
+      "offers_pinned": 85,
+      "migrations": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6"
+      ]
+    },
+    "passed": true,
+    "completed_at": "2026-10-22T13:04:28.994174+00:00"
+  },
+  "fresh_database": {
+    "checked_at": "2026-10-22T13:12:11.061652+00:00",
+    "passed": true,
+    "fresh_database": "credit_product_fresh_20261022",
+    "jar_sha256": "732d150ef01df5d45d34674cafa900051a7f8f33930ca9bdd2b243e697a12b7f",
+    "public_products": 5,
+    "metadata": {
+      "versions": 5,
+      "applications": 0,
+      "migrations": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6"
+      ]
+    }
+  },
+  "original_scenarios": {
+    "checked_at": "2026-10-22T13:51:02.605563+00:00",
+    "source_revision": "working-tree",
+    "passed": true,
+    "checks": [
+      {
+        "account": "client",
+        "expected_markers_from_integrations": [
+          "OFFER_ISSUED",
+          "APPROVED: 1 000 000",
+          "20.0%",
+          "DISBURSED"
+        ],
+        "observed": "OFFER_ISSUED | APPROVED: 1 000 000 ₽, 12 мес., 20.0% | подписано кодом [скрыто] → DISBURSED, договор КД-2026-110745125447",
+        "passed": true
+      },
+      {
+        "account": "mebel",
+        "expected_markers_from_integrations": [
+          "INFO_REQUESTED",
+          "COUNTER: 2 630 000",
+          "36 мес.",
+          "21.5%"
+        ],
+        "observed": "INFO_REQUESTED | загружены TAX_RETURN, FINANCIAL_STATEMENTS → OFFER_ISSUED | COUNTER: 2 630 000 ₽, 36 мес., 21.5% | сумма уменьшена до 2 630 000 ₽, чтобы платежи не превышали 35% выручки | срок увеличен до 36 мес.",
+        "passed": true
+      },
+      {
+        "account": "logistic",
+        "expected_markers_from_integrations": [
+          "MANUAL_REVIEW",
+          "RATING_C"
+        ],
+        "observed": "MANUAL_REVIEW | RATING_C; баллы 58, рейтинг C",
+        "passed": true
+      },
+      {
+        "account": "romashka",
+        "expected_markers_from_integrations": [
+          "REJECTED",
+          "SF_STATUS"
+        ],
+        "observed": "REJECTED | SF_STATUS — По данным ЕГРЮЛ/ЕГРИП компания не действует",
+        "passed": true
+      },
+      {
+        "account": "gromov",
+        "expected_markers_from_integrations": [
+          "REJECTED",
+          "SF_OVERDUE_90"
+        ],
+        "observed": "REJECTED | SF_OVERDUE_90 — Есть просроченная более 90 дней задолженность",
+        "passed": true
+      },
+      {
+        "account": "belova",
+        "expected_markers_from_integrations": [
+          "REJECTED",
+          "R_SCORE"
+        ],
+        "observed": "REJECTED | R_SCORE — Сейчас риск выше, чем допускает продукт",
+        "passed": true
+      },
+      {
+        "account": "technopark",
+        "expected_markers_from_integrations": [
+          "INFO_REQUESTED",
+          "APPROVED: 4 000 000",
+          "20.0%"
+        ],
+        "observed": "INFO_REQUESTED | загружены TAX_RETURN, FINANCIAL_STATEMENTS, BANK_STATEMENT → OFFER_ISSUED | APPROVED: 4 000 000 ₽, 12 мес., 20.0%",
+        "passed": true
+      },
+      {
+        "account": "agro",
+        "expected_markers_from_integrations": [
+          "ENRICHMENT",
+          "источник не отвечает"
+        ],
+        "observed": "ENRICHMENT | источник не отвечает, попыток: 2; через SOURCE_TIMEOUT — андеррайтеру",
+        "passed": true
+      },
+      {
+        "account": "novikov",
+        "expected_markers_from_integrations": [
+          "REJECTED",
+          "SF_TOO_YOUNG"
+        ],
+        "observed": "REJECTED | SF_TOO_YOUNG — Бизнес зарегистрирован меньше 3 месяцев назад",
+        "passed": true
+      },
+      {
+        "account": "stroygrad",
+        "expected_markers_from_integrations": [
+          "MANUAL_REVIEW",
+          "HIGH_RISK_INDUSTRY"
+        ],
+        "observed": "MANUAL_REVIEW | HIGH_RISK_INDUSTRY; баллы 86, рейтинг A",
+        "passed": true
+      }
+    ],
+    "agro_eventual_status": "MANUAL_REVIEW",
+    "source_timeout_setting": "PT3M",
+    "agro_seconds_to_manual": 180.928964,
+    "agro_reasons": [
+      "SOURCE_UNAVAILABLE"
+    ],
+    "redactions": [
+      "consumed demo signing code"
+    ]
+  },
+  "preserved_baseline_files": 16,
+  "brief_hash_verified": true,
+  "local_http_transport": {
+    "at": "2026-10-22T13:38:19.410612+00:00",
+    "client": "Windows Python urllib",
+    "base_unchanged": "http://localhost:18087",
+    "transport": "http://127.0.0.1:18087/api/v1/products",
+    "host_header": "localhost:18087",
+    "before_ms": [
+      2046.9,
+      2061.9
+    ],
+    "after_ms": [
+      45.66,
+      19.35,
+      4.72
+    ],
+    "https_and_external_unchanged": true,
+    "scope": "Local HTTP client only; no gateway failover claim"
+  },
+  "product_invariants_verified": [
+    "Новые редакции не меняют поданную заявку, прежнее предложение, текст договора и параметры выдачи",
+    "Зафиксирован альтернативный каталог; выключенная позднее альтернатива доступна старой заявке",
+    "Автосохранение не подтверждает изменившиеся условия; текущее согласие обязательно, устаревшее даёт409",
+    "Две конкурентные правки дают200и409; история и зафиксированные версии защищены БД",
+    "Выключенный продукт не попадает в публичный каталог, подбор и расчёт",
+    "Андеррайтер читает историю, но не редактирует"
+  ]
+}

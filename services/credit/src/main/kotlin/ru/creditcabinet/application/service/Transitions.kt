@@ -7,10 +7,11 @@ import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.Transition
 import ru.creditcabinet.common.notifications.PlatformNotifications
 import ru.creditcabinet.product.domain.ProductCatalog
+import ru.creditcabinet.product.domain.forApplication
 
 /**
  * Saves a moved application together with its journal entry, in the caller's transaction, and
- * hands the notifications about it to engagement once that transaction has committed.
+ * persists its notifications in the same transaction for independent delivery.
  */
 @Component
 class Transitions(
@@ -22,7 +23,7 @@ class Transitions(
     fun commit(transition: Transition): LoanApplication {
         val saved = applications.save(transition.application)
         journal.append(transition.entry)
-        val productName = products.find(saved.terms.productCode)?.name ?: saved.terms.productCode
+        val productName = products.forApplication(saved).name
         notifications.send(TransitionNotices.of(saved, transition.entry, productName))
         return saved
     }

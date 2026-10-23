@@ -6,10 +6,30 @@
 
 ## Identity
 
+Миграция `V5__account_access.sql` добавляет `password_reset_requests` (хэш ссылки, версия
+учётных данных, срок 30 минут, использование/отмена), `company_invitations` (компания,
+приглашающий, email, право подписи, хэш, срок 72 часа, принятие/отмена), `identity_audit`
+(кто, действие, субъект, компания, время, request ID) и `identity_mutation_keys` (ключ
+повтора, хэш несекретных параметров, UUID результата). Активное приглашение на адрес в
+компании уникально. В таблицах и outbox нет открытых паролей или токенов ссылок; пароли
+остаются bcrypt-хэшами в `users`. `identity_rate_buckets` хранит только SHA-256 ключей
+лимита и счётчики запросов восстановления за 15 минут.
+
+Триггер запрещает UPDATE и DELETE `identity_audit`; журнал пополняется в той же транзакции,
+что и действие. Это защита прикладных изменений, а не от суперпользователя БД. Отзыв,
+смена и восстановление пароля повышают `users.credentials_version` точечной записью под
+блокировкой пользователя. Изменения сотрудников сначала блокируют компанию, затем
+повторно проверяют действующего подписанта и сохраняют хотя бы одного активного подписанта.
+Принятие приглашения использует тот же порядок и записывает согласие на обработку данных.
+
 ```mermaid
 erDiagram
     COMPANIES ||--o{ USERS : "сотрудники компании"
     USERS ||--o{ PERSONAL_DATA_CONSENTS : "версии согласия"
+    USERS ||--o{ PASSWORD_RESET_REQUESTS : "одноразовые ссылки"
+    COMPANIES ||--o{ COMPANY_INVITATIONS : "приглашения"
+    USERS ||--o{ COMPANY_INVITATIONS : "пригласил"
+    USERS |o--o{ IDENTITY_AUDIT : "действовал"
     COMPANIES {
         uuid id PK
         varchar inn UK
@@ -33,6 +53,37 @@ erDiagram
         varchar version
         timestamptz accepted_at
     }
+    PASSWORD_RESET_REQUESTS {
+        uuid id PK
+        uuid user_id FK
+        char token_hash UK
+        varchar key_version
+        integer credentials_version
+        timestamptz expires_at
+        timestamptz used_at
+        timestamptz revoked_at
+    }
+    COMPANY_INVITATIONS {
+        uuid id PK
+        uuid company_id FK
+        uuid invited_by FK
+        varchar email
+        boolean can_sign
+        char token_hash UK
+        varchar key_version
+        timestamptz expires_at
+        timestamptz used_at
+        timestamptz revoked_at
+    }
+    IDENTITY_AUDIT {
+        uuid id PK
+        uuid actor_id FK
+        varchar action
+        uuid subject_id
+        uuid company_id FK
+        timestamptz occurred_at
+        varchar request_id
+    }
 ```
 
 | Таблица | Назначение и ограничения |
@@ -51,6 +102,9 @@ erDiagram
 ```mermaid
 erDiagram
     PRODUCTS ||--o{ APPLICATIONS : "выбранный продукт"
+    PRODUCTS ||--|{ PRODUCT_VERSIONS : "история условий"
+    PRODUCT_VERSIONS ||--o{ APPLICATIONS : "версия подачи"
+    PRODUCT_VERSIONS ||--o{ OFFERS : "версия предложения"
     APPLICATIONS ||--o{ APPLICATION_EVENTS : "журнал"
     APPLICATIONS ||--o{ PIPELINE_JOBS : "шаги"
     APPLICATIONS ||--o{ IDEMPOTENCY_KEYS : "повторы запросов"
@@ -71,6 +125,7 @@ erDiagram
         bigint max_amount
         numeric base_rate
         bigint auto_approval_limit
+        bigint current_version FK
     }
     APPLICATIONS {
         uuid id PK
@@ -78,6 +133,8 @@ erDiagram
         uuid company_id
         varchar company_inn
         varchar product_code FK
+        bigint product_version FK
+        jsonb product_catalog_snapshot
         varchar status
         bigint version
         timestamptz submitted_at
@@ -146,10 +203,25 @@ erDiagram
         uuid application_id FK
         uuid decision_id FK
         varchar product_code FK
+        bigint product_version FK
         varchar kind
         varchar status
         numeric monthly_payment
         timestamptz valid_until
+    }
+    PRODUCT_VERSIONS {
+        varchar code PK,FK
+        bigint version PK
+        varchar name
+        numeric base_rate
+        bigint min_amount
+        bigint max_amount
+        bigint auto_approval_limit
+        boolean revolving
+        boolean active
+        uuid author_id
+        varchar reason
+        timestamptz created_at
     }
     SIGNING_SESSIONS {
         uuid id PK
@@ -171,8 +243,9 @@ erDiagram
 
 | Таблица | Ключевые данные и смысл |
 | --- | --- |
-| `products` | Коды, цели, диапазоны суммы/срока, ставка, лимит автоодобрения, признак возобновляемого лимита; `CHECK` проверяет диапазоны |
-| `applications` | Снимок компании и условий, согласие БКИ, статус и даты. `version` нужен для optimistic locking. Номер выдаётся последовательностью; частичный уникальный индекс допускает одну активную заявку компании на продукт |
+| `products` | Стабильный код, порядок отображения и `current_version`; прежние поля оставлены для совместимости миграций, действующие условия читаются из `product_versions` |
+| `product_versions` | PK `(code, version)`, полные условия, `active`, автор UUID, причина, время; CHECK диапазонов, ставка и цели, UPDATE/DELETE запрещены |
+| `applications` | Снимок компании и условий, согласие БКИ, статус и даты. `version` нужен для optimistic locking. `product_version` с составным FK и `product_catalog_snapshot` (код → версия) фиксируются при подаче и далее неизменяемы. Номер выдаётся последовательностью; частичный уникальный индекс допускает одну активную заявку компании на продукт |
 | `application_events` | Из какого статуса в какой, действие, автор, причина, комментарий и payload. `seq` упорядочивает события при одинаковом времени |
 | `pipeline_jobs` | Следующий шаг и срок запуска; состояние, попытки, ошибка и аренда `locked_until`. Частичный уникальный индекс допускает одну открытую задачу на пару заявка/шаг |
 | `idempotency_keys` | PK — пользователь и ключ; операция сохранена отдельным полем. Ключ отправки связан с конкретной заявкой и не создаёт повторного перехода |
@@ -191,6 +264,23 @@ erDiagram
 приложение сохраняет добавлением записей; отдельного SQL-триггера неизменности у них нет.
 Изменяемые сущности — черновик заявки, задания, состояние оффера и разрешение запроса
 сведений — не следует смешивать с неизменяемым журналом.
+
+## Переписка заявки (credit V7)
+
+`application_chat_state` хранит последний выданный номер. `application_messages` —
+неизменяемые сообщения с автором, стороной, простым текстом, номером, ключом повтора
+и хэшем тела. Уникальны `(application_id, seq)` и `(application_id, author_id, idempotency_key)`.
+`application_chat_read_cursors` хранит монотонный курсор по стороне `COMPANY`/`BANK`;
+номер не может превышать состояние переписки. `application_chat_audit` содержит только
+метаданные действий и ссылки на сообщение/документ, без копии текста.
+
+`message_attachments` связывает сообщение с существующим документом составными
+внешними ключами с `application_id`. `documents.context` отделяет `BUSINESS` от `CHAT`;
+старые файлы остаются `BUSINESS`. `application_chat_upload_keys` фиксирует результат
+идемпотентной загрузки. Сообщения, связи, аудит и квитанции загрузки защищены триггерами
+от изменения и удаления; метаданные опубликованного файла также неизменяемы.
+`application_chat_rate_buckets` — общий промежуточный счётчик отправок до Valkey.
+Ни одна из этих записей не создаёт событие финансового бизнес-журнала.
 
 ## Engagement
 
@@ -214,6 +304,26 @@ FK нет. Индекс `(recipient_id, dedup_key)` исключает повт�
 `read_at` меняется отдельно для каждого человека. Ссылка ограничена путём внутри кабинета.
 У помощника нет собственной таблицы диалогов: история приходит в запросе, а факты
 заявки запрашиваются у `credit` с токеном пользователя.
+
+## Очереди доставки
+
+Identity и credit владеют таблицей `delivery_outbox` в своих базах (новые миграции V4),
+engagement — такой же очередью для email (V3).
+Она хранит `id`, `channel`, уникальный `event_key` внутри канала, JSON `payload`,
+`state`, `attempts`, `next_attempt_at`, `claim_token`, `locked_until`, код последней
+ошибки и даты создания/изменения/доставки. Индексы отдельно выделяют ожидающие и
+арендованные записи. Запись события атомарна с бизнес-транзакцией; сеть не участвует
+в ней. Результат старой аренды не может заменить новую.
+
+Engagement хранит `notification_receipts` (V2): ключ события, исходный payload и дату
+первого успешного приёма. Receipt неизменяем и фиксируется вместе с уведомлениями
+получателей. Повтор не раскрывает компанию заново и не добавляет новых адресатов.
+Неуспешный пакет откатывается целиком. Это отдельная таблица от `notifications`,
+у которых индивидуальные отметки прочтения продолжают изменяться.
+
+`notification_preferences` в engagement (V3) хранит только `user_id`, `email_enabled`,
+оптимистическую `version` и дату изменения. Почта, имя и роль остаются в identity.
+Отсутствие строки означает выключенное дублирование и версию 0.
 
 ## External-sim и служебные данные
 

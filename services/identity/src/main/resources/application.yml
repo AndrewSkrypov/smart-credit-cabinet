@@ -28,12 +28,21 @@ springdoc:
     path: /swagger-ui.html
 
 cabinet:
+  outbox:
+    enabled: true
+    worker-enabled: ${OUTBOX_WORKER_ENABLED:true}
+  engagement:
+    url: ${ENGAGEMENT_URL:}
   # Served without a signed-in user; everything else requires a valid token.
   security:
     public-endpoints:
       - "POST /api/v1/auth/sign-in"
       - "POST /api/v1/auth/sign-up"
       - "GET /api/v1/auth/options"
+      - "POST /api/v1/auth/password-recovery"
+      - "POST /api/v1/auth/password-reset"
+      - "POST /api/v1/auth/invitations/inspect"
+      - "POST /api/v1/auth/invitations/accept"
   openapi:
     title: "Кабинет предпринимателя: пользователи, компании и вход"
   # ЕГРЮЛ/ЕГРИП: the company name at sign-up. Empty = sign-up without the registry.
@@ -41,5 +50,7 @@ cabinet:
     url: ${REGISTRY_URL:}
     api-key: ${SIM_API_KEY:dev-sim-api-key}
   auth:
+    link-key: ${IDENTITY_LINK_KEY:dev-identity-links-change-before-deployment-48bytes}
+    link-key-version: ${IDENTITY_LINK_KEY_VERSION:1}
     jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}
     jwt-ttl-hours: ${JWT_TTL_HOURS:12}

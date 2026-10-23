@@ -6,6 +6,7 @@ import { applicationsApi } from '../../../api/client';
 import { ErrorState } from '../../../components/ErrorState';
 import { LoadingBlock } from '../../../components/LoadingBlock';
 import { PageHeader } from '../../../components/PageHeader';
+import { MessagesBlock } from '../../../components/MessagesBlock';
 import { explainStatus, SYSTEM_STATUSES, statusTitle, statusTone } from '../../../shared/applicationText';
 import { formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
 import { Application } from '../../../types';
@@ -74,7 +75,7 @@ export function ApplicationPage() {
         subtitle={`${application.product.name} · ${rub(application.amount)} · ${months(application.termMonths)}`}
         actions={<Chip label={statusTitle(application.status)} color={tone === 'default' ? 'default' : tone} sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }} />}
       />
-      <Grid container spacing={3}>
+      <Grid container spacing={3} sx={{ pb: 6 }}>
         <Grid item xs={12} md={8}>
           <Stack spacing={3}>
             <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
@@ -115,6 +116,7 @@ export function ApplicationPage() {
             )}
 
             <DocumentsBlock application={application} onChanged={load} />
+            <MessagesBlock key={application.id} applicationId={application.id} status={application.status} />
             <HistoryBlock applicationId={application.id} version={`${application.status}-${application.documents.length}`} />
           </Stack>
         </Grid>

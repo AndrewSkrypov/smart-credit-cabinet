@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# Use the Docker Engine's bundled BuildKit frontend; no registry fetch is needed to parse this file.
 FROM postgres:16.15-alpine@sha256:deb28ee471183cb0c303113dac9b2433c51eeeeb678def7af9a9ec5820367815 AS patched
 
 # The bundled gosu carries an outdated static Go runtime; the entrypoint only needs UID/GID switching.

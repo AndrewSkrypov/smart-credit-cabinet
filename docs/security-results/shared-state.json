@@ -1,0 +1,719 @@
+{
+  "started_at": "2026-10-23T11:15:23.120307+00:00",
+  "project": "cabinet-release-work",
+  "passed": true,
+  "limits": [
+    {
+      "operation": "signin",
+      "requests": 12,
+      "statuses": {
+        "401": 5,
+        "429": 7
+      },
+      "replicas": [
+        "3826c7af2720",
+        "d5e9cc448c63"
+      ],
+      "seconds": 0.57,
+      "p95_seconds": 0.366,
+      "max_request_seconds": 0.366
+    },
+    {
+      "operation": "signin-ip",
+      "requests": 38,
+      "statuses": {
+        "401": 30,
+        "429": 8
+      },
+      "replicas": [
+        "3826c7af2720",
+        "d5e9cc448c63"
+      ],
+      "seconds": 1.474,
+      "p95_seconds": 0.329,
+      "max_request_seconds": 0.33
+    },
+    {
+      "operation": "recovery-email",
+      "requests": 8,
+      "statuses": {
+        "429": 5,
+        "200": 3
+      },
+      "replicas": [
+        "3826c7af2720",
+        "d5e9cc448c63"
+      ],
+      "seconds": 0.334,
+      "p95_seconds": 0.332,
+      "max_request_seconds": 0.332
+    },
+    {
+      "operation": "recovery-ip",
+      "requests": 24,
+      "statuses": {
+        "200": 20,
+        "429": 4
+      },
+      "replicas": [
+        "3826c7af2720",
+        "d5e9cc448c63"
+      ],
+      "seconds": 0.779,
+      "p95_seconds": 0.286,
+      "max_request_seconds": 0.287
+    },
+    {
+      "operation": "upload",
+      "requests": 40,
+      "statuses": {
+        "201": 30,
+        "429": 10
+      },
+      "replicas": [
+        "85fbc9a973ac",
+        "fb2b70e61ba7"
+      ],
+      "seconds": 1.674,
+      "p95_seconds": 0.43,
+      "max_request_seconds": 0.442
+    },
+    {
+      "operation": "chat",
+      "requests": 40,
+      "statuses": {
+        "200": 30,
+        "429": 10
+      },
+      "replicas": [
+        "85fbc9a973ac",
+        "fb2b70e61ba7"
+      ],
+      "seconds": 1.573,
+      "p95_seconds": 0.359,
+      "max_request_seconds": 0.385
+    },
+    {
+      "operation": "assistant",
+      "requests": 26,
+      "statuses": {
+        "200": 20,
+        "429": 6
+      },
+      "replicas": [
+        "10ddff3984a9",
+        "4c013ee556ac"
+      ],
+      "seconds": 4.777,
+      "p95_seconds": 4.051,
+      "max_request_seconds": 4.052
+    }
+  ],
+  "revocations": [
+    {
+      "action": "password-change",
+      "observations": [
+        {
+          "replica": "d5e9cc448c63",
+          "status": 401,
+          "seconds": 0.208
+        },
+        {
+          "replica": "3826c7af2720",
+          "status": 401,
+          "seconds": 0.22
+        },
+        {
+          "replica": "fb2b70e61ba7",
+          "status": 401,
+          "seconds": 0.221
+        },
+        {
+          "replica": "85fbc9a973ac",
+          "status": 401,
+          "seconds": 0.203
+        },
+        {
+          "replica": "4c013ee556ac",
+          "status": 401,
+          "seconds": 0.202
+        },
+        {
+          "replica": "10ddff3984a9",
+          "status": 401,
+          "seconds": 0.215
+        }
+      ],
+      "all_observed_seconds_after_ack": 1.269
+    },
+    {
+      "action": "logout-all",
+      "observations": [
+        {
+          "replica": "d5e9cc448c63",
+          "status": 401,
+          "seconds": 0.19
+        },
+        {
+          "replica": "3826c7af2720",
+          "status": 401,
+          "seconds": 0.192
+        },
+        {
+          "replica": "fb2b70e61ba7",
+          "status": 401,
+          "seconds": 0.191
+        },
+        {
+          "replica": "85fbc9a973ac",
+          "status": 401,
+          "seconds": 0.2
+        },
+        {
+          "replica": "4c013ee556ac",
+          "status": 401,
+          "seconds": 0.193
+        },
+        {
+          "replica": "10ddff3984a9",
+          "status": 401,
+          "seconds": 0.198
+        }
+      ],
+      "all_observed_seconds_after_ack": 1.164
+    },
+    {
+      "action": "password-reset",
+      "observations": [
+        {
+          "replica": "d5e9cc448c63",
+          "status": 401,
+          "seconds": 0.202
+        },
+        {
+          "replica": "3826c7af2720",
+          "status": 401,
+          "seconds": 0.185
+        },
+        {
+          "replica": "fb2b70e61ba7",
+          "status": 401,
+          "seconds": 0.209
+        },
+        {
+          "replica": "85fbc9a973ac",
+          "status": 401,
+          "seconds": 0.197
+        },
+        {
+          "replica": "4c013ee556ac",
+          "status": 401,
+          "seconds": 0.203
+        },
+        {
+          "replica": "10ddff3984a9",
+          "status": 401,
+          "seconds": 0.2
+        }
+      ],
+      "all_observed_seconds_after_ack": 1.197
+    },
+    {
+      "action": "employee-access-revoked",
+      "observations": [
+        {
+          "replica": "d5e9cc448c63",
+          "status": 401,
+          "seconds": 0.202
+        },
+        {
+          "replica": "3826c7af2720",
+          "status": 401,
+          "seconds": 0.201
+        },
+        {
+          "replica": "fb2b70e61ba7",
+          "status": 401,
+          "seconds": 0.199
+        },
+        {
+          "replica": "85fbc9a973ac",
+          "status": 401,
+          "seconds": 0.205
+        },
+        {
+          "replica": "4c013ee556ac",
+          "status": 401,
+          "seconds": 0.195
+        },
+        {
+          "replica": "10ddff3984a9",
+          "status": 401,
+          "seconds": 0.194
+        }
+      ],
+      "all_observed_seconds_after_ack": 1.197
+    },
+    {
+      "action": "old-employee-token-after-reactivation",
+      "observations": [
+        {
+          "replica": "d5e9cc448c63",
+          "status": 401,
+          "seconds": 0.194
+        },
+        {
+          "replica": "3826c7af2720",
+          "status": 401,
+          "seconds": 0.199
+        },
+        {
+          "replica": "fb2b70e61ba7",
+          "status": 401,
+          "seconds": 0.213
+        },
+        {
+          "replica": "85fbc9a973ac",
+          "status": 401,
+          "seconds": 0.195
+        },
+        {
+          "replica": "4c013ee556ac",
+          "status": 401,
+          "seconds": 0.199
+        },
+        {
+          "replica": "10ddff3984a9",
+          "status": 401,
+          "seconds": 0.208
+        }
+      ],
+      "all_observed_seconds_after_ack": 1.209
+    },
+    {
+      "action": "new-employee-token-after-reactivation",
+      "observations": [
+        {
+          "replica": "d5e9cc448c63",
+          "status": 200,
+          "seconds": 0.221
+        },
+        {
+          "replica": "3826c7af2720",
+          "status": 200,
+          "seconds": 0.192
+        },
+        {
+          "replica": "fb2b70e61ba7",
+          "status": 200,
+          "seconds": 0.201
+        },
+        {
+          "replica": "85fbc9a973ac",
+          "status": 200,
+          "seconds": 0.22
+        },
+        {
+          "replica": "4c013ee556ac",
+          "status": 200,
+          "seconds": 0.305
+        },
+        {
+          "replica": "10ddff3984a9",
+          "status": 200,
+          "seconds": 0.262
+        }
+      ],
+      "all_observed_seconds_after_ack": 1.401
+    },
+    {
+      "action": "valkey-down-authority-still-denies",
+      "observations": [
+        {
+          "replica": "d5e9cc448c63",
+          "status": 401,
+          "seconds": 4.307
+        },
+        {
+          "replica": "3826c7af2720",
+          "status": 401,
+          "seconds": 4.305
+        },
+        {
+          "replica": "fb2b70e61ba7",
+          "status": 401,
+          "seconds": 4.338
+        },
+        {
+          "replica": "85fbc9a973ac",
+          "status": 401,
+          "seconds": 7.997
+        },
+        {
+          "replica": "4c013ee556ac",
+          "status": 401,
+          "seconds": 3.968
+        },
+        {
+          "replica": "10ddff3984a9",
+          "status": 401,
+          "seconds": 4.019
+        }
+      ],
+      "all_observed_seconds_after_ack": 28.934
+    },
+    {
+      "action": "revocation-commits-even-when-cache-publication-fails",
+      "observations": [
+        {
+          "replica": "d5e9cc448c63",
+          "status": 401,
+          "seconds": 0.211
+        },
+        {
+          "replica": "3826c7af2720",
+          "status": 401,
+          "seconds": 3.995
+        },
+        {
+          "replica": "fb2b70e61ba7",
+          "status": 401,
+          "seconds": 4.015
+        },
+        {
+          "replica": "85fbc9a973ac",
+          "status": 401,
+          "seconds": 3.941
+        },
+        {
+          "replica": "4c013ee556ac",
+          "status": 401,
+          "seconds": 3.951
+        },
+        {
+          "replica": "10ddff3984a9",
+          "status": 401,
+          "seconds": 3.963
+        }
+      ],
+      "all_observed_seconds_after_ack": 20.076
+    },
+    {
+      "action": "after-valkey-restart",
+      "observations": [
+        {
+          "replica": "d5e9cc448c63",
+          "status": 401,
+          "seconds": 0.275
+        },
+        {
+          "replica": "3826c7af2720",
+          "status": 401,
+          "seconds": 0.282
+        },
+        {
+          "replica": "fb2b70e61ba7",
+          "status": 401,
+          "seconds": 0.218
+        },
+        {
+          "replica": "85fbc9a973ac",
+          "status": 401,
+          "seconds": 0.233
+        },
+        {
+          "replica": "4c013ee556ac",
+          "status": 401,
+          "seconds": 0.219
+        },
+        {
+          "replica": "10ddff3984a9",
+          "status": 401,
+          "seconds": 0.219
+        }
+      ],
+      "all_observed_seconds_after_ack": 1.446
+    },
+    {
+      "action": "after-cache-loss",
+      "observations": [
+        {
+          "replica": "d5e9cc448c63",
+          "status": 401,
+          "seconds": 0.262
+        },
+        {
+          "replica": "3826c7af2720",
+          "status": 401,
+          "seconds": 0.209
+        },
+        {
+          "replica": "fb2b70e61ba7",
+          "status": 401,
+          "seconds": 0.238
+        },
+        {
+          "replica": "85fbc9a973ac",
+          "status": 401,
+          "seconds": 0.206
+        },
+        {
+          "replica": "4c013ee556ac",
+          "status": 401,
+          "seconds": 0.223
+        },
+        {
+          "replica": "10ddff3984a9",
+          "status": 401,
+          "seconds": 0.199
+        }
+      ],
+      "all_observed_seconds_after_ack": 1.337
+    }
+  ],
+  "faults": [
+    {
+      "fault": "valkey-down",
+      "replica": "d5e9cc448c63",
+      "operation": "POST /api/v1/auth/sign-in",
+      "status": 503,
+      "seconds": 3.948
+    },
+    {
+      "fault": "valkey-down",
+      "replica": "d5e9cc448c63",
+      "operation": "POST /api/v1/auth/password-recovery",
+      "status": 503,
+      "seconds": 0.222
+    },
+    {
+      "fault": "valkey-down",
+      "replica": "3826c7af2720",
+      "operation": "POST /api/v1/auth/sign-in",
+      "status": 503,
+      "seconds": 3.999
+    },
+    {
+      "fault": "valkey-down",
+      "replica": "3826c7af2720",
+      "operation": "POST /api/v1/auth/password-recovery",
+      "status": 503,
+      "seconds": 0.326
+    },
+    {
+      "fault": "valkey-down",
+      "replica": "fb2b70e61ba7",
+      "operation": "POST /api/v1/applications/79e2e99c-5c79-4774-82fe-672ad4c4f572/documents?type=OTHER",
+      "status": 503,
+      "seconds": 4.266
+    },
+    {
+      "fault": "valkey-down",
+      "replica": "fb2b70e61ba7",
+      "operation": "POST /api/v1/applications/13be3223-3073-454e-93c3-fbfce90efe9b/messages",
+      "status": 503,
+      "seconds": 0.799
+    },
+    {
+      "fault": "valkey-down",
+      "replica": "85fbc9a973ac",
+      "operation": "POST /api/v1/applications/79e2e99c-5c79-4774-82fe-672ad4c4f572/documents?type=OTHER",
+      "status": 503,
+      "seconds": 4.176
+    },
+    {
+      "fault": "valkey-down",
+      "replica": "85fbc9a973ac",
+      "operation": "POST /api/v1/applications/13be3223-3073-454e-93c3-fbfce90efe9b/messages",
+      "status": 503,
+      "seconds": 0.404
+    },
+    {
+      "fault": "valkey-down",
+      "replica": "4c013ee556ac",
+      "operation": "POST /api/v1/assistant/messages",
+      "status": 503,
+      "seconds": 4.17
+    },
+    {
+      "fault": "valkey-down",
+      "replica": "10ddff3984a9",
+      "operation": "POST /api/v1/assistant/messages",
+      "status": 503,
+      "seconds": 4.212
+    },
+    {
+      "fault": "valkey-and-authority-down",
+      "replica": "fb2b70e61ba7",
+      "operation": "GET /api/v1/applications",
+      "status": 503,
+      "seconds": 7.731
+    },
+    {
+      "fault": "valkey-and-authority-down",
+      "replica": "85fbc9a973ac",
+      "operation": "GET /api/v1/applications",
+      "status": 503,
+      "seconds": 7.763
+    },
+    {
+      "fault": "valkey-and-authority-down",
+      "replica": "4c013ee556ac",
+      "operation": "GET /api/v1/notifications",
+      "status": 503,
+      "seconds": 7.719
+    },
+    {
+      "fault": "valkey-and-authority-down",
+      "replica": "10ddff3984a9",
+      "operation": "GET /api/v1/notifications",
+      "status": 503,
+      "seconds": 7.704
+    }
+  ],
+  "actions": [
+    {
+      "at": "2026-10-23T11:15:39.388809+00:00",
+      "action": "restart",
+      "container": "0de095528a4b",
+      "authorization": "isolated synthetic shared-state verification"
+    },
+    {
+      "at": "2026-10-23T11:16:00.428643+00:00",
+      "action": "stop",
+      "container": "0de095528a4b",
+      "authorization": "isolated synthetic shared-state verification"
+    },
+    {
+      "at": "2026-10-23T11:17:21.493145+00:00",
+      "action": "stop",
+      "container": "d5e9cc448c63",
+      "authorization": "isolated synthetic shared-state verification"
+    },
+    {
+      "at": "2026-10-23T11:17:22.041970+00:00",
+      "action": "stop",
+      "container": "3826c7af2720",
+      "authorization": "isolated synthetic shared-state verification"
+    },
+    {
+      "at": "2026-10-23T11:17:53.307039+00:00",
+      "action": "start",
+      "container": "d5e9cc448c63",
+      "authorization": "isolated synthetic shared-state verification"
+    },
+    {
+      "at": "2026-10-23T11:18:04.102305+00:00",
+      "action": "start",
+      "container": "3826c7af2720",
+      "authorization": "isolated synthetic shared-state verification"
+    },
+    {
+      "at": "2026-10-23T11:18:14.964974+00:00",
+      "action": "start",
+      "container": "0de095528a4b",
+      "authorization": "isolated synthetic shared-state verification"
+    },
+    {
+      "at": "2026-10-23T11:18:21.384470+00:00",
+      "action": "FLUSHDB",
+      "container": "0de095528a4b",
+      "authorization": "owned synthetic cache-loss test; business databases untouched"
+    }
+  ],
+  "images": {
+    "identity": [
+      "sha256:4251448c0330c54d51e5d7a8191653ca7c864c250e0d863b5380559cbb9b35e0"
+    ],
+    "credit": [
+      "sha256:e97ecc75bdeac14f61a24fa8167b94971f9bd21874b19de587522cc81bff72cc"
+    ],
+    "engagement": [
+      "sha256:9a2866d7723ea21e08b36c503ece3a46ab6ef72d94c27dd6660ed71cf290c72f"
+    ]
+  },
+  "aof_restart_preserved_limit": true,
+  "fault_p95_seconds": 7.763,
+  "finished_at": "2026-10-23T11:18:23.815515+00:00",
+  "source_kind": "working-tree",
+  "published_ci_verified": false,
+  "native_tests": {
+    "total": 170,
+    "failures": 0,
+    "skipped": 0,
+    "shared_state_real_integration": 10
+  },
+  "ui": {
+    "desktop_1440": true,
+    "mobile_375": true
+  },
+  "subsequent_runtime_image_scan": {
+    "checked_at": "2026-10-23T11:56:09.258110+00:00",
+    "scanner": "aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c",
+    "source_commit": "8f9b72ae1b8758402dba9a18318016336affd511",
+    "images": [
+      {
+        "kind": "image",
+        "reference": "cabinet-release-work-identity:latest",
+        "image_id": "sha256:4251448c0330c54d51e5d7a8191653ca7c864c250e0d863b5380559cbb9b35e0",
+        "seconds": 28.5439011999988,
+        "severity_counts": {
+          "MEDIUM": 29,
+          "LOW": 16
+        },
+        "unique_vulnerability_ids": 31,
+        "suppressed_findings": 2,
+        "secret_findings": 0,
+        "fixable_critical": [],
+        "passed": true
+      },
+      {
+        "kind": "image",
+        "reference": "cabinet-release-work-credit:latest",
+        "image_id": "sha256:e97ecc75bdeac14f61a24fa8167b94971f9bd21874b19de587522cc81bff72cc",
+        "seconds": 25.089275700000144,
+        "severity_counts": {
+          "MEDIUM": 30,
+          "LOW": 16
+        },
+        "unique_vulnerability_ids": 32,
+        "suppressed_findings": 2,
+        "secret_findings": 0,
+        "fixable_critical": [],
+        "passed": true
+      },
+      {
+        "kind": "image",
+        "reference": "cabinet-release-work-engagement:latest",
+        "image_id": "sha256:9a2866d7723ea21e08b36c503ece3a46ab6ef72d94c27dd6660ed71cf290c72f",
+        "seconds": 24.069335899999714,
+        "severity_counts": {
+          "MEDIUM": 29,
+          "LOW": 16
+        },
+        "unique_vulnerability_ids": 31,
+        "suppressed_findings": 2,
+        "secret_findings": 0,
+        "fixable_critical": [],
+        "passed": true
+      },
+      {
+        "kind": "image",
+        "reference": "cabinet-release-work-external-sim:latest",
+        "image_id": "sha256:0d00d3bc7f1be26e0b6e45fca0e4b636def56af29654e8865fbcd232ff38e4e9",
+        "seconds": 29.87206040000092,
+        "severity_counts": {
+          "MEDIUM": 29,
+          "LOW": 16
+        },
+        "unique_vulnerability_ids": 31,
+        "suppressed_findings": 2,
+        "secret_findings": 0,
+        "fixable_critical": [],
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "note": "Exact runtime image IDs from the completed shared-state fault/UI checks; gateway source edits do not alter these images. Published-SHA CI remains unverified."
+  }
+}

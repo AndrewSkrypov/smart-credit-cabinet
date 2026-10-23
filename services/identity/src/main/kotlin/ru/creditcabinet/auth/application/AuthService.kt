@@ -31,20 +31,21 @@ class AuthService(
     private val signInThrottle: SignInThrottle,
     private val consentLog: ConsentLog,
 ) {
-    fun signIn(request: SignInRequest): UserSessionResponse {
+    fun signIn(request: SignInRequest, address: String): UserSessionResponse {
         val email = request.email.trim().lowercase()
-        signInThrottle.check(email)
+        signInThrottle.check(email, address)
         // An unknown e-mail costs the same password check as a known one, so the answer time
         // does not tell which addresses have accounts.
-        val passwordMatches = users.verifyPassword(email, request.password)
-        val user = users.findByEmail(email)?.takeIf { passwordMatches }
+        val user = users.authenticate(email, request.password)
         if (user == null) {
             signInThrottle.recordFailure(email)
             throw UnauthorizedException("Неверный email или пароль")
         }
         signInThrottle.reset(email)
         if (user.status != UserStatus.ACTIVE) throw ForbiddenException(BLOCKED)
-        return session(users.save(user.copy(lastSignInAt = Instant.now())))
+        val at = Instant.now()
+        if (!users.recordSignIn(user.id, user.credentialsVersion, at)) throw UnauthorizedException(REVOKED)
+        return session(user.copy(lastSignInAt = at))
     }
 
     /**
@@ -88,7 +89,7 @@ class AuthService(
         val rawToken = authorization?.removePrefix("Bearer ")?.takeIf { it.isNotBlank() } ?: throw UnauthorizedException()
         val claims = jwtService.parseClaims(rawToken)
         val user = users.findById(claims.userId) ?: throw UnauthorizedException()
-        if (claims.credentialsVersion < user.credentialsVersion) throw UnauthorizedException(REVOKED)
+        if (claims.credentialsVersion != user.credentialsVersion) throw UnauthorizedException(REVOKED)
         if (user.status != UserStatus.ACTIVE) throw ForbiddenException(BLOCKED)
         return user
     }

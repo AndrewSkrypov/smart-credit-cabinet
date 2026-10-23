@@ -119,7 +119,7 @@ class OfferService(
     }
 
     private fun startSigning(application: LoanApplication, offer: Offer, claims: TokenClaims): SigningSessionRecord {
-        val product = products.find(offer.productCode)!!
+        val product = products.version(offer.productCode, offer.productVersion)!!
         val text = contractText(application, offer, product.name)
         val started = gateway.start(
             "contract-${application.id}",

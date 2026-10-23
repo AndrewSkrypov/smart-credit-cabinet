@@ -1,0 +1,2498 @@
+{
+  "measured_at": "2026-10-23T11:53:07.793451+00:00",
+  "published_ci_verified": false,
+  "baseline_commit": "8f9b72ae1b8758402dba9a18318016336affd511",
+  "candidate_source": "working-tree",
+  "percentile_method": "nearest_rank",
+  "gateway_config_sha256": "8a22a5dc674033fcf34cde04b2a46d45295d47dd27f9cfa98aae143a674bab13",
+  "probes": {
+    "before": {
+      "started_at": "2026-10-23T11:40:26.347684+00:00",
+      "project": "cabinet-release-work",
+      "label": "release-gateway-before-v2",
+      "gateway_config_sha256": "ac63e1e7f1bf238e74a0def58e8ff6492449883eafc231033363c51907686277",
+      "replicas": [
+        {
+          "id": "fb2b70e61ba70fdbf21715b4676e748a05322fbc010fcf6001151b9582ce9e82",
+          "image": "sha256:e97ecc75bdeac14f61a24fa8167b94971f9bd21874b19de587522cc81bff72cc",
+          "networks": {
+            "cabinet-release-work_cabinet": "172.26.0.13"
+          }
+        },
+        {
+          "id": "85fbc9a973accef1a43c5467b595a10102d7aff44c3c218a349bcdbcdad0b764",
+          "image": "sha256:e97ecc75bdeac14f61a24fa8167b94971f9bd21874b19de587522cc81bff72cc",
+          "networks": {
+            "cabinet-release-work_cabinet": "172.26.0.14"
+          }
+        }
+      ],
+      "client_timeout_seconds": 15,
+      "concurrency": 8,
+      "passed": true,
+      "stopped_state": {
+        "Running": false,
+        "ExitCode": 137,
+        "OOMKilled": false
+      },
+      "unauthenticated_mutations": [
+        {
+          "id": "gateway-release-gateway-before-v2-write-POST",
+          "method": "POST",
+          "status": 401
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-write-PUT",
+          "method": "PUT",
+          "status": 401
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-write-PATCH",
+          "method": "PATCH",
+          "status": 401
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-write-DELETE",
+          "method": "DELETE",
+          "status": 401
+        }
+      ],
+      "victim_restored_healthy": true,
+      "elapsed_seconds": 69.51700090000122,
+      "finished_at": "2026-10-23T11:41:35.864685+00:00",
+      "phases": {
+        "healthy": {
+          "n": 32,
+          "statuses": {
+            "200": 32
+          },
+          "errors": {},
+          "p50_seconds": 0.030947000001106062,
+          "p95_seconds": 0.189135399999941,
+          "p99_seconds": 0.19154209999942395,
+          "first_success_seconds": 0.18776079999952344,
+          "all_requests_completed_seconds": 0.2795165999996243
+        },
+        "paused": {
+          "n": 32,
+          "statuses": {
+            "200": 18,
+            "network_error": 14
+          },
+          "errors": {
+            "TimeoutError": 14
+          },
+          "p50_seconds": 0.02404260000002978,
+          "p95_seconds": 15.023972000000867,
+          "p99_seconds": 15.024077599999146,
+          "first_success_seconds": 0.013400499999988824,
+          "all_requests_completed_seconds": 30.061362799999188
+        },
+        "resumed": {
+          "n": 16,
+          "statuses": {
+            "200": 16
+          },
+          "errors": {},
+          "p50_seconds": 0.02008159999968484,
+          "p95_seconds": 0.10333840000021155,
+          "p99_seconds": 0.10333840000021155,
+          "first_success_seconds": 0.019829000000754604,
+          "all_requests_completed_seconds": 0.14267440000003262
+        },
+        "killed": {
+          "n": 32,
+          "statuses": {
+            "200": 24,
+            "network_error": 8
+          },
+          "errors": {
+            "TimeoutError": 8
+          },
+          "p50_seconds": 0.03628249999928812,
+          "p95_seconds": 15.027190099999643,
+          "p99_seconds": 15.029915499999333,
+          "first_success_seconds": 0.013890800000808667,
+          "all_requests_completed_seconds": 15.237239199999749
+        }
+      },
+      "gateway_attempts": [
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-5",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.184"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-1",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.194"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-3",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.194"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-0",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.185"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-7",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.192"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-4",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.194"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-6",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.188"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-2",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.200"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-11",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-12",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.017"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-8",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.018"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-10",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.023"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-15",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.020"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-16",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-17",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-18",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.017"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-13",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.020"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-9",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.021"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-14",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.021"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-19",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-20",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.019"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-22",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.024"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-23",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.024"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-26",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.029"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-24",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.019"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-28",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-21",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.028"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-27",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.022"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-25",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.017"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-31",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.013"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-30",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.020"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-healthy-29",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.022"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-3",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-5",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-1",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.011"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-4",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.013"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-9",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.009"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-6",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-0",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.011"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-11",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.011"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-7",
+          "method": "HEAD",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "16.179"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-2",
+          "method": "GET",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "16.180"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-10",
+          "method": "GET",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "16.178"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-8",
+          "method": "GET",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "16.179"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-17",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.014"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-16",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-21",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-12",
+          "method": "GET",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "16.184"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-13",
+          "method": "HEAD",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "16.185"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-20",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-22",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-24",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-15",
+          "method": "HEAD",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "16.181"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-14",
+          "method": "GET",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "16.178"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-26",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.012"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-25",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.011"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-31",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.011"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-30",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.013"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-18",
+          "method": "GET",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "13.993"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-23",
+          "method": "HEAD",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "13.992"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-19",
+          "method": "HEAD",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "13.993"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-28",
+          "method": "GET",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "13.992"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-27",
+          "method": "HEAD",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "13.996"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-paused-29",
+          "method": "HEAD",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "13.992"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-3",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-4",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-1",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.018"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-0",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.018"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-5",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.018"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-7",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.023"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-9",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-10",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-2",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.027"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-12",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.019"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-6",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.026"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-8",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.027"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-11",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.013"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-13",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.028"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-14",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.020"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-resumed-15",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.089"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-2",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.012"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-0",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.012"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-1",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.012"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-5",
+          "method": "HEAD",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "14.152"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-3",
+          "method": "HEAD",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "14.154"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-6",
+          "method": "GET",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "14.152"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-4",
+          "method": "GET",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "14.154"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-12",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-11",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-13",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.011"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-9",
+          "method": "HEAD",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "14.155"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-7",
+          "method": "HEAD",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "14.156"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-10",
+          "method": "GET",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "14.155"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-8",
+          "method": "GET",
+          "status": 499,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "-",
+          "seconds": "14.157"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-16",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.051"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-14",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.052"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-17",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.054"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-20",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.056"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-23",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.011"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-25",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-24",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.018"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-22",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.019"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-28",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-27",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.013"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-26",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.014"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-29",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-31",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.012"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-30",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.012"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-15",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.218"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-19",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.200"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-21",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.200"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-killed-18",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "200",
+          "seconds": "0.217"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-write-POST",
+          "method": "POST",
+          "status": 401,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "401",
+          "seconds": "0.004"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-write-PUT",
+          "method": "PUT",
+          "status": 401,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "401",
+          "seconds": "0.103"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-write-PATCH",
+          "method": "PATCH",
+          "status": 401,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "401",
+          "seconds": "0.003"
+        },
+        {
+          "id": "gateway-release-gateway-before-v2-write-DELETE",
+          "method": "DELETE",
+          "status": 401,
+          "upstream": "172.26.0.14:8080",
+          "upstream_status": "401",
+          "seconds": "0.003"
+        }
+      ]
+    },
+    "after": {
+      "started_at": "2026-10-23T11:46:29.592329+00:00",
+      "project": "cabinet-release-work",
+      "label": "release-gateway-after",
+      "gateway_config_sha256": "d3b4a3e825fdfab19a294149d3a4bc9bce6771427328088efdad3065f61abad1",
+      "replicas": [
+        {
+          "id": "380c1d8e78aa1699f98722d8a660797acf6e41e36a88bd8f44dac58f60470231",
+          "image": "sha256:e97ecc75bdeac14f61a24fa8167b94971f9bd21874b19de587522cc81bff72cc",
+          "networks": {
+            "cabinet-release-work_cabinet": "172.26.0.12"
+          }
+        },
+        {
+          "id": "3a4a84a637b61b1378948481aca98280352163f5be0505c4a38c0ceca91b06e8",
+          "image": "sha256:e97ecc75bdeac14f61a24fa8167b94971f9bd21874b19de587522cc81bff72cc",
+          "networks": {
+            "cabinet-release-work_cabinet": "172.26.0.13"
+          }
+        }
+      ],
+      "client_timeout_seconds": 15,
+      "concurrency": 8,
+      "passed": true,
+      "stopped_state": {
+        "Running": false,
+        "ExitCode": 137,
+        "OOMKilled": false
+      },
+      "unauthenticated_mutations": [
+        {
+          "id": "gateway-release-gateway-after-write-POST",
+          "method": "POST",
+          "status": 401
+        },
+        {
+          "id": "gateway-release-gateway-after-write-PUT",
+          "method": "PUT",
+          "status": 401
+        },
+        {
+          "id": "gateway-release-gateway-after-write-PATCH",
+          "method": "PATCH",
+          "status": 401
+        },
+        {
+          "id": "gateway-release-gateway-after-write-DELETE",
+          "method": "DELETE",
+          "status": 401
+        }
+      ],
+      "victim_restored_healthy": true,
+      "elapsed_seconds": 29.932045800000196,
+      "finished_at": "2026-10-23T11:46:59.524374+00:00",
+      "phases": {
+        "healthy": {
+          "n": 32,
+          "statuses": {
+            "200": 32
+          },
+          "errors": {},
+          "percentile_method": "nearest_rank",
+          "p50_seconds": 0.037374900000941125,
+          "p95_seconds": 0.26188490000095044,
+          "p99_seconds": 0.261926900000617,
+          "first_success_seconds": 0.238670099999581,
+          "all_requests_completed_seconds": 0.3651086000008945
+        },
+        "paused": {
+          "n": 32,
+          "statuses": {
+            "200": 32
+          },
+          "errors": {},
+          "percentile_method": "nearest_rank",
+          "p50_seconds": 0.02791090000027907,
+          "p95_seconds": 4.735817200000383,
+          "p99_seconds": 4.7361402999995335,
+          "first_success_seconds": 0.015798200000062934,
+          "all_requests_completed_seconds": 4.8305553999998665
+        },
+        "resumed": {
+          "n": 16,
+          "statuses": {
+            "200": 16
+          },
+          "errors": {},
+          "percentile_method": "nearest_rank",
+          "p50_seconds": 0.020562300000165123,
+          "p95_seconds": 0.04664599999887287,
+          "p99_seconds": 0.04664599999887287,
+          "first_success_seconds": 0.0169871999987663,
+          "all_requests_completed_seconds": 0.07114530000035302
+        },
+        "killed": {
+          "n": 32,
+          "statuses": {
+            "200": 32
+          },
+          "errors": {},
+          "percentile_method": "nearest_rank",
+          "p50_seconds": 0.021617499998683343,
+          "p95_seconds": 0.9405021000002307,
+          "p99_seconds": 0.9515647000007448,
+          "first_success_seconds": 0.018972899999425863,
+          "all_requests_completed_seconds": 1.0075102000009792
+        }
+      },
+      "gateway_attempts": [
+        {
+          "id": "gateway-release-gateway-after-healthy-7",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.246"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-2",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.254"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-0",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.254"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-4",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.252"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-11",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.018"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-5",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.271"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-3",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.272"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-1",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.277"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-10",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.022"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-6",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.274"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-9",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.023"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-8",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.028"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-12",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-13",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-15",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.023"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-16",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.024"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-18",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.028"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-14",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.029"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-20",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.032"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-23",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.023"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-17",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.046"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-21",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.028"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-19",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.048"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-22",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.031"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-26",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.026"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-27",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.034"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-28",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.022"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-30",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.021"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-24",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.045"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-31",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.025"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-29",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.018"
+        },
+        {
+          "id": "gateway-release-gateway-after-healthy-25",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.038"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-5",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.012"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-6",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.013"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-0",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.014"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-1",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.011"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-10",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.012"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-8",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.014"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-12",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.012"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-13",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.011"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-7",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "5.012"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-4",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "5.015"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-2",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "5.016"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-3",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "5.017"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-9",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "5.015"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-18",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-16",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-17",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.019"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-19",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.012"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-20",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.013"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-11",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "5.012"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-25",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.011"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-21",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.021"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-23",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.021"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-22",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.024"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-14",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "5.020"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-24",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.036"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-28",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.017"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-15",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "5.019"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-29",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.022"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-27",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.025"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-26",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.021"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-30",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.036"
+        },
+        {
+          "id": "gateway-release-gateway-after-paused-31",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.028"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-0",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-3",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-1",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.017"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-2",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.019"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-7",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.017"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-6",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.017"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-5",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-10",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-4",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.019"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-15",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.017"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-11",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.019"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-13",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.021"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-9",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.022"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-8",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080",
+          "upstream_status": "200",
+          "seconds": "0.024"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-12",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.025"
+        },
+        {
+          "id": "gateway-release-gateway-after-resumed-14",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-1",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-6",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-3",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.019"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-5",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.019"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-10",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.014"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-11",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.014"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-13",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.013"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-2",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "1.012"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-4",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "1.012"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-7",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "1.010"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-0",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "1.013"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-8",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "1.010"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-16",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.013"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-17",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-18",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.018"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-15",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.023"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-9",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "1.012"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-19",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.016"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-20",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.013"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-22",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.011"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-21",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-25",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.008"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-27",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-12",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "1.011"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-28",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.010"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-23",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.013"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-26",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-24",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-29",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.012"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-31",
+          "method": "HEAD",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.014"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-30",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "200",
+          "seconds": "0.015"
+        },
+        {
+          "id": "gateway-release-gateway-after-killed-14",
+          "method": "GET",
+          "status": 200,
+          "upstream": "172.26.0.12:8080, 172.26.0.13:8080",
+          "upstream_status": "504, 200",
+          "seconds": "1.013"
+        },
+        {
+          "id": "gateway-release-gateway-after-write-POST",
+          "method": "POST",
+          "status": 401,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "401",
+          "seconds": "0.018"
+        },
+        {
+          "id": "gateway-release-gateway-after-write-PUT",
+          "method": "PUT",
+          "status": 401,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "401",
+          "seconds": "0.007"
+        },
+        {
+          "id": "gateway-release-gateway-after-write-PATCH",
+          "method": "PATCH",
+          "status": 401,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "401",
+          "seconds": "0.005"
+        },
+        {
+          "id": "gateway-release-gateway-after-write-DELETE",
+          "method": "DELETE",
+          "status": 401,
+          "upstream": "172.26.0.13:8080",
+          "upstream_status": "401",
+          "seconds": "0.004"
+        }
+      ]
+    }
+  },
+  "business_crash": {
+    "before": {
+      "mode": "crash",
+      "project": "cabinet-release-work",
+      "cohort": "release-gateway-crash-before",
+      "started_at": "2026-10-23T11:43:15.552503+00:00",
+      "stopped_container": "8a023c458030",
+      "stopped_state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 137,
+        "Error": "",
+        "StartedAt": "2026-10-23T11:42:02.185530248Z",
+        "FinishedAt": "2026-10-23T11:43:16.627692485Z",
+        "Health": {
+          "Status": "unhealthy",
+          "FailingStreak": 0,
+          "Log": [
+            {
+              "Start": "2026-10-23T11:42:30.966574783Z",
+              "End": "2026-10-23T11:42:31.039188933Z",
+              "ExitCode": 0,
+              "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+            },
+            {
+              "Start": "2026-10-23T11:42:41.040256466Z",
+              "End": "2026-10-23T11:42:41.10141426Z",
+              "ExitCode": 0,
+              "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+            },
+            {
+              "Start": "2026-10-23T11:42:49.116592311Z",
+              "End": "2026-10-23T11:42:49.169130784Z",
+              "ExitCode": 0,
+              "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+            },
+            {
+              "Start": "2026-10-23T11:42:59.169484213Z",
+              "End": "2026-10-23T11:42:59.22124845Z",
+              "ExitCode": 0,
+              "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+            },
+            {
+              "Start": "2026-10-23T11:43:09.222572339Z",
+              "End": "2026-10-23T11:43:09.290762103Z",
+              "ExitCode": 0,
+              "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+            }
+          ]
+        }
+      },
+      "transient_network": [
+        {
+          "id": "c625ebbe-473d-4c2c-992d-b653961861d9",
+          "error": "TimeoutError"
+        },
+        {
+          "id": "b348d069-23e4-4576-b414-d106b4201603",
+          "error": "TimeoutError"
+        },
+        {
+          "id": "cd6cbfba-f1be-4d01-a915-cc190a689c14",
+          "error": "TimeoutError"
+        }
+      ],
+      "database": {
+        "duplicate_offers": 0,
+        "failed_jobs": 0,
+        "due_open_jobs": 0,
+        "retried_jobs": 8
+      },
+      "seconds_until_verified": 23.970232899999246,
+      "passed": true,
+      "finished_at": "2026-10-23T11:43:40.874785+00:00",
+      "recovery_http": {
+        "n": 264,
+        "client_timeout_seconds": 15,
+        "statuses": {
+          "200": 261,
+          "network_error": 3
+        },
+        "errors": {
+          "TimeoutError": 3
+        },
+        "p50_seconds": 0.02328069999930449,
+        "p95_seconds": 0.0552970999997342,
+        "p99_seconds": 15.015783900000315
+      },
+      "applications": 20
+    },
+    "after": {
+      "mode": "crash",
+      "project": "cabinet-release-work",
+      "cohort": "release-gateway-crash-after",
+      "started_at": "2026-10-23T11:45:03.671689+00:00",
+      "stopped_container": "8a023c458030",
+      "stopped_state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 137,
+        "Error": "",
+        "StartedAt": "2026-10-23T11:43:39.434351173Z",
+        "FinishedAt": "2026-10-23T11:45:03.564997031Z",
+        "Health": {
+          "Status": "unhealthy",
+          "FailingStreak": 0,
+          "Log": [
+            {
+              "Start": "2026-10-23T11:44:17.969913773Z",
+              "End": "2026-10-23T11:44:18.025231408Z",
+              "ExitCode": 0,
+              "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+            },
+            {
+              "Start": "2026-10-23T11:44:28.025720491Z",
+              "End": "2026-10-23T11:44:28.089845064Z",
+              "ExitCode": 0,
+              "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+            },
+            {
+              "Start": "2026-10-23T11:44:36.153395668Z",
+              "End": "2026-10-23T11:44:36.208731902Z",
+              "ExitCode": 0,
+              "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+            },
+            {
+              "Start": "2026-10-23T11:44:46.210273795Z",
+              "End": "2026-10-23T11:44:46.27103223Z",
+              "ExitCode": 0,
+              "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+            },
+            {
+              "Start": "2026-10-23T11:44:56.271741334Z",
+              "End": "2026-10-23T11:44:56.367721568Z",
+              "ExitCode": 0,
+              "Output": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+            }
+          ]
+        }
+      },
+      "database": {
+        "duplicate_offers": 0,
+        "failed_jobs": 0,
+        "due_open_jobs": 0,
+        "retried_jobs": 8
+      },
+      "seconds_until_verified": 24.15347180000026,
+      "passed": true,
+      "finished_at": "2026-10-23T11:45:28.337872+00:00",
+      "recovery_http": {
+        "n": 352,
+        "client_timeout_seconds": 15,
+        "statuses": {
+          "200": 352
+        },
+        "errors": {},
+        "percentile_method": "nearest_rank",
+        "p50_seconds": 0.015162200001213932,
+        "p95_seconds": 0.037466799998583156,
+        "p99_seconds": 0.9635873000006541
+      },
+      "applications": 20
+    }
+  },
+  "writes": {
+    "started_at": "2026-10-23T11:51:42.997656+00:00",
+    "replicas": [
+      "380c1d8e78aa",
+      "3a4a84a637b6"
+    ],
+    "passed": true,
+    "other_methods": [
+      {
+        "method": "PUT",
+        "status": 401
+      },
+      {
+        "method": "PATCH",
+        "status": 504
+      },
+      {
+        "method": "DELETE",
+        "status": 504
+      }
+    ],
+    "writes": [
+      {
+        "amount": 1000000,
+        "status": 504,
+        "seconds": 28.139800700000706
+      },
+      {
+        "amount": 1001000,
+        "status": 201,
+        "seconds": 0.03470180000113032
+      },
+      {
+        "amount": 1002000,
+        "status": 504,
+        "seconds": 28.14657740000075
+      },
+      {
+        "amount": 1003000,
+        "status": 201,
+        "seconds": 0.04908909999903699
+      },
+      {
+        "amount": 1004000,
+        "status": 504,
+        "seconds": 28.138546600001064
+      },
+      {
+        "amount": 1005000,
+        "status": 201,
+        "seconds": 0.03635229999963485
+      },
+      {
+        "amount": 1006000,
+        "status": 504,
+        "seconds": 28.139167299999826
+      },
+      {
+        "amount": 1007000,
+        "status": 201,
+        "seconds": 0.03499949999968521
+      }
+    ],
+    "gateway_attempts": [
+      {
+        "id": "write-probe-release-gateway-writes-final-PUT",
+        "method": "PUT",
+        "status": 401,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "401"
+      },
+      {
+        "id": "write-probe-release-gateway-writes-final-POST-1",
+        "method": "POST",
+        "status": 201,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "201"
+      },
+      {
+        "id": "write-probe-release-gateway-writes-final-POST-7",
+        "method": "POST",
+        "status": 201,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "201"
+      },
+      {
+        "id": "write-probe-release-gateway-writes-final-POST-5",
+        "method": "POST",
+        "status": 201,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "201"
+      },
+      {
+        "id": "write-probe-release-gateway-writes-final-POST-3",
+        "method": "POST",
+        "status": 201,
+        "upstream": "172.26.0.13:8080",
+        "upstream_status": "201"
+      },
+      {
+        "id": "write-probe-release-gateway-writes-final-DELETE",
+        "method": "DELETE",
+        "status": 504,
+        "upstream": "172.26.0.12:8080",
+        "upstream_status": "504"
+      },
+      {
+        "id": "write-probe-release-gateway-writes-final-POST-0",
+        "method": "POST",
+        "status": 504,
+        "upstream": "172.26.0.12:8080",
+        "upstream_status": "504"
+      },
+      {
+        "id": "write-probe-release-gateway-writes-final-PATCH",
+        "method": "PATCH",
+        "status": 504,
+        "upstream": "172.26.0.12:8080",
+        "upstream_status": "504"
+      },
+      {
+        "id": "write-probe-release-gateway-writes-final-POST-4",
+        "method": "POST",
+        "status": 504,
+        "upstream": "172.26.0.12:8080",
+        "upstream_status": "504"
+      },
+      {
+        "id": "write-probe-release-gateway-writes-final-POST-6",
+        "method": "POST",
+        "status": 504,
+        "upstream": "172.26.0.12:8080",
+        "upstream_status": "504"
+      },
+      {
+        "id": "write-probe-release-gateway-writes-final-POST-2",
+        "method": "POST",
+        "status": 504,
+        "upstream": "172.26.0.12:8080",
+        "upstream_status": "504"
+      }
+    ],
+    "persisted": {
+      "drafts": 8,
+      "duplicate_amounts": 0,
+      "created_events": 8,
+      "query_string_preserved": true,
+      "timed_out_but_committed": 4
+    },
+    "large_file": {
+      "bytes": 12582957,
+      "sha256": "f38f292af99f63d902e64376904d7a6d70433316ee33d2f681b2f8aff24bf83d",
+      "upload_download_seconds": 1.1056825000014214,
+      "passed": true
+    },
+    "assistant": {
+      "status": 200,
+      "seconds": 3.9067713000004005
+    },
+    "finished_at": "2026-10-23T11:52:32.537972+00:00"
+  },
+  "post_crash_disbursement": {
+    "mode": "disburse",
+    "project": "cabinet-release-work",
+    "cohort": "release-gateway-crash-after",
+    "started_at": "2026-10-23T11:59:35.942057+00:00",
+    "database": {
+      "loans": 20,
+      "distinct_contracts": 20,
+      "disbursement_jobs": 20,
+      "completed_disbursement_jobs": 20
+    },
+    "seconds_until_verified": 8.21991700000035,
+    "passed": true,
+    "finished_at": "2026-10-23T11:59:44.317891+00:00",
+    "applications": 20
+  },
+  "ui": {
+    "tests": 6,
+    "failures": 0,
+    "skipped": 0,
+    "viewports": [
+      "1440x1000",
+      "375x812"
+    ],
+    "suites": [
+      "release-chat",
+      "release-antivirus"
+    ]
+  },
+  "production": {
+    "started_at": "2026-10-23T11:53:48.882637+00:00",
+    "source_project": "cabinet-prod-test-b94724f70ae2",
+    "target_project": "cabinet-prod-restore-test-b94724f70ae2",
+    "image_prefix": "cabinet-release-work",
+    "companies": 5,
+    "storage": "local",
+    "checks": [
+      "Все компании дошли до DISBURSED при производственных лимитах памяти",
+      "Backup отклонён при занятой блокировке переноса до остановки записи",
+      "Согласованная копия завершена, исходные writers восстановлены",
+      "Копия охватывает выбранный backend",
+      "Смена секрета JWT при восстановлении отклоняет прежний токен",
+      "Восстановленная учётная запись входит с прежним паролем",
+      "Сохранён итоговый статус заявки",
+      "График платежей совпадает побайтно по структуре JSON",
+      "Загруженный PDF доступен после восстановления и совпадает по SHA256",
+      "Сохранена привязка вложения к сообщению",
+      "Вложение чата совпадает по SHA256 после восстановления",
+      "Сохранены все выданные кредиты",
+      "Повторное восстановление в непустой проект отклоняется без изменения данных",
+      "Нет OOM/restart при наблюдаемой нагрузке"
+    ],
+    "passed": true,
+    "app_images": {
+      "identity": "sha256:4251448c0330c54d51e5d7a8191653ca7c864c250e0d863b5380559cbb9b35e0",
+      "credit": "sha256:e97ecc75bdeac14f61a24fa8167b94971f9bd21874b19de587522cc81bff72cc",
+      "engagement": "sha256:9a2866d7723ea21e08b36c503ece3a46ab6ef72d94c27dd6660ed71cf290c72f",
+      "external-sim": "sha256:0d00d3bc7f1be26e0b6e45fca0e4b636def56af29654e8865fbcd232ff38e4e9",
+      "frontend": "sha256:ab633bd21aebfe2fc6bd8d9e37c32269a601e46fe993295f5d0d307711ddffdc"
+    },
+    "app_source_revisions": {
+      "identity": "working-tree",
+      "credit": "working-tree",
+      "engagement": "working-tree",
+      "external-sim": "working-tree",
+      "frontend": "working-tree"
+    },
+    "restored_manifest_version": 2,
+    "source_stopped_before_restore": true,
+    "peak_sampled_sum_bytes": 2632317923,
+    "finished_at": "2026-10-23T12:00:16.426455+00:00",
+    "kept_projects": false
+  }
+}

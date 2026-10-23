@@ -1,5 +1,6 @@
 package ru.creditcabinet.notification
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.jdbc.core.RowMapper
@@ -10,6 +11,25 @@ import java.sql.Timestamp
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
+
+@Component
+class JdbcNotificationReceipts(private val jdbc: NamedParameterJdbcTemplate, private val mapper: ObjectMapper) : NotificationReceipts {
+    override fun claim(item: NewNotification): Boolean {
+        val payload = mapper.writeValueAsString(item)
+        val parameters = mapOf("key" to item.dedupKey, "payload" to payload)
+        val inserted = jdbc.query(
+            """
+            insert into notification_receipts (event_key, payload) values (:key, cast(:payload as jsonb))
+            on conflict (event_key) do nothing returning event_key
+            """.trimIndent(),
+            parameters,
+        ) { rs, _ -> rs.getString(1) }.isNotEmpty()
+        if (inserted) return true
+        val original = jdbc.queryForObject("select payload::text from notification_receipts where event_key=:key", parameters, String::class.java)!!
+        require(mapper.readValue(original, NewNotification::class.java) == item) { "Ключ уведомления уже использован для другого события" }
+        return false
+    }
+}
 
 @Component
 class JdbcNotificationStore(private val jdbc: NamedParameterJdbcTemplate) : NotificationStore {

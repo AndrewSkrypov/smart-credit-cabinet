@@ -2,6 +2,7 @@ import { Box, Button, Card, CardActionArea, Chip, Grid, Paper, Stack, Typography
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { applicationsApi, companyApi } from '../api/client';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
@@ -26,6 +27,7 @@ function ApplicationRow({ item }: { item: ApplicationSummary }) {
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 2 }} alignItems={{ sm: 'center' }} sx={{ mt: 1 }}>
               <Typography variant="subtitle1" component="p" fontWeight={700}>{rub(item.amount)} <Typography component="span" color="text.secondary">· {months(item.termMonths)}</Typography></Typography>
               <Chip label={statusTitle(item.status)} color={tone === 'default' ? 'default' : tone} sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }} />
+              {(item.unreadChatCount ?? 0) > 0 && <Chip size="small" color="info" label={`Сообщений: ${item.unreadChatCount}`} />}
             </Stack>
           </Box>
           <ChevronRightRoundedIcon aria-hidden sx={{ color: 'text.secondary' }} />
@@ -39,6 +41,11 @@ export function ClientHomePage() {
   const navigate = useNavigate();
   const company = useApi(companyApi.mine);
   const applications = useApi(applicationsApi.list);
+  const reloadApplications = applications.reload;
+  useEffect(() => {
+    const timer = window.setInterval(() => void reloadApplications(), 5000);
+    return () => window.clearInterval(timer);
+  }, [reloadApplications]);
 
   if (company.loading || applications.loading) return <LoadingBlock />;
   if (company.error || !company.data) return <ErrorState message={company.error ?? 'Компания не найдена'} onRetry={company.reload} />;

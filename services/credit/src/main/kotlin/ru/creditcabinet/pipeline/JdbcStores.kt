@@ -251,8 +251,8 @@ class JdbcOffers(private val jdbc: NamedParameterJdbcTemplate) : OfferRepository
         jdbc.update(
             """
             insert into offers (id, application_id, decision_id, kind, product_code, amount, term_months, rate, monthly_payment, total_payment,
-                                valid_until, status, created_at)
-            values (:id, :application, :decision, :kind, :product, :amount, :term, :rate, :payment, :total, :validUntil, :status, :at)
+                                valid_until, status, created_at, product_version)
+            values (:id, :application, :decision, :kind, :product, :amount, :term, :rate, :payment, :total, :validUntil, :status, :at, :productVersion)
             """.trimIndent(),
             mapOf(
                 "id" to offer.id,
@@ -260,6 +260,7 @@ class JdbcOffers(private val jdbc: NamedParameterJdbcTemplate) : OfferRepository
                 "decision" to offer.decisionId,
                 "kind" to offer.kind.name,
                 "product" to offer.productCode,
+                "productVersion" to offer.productVersion,
                 "amount" to offer.amount,
                 "term" to offer.termMonths,
                 "rate" to offer.rate,
@@ -280,6 +281,7 @@ class JdbcOffers(private val jdbc: NamedParameterJdbcTemplate) : OfferRepository
                 decisionId = rs.uuid("decision_id")!!,
                 kind = OfferKind.valueOf(rs.getString("kind")),
                 productCode = rs.getString("product_code"),
+                productVersion = rs.getLong("product_version"),
                 amount = rs.getLong("amount"),
                 termMonths = rs.getInt("term_months"),
                 rate = rs.getBigDecimal("rate"),

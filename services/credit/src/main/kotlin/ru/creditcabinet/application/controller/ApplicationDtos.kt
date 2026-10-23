@@ -57,7 +57,9 @@ data class WithdrawRequest(
 
 data class CompanyView(val id: UUID, val inn: String, val name: String?, val legalForm: LegalForm)
 
-data class ProductView(val code: String, val name: String, val revolving: Boolean)
+data class SubmitRequest(val acceptedProductVersion: Long? = null)
+
+data class ProductView(val code: String, val name: String, val revolving: Boolean, val version: Long)
 
 data class RequiredDocumentView(val type: DocumentType, val title: String, val reason: String, val uploaded: Boolean)
 
@@ -78,6 +80,7 @@ data class ApplicationResponse(
     val closeReason: CloseReason?,
     val company: CompanyView,
     val product: ProductView,
+    val currentProduct: ru.creditcabinet.product.domain.Product?,
     val purpose: FinancingPurpose,
     val purposeTitle: String,
     val purposeComment: String?,
@@ -115,6 +118,7 @@ data class ApplicationSummary(
     val createdAt: Instant,
     val submittedAt: Instant?,
     val statusChangedAt: Instant,
+    val unreadChatCount: Long = 0,
 )
 
 data class JournalEntryView(

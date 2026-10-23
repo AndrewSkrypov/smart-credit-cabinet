@@ -11,11 +11,14 @@ dependencies {
     api("org.springframework.boot:spring-boot-starter-security")
     api(libs.findLibrary("springdoc-webmvc-ui").get())
     api(libs.findLibrary("jjwt-api").get())
-    // Notifications to engagement are sent after the caller's transaction commits.
-    implementation("org.springframework:spring-tx")
+    implementation("org.springframework:spring-jdbc")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
+    implementation("io.micrometer:micrometer-core")
+    implementation(libs.findLibrary("valkey-java").get())
     runtimeOnly(libs.findLibrary("jjwt-impl").get())
     runtimeOnly(libs.findLibrary("jjwt-jackson").get())
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    testRuntimeOnly("org.postgresql:postgresql")
 }

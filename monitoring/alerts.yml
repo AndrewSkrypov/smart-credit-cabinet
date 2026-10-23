@@ -1,6 +1,20 @@
 groups:
   - name: cabinet
     rules:
+      - alert: CabinetNotificationDeliveryFailed
+        expr: sum(max by (application,channel,state) (cabinet_delivery_outbox_messages{state="FAILED"})) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Есть недоставленные уведомления или письма'
+      - alert: CabinetNotificationDeliveryDelayed
+        expr: max(cabinet_delivery_outbox_oldest_seconds) > 120
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Очередь уведомлений или писем ждёт больше двух минут'
       - alert: CabinetServiceDown
         expr: up == 0
         for: 1m

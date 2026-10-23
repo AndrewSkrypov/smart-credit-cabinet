@@ -31,6 +31,16 @@
       },
       "event": [
         {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
           "listen": "test",
           "script": {
             "type": "text/javascript",
@@ -667,6 +677,16 @@
       },
       "event": [
         {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
           "listen": "test",
           "script": {
             "type": "text/javascript",
@@ -749,6 +769,16 @@
         }
       },
       "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
         {
           "listen": "test",
           "script": {
@@ -1823,6 +1853,16 @@
       },
       "event": [
         {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
           "listen": "test",
           "script": {
             "type": "text/javascript",
@@ -1979,6 +2019,2496 @@
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
               "const analytics=pm.response.json();pm.test('Воронка содержит поданные заявки',()=>{pm.expect(analytics.funnel).to.be.an('array').that.is.not.empty;pm.expect(analytics.funnel[0].applications).to.be.at.least(4);analytics.funnel.forEach(x=>pm.expect(x.applications).to.be.at.least(0));});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "47. Настройки уведомлений",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/notifications/settings"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const value=pm.response.json();pm.test('Настройки принадлежат текущему пользователю',()=>{pm.expect(value.emailEnabled).to.be.a('boolean');pm.expect(value.emailAvailable).to.be.a('boolean');});pm.collectionVariables.set('notificationVersion',value.version);pm.collectionVariables.set('notificationEnabled',value.emailEnabled);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "48. Сохранение настроек без изменения выбора",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/notifications/settings",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"emailEnabled\":{{notificationEnabled}},\"version\":{{notificationVersion}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Версия настроек увеличилась',()=>pm.expect(pm.response.json().version).to.equal(Number(pm.collectionVariables.get('notificationVersion'))+1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "49. Повтор устаревшего изменения настроек",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/notifications/settings",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"emailEnabled\":{{notificationEnabled}},\"version\":{{notificationVersion}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "pm.test('Конфликт описан по-русски',()=>pm.expect(pm.response.json().message).to.include('Настройки уже изменились'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "50. Возможности входа и почты",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [],
+        "url": "{{baseUrl}}/auth/options"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Возможности явно объявлены',()=>{pm.expect(pm.response.json().demoAccounts).to.be.a('boolean');pm.expect(pm.response.json().mailAvailable).to.equal(false);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "51. Восстановление без почты недоступно",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/password-recovery",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"absent@example.test\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 503\", () => pm.response.to.have.status(503));",
+              "pm.test('Почта явно выключена',()=>pm.expect(pm.response.json().message).to.include('выключено'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "52. Несуществующая ссылка восстановления",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/password-reset",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"00000000-0000-0000-0000-000000000000.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n  \"password\": \"Test2026safe\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 410\", () => pm.response.to.have.status(410));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "53. Несуществующее приглашение",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/invitations/inspect",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"00000000-0000-0000-0000-000000000000.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 410\", () => pm.response.to.have.status(410));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "54. Принятие несуществующего приглашения запрещено",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/invitations/accept",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"00000000-0000-0000-0000-000000000000.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n  \"fullName\": \"Синтетический сотрудник\",\n  \"password\": \"Test2026safe\",\n  \"personalDataConsent\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 410\", () => pm.response.to.have.status(410));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "55. Отдельная компания для проверки сотрудников",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/sign-up",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"inn\": \"{{accessInn}}\",\n  \"email\": \"{{accessOwnerEmail}}\",\n  \"fullName\": \"Синтетический представитель\",\n  \"password\": \"Test2026safe\",\n  \"personalDataConsent\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const digits='00'+Array.from({length:7},()=>Math.floor(Math.random()*10)).join('');const check=[2,4,10,3,5,9,4,6,8].reduce((sum,w,i)=>sum+w*Number(digits[i]),0)%11%10;pm.collectionVariables.set('accessInn',digits+check);pm.collectionVariables.set('accessOwnerEmail','owner-'+pm.variables.replaceIn('{{$guid}}')+'@example.test');pm.collectionVariables.set('employeeEmail','employee-'+pm.variables.replaceIn('{{$guid}}')+'@example.test');",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const session=pm.response.json();pm.collectionVariables.set('accessOwnerToken',session.token);pm.test('Представитель имеет право подписи',()=>pm.expect(session.user.canSign).to.equal(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "56. Список представителей своей компании",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessOwnerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/companies/me/employees"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Один представитель, управление доступно',()=>{const data=pm.response.json();pm.expect(data.members).to.have.length(1);pm.expect(data.canManage).to.equal(true);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "57. Приглашение без подписи и почты",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessOwnerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/companies/me/invitations",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{employeeEmail}}\",\n  \"canSign\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('invitationKey',pm.variables.replaceIn('{{$guid}}'));pm.request.headers.upsert({key:'Idempotency-Key',value:pm.collectionVariables.get('invitationKey')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const value=pm.response.json();pm.test('Ссылка показана один раз',()=>pm.expect(typeof value.link==='string' && value.link.includes('#token=')).to.equal(true));pm.collectionVariables.set('invitationId',value.id);pm.collectionVariables.set('oldInvitationToken',value.link.split('#token=')[1]);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "58. Повтор создания не раскрывает ссылку",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessOwnerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/companies/me/invitations",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{employeeEmail}}\",\n  \"canSign\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.collectionVariables.get('invitationKey')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const value=pm.response.json();pm.test('Приглашение прежнее, ссылка скрыта',()=>{pm.expect(value.id).to.equal(pm.collectionVariables.get('invitationId'));pm.expect(value.link).to.equal(null);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "59. Проверка действующего приглашения",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/invitations/inspect",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{oldInvitationToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Право подписи не выдано',()=>pm.expect(pm.response.json().canSign).to.equal(false));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "60. Повторная отправка заменяет ссылку",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessOwnerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/companies/me/invitations/{{invitationId}}/resend",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const value=pm.response.json();pm.test('Ссылка заменена',()=>pm.expect(value.id!==pm.collectionVariables.get('invitationId') && typeof value.link==='string').to.equal(true));pm.collectionVariables.set('invitationId',value.id);pm.collectionVariables.set('invitationToken',value.link.split('#token=')[1]);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "61. Прежнее приглашение отменено",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/invitations/accept",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{oldInvitationToken}}\",\n  \"fullName\": \"Синтетический сотрудник\",\n  \"password\": \"Employee2026\",\n  \"personalDataConsent\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 410\", () => pm.response.to.have.status(410));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "62. Сотрудник принимает новое приглашение",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/invitations/accept",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{invitationToken}}\",\n  \"fullName\": \"Синтетический сотрудник\",\n  \"password\": \"Employee2026\",\n  \"personalDataConsent\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const session=pm.response.json();pm.test('Сотрудник без подписи',()=>pm.expect(session.user.canSign).to.equal(false));pm.collectionVariables.set('employeeId',session.user.id);pm.collectionVariables.set('employeeToken',session.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "63. Сотрудник входит своим паролем",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/sign-in",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{employeeEmail}}\",\n  \"password\": \"Employee2026\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('employeeToken',pm.response.json().token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "64. Сотрудник видит заявки компании",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{employeeToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Список заявок доступен',()=>pm.expect(pm.response.json()).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "65. Сотрудник без подписи не приглашает коллег",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{employeeToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/companies/me/invitations",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"denied@example.test\",\n  \"canSign\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "66. Представитель отзывает доступ сотрудника",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessOwnerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/companies/me/employees/{{employeeId}}/access"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "67. Отозванная сессия сразу запрещена в credit",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{employeeToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "68. Смена пароля представителя",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessOwnerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/password",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"currentPassword\": \"Test2026safe\",\n  \"password\": \"Updated2026\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "69. Прежняя сессия запрещена в identity",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessOwnerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/users/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "70. Вход новым паролем",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/sign-in",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{accessOwnerEmail}}\",\n  \"password\": \"Updated2026\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('accessOwnerToken',pm.response.json().token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "71. Выход на всех устройствах",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessOwnerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/logout-all",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "72. Прежняя сессия запрещена в engagement",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessOwnerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/notifications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "73. Повторный вход после отзыва сессий",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/sign-in",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{accessOwnerEmail}}\",\n  \"password\": \"Updated2026\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "setTimeout(()=>{},2100);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('accessOwnerToken',pm.response.json().token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "74. Новое приглашение для отмены",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessOwnerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/companies/me/invitations",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{employeeEmail}}\",\n  \"canSign\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('cancelInvitationId',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "75. Отмена неиспользованного приглашения",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{accessOwnerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/companies/me/invitations/{{cancelInvitationId}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "76. Каталог банка включает выключенные продукты",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{riskToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/bank/products"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('originalProduct',JSON.stringify(pm.response.json().find(p=>p.code==='WORKING_CAPITAL')));pm.test('Версия продукта указана',()=>pm.expect(JSON.parse(pm.collectionVariables.get('originalProduct')).version).to.be.above(0));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "77. История продукта доступна андеррайтеру",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/bank/products/WORKING_CAPITAL"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('История содержит автора, причину и условия',()=>{const v=pm.response.json()[0];pm.expect(v.reason).to.be.a('string');pm.expect(v.createdAt).to.be.a('string');pm.expect(v.product.version).to.be.above(0);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "78. Андеррайтер не редактирует продукты",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/bank/products/WORKING_CAPITAL",
+        "body": {
+          "mode": "raw",
+          "raw": "{{productEdit}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const p=JSON.parse(pm.collectionVariables.get('originalProduct'));pm.collectionVariables.set('productEdit',JSON.stringify({...p,expectedVersion:p.version,baseRate:p.baseRate+0.5,reason:'Проверка версии продукта через API'}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "79. Риск-администратор сохраняет новую версию",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{riskToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/bank/products/WORKING_CAPITAL",
+        "body": {
+          "mode": "raw",
+          "raw": "{{productEdit}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const p=pm.response.json().product;pm.collectionVariables.set('editedProductVersion',p.version);pm.test('Создана следующая версия',()=>pm.expect(p.version).to.equal(JSON.parse(pm.collectionVariables.get('originalProduct')).version+1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "80. Устаревшая правка отклонена",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{riskToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/bank/products/WORKING_CAPITAL",
+        "body": {
+          "mode": "raw",
+          "raw": "{{productEdit}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "81. Исходные условия восстановлены новой версией",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{riskToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/bank/products/WORKING_CAPITAL",
+        "body": {
+          "mode": "raw",
+          "raw": "{{productRestore}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const p=JSON.parse(pm.collectionVariables.get('originalProduct'));pm.collectionVariables.set('productRestore',JSON.stringify({...p,expectedVersion:Number(pm.collectionVariables.get('editedProductVersion')),reason:'Восстановление условий после проверки API'}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Ставка восстановлена',()=>pm.expect(pm.response.json().product.baseRate).to.equal(JSON.parse(pm.collectionVariables.get('originalProduct')).baseRate));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "82. Заявка для проверки переписки",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"productCode\": \"WORKING_CAPITAL\", \"purpose\": \"WORKING_CAPITAL\", \"amount\": 3000000, \"termMonths\": 24, \"declaredRevenue12m\": 15000000, \"bureauConsent\": true}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\",()=>pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('chatApplication',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "83. Подача заявки для переписки",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/submit",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "84. Ожидание готовности переписки",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('chat_deadline')) pm.collectionVariables.set('chat_deadline',Date.now()+90000);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const app=pm.response.json();",
+              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('chat_deadline'))) {",
+              "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
+              "  pm.execution.setNextRequest(pm.info.requestName);",
+              "  setTimeout(()=>{},500);",
+              "} else {",
+              "  pm.collectionVariables.unset('chat_deadline');",
+              "  pm.test(\"Достигнут MANUAL_REVIEW\",()=>pm.expect(app.status).to.equal('MANUAL_REVIEW'));",
+              "}",
+              "if (pm.response.json().status==='MANUAL_REVIEW') pm.collectionVariables.set('chatBefore',JSON.stringify(pm.response.json()));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "85. Бизнес-журнал до переписки",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/events"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('chatEventsBefore',pm.response.text());"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "86. Сообщение клиента с безопасным текстом",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"text\": \"5 < 10. <b>Простой текст</b>\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('chatMessageKey',pm.variables.replaceIn('{{$guid}}'));",
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.collectionVariables.get('chatMessageKey')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "const m=pm.response.json();pm.collectionVariables.set('chatMessageId',m.id);pm.test('Текст не интерпретируется',()=>pm.expect(m.text).to.equal('5 < 10. <b>Простой текст</b>'));pm.test('Первая последовательность',()=>pm.expect(m.seq).to.equal(1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "87. Повтор сообщения после потери ответа",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"text\": \"5 < 10. <b>Простой текст</b>\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.collectionVariables.get('chatMessageKey')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test('То же неизменяемое сообщение',()=>pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('chatMessageId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "88. Ключ сообщения не принимает другое тело",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"text\": \"Другой текст\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.collectionVariables.get('chatMessageKey')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\",()=>pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "89. Переписка скрыта от чужой компании",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\",()=>pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "90. Банк видит непрочитанное",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test('Одно непрочитанное',()=>{pm.expect(pm.response.json().unreadCount).to.equal(1);pm.expect(pm.response.json().messages).to.have.length(1);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "91. Банк отмечает прочтение",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages/read",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"lastReadSeq\": 1}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test('Курсор продвинут',()=>pm.expect(pm.response.json().readSeq).to.equal(1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "92. Вложение переписки в существующем хранилище",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages/attachments",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "fixtures/synthetic.pdf"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('chatFile',pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "93. Банк не скачивает неопубликованное вложение",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/documents/{{chatFile}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\",()=>pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "94. Сообщение с вложением",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"text\": \"Синтетический файл\", \"documentIds\": [\"{{chatFile}}\"]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test('Вложение связано с сообщением',()=>pm.expect(pm.response.json().attachments[0].id).to.equal(pm.collectionVariables.get('chatFile')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "95. Банк скачивает опубликованное вложение",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/documents/{{chatFile}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test('Сигнатура PDF сохранена',()=>pm.expect(pm.response.text().startsWith('%PDF-')).to.equal(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "96. Ответ банка",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"text\": \"Банк получил файл\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "97. Клиент видит ответ и непрочитанное",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "const p=pm.response.json();pm.test('Три сообщения, одно от банка',()=>{pm.expect(p.messages).to.have.length(3);pm.expect(p.unreadCount).to.equal(1);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "98. Клиент отмечает ответ прочитанным",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages/read",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"lastReadSeq\": 3}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test('Непрочитанных нет',()=>pm.expect(pm.response.json().unreadCount).to.equal(0));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "99. Отдельный аудит переписки банка",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{underwriterToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages/audit"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test('Ровно три отправки и одна загрузка',()=>{const a=pm.response.json();pm.expect(a.filter(x=>x.action==='MESSAGE_SENT')).to.have.length(3);pm.expect(a.filter(x=>x.action==='ATTACHMENT_UPLOADED')).to.have.length(1);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "100. Клиент не получает банковский аудит",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages/audit"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\",()=>pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "101. Переписка не меняет процесс заявки",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test('Статус, версия и бизнес-документы сохранены',()=>{const before=JSON.parse(pm.collectionVariables.get('chatBefore'));const after=pm.response.json();for(const k of ['status','version','documents'])pm.expect(after[k]).to.deep.equal(before[k]);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "102. Переписка не попадает в бизнес-журнал",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/events"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test('Журнал сохранён',()=>pm.expect(pm.response.json()).to.deep.equal(JSON.parse(pm.collectionVariables.get('chatEventsBefore'))));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "103. Закрытие проверки переписки",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/withdraw",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "104. Закрытая заявка только для чтения",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"text\": \"После закрытия\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\",()=>pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "105. История закрытой заявки доступна",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{manualClientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{chatApplication}}/messages"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+              "pm.test('История сохранена, запись запрещена',()=>{pm.expect(pm.response.json().messages).to.have.length(3);pm.expect(pm.response.json().writable).to.equal(false);});"
             ]
           }
         }

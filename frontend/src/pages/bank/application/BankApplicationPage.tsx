@@ -6,6 +6,7 @@ import { applicationsApi, underwritingApi } from '../../../api/client';
 import { ErrorState } from '../../../components/ErrorState';
 import { LoadingBlock } from '../../../components/LoadingBlock';
 import { PageHeader } from '../../../components/PageHeader';
+import { MessagesBlock } from '../../../components/MessagesBlock';
 import { statusTitle, statusTone } from '../../../shared/applicationText';
 import { fileSize, formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
 import { Application, AssessmentView } from '../../../types';
@@ -82,6 +83,7 @@ export function BankApplicationPage() {
               </Paper>
             )}
             <SourcesBlock assessment={assessment} />
+            <MessagesBlock key={application.id} applicationId={application.id} status={application.status} />
           </Stack>
         </Grid>
         <Grid item xs={12} lg={5}>

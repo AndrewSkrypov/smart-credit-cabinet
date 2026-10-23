@@ -16,11 +16,11 @@ deployment = Deployment(args.project, args.env_file, args.local)
 subprocess.run([sys.executable, str(ROOT / "deploy/render-gateway.py"), "--caddy-ip", deployment.values.get("CADDY_EDGE_IP", "172.30.40.2"),
                 "--output", str(deployment.gateway_config)], check=True)
 config = deployment.config()
-active = {name: service for name, service in config["services"].items() if not service.get("profiles") or "prod" in service["profiles"]}
+active = deployment.active_services(config)
 assert not active["gateway"].get("ports"), "Gateway не должен иметь опубликованных портов"
 assert all(not service.get("ports") for name, service in active.items() if name != "caddy"), "Наружу публикуется только Caddy"
 budget = sum(int(service["mem_limit"]) for service in active.values())
-assert budget <= 3 * 1024**3, "Лимиты приложений превышают 3 GiB; оставьте память для ОС/Docker на VPS 4 GiB"
+assert budget <= 6 * 1024**3, "Лимиты приложений превышают 6 GiB; оставьте 2 GiB для ОС/Docker на VPS 8 GiB"
 print(f"Проверены {len(active)} компонентов, сумма лимитов {budget / 1024**2:.0f} MiB, секреты не выводятся")
 if not args.check_only:
     if not args.no_build:

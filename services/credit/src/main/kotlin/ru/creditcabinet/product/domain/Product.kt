@@ -28,6 +28,8 @@ data class Product(
     val autoApprovalLimit: Long,
     /** A limit used and repaid again (overdraft, card) rather than a one-off loan. */
     val revolving: Boolean,
+    val version: Long = 1,
+    val active: Boolean = true,
 ) {
     fun amountFits(amount: Long) = amount in minAmount..maxAmount
 
@@ -44,4 +46,6 @@ data class Product(
 interface ProductCatalog {
     fun all(): List<Product>
     fun find(code: String): Product?
+    fun version(code: String, version: Long): Product?
+    fun latest(code: String): Product?
 }

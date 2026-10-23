@@ -22,6 +22,7 @@ import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
+import ru.creditcabinet.product.domain.forApplication
 import java.time.Clock
 import java.util.UUID
 
@@ -48,7 +49,7 @@ class ApplicationService(
         val company = companies.find(companyId) ?: throw NotFoundException("Компания не найдена")
         val now = clock.instant()
         val saved = try {
-            applications.save(LoanApplication(company = company, createdBy = claims.userId, terms = terms, createdAt = now))
+            applications.save(LoanApplication(company = company, createdBy = claims.userId, terms = terms, createdAt = now, productVersion = product.version))
         } catch (exception: DataIntegrityViolationException) {
             // The same product requested twice at the same moment: the unique index decided.
             throw activeExists(product)
@@ -70,15 +71,25 @@ class ApplicationService(
      * returns the application as it is instead of a second attempt and its 409.
      */
     @Transactional
-    fun submit(id: UUID, idempotencyKey: String?): LoanApplication {
+    fun submit(id: UUID, idempotencyKey: String?, acceptedProductVersion: Long? = null): LoanApplication {
         val (claims, application) = own(id)
         if (idempotencyKey != null) {
             val previous = idempotencyKeys.find(claims.userId, idempotencyKey, SUBMIT)
             if (previous == id) return application
             if (previous != null) throw ConflictException("Этот Idempotency-Key уже использован для другой заявки")
         }
+        // One statement sees a coherent catalogue; edits after it belong to later submissions.
+        val catalog = products.all()
+        val selected = catalog.firstOrNull { it.code == application.terms.productCode }
+            ?: throw ConflictException("Продукт выключен из каталога — выберите другой продукт и создайте новую заявку")
+        if ((acceptedProductVersion != null && acceptedProductVersion != selected.version) ||
+            (acceptedProductVersion == null && application.productVersion != selected.version)
+        ) {
+            throw ConflictException("Условия продукта изменились — обновите заявку, проверьте новые условия и подтвердите их перед отправкой")
+        }
+        val pinned = application.copy(productVersion = selected.version, productCatalogSnapshot = catalog.associate { it.code to it.version })
         val now = clock.instant()
-        val saved = commit(application.submit(product(application.terms.productCode), actorOf(claims), now))
+        val saved = commit(pinned.submit(selected, actorOf(claims), now))
         jobs.enqueue(saved.id, PipelineStep.DATA_CHECK, now)
         idempotencyKey?.let { idempotencyKeys.record(claims.userId, it, SUBMIT, saved.id) }
         return saved
@@ -135,6 +146,10 @@ class ApplicationService(
     fun journal(id: UUID): List<JournalEntry> = journal.list(get(id).id)
 
     fun product(code: String): Product = products.find(code) ?: throw NotFoundException("Продукт не найден")
+
+    fun product(application: LoanApplication, code: String = application.terms.productCode): Product = products.forApplication(application, code)
+
+    fun currentProduct(code: String): Product? = products.latest(code)
 
     /** The application of the caller's company, for changing it: clients only. */
     fun own(id: UUID): Pair<TokenClaims, LoanApplication> {

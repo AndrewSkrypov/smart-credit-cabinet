@@ -8,6 +8,8 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import jakarta.persistence.Version
 import org.hibernate.annotations.Generated
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CloseReason
@@ -71,6 +73,11 @@ class ApplicationEntity(
     val statusChangedAt: Instant,
     @Version
     val version: Long?,
+    @Column(name = "product_version", nullable = false)
+    val productVersion: Long,
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "product_catalog_snapshot", nullable = false, columnDefinition = "jsonb")
+    val productCatalogSnapshot: Map<String, Long>,
 ) {
     fun toDomain() =
         LoanApplication(
@@ -95,6 +102,8 @@ class ApplicationEntity(
             submittedAt = submittedAt,
             statusChangedAt = statusChangedAt,
             version = version,
+            productVersion = productVersion,
+            productCatalogSnapshot = productCatalogSnapshot,
         )
 
     companion object {
@@ -123,6 +132,8 @@ class ApplicationEntity(
                     submittedAt = submittedAt,
                     statusChangedAt = statusChangedAt,
                     version = version,
+                    productVersion = productVersion,
+                    productCatalogSnapshot = productCatalogSnapshot,
                 )
             }
     }

@@ -1,5 +1,17 @@
 export type Role = 'CLIENT' | 'MANAGER' | 'UNDERWRITER' | 'RISK_ADMIN';
 
+export interface ChatFile { id: string; fileName: string; sizeBytes: number }
+export interface ChatMessage { id: string; seq: number; authorName: string; side: 'COMPANY' | 'BANK'; text: string; createdAt: string; attachments: ChatFile[] }
+export interface ChatPage {
+  messages: ChatMessage[]; lastSeq: number; readSeq: number; unreadCount: number; side: 'COMPANY' | 'BANK';
+  writable: boolean; readOnlyReason: string | null; hasOlder: boolean; hasNewer: boolean;
+}
+export interface ChatRead { lastSeq: number; readSeq: number; unreadCount: number }
+export interface ChatAudit {
+  id: string; actorId: string; actorRole: string; action: 'MESSAGE_SENT' | 'ATTACHMENT_UPLOADED' | 'READ_CURSOR_ADVANCED';
+  messageId: string | null; documentId: string | null; readSeq: number | null; occurredAt: string;
+}
+
 export type LegalForm = 'LEGAL_ENTITY' | 'ENTREPRENEUR';
 
 export interface User {
@@ -65,6 +77,15 @@ export interface Product {
   baseRate: number;
   autoApprovalLimit: number;
   revolving: boolean;
+  version?: number;
+  active?: boolean;
+}
+
+export interface ProductRevision {
+  product: Product;
+  authorId: string | null;
+  reason: string;
+  createdAt: string;
 }
 
 export interface ProductMatch {
@@ -188,7 +209,8 @@ export interface Application {
   status: ApplicationStatus;
   closeReason: CloseReason | null;
   company: { id: string; inn: string; name: string | null; legalForm: LegalForm };
-  product: { code: string; name: string; revolving: boolean };
+  product: { code: string; name: string; revolving: boolean; version?: number };
+  currentProduct?: Product | null;
   purpose: FinancingPurpose;
   purposeTitle: string;
   purposeComment: string | null;
@@ -230,6 +252,7 @@ export interface ApplicationSummary {
   createdAt: string;
   submittedAt: string | null;
   statusChangedAt: string;
+  unreadChatCount?: number;
 }
 
 export interface JournalEntry {
@@ -397,7 +420,7 @@ export interface Analytics {
 
 export interface CabinetNotification {
   id: string;
-  type: 'APPLICATION_STATUS' | 'ACTION_REQUIRED' | 'NEW_REVIEW';
+  type: 'APPLICATION_STATUS' | 'ACTION_REQUIRED' | 'NEW_REVIEW' | 'APPLICATION_MESSAGE';
   title: string;
   body: string;
   link: string | null;
@@ -411,6 +434,35 @@ export interface NotificationPage {
   size: number;
   total: number;
   unread: number;
+}
+
+export interface CompanyInvitation {
+  id: string;
+  email: string;
+  canSign: boolean;
+  expiresAt: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
+  link: string | null;
+}
+
+export interface Employees {
+  members: User[];
+  invitations: CompanyInvitation[];
+  canManage: boolean;
+  mailAvailable: boolean;
+}
+
+export interface InvitationPreview {
+  companyName: string;
+  email: string;
+  canSign: boolean;
+  expiresAt: string;
+}
+
+export interface NotificationSettings {
+  emailAvailable: boolean;
+  emailEnabled: boolean;
+  version: number;
 }
 
 export interface AssistantTurn {

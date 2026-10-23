@@ -8,6 +8,7 @@ plugins {
 }
 
 val libs = versionCatalogs.named("libs")
+extra["jackson-bom.version"] = libs.findVersion("jackson").get().requiredVersion
 
 dependencies {
     "implementation"(project(":libs:platform-common"))

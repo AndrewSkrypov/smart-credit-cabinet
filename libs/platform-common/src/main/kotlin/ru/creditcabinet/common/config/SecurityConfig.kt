@@ -33,6 +33,7 @@ import ru.creditcabinet.common.security.CredentialsCheck
 import ru.creditcabinet.common.security.IdentityCredentialsCheck
 import ru.creditcabinet.common.security.JwtAuthenticationFilter
 import ru.creditcabinet.common.security.JwtVerifier
+import ru.creditcabinet.common.security.RevocationWatermarks
 import java.time.Duration
 
 /**
@@ -58,7 +59,8 @@ class SecurityConfig {
         @Value("\${cabinet.auth.jwt-secret}") secret: String,
         environment: Environment,
         credentialsCheck: ObjectProvider<CredentialsCheck>,
-    ): JwtVerifier = JwtVerifier(secret, environment, credentialsCheck.ifAvailable)
+        revocations: RevocationWatermarks,
+    ): JwtVerifier = JwtVerifier(secret, environment, credentialsCheck.ifAvailable, revocations)
 
     /**
      * Revoked tokens (password changed) are refused by services that know where identity is.
@@ -120,7 +122,12 @@ class SecurityConfig {
             }
             exceptionHandling {
                 authenticationEntryPoint = AuthenticationEntryPoint { request, response, _ ->
-                    writeError(objectMapper, request, response, HttpStatus.UNAUTHORIZED, "Требуется вход в систему")
+                    val unavailable = request.getAttribute(JwtAuthenticationFilter.CHECK_UNAVAILABLE) as? String
+                    if (unavailable != null) {
+                        writeError(objectMapper, request, response, HttpStatus.SERVICE_UNAVAILABLE, unavailable)
+                    } else {
+                        writeError(objectMapper, request, response, HttpStatus.UNAUTHORIZED, "Требуется вход в систему")
+                    }
                 }
                 accessDeniedHandler = AccessDeniedHandler { request, response, _ ->
                     writeError(objectMapper, request, response, HttpStatus.FORBIDDEN, "Недостаточно прав для этого действия")
@@ -136,7 +143,7 @@ class SecurityConfig {
             CorsConfiguration().apply {
                 allowedOrigins = origins
                 allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                allowedHeaders = listOf("Authorization", "Content-Type", "X-Request-Id")
+                allowedHeaders = listOf("Authorization", "Content-Type", "X-Request-Id", "Idempotency-Key")
                 exposedHeaders = listOf("X-Request-Id")
                 allowCredentials = false
                 maxAge = 3600

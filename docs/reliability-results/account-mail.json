@@ -1,0 +1,85 @@
+{
+  "started_at": "2026-10-22T12:49:22.394530+00:00",
+  "project": "cabinet-release-work",
+  "companies": 3,
+  "passed": true,
+  "actions": [
+    {
+      "completed_at": "2026-10-22T12:49:36.673985+00:00",
+      "action": "stop",
+      "container_id": "a6156403cbc2",
+      "authorization": "isolated release fault check"
+    },
+    {
+      "completed_at": "2026-10-22T12:49:51.132509+00:00",
+      "action": "restart",
+      "container_id": "caae1cf461a5",
+      "authorization": "isolated release fault check"
+    },
+    {
+      "completed_at": "2026-10-22T12:49:51.750358+00:00",
+      "action": "start",
+      "container_id": "a6156403cbc2",
+      "authorization": "isolated release fault check"
+    },
+    {
+      "completed_at": "2026-10-22T12:50:08.834924+00:00",
+      "action": "start",
+      "container_id": "a6156403cbc2",
+      "authorization": "isolated release fault check"
+    },
+    {
+      "completed_at": "2026-10-22T12:50:08.980977+00:00",
+      "action": "start",
+      "container_id": "caae1cf461a5",
+      "authorization": "isolated release fault check"
+    }
+  ],
+  "image_id": "sha256:437656c387c8cdf6aa18f1ca61cfd2e39964efadef84777e0ee74397aef36590",
+  "source_commit": "working-tree",
+  "smtp_catch_up_seconds": 5.651,
+  "queued": 6,
+  "delivered": 6,
+  "lost": 0,
+  "duplicate_messages": 0,
+  "mailbox_counts": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "durable_reference_only": true,
+  "mail_delivery_verified": true,
+  "gateway_ready_after_smtp_seconds": 7.825,
+  "reset_and_invitation_usable_after_sender_restart": true,
+  "reuse_rejected": true,
+  "revocation_checks": [
+    {
+      "container_id": "caae1cf461a5",
+      "path": "/api/v1/users/me",
+      "status": 401,
+      "ms_after_ack": 467.728
+    },
+    {
+      "container_id": "947dcb1e6acc",
+      "path": "/api/v1/notifications",
+      "status": 401,
+      "ms_after_ack": 688.857
+    },
+    {
+      "container_id": "6afb7157e346",
+      "path": "/api/v1/applications",
+      "status": 401,
+      "ms_after_ack": 909.395
+    },
+    {
+      "container_id": "dce23521f554",
+      "path": "/api/v1/applications",
+      "status": 401,
+      "ms_after_ack": 1135.193
+    }
+  ],
+  "finished_at": "2026-10-22T12:50:08.980987+00:00"
+}

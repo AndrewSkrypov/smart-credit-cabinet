@@ -9,6 +9,8 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<UserSession>;
   signUp: (input: SignUpInput) => Promise<UserSession>;
   signOut: () => void;
+  acceptSession: (session: UserSession) => UserSession;
+  endSession: () => void;
   isAllowed: (roles: Role[]) => boolean;
 }
 
@@ -40,17 +42,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = useCallback(async (input: SignUpInput) => start(await authApi.signUp(input)), [start]);
 
-  const signOut = useCallback(() => {
+  const endSession = useCallback(() => {
     clearSession();
     setSession(null);
+  }, []);
+
+  const signOut = useCallback(() => {
+    endSession();
     navigate('/sign-in', { replace: true });
-  }, [navigate]);
+  }, [endSession, navigate]);
 
   const isAllowed = useCallback((roles: Role[]) => !!session && roles.includes(session.user.role), [session]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ session, signIn, signUp, signOut, isAllowed }),
-    [session, signIn, signUp, signOut, isAllowed]
+    () => ({ session, signIn, signUp, signOut, isAllowed, acceptSession: start, endSession }),
+    [session, signIn, signUp, signOut, isAllowed, start, endSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

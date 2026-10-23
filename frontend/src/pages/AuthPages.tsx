@@ -24,7 +24,7 @@ const promises = [
 ];
 
 /** Sign-in and sign-up share one frame: what the cabinet gives on the left, the form on the right. */
-function AuthFrame({ title, children }: { title: string; children: React.ReactNode }) {
+export function AuthFrame({ title, children }: { title: string; children: React.ReactNode }) {
   usePageTitle(title);
   return (
     <Box sx={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, bgcolor: 'background.default' }}>
@@ -89,10 +89,12 @@ export function SignInPage() {
     <AuthFrame title="Вход">
       <Stack component="form" spacing={2} onSubmit={submit} noValidate>
         {params.get('expired') && <Alert severity="info">Сессия истекла — войдите снова.</Alert>}
+        {params.get('security') && <Alert severity="success">Все сессии завершены. Войдите заново.</Alert>}
         {error && <Alert severity="error">{error}</Alert>}
         <TextField label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         <TextField label="Пароль" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
         <Button type="submit" variant="contained" size="large" disabled={busy}>Войти</Button>
+        <Link component={RouterLink} to="/password-recovery">Забыли пароль?</Link>
         <Typography variant="body2">
           Нет кабинета? <Link component={RouterLink} to="/sign-up">Подключите компанию</Link>
         </Typography>

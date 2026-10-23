@@ -83,10 +83,13 @@ class FakeSources : CompanySources {
 }
 
 class FakeSigning(private val clock: Clock) : SigningGateway {
+    val texts = ConcurrentHashMap<String, String>()
     val code = "424242"
 
-    override fun start(documentId: String, title: String, text: String, signerName: String): SigningStarted =
-        SigningStarted(UUID.randomUUID(), code, clock.instant().plus(Duration.ofMinutes(5)))
+    override fun start(documentId: String, title: String, text: String, signerName: String): SigningStarted {
+        texts[documentId] = text
+        return SigningStarted(UUID.randomUUID(), code, clock.instant().plus(Duration.ofMinutes(5)))
+    }
 
     override fun confirm(sessionId: UUID, code: String): SigningResult =
         if (code == this.code) SigningResult.Signed(UUID.randomUUID(), Instant.now()) else SigningResult.Refused("Неверный код, осталось попыток: 4")
@@ -94,10 +97,12 @@ class FakeSigning(private val clock: Clock) : SigningGateway {
 
 class FakeCore : CoreBanking {
     var down = false
+    val requests = ConcurrentHashMap<UUID, LoanRequest>()
     private val loans = ConcurrentHashMap<UUID, LoanBooked>()
 
     override fun disburse(request: LoanRequest): LoanBooked {
         if (down) throw SourceUnavailableException("АБС", "АБС: недоступна")
+        requests[request.applicationId] = request
         return loans.computeIfAbsent(request.applicationId) {
             LoanBooked(
                 "КД-2026-" + request.applicationId.toString().take(8),

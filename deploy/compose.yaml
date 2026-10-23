@@ -3,8 +3,14 @@ x-prod-env: &prod-env
   JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
   JWT_SECRET: ${JWT_SECRET:?Задайте JWT_SECRET в deploy/.env}
   DB_PASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в deploy/.env}
+  CABINET_VALKEY_ENABLED: "true"
+  CABINET_VALKEY_HOST: valkey
+  CABINET_VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Задайте VALKEY_PASSWORD в deploy/.env}
 
 services:
+  valkey:
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Задайте VALKEY_PASSWORD в deploy/.env}
   postgres:
     profiles: [prod]
     mem_limit: 384m
@@ -23,6 +29,8 @@ services:
     environment:
       <<: *prod-env
       DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-false}
+      IDENTITY_LINK_KEY: ${IDENTITY_LINK_KEY:?Задайте IDENTITY_LINK_KEY в deploy/.env}
+      IDENTITY_LINK_KEY_VERSION: ${IDENTITY_LINK_KEY_VERSION:-1}
       SIM_API_KEY: ${SIM_API_KEY:?Задайте SIM_API_KEY в deploy/.env}
   credit:
     profiles: [prod]

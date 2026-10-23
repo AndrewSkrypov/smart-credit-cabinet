@@ -3,6 +3,8 @@ package ru.creditcabinet.common.security
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import org.springframework.core.env.Environment
+import org.springframework.http.HttpStatus
+import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.exception.UnauthorizedException
 import java.util.UUID
@@ -16,6 +18,7 @@ class JwtVerifier(
     secret: String,
     environment: Environment,
     private val credentialsCheck: CredentialsCheck? = null,
+    private val revocations: RevocationWatermarks? = null,
 ) {
     init {
         val isProd = environment.activeProfiles.contains("prod")
@@ -47,8 +50,21 @@ class JwtVerifier(
             canSign = claims.get(TokenClaims.CAN_SIGN, Boolean::class.javaObjectType) ?: false,
             credentialsVersion = claims.get(TokenClaims.CREDENTIALS_VERSION, Integer::class.java)?.toInt() ?: 0,
         )
-        val current = credentialsCheck?.currentVersion(parsed.userId)
-        if (current != null && parsed.credentialsVersion < current) {
+        if (revocations?.isOlder(parsed.userId, parsed.credentialsVersion) == true) {
+            throw UnauthorizedException("Сессия больше не действует — войдите заново")
+        }
+        val current = try {
+            credentialsCheck?.currentVersion(parsed.userId)
+        } catch (exception: ApiException) {
+            throw exception
+        } catch (_: Exception) {
+            throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Проверка сессии временно недоступна — попробуйте позже")
+        }
+        if (credentialsCheck != null && current == null) {
+            throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Проверка сессии временно недоступна — попробуйте позже")
+        }
+        if (current != null && parsed.credentialsVersion != current) {
+            revocations?.observe(parsed.userId, current)
             throw UnauthorizedException("Сессия больше не действует — войдите заново")
         }
         return parsed

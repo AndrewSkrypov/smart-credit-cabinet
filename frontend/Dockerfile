@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# Use the Docker Engine's bundled BuildKit frontend; no registry fetch is needed to parse this file.
 # DIST_SOURCE=node     (default, local docker compose) builds the SPA inside the image build.
 # DIST_SOURCE=prebuilt (CI) takes frontend/dist that the CI build job already produced.
 ARG DIST_SOURCE=node

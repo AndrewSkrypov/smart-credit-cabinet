@@ -17,7 +17,8 @@ function add(name, method, endpoint, { token = 'clientToken', data, tests = '', 
   if (file) request.body = { mode: 'formdata', formdata: [{ key: 'file', type: 'file', src: 'fixtures/synthetic.pdf' }] };
   else if (data !== undefined) request.body = { mode: 'raw', raw: typeof data === 'string' ? data : JSON.stringify(data, null, 2), options: { raw: { language: 'json' } } };
   const event = [script('test', `pm.test("HTTP ${status}", () => pm.response.to.have.status(${status}));\n${tests}`)];
-  if (before) event.unshift(script('prerequest', before));
+  const pacedBefore = endpoint.startsWith('/auth/') ? `${before}\nsetTimeout(()=>{},2100);` : before;
+  if (pacedBefore) event.unshift(script('prerequest', pacedBefore));
   items.push({ name, request, event });
 }
 function login(name, account, variable, before = '') {
@@ -122,6 +123,56 @@ add('43. Действующие правила', 'GET', '/rules', { token: 'risk
 add('44. Новая версия правил', 'POST', '/rules', { token: 'riskToken', status: 201, data: '{"params":{{changedRules}},"comment":"Проверка версии кредитной политики через API"}', tests: "pm.test('Версия увеличилась',()=>pm.expect(pm.response.json().version).to.equal(Number(pm.collectionVariables.get('originalVersion'))+1));" });
 add('45. Восстановление параметров', 'POST', '/rules', { token: 'riskToken', status: 201, data: '{"params":{{originalRules}},"comment":"Восстановление параметров после проверки"}', tests: "pm.test('Исходные параметры восстановлены',()=>pm.expect(pm.response.json().params).to.deep.equal(JSON.parse(pm.collectionVariables.get('originalRules'))));" });
 add('46. Аналитика реальных заявок', 'GET', '/analytics/funnel?from={{runStarted}}', { token: 'riskToken', tests: "const analytics=pm.response.json();pm.test('Воронка содержит поданные заявки',()=>{pm.expect(analytics.funnel).to.be.an('array').that.is.not.empty;pm.expect(analytics.funnel[0].applications).to.be.at.least(4);analytics.funnel.forEach(x=>pm.expect(x.applications).to.be.at.least(0));});" });
+
+add('47. Настройки уведомлений', 'GET', '/notifications/settings', { tests: "const value=pm.response.json();pm.test('Настройки принадлежат текущему пользователю',()=>{pm.expect(value.emailEnabled).to.be.a('boolean');pm.expect(value.emailAvailable).to.be.a('boolean');});pm.collectionVariables.set('notificationVersion',value.version);pm.collectionVariables.set('notificationEnabled',value.emailEnabled);" });
+add('48. Сохранение настроек без изменения выбора', 'PUT', '/notifications/settings', { data: '{"emailEnabled":{{notificationEnabled}},"version":{{notificationVersion}}}', tests: "pm.test('Версия настроек увеличилась',()=>pm.expect(pm.response.json().version).to.equal(Number(pm.collectionVariables.get('notificationVersion'))+1));" });
+add('49. Повтор устаревшего изменения настроек', 'PUT', '/notifications/settings', { status: 409, data: '{"emailEnabled":{{notificationEnabled}},"version":{{notificationVersion}}}', tests: "pm.test('Конфликт описан по-русски',()=>pm.expect(pm.response.json().message).to.include('Настройки уже изменились'));" });
+
+const mutationHeader = "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});";
+const invalidLink = '00000000-0000-0000-0000-000000000000.' + 'x'.repeat(43);
+add('50. Возможности входа и почты', 'GET', '/auth/options', { token: null, tests: "pm.test('Возможности явно объявлены',()=>{pm.expect(pm.response.json().demoAccounts).to.be.a('boolean');pm.expect(pm.response.json().mailAvailable).to.equal(false);});" });
+add('51. Восстановление без почты недоступно', 'POST', '/auth/password-recovery', { token: null, status: 503, data: { email: 'absent@example.test' }, tests: "pm.test('Почта явно выключена',()=>pm.expect(pm.response.json().message).to.include('выключено'));" });
+add('52. Несуществующая ссылка восстановления', 'POST', '/auth/password-reset', { token: null, status: 410, data: { token: invalidLink, password: 'Test2026safe' } });
+add('53. Несуществующее приглашение', 'POST', '/auth/invitations/inspect', { token: null, status: 410, data: { token: invalidLink } });
+add('54. Принятие несуществующего приглашения запрещено', 'POST', '/auth/invitations/accept', { token: null, status: 410, data: { token: invalidLink, fullName: 'Синтетический сотрудник', password: 'Test2026safe', personalDataConsent: true } });
+add('55. Отдельная компания для проверки сотрудников', 'POST', '/auth/sign-up', {
+  token: null,
+  before: "const digits='00'+Array.from({length:7},()=>Math.floor(Math.random()*10)).join('');const check=[2,4,10,3,5,9,4,6,8].reduce((sum,w,i)=>sum+w*Number(digits[i]),0)%11%10;pm.collectionVariables.set('accessInn',digits+check);pm.collectionVariables.set('accessOwnerEmail','owner-'+pm.variables.replaceIn('{{$guid}}')+'@example.test');pm.collectionVariables.set('employeeEmail','employee-'+pm.variables.replaceIn('{{$guid}}')+'@example.test');",
+  data: { inn: '{{accessInn}}', email: '{{accessOwnerEmail}}', fullName: 'Синтетический представитель', password: 'Test2026safe', personalDataConsent: true },
+  tests: "const session=pm.response.json();pm.collectionVariables.set('accessOwnerToken',session.token);pm.test('Представитель имеет право подписи',()=>pm.expect(session.user.canSign).to.equal(true));"
+});
+add('56. Список представителей своей компании', 'GET', '/companies/me/employees', { token: 'accessOwnerToken', tests: "pm.test('Один представитель, управление доступно',()=>{const data=pm.response.json();pm.expect(data.members).to.have.length(1);pm.expect(data.canManage).to.equal(true);});" });
+add('57. Приглашение без подписи и почты', 'POST', '/companies/me/invitations', {
+  token: 'accessOwnerToken', before: "pm.collectionVariables.set('invitationKey',pm.variables.replaceIn('{{$guid}}'));pm.request.headers.upsert({key:'Idempotency-Key',value:pm.collectionVariables.get('invitationKey')});",
+  data: { email: '{{employeeEmail}}', canSign: false },
+  tests: "const value=pm.response.json();pm.test('Ссылка показана один раз',()=>pm.expect(typeof value.link==='string' && value.link.includes('#token=')).to.equal(true));pm.collectionVariables.set('invitationId',value.id);pm.collectionVariables.set('oldInvitationToken',value.link.split('#token=')[1]);"
+});
+add('58. Повтор создания не раскрывает ссылку', 'POST', '/companies/me/invitations', { token: 'accessOwnerToken', before: "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.collectionVariables.get('invitationKey')});", data: { email: '{{employeeEmail}}', canSign: false }, tests: "const value=pm.response.json();pm.test('Приглашение прежнее, ссылка скрыта',()=>{pm.expect(value.id).to.equal(pm.collectionVariables.get('invitationId'));pm.expect(value.link).to.equal(null);});" });
+add('59. Проверка действующего приглашения', 'POST', '/auth/invitations/inspect', { token: null, data: { token: '{{oldInvitationToken}}' }, tests: "pm.test('Право подписи не выдано',()=>pm.expect(pm.response.json().canSign).to.equal(false));" });
+add('60. Повторная отправка заменяет ссылку', 'POST', '/companies/me/invitations/{{invitationId}}/resend', { token: 'accessOwnerToken', before: mutationHeader, data: {}, tests: "const value=pm.response.json();pm.test('Ссылка заменена',()=>pm.expect(value.id!==pm.collectionVariables.get('invitationId') && typeof value.link==='string').to.equal(true));pm.collectionVariables.set('invitationId',value.id);pm.collectionVariables.set('invitationToken',value.link.split('#token=')[1]);" });
+add('61. Прежнее приглашение отменено', 'POST', '/auth/invitations/accept', { token: null, status: 410, data: { token: '{{oldInvitationToken}}', fullName: 'Синтетический сотрудник', password: 'Employee2026', personalDataConsent: true } });
+add('62. Сотрудник принимает новое приглашение', 'POST', '/auth/invitations/accept', { token: null, data: { token: '{{invitationToken}}', fullName: 'Синтетический сотрудник', password: 'Employee2026', personalDataConsent: true }, tests: "const session=pm.response.json();pm.test('Сотрудник без подписи',()=>pm.expect(session.user.canSign).to.equal(false));pm.collectionVariables.set('employeeId',session.user.id);pm.collectionVariables.set('employeeToken',session.token);" });
+add('63. Сотрудник входит своим паролем', 'POST', '/auth/sign-in', { token: null, data: { email: '{{employeeEmail}}', password: 'Employee2026' }, tests: "pm.collectionVariables.set('employeeToken',pm.response.json().token);" });
+add('64. Сотрудник видит заявки компании', 'GET', '/applications', { token: 'employeeToken', tests: "pm.test('Список заявок доступен',()=>pm.expect(pm.response.json()).to.be.an('array'));" });
+add('65. Сотрудник без подписи не приглашает коллег', 'POST', '/companies/me/invitations', { token: 'employeeToken', before: mutationHeader, status: 403, data: { email: 'denied@example.test', canSign: false } });
+add('66. Представитель отзывает доступ сотрудника', 'DELETE', '/companies/me/employees/{{employeeId}}/access', { token: 'accessOwnerToken', before: mutationHeader });
+add('67. Отозванная сессия сразу запрещена в credit', 'GET', '/applications', { token: 'employeeToken', status: 401 });
+add('68. Смена пароля представителя', 'POST', '/auth/password', { token: 'accessOwnerToken', data: { currentPassword: 'Test2026safe', password: 'Updated2026' } });
+add('69. Прежняя сессия запрещена в identity', 'GET', '/users/me', { token: 'accessOwnerToken', status: 401 });
+add('70. Вход новым паролем', 'POST', '/auth/sign-in', { token: null, data: { email: '{{accessOwnerEmail}}', password: 'Updated2026' }, tests: "pm.collectionVariables.set('accessOwnerToken',pm.response.json().token);" });
+add('71. Выход на всех устройствах', 'POST', '/auth/logout-all', { token: 'accessOwnerToken', data: {} });
+add('72. Прежняя сессия запрещена в engagement', 'GET', '/notifications', { token: 'accessOwnerToken', status: 401 });
+add('73. Повторный вход после отзыва сессий', 'POST', '/auth/sign-in', { token: null, data: { email: '{{accessOwnerEmail}}', password: 'Updated2026' }, tests: "pm.collectionVariables.set('accessOwnerToken',pm.response.json().token);" });
+add('74. Новое приглашение для отмены', 'POST', '/companies/me/invitations', { token: 'accessOwnerToken', before: mutationHeader, data: { email: '{{employeeEmail}}', canSign: false }, tests: "pm.collectionVariables.set('cancelInvitationId',pm.response.json().id);" });
+add('75. Отмена неиспользованного приглашения', 'DELETE', '/companies/me/invitations/{{cancelInvitationId}}', { token: 'accessOwnerToken', before: mutationHeader });
+
+add('76. Каталог банка включает выключенные продукты', 'GET', '/bank/products', { token: 'riskToken', tests: "pm.collectionVariables.set('originalProduct',JSON.stringify(pm.response.json().find(p=>p.code==='WORKING_CAPITAL')));pm.test('Версия продукта указана',()=>pm.expect(JSON.parse(pm.collectionVariables.get('originalProduct')).version).to.be.above(0));" });
+add('77. История продукта доступна андеррайтеру', 'GET', '/bank/products/WORKING_CAPITAL', { token: 'underwriterToken', tests: "pm.test('История содержит автора, причину и условия',()=>{const v=pm.response.json()[0];pm.expect(v.reason).to.be.a('string');pm.expect(v.createdAt).to.be.a('string');pm.expect(v.product.version).to.be.above(0);});" });
+const prepareProductEdit = "const p=JSON.parse(pm.collectionVariables.get('originalProduct'));pm.collectionVariables.set('productEdit',JSON.stringify({...p,expectedVersion:p.version,baseRate:p.baseRate+0.5,reason:'Проверка версии продукта через API'}));";
+add('78. Андеррайтер не редактирует продукты', 'PUT', '/bank/products/WORKING_CAPITAL', { token: 'underwriterToken', data: '{{productEdit}}', before: prepareProductEdit, status: 403 });
+add('79. Риск-администратор сохраняет новую версию', 'PUT', '/bank/products/WORKING_CAPITAL', { token: 'riskToken', data: '{{productEdit}}', tests: "const p=pm.response.json().product;pm.collectionVariables.set('editedProductVersion',p.version);pm.test('Создана следующая версия',()=>pm.expect(p.version).to.equal(JSON.parse(pm.collectionVariables.get('originalProduct')).version+1));" });
+add('80. Устаревшая правка отклонена', 'PUT', '/bank/products/WORKING_CAPITAL', { token: 'riskToken', data: '{{productEdit}}', status: 409 });
+add('81. Исходные условия восстановлены новой версией', 'PUT', '/bank/products/WORKING_CAPITAL', { token: 'riskToken', data: '{{productRestore}}', before: "const p=JSON.parse(pm.collectionVariables.get('originalProduct'));pm.collectionVariables.set('productRestore',JSON.stringify({...p,expectedVersion:Number(pm.collectionVariables.get('editedProductVersion')),reason:'Восстановление условий после проверки API'}));", tests: "pm.test('Ставка восстановлена',()=>pm.expect(pm.response.json().product.baseRate).to.equal(JSON.parse(pm.collectionVariables.get('originalProduct')).baseRate));" });
 
 const collection = {
   info: { name: 'Кредитный кабинет — проверка API', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json', description: 'Только изолированный демо-стенд. Путь до выдачи, документы, идемпотентность, все решения андеррайтера, версии правил и аналитика. Восстановление параметров выполняется в конце успешного прогона.' },

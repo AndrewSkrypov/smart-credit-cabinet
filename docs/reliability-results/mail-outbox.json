@@ -1,0 +1,24 @@
+{
+  "started_at": "2026-10-22T10:04:10.501326+00:00",
+  "project": "cabinet-release-work",
+  "recipients": 6,
+  "passed": true,
+  "image_id": "sha256:385e8a5708151b99de7b6e245159a70822ab7cbe971275dcf5b1d1d193aae47b",
+  "source_commit": "working-tree",
+  "in_app_notifications_available_during_smtp_failure": 6,
+  "business_and_bell_seconds": 14.749,
+  "smtp_catch_up_seconds": 7.837,
+  "queued": 6,
+  "delivered": 6,
+  "lost": 0,
+  "duplicate_messages": 0,
+  "mailbox_counts": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "finished_at": "2026-10-22T10:04:58.691440+00:00"
+}

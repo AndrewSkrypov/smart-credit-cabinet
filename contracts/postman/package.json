@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "scripts": {
     "test": "node run-newman.mjs",
-    "test:recovery": "node check-recovery.mjs"
+    "test:recovery": "node check-recovery.mjs",
+    "test:keepalive": "node check-keepalive.mjs"
   },
   "devDependencies": {
     "newman": "6.2.3"

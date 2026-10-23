@@ -7,6 +7,12 @@ plugins {
 }
 
 dependencies {
+    implementation(platform(libs.aws.sdk.bom))
+    implementation(libs.aws.sdk.s3) {
+        exclude(group = "software.amazon.awssdk", module = "apache-client")
+        exclude(group = "software.amazon.awssdk", module = "netty-nio-client")
+    }
+    implementation(libs.aws.sdk.url.connection.client)
     implementation(libs.resilience4j.circuitbreaker)
     testImplementation(libs.mockito.kotlin)
 }

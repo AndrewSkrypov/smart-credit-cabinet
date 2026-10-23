@@ -22,8 +22,8 @@ for file in files:
             errors.append(f"{file.relative_to(ROOT)}: нет файла {target}")
 
 adrs = sorted((ROOT / "docs/adr").glob("*.md"))
-if not 8 <= len(adrs) <= 10:
-    errors.append("docs/adr: требуется 8–10 решений")
+if not 8 <= len(adrs) <= 13:
+    errors.append("docs/adr: требуется 8–13 решений")
 for file in adrs:
     text = file.read_text(encoding="utf-8")
     for required in ["Контекст.", "Решение.", "Альтернативы.", "Последствия."]:
@@ -31,8 +31,8 @@ for file in adrs:
             errors.append(f"{file.name}: отсутствует {required}")
 
 architecture = (ROOT / "docs/architecture.md").read_text(encoding="utf-8")
-if architecture.count("```mermaid") < 4 or architecture.count("sequenceDiagram") != 3:
-    errors.append("architecture.md: нужны контейнеры и три последовательности Mermaid")
+if architecture.count("```mermaid") < 4 or architecture.count("sequenceDiagram") < 3:
+    errors.append("architecture.md: нужны контейнеры и минимум три последовательности Mermaid")
 if errors:
     raise SystemExit("\n".join(errors))
 print(f"Проверены ссылки и блоки в {len(files)} документах, {len(adrs)} ADR.")

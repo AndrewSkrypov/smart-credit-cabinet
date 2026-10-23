@@ -27,7 +27,7 @@ declared = set()
 for service, method, path, fixture, statuses in policy["endpoints"]:
     key = (service, method, path)
     assert key not in declared, f"Повтор строки: {key}"
-    assert len(statuses) == len(roles) and all(code in {200, 201, 204, 401, 403, 404} for code in statuses)
+    assert len(statuses) == len(roles) and all(code in {200, 201, 204, 401, 403, 404, 410, 503} for code in statuses)
     declared.add(key)
 actual = set()
 for file in sorted((ROOT / "contracts/openapi").glob("*.yaml")):
@@ -52,7 +52,7 @@ else:
 print(f"Полнота: {len(actual)} операций × {len(roles)} ролей = {len(actual)*len(roles)} проверок", flush=True)
 if args.check_only or args.write_table:
     raise SystemExit(0)
-if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e)(?:-[a-z0-9]+)?", args.project):
+if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e|release)(?:-[a-z0-9]+)?", args.project):
     parser.error("Разрешён только отдельный синтетический тестовый проект")
 if urlparse(args.base).hostname not in {"localhost", "127.0.0.1", "::1"}:
     parser.error("HTTP-стенд должен быть локальным; внешние серверы этой проверкой не изменяются")
@@ -63,6 +63,7 @@ reports.mkdir(exist_ok=True)
 pdf = (ROOT / "contracts/postman/fixtures/synthetic.pdf").read_bytes()
 created = []
 rows = []
+extra_checks = []
 completed = False
 failure = None
 original_rules = None
@@ -95,7 +96,21 @@ def draft(token):
 
 
 def prepare(kind):
-    if kind not in {"draft", "draft_document", "submitted", "submitted_document", "manual", "info", "offer", "signing"}:
+    if kind in {"company_invitation", "employee_access"}:
+        invitation = api.json("POST", "/api/v1/companies/me/invitations", {"email": f"matrix-employee-{uuid4().hex}@example.test", "canSign": False}, tokens["owner"], headers={"Idempotency-Key": str(uuid4())})
+        if kind == "company_invitation":
+            return {"id": invitation["id"]}
+        assert invitation.get("link"), "Матрица приглашений требует выключенного почтового профиля"
+        employee = api.json("POST", "/api/v1/auth/invitations/accept", {"token": invitation["link"].split("#token=", 1)[1], "fullName": "Синтетический сотрудник", "password": "Test2026safe", "personalDataConsent": True})
+        assert not employee["user"]["canSign"]
+        for method, path, body in [
+            ("POST", "/api/v1/companies/me/invitations", {"email": f"denied-{uuid4().hex}@example.test"}),
+            ("DELETE", f"/api/v1/companies/me/employees/{employee['user']['id']}/access", None),
+        ]:
+            response = api.request(method, path, body, employee["token"], headers={"Idempotency-Key": str(uuid4())}, expected=(403,))
+            extra_checks.append({"fixture": "non_signer", "method": method, "path": path, "expected": 403, "actual": response["status"]})
+        return {"id": employee["user"]["id"], "employee_token": employee["token"]}
+    if kind not in {"draft", "draft_document", "submitted", "submitted_document", "manual", "info", "offer", "signing", "chat_read", "chat_upload", "chat_send"}:
         return {}
     app = draft(tokens["owner"])
     app_id = app["id"]
@@ -106,6 +121,9 @@ def prepare(kind):
         return result
     api.json("POST", f"/api/v1/applications/{app_id}/submit", token=tokens["owner"], headers={"Idempotency-Key": f"matrix-{app_id}"})
     api.wait(tokens["owner"], app_id, {"MANUAL_REVIEW"}, timeout=90)
+    if kind == "chat_read":
+        api.json("POST", f"/api/v1/applications/{app_id}/messages", {"text": "Синтетическое сообщение для проверки курсора"},
+                 tokens["owner"], headers={"Idempotency-Key": str(uuid4())})
     if kind == "info":
         api.json("POST", f"/api/v1/underwriting/applications/{app_id}/request-info", {
             "items": [{"documentType": "OTHER"}, {"question": "Поясните синтетическую выручку"}], "comment": "Подготовка проверки прав",
@@ -151,10 +169,16 @@ def invoke(method, template, kind, role, fixture):
         body = {"code": fixture.get("code", "123456")}
     if template == "/api/v1/rules" and method == "POST":
         body = {"params": original_rules, "comment": "Проверка права публикации без изменения порогов"}
+    if kind == "product_edit":
+        product = api.json("GET", "/api/v1/bank/products/WORKING_CAPITAL", token=tokens["risk_admin"])[0]["product"]
+        body = {**product, "expectedVersion": product["version"], "reason": "Проверка права публикации без изменения условий"}
     if template == "/api/v1/assistant/messages":
         body = {"question": "Какой статус у этой заявки?", "applicationId": fixture["id"], "history": []}
     if kind == "sim_mode":
         body = {"mode": "OK"}
+    if kind == "notification_settings" and method == "PUT":
+        preference = api.json("GET", template, token=token) if token else {"emailEnabled": False, "version": 0}
+        body = {"emailEnabled": preference["emailEnabled"], "version": preference["version"]}
     if kind in {"sign_up", "sign_in"}:
         time.sleep(2.1)
         if kind == "sign_in":
@@ -162,9 +186,37 @@ def invoke(method, template, kind, role, fixture):
         else:
             body = {"inn": synthetic_inn(), "email": f"matrix-{uuid4().hex}@example.test", "password": "Test2026safe",
                     "fullName": "Представитель синтетической компании", "personalDataConsent": True}
+    if kind == "password_recovery":
+        time.sleep(2.1)
+        body = {"email": f"matrix-recovery-{uuid4().hex}@example.test"}
+    if kind == "invalid_link":
+        time.sleep(2.1)
+        body = {"token": "00000000-0000-0000-0000-000000000000." + "x"*43, "password": "Test2026safe", "fullName": "Синтетический сотрудник", "personalDataConsent": True}
+    if kind == "password_change":
+        time.sleep(2.1)
+        password = "Test2026safe" if role in {"owner", "other_client", "anonymous"} else "Demo2026"
+        body = {"currentPassword": password, "password": password}
+    if kind == "logout_all":
+        time.sleep(2.1)
+    if kind == "invite":
+        body = {"email": f"matrix-invite-{uuid4().hex}@example.test", "canSign": False}
     if template.endswith("/documents"):
         return api.upload(token, fixture["id"], "OTHER", pdf, expected=None)
-    response = api.request(method, route, body, token, expected=None)
+    if kind == "chat_upload":
+        return api.upload_chat(token, fixture["id"], pdf, key=str(uuid4()), expected=None)
+    if kind == "chat_send":
+        body = {"text": "Синтетическая проверка доступа к переписке"}
+    if kind == "chat_read":
+        body = {"lastReadSeq": 1}
+    headers = {"Idempotency-Key": str(uuid4())} if kind in {"invite", "company_invitation", "employee_access", "chat_send"} else None
+    response = api.request(method, route, body, token, expected=None, headers=headers)
+    if kind in {"password_change", "logout_all"} and response["status"] == 200:
+        time.sleep(2.1)
+        email = owner["email"] if role == "owner" else other["email"] if role == "other_client" else {"manager": "manager@demo.test", "underwriter": "underwriter@demo.test", "risk_admin": "risk@demo.test"}[role]
+        password = "Test2026safe" if role in {"owner", "other_client"} else "Demo2026"
+        tokens[role] = api.json("POST", "/api/v1/auth/sign-in", {"email": email, "password": password})["token"]
+    if kind in {"invite", "company_invitation"} and method == "POST" and response["status"] == 200:
+        api.json("DELETE", f"/api/v1/companies/me/invitations/{response['body']['id']}", token=token, headers={"Idempotency-Key": str(uuid4())})
     if kind == "create" and response["status"] == 201:
         created.append((response["body"]["id"], token))
     if template == "/api/v1/applications" and method == "GET" and role == "other_client":
@@ -205,7 +257,13 @@ try:
             assert response["status"] == expected, f"{service}: {method} {template} / {role}: {response['status']} вместо {expected}"
             if method not in {"GET", "HEAD"} and response["status"] in {200, 201, 204}:
                 fixture["used"] = True
-        if fixture.get("id"):
+        if kind == "employee_access":
+            for path in ["/api/v1/users/me", "/api/v1/applications", "/api/v1/notifications"]:
+                response = api.request("GET", path, token=fixture["employee_token"], expected=(401,))
+                extra_checks.append({"fixture": "revoked", "method": "GET", "path": path, "expected": 401, "actual": response["status"]})
+            response = api.request("DELETE", f"/api/v1/companies/me/employees/{owner['user_id']}/access", token=tokens["owner"], headers={"Idempotency-Key": str(uuid4())}, expected=(409,))
+            extra_checks.append({"fixture": "last_signer", "expected": 409, "actual": response["status"]})
+        if fixture.get("id") and kind not in {"company_invitation", "employee_access"}:
             close(fixture["id"], tokens["owner"])
         if kind == "create":
             for app_id, token in created:
@@ -238,7 +296,7 @@ finally:
             cleanup_errors.append(str(error))
     summary = {"checked_at": datetime.now(timezone.utc).isoformat(), "operations": len(actual), "roles": roles,
                "expected_checks": len(actual)*len(roles), "checks": rows,
-               "failure": failure, "cleanup_errors": cleanup_errors,
+               "failure": failure, "cleanup_errors": cleanup_errors, "extra_checks": extra_checks,
                "passed": completed and not cleanup_errors and len(rows) == len(actual)*len(roles) and all(row["expected"] == row["actual"] for row in rows)}
     (reports / "access-matrix.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     if completed and cleanup_errors:

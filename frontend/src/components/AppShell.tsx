@@ -1,4 +1,5 @@
-import { AppBar, Box, Button, Container, Stack, Tab, Tabs, Toolbar, Typography } from '@mui/material';
+import { AppBar, Box, Button, Container, IconButton, Stack, Tab, Tabs, Toolbar, Tooltip, Typography } from '@mui/material';
+import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { roleLabels } from '../shared/labels';
@@ -10,7 +11,8 @@ import { NotificationBell } from './NotificationBell';
 const bankSections = [
   { path: '/bank', label: 'Заявки' },
   { path: '/bank/analytics', label: 'Аналитика' },
-  { path: '/bank/rules', label: 'Правила' }
+  { path: '/bank/rules', label: 'Правила' },
+  { path: '/bank/products', label: 'Продукты' }
 ];
 
 /** Frame of every signed-in page: product name, who is signed in, sign-out. */
@@ -33,12 +35,21 @@ export function AppShell() {
             <Typography variant="body2" fontWeight={500}>{user.fullName}</Typography>
             <Typography variant="caption" color="text.secondary">{roleLabels[user.role]}</Typography>
           </Stack>
+          <Tooltip title="Профиль">
+            <IconButton component={RouterLink} to="/profile" aria-label="Профиль"><AccountCircleOutlinedIcon /></IconButton>
+          </Tooltip>
           <NotificationBell />
           <Button variant="outlined" onClick={signOut}>Выйти</Button>
         </Toolbar>
         {bank && (
           <Tabs value={section} variant="scrollable" sx={{ px: { xs: 1, md: 2 } }} aria-label="Разделы банка">
             {bankSections.map((item) => <Tab key={item.path} value={item.path} label={item.label} component={RouterLink} to={item.path} sx={{ minHeight: 48 }} />)}
+          </Tabs>
+        )}
+        {!bank && (
+          <Tabs value={location.pathname.startsWith('/client/employees') ? '/client/employees' : location.pathname.startsWith('/client') ? '/client' : false} variant="scrollable" sx={{ px: { xs: 1, md: 2 } }} aria-label="Разделы компании">
+            <Tab value="/client" label="Заявки" component={RouterLink} to="/client" />
+            <Tab value="/client/employees" label="Сотрудники" component={RouterLink} to="/client/employees" />
           </Tabs>
         )}
         </Container>

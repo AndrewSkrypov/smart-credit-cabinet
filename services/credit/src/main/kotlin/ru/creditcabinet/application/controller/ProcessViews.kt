@@ -44,6 +44,7 @@ data class OfferView(
     val validUntil: Instant,
     /** What changed against the request, in words: shown next to a counter offer. */
     val changes: List<String>,
+    val productVersion: Long,
 ) {
     companion object {
         fun of(offer: Offer, productName: String, changes: List<String>) =
@@ -60,6 +61,7 @@ data class OfferView(
                 offer.totalPayment,
                 offer.validUntil,
                 changes,
+                offer.productVersion,
             )
     }
 }

@@ -160,6 +160,8 @@ components:
         createdAt:
           format: date-time
           type: string
+        currentProduct:
+          $ref: '#/components/schemas/Product'
         declaredMonthlyDebtPayments:
           format: int64
           type: integer
@@ -301,6 +303,9 @@ components:
         termMonths:
           format: int32
           type: integer
+        unreadChatCount:
+          format: int64
+          type: integer
       required:
       - amount
       - companyInn
@@ -311,6 +316,7 @@ components:
       - status
       - statusChangedAt
       - termMonths
+      - unreadChatCount
       type: object
     AssessmentView:
       properties:
@@ -448,6 +454,114 @@ components:
       - rate
       - schedule
       - totalPayment
+      type: object
+    ChatAudit:
+      properties:
+        action:
+          enum:
+          - MESSAGE_SENT
+          - ATTACHMENT_UPLOADED
+          - READ_CURSOR_ADVANCED
+          type: string
+        actorId:
+          format: uuid
+          type: string
+        actorRole:
+          type: string
+        applicationId:
+          format: uuid
+          type: string
+        documentId:
+          format: uuid
+          type: string
+        id:
+          format: uuid
+          type: string
+        messageId:
+          format: uuid
+          type: string
+        occurredAt:
+          format: date-time
+          type: string
+        readSeq:
+          format: int64
+          type: integer
+      required:
+      - action
+      - actorId
+      - actorRole
+      - applicationId
+      - id
+      - occurredAt
+      type: object
+    ChatFile:
+      properties:
+        fileName:
+          type: string
+        id:
+          format: uuid
+          type: string
+        sizeBytes:
+          format: int64
+          type: integer
+      required:
+      - fileName
+      - id
+      - sizeBytes
+      type: object
+    ChatState:
+      properties:
+        lastSeq:
+          format: int64
+          type: integer
+        readSeq:
+          format: int64
+          type: integer
+        unreadCount:
+          format: int64
+          type: integer
+      required:
+      - lastSeq
+      - readSeq
+      - unreadCount
+      type: object
+    ChatView:
+      properties:
+        hasNewer:
+          type: boolean
+        hasOlder:
+          type: boolean
+        lastSeq:
+          format: int64
+          type: integer
+        messages:
+          items:
+            $ref: '#/components/schemas/MessageView'
+          type: array
+        readOnlyReason:
+          type: string
+        readSeq:
+          format: int64
+          type: integer
+        side:
+          enum:
+          - COMPANY
+          - BANK
+          type: string
+        unreadCount:
+          format: int64
+          type: integer
+        writable:
+          type: boolean
+      required:
+      - hasNewer
+      - hasOlder
+      - lastSeq
+      - messages
+      - readSeq
+      - side
+      - unreadCount
+      - writable
       type: object
     CommentRequest:
       properties:
@@ -905,6 +1019,52 @@ components:
       - reasons
       - termMonths
       type: object
+    MessageRequest:
+      properties:
+        documentIds:
+          items:
+            format: uuid
+            type: string
+          type: array
+        text:
+          type: string
+      required:
+      - documentIds
+      - text
+      type: object
+    MessageView:
+      properties:
+        attachments:
+          items:
+            $ref: '#/components/schemas/ChatFile'
+          type: array
+        authorName:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        id:
+          format: uuid
+          type: string
+        seq:
+          format: int64
+          type: integer
+        side:
+          enum:
+          - COMPANY
+          - BANK
+          type: string
+        text:
+          type: string
+      required:
+      - attachments
+      - authorName
+      - createdAt
+      - id
+      - seq
+      - side
+      - text
+      type: object
     NewRulesRequest:
       properties:
         comment:
@@ -964,6 +1124,9 @@ components:
           type: string
         productName:
           type: string
+        productVersion:
+          format: int64
+          type: integer
         rate:
           type: number
         status:
@@ -990,6 +1153,7 @@ components:
       - monthlyPayment
       - productCode
       - productName
+      - productVersion
       - rate
       - status
       - termMonths
@@ -1044,6 +1208,8 @@ components:
       type: object
     Product:
       properties:
+        active:
+          type: boolean
         autoApprovalLimit:
           format: int64
           type: integer
@@ -1082,7 +1248,11 @@ components:
           uniqueItems: true
         revolving:
           type: boolean
+        version:
+          format: int64
+          type: integer
       required:
+      - active
       - autoApprovalLimit
       - baseRate
       - code
@@ -1094,6 +1264,84 @@ components:
       - name
       - purposes
       - revolving
+      - version
+      type: object
+    ProductEdit:
+      properties:
+        active:
+          type: boolean
+        autoApprovalLimit:
+          format: int64
+          type: integer
+        baseRate:
+          type: number
+        description:
+          type: string
+        expectedVersion:
+          format: int64
+          type: integer
+        maxAmount:
+          format: int64
+          type: integer
+        maxTermMonths:
+          format: int32
+          type: integer
+        minAmount:
+          format: int64
+          type: integer
+        minTermMonths:
+          format: int32
+          type: integer
+        name:
+          type: string
+        purposes:
+          items:
+            enum:
+            - CASH_GAP
+            - CURRENT_EXPENSES
+            - WORKING_CAPITAL
+            - EQUIPMENT
+            - VEHICLE
+            - RENOVATION
+            - BUSINESS_DEVELOPMENT
+            type: string
+          type: array
+          uniqueItems: true
+        reason:
+          type: string
+        revolving:
+          type: boolean
+      required:
+      - active
+      - autoApprovalLimit
+      - baseRate
+      - description
+      - expectedVersion
+      - maxAmount
+      - maxTermMonths
+      - minAmount
+      - minTermMonths
+      - name
+      - purposes
+      - reason
+      - revolving
+      type: object
+    ProductRevision:
+      properties:
+        authorId:
+          format: uuid
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        product:
+          $ref: '#/components/schemas/Product'
+        reason:
+          type: string
+      required:
+      - createdAt
+      - product
+      - reason
       type: object
     ProductView:
       properties:
@@ -1103,10 +1351,14 @@ components:
           type: string
         revolving:
           type: boolean
+        version:
+          format: int64
+          type: integer
       required:
       - code
       - name
       - revolving
+      - version
       type: object
     ProvideInfoRequest:
       properties:
@@ -1132,6 +1384,14 @@ components:
       required:
       - code
       - title
+      type: object
+    ReadRequest:
+      properties:
+        lastReadSeq:
+          format: int64
+          type: integer
+      required:
+      - lastReadSeq
       type: object
     ReasonView:
       properties:
@@ -1390,6 +1650,12 @@ components:
       - title
       - transitions
       type: object
+    SubmitRequest:
+      properties:
+        acceptedProductVersion:
+          format: int64
+          type: integer
+      type: object
     SystemKeyError:
       properties:
         error:
@@ -1504,6 +1770,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/analytics/funnel
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Воронка, время на этапах и исходы решений за период (по умолчанию 30 дней)
@@ -1570,6 +1849,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: 'Заявки: клиенту — его компании, сотрудникам банка — очередь без черновиков'
@@ -1642,6 +1934,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Создать черновик заявки
@@ -1703,6 +2008,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Карточка своей заявки с состоянием конвейера, решением и документами
@@ -1795,6 +2113,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Изменить черновик
@@ -1802,7 +2133,7 @@ paths:
       - Заявки, документы и выдача
   /api/v1/applications/{id}/documents:
     post:
-      operationId: upload
+      operationId: upload_1
       parameters:
       - in: path
         name: id
@@ -1917,6 +2248,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/documents
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Загрузить документ (в черновик или по запросу банка)
@@ -2019,6 +2363,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Удалить свой документ из редактируемого черновика
@@ -2099,6 +2456,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/documents/{documentId}
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: 'Скачать документ: представителям компании и сотрудникам банка'
@@ -2162,6 +2532,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/events
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: 'Журнал заявки: история для клиента, аудит для банка'
@@ -2254,11 +2637,597 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/info-provided
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: 'Ответить на запрос банка: документы загружены, на вопросы дан ответ (T5)'
       tags:
       - Заявки, документы и выдача
+  /api/v1/applications/{id}/messages:
+    get:
+      operationId: list_1
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: after
+        required: false
+        schema:
+          format: int64
+          type: integer
+      - in: query
+        name: before
+        required: false
+        schema:
+          format: int64
+          type: integer
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 50
+          format: int32
+          type: integer
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChatView'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Сообщения участников заявки; без курсора — последние, before — история, after — новые
+      tags:
+      - Переписка по заявке
+    post:
+      operationId: send
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/MessageView'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/messages
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Отправить простой текст до 2000 символов или вложения; повтор ключа не создаёт новое сообщение
+      tags:
+      - Переписка по заявке
+  /api/v1/applications/{id}/messages/attachments:
+    post:
+      operationId: upload
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              properties:
+                file:
+                  format: binary
+                  type: string
+              required:
+              - file
+              type: object
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChatFile'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/messages/attachments
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/messages/attachments
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/messages/attachments
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/messages/attachments
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/messages/attachments
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/applications/{id}/messages/attachments
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/messages/attachments
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Загрузить вложение через хранилище документов, не меняя комплектность или журнал заявки
+      tags:
+      - Переписка по заявке
+  /api/v1/applications/{id}/messages/audit:
+    get:
+      operationId: audit
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 100
+          format: int32
+          type: integer
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/ChatAudit'
+                type: array
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/messages/audit
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/messages/audit
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/messages/audit
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/applications/{id}/messages/audit
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/messages/audit
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Отдельный аудит переписки для сотрудников банка; бизнес-журнал заявки не меняется
+      tags:
+      - Переписка по заявке
+  /api/v1/applications/{id}/messages/read:
+    post:
+      operationId: read
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReadRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ChatState'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/messages/read
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/messages/read
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/messages/read
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/messages/read
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/messages/read
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/applications/{id}/messages/read
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/messages/read
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Отметить прочитанным для стороны компании или банка, не уменьшая курсор
+      tags:
+      - Переписка по заявке
   /api/v1/applications/{id}/offer/accept:
     post:
       operationId: acceptOffer
@@ -2341,6 +3310,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/offer/accept
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Принять предложение банка (T16); сразу выпускается код подписи
@@ -2433,6 +3415,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/offer/decline
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Отказаться от предложения банка (T17)
@@ -2494,6 +3489,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/schedule
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: График платежей по выданному кредиту или по предложению банка
@@ -2587,6 +3595,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/sign
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Подписать договор кодом (T18)
@@ -2674,6 +3695,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/signing/code
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Получить новый код подписи
@@ -2695,6 +3729,11 @@ paths:
         required: false
         schema:
           type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitRequest'
       responses:
         '200':
           content:
@@ -2767,6 +3806,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/submit
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Отправить заявку в банк (T2)
@@ -2859,14 +3911,262 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/withdraw
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Отозвать заявку (T21)
       tags:
       - Заявки, документы и выдача
+  /api/v1/bank/products:
+    get:
+      operationId: list_3
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/Product'
+                type: array
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/bank/products
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/bank/products
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/bank/products
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Все действующие и выключенные продукты для сотрудников банка
+      tags:
+      - Версии кредитных продуктов
+  /api/v1/bank/products/{code}:
+    get:
+      operationId: history
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/ProductRevision'
+                type: array
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/bank/products/{code}
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/bank/products/{code}
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/bank/products/{code}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/bank/products/{code}
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Карточка продукта и неизменяемая история условий
+      tags:
+      - Версии кредитных продуктов
+    put:
+      operationId: replace
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductEdit'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ProductRevision'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/bank/products/{code}
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/bank/products/{code}
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/bank/products/{code}
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/bank/products/{code}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/bank/products/{code}
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/bank/products/{code}
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Сохранить новую версию или выключить продукт (риск-администратор)
+      tags:
+      - Версии кредитных продуктов
   /api/v1/products:
     get:
-      operationId: list_1
+      operationId: list_2
       responses:
         '200':
           content:
@@ -3058,6 +4358,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/rules
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Действующие пороги кредитной политики и история версий
@@ -3130,6 +4443,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/rules
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Сохранить новую версию порогов (риск-администратор)
@@ -3191,6 +4517,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/underwriting/applications/{id}
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: 'Карточка оценки: данные источников, расхождения, скоринг и рекомендация'
@@ -3283,6 +4622,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/underwriting/applications/{id}/approve
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Одобрить на запрошенных условиях (T13)
@@ -3376,6 +4728,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/underwriting/applications/{id}/counter-offer
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Предложить другие условия (T13)
@@ -3469,6 +4834,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/underwriting/applications/{id}/reject
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Отказать с объяснением для клиента (T15)
@@ -3576,6 +4954,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
           description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/underwriting/applications/{id}/request-info
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
       security:
       - bearerAuth: []
       summary: Запросить документы или пояснения у клиента (T14)

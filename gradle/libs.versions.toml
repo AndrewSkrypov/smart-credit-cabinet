@@ -4,7 +4,9 @@ spring-boot = "3.5.16"
 spring-dependency-management = "1.1.7"
 jjwt = "0.12.6"
 springdoc = "2.8.9"
-aws-sdk = "2.55.6"
+aws-sdk = "2.55.13"
+jackson = "2.21.7"
+valkey-java = "5.5.0"
 ktlint-gradle = "13.1.0"
 mockito-kotlin = "5.4.0"
 resilience4j = "2.3.0"
@@ -30,6 +32,7 @@ springdoc-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc
 aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
 aws-sdk-url-connection-client = { module = "software.amazon.awssdk:url-connection-client" }
+valkey-java = { module = "io.valkey:valkey-java", version.ref = "valkey-java" }
 resilience4j-circuitbreaker = { module = "io.github.resilience4j:resilience4j-circuitbreaker", version.ref = "resilience4j" }
 
 # Tests

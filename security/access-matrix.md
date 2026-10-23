@@ -3,6 +3,8 @@
 Источник ожиданий — [access-policy.json](access-policy.json). Полнота проверяется по четырём OpenAPI.
 
 - Порядок HTTP-кодов в каждой строке соответствует roles.
+- Восстановление проверяется без почтового профиля: 503 означает выключенный канал для всех ролей. Для публичного потребления ссылок используется заведомо отсутствующая ссылка: 410 для всех ролей; успешные ссылки проверяются интеграционными и сквозными тестами.
+- Для смены пароля сохраняется прежний пароль синтетического пользователя, после смены и logout-all каждый участник входит заново. Приглашения и отзыв проверяются на собственных фикстурах; отдельные проверки покрывают отсутствие подписи, последнего подписанта и отозванный JWT.
 - Для коллекций и создания другой клиент работает со своей компанией; для объекта заявки обращается к объекту владельца.
 - Для отметки уведомления сотрудники банка получают собственные синтетические уведомления; другой клиент проверяет чужое уведомление владельца.
 - 204 — предусмотренный контрактом успешный ответ без тела при удалении документа и отметке уведомления.
@@ -14,7 +16,18 @@
 | identity | `GET /api/v1/auth/session` | 401 | 200 | 200 | 200 | 200 | 200 |
 | identity | `POST /api/v1/auth/sign-in` | 200 | 200 | 200 | 200 | 200 | 200 |
 | identity | `POST /api/v1/auth/sign-up` | 200 | 200 | 200 | 200 | 200 | 200 |
+| identity | `POST /api/v1/auth/password-recovery` | 503 | 503 | 503 | 503 | 503 | 503 |
+| identity | `POST /api/v1/auth/password-reset` | 410 | 410 | 410 | 410 | 410 | 410 |
+| identity | `POST /api/v1/auth/invitations/inspect` | 410 | 410 | 410 | 410 | 410 | 410 |
+| identity | `POST /api/v1/auth/invitations/accept` | 410 | 410 | 410 | 410 | 410 | 410 |
+| identity | `POST /api/v1/auth/password` | 401 | 200 | 200 | 200 | 200 | 200 |
+| identity | `POST /api/v1/auth/logout-all` | 401 | 200 | 200 | 200 | 200 | 200 |
 | identity | `GET /api/v1/companies/me` | 401 | 200 | 200 | 403 | 403 | 403 |
+| identity | `GET /api/v1/companies/me/employees` | 401 | 200 | 200 | 403 | 403 | 403 |
+| identity | `POST /api/v1/companies/me/invitations` | 401 | 200 | 200 | 403 | 403 | 403 |
+| identity | `POST /api/v1/companies/me/invitations/{id}/resend` | 401 | 200 | 404 | 403 | 403 | 403 |
+| identity | `DELETE /api/v1/companies/me/invitations/{id}` | 401 | 200 | 404 | 403 | 403 | 403 |
+| identity | `DELETE /api/v1/companies/me/employees/{id}/access` | 401 | 200 | 404 | 403 | 403 | 403 |
 | identity | `GET /api/v1/users/me` | 401 | 200 | 200 | 200 | 200 | 200 |
 | credit | `GET /api/v1/analytics/funnel` | 401 | 403 | 403 | 200 | 200 | 200 |
 | credit | `GET /api/v1/applications` | 401 | 200 | 200 | 200 | 200 | 200 |
@@ -24,6 +37,11 @@
 | credit | `POST /api/v1/applications/{id}/documents` | 401 | 201 | 404 | 403 | 403 | 403 |
 | credit | `DELETE /api/v1/applications/{id}/documents/{documentId}` | 401 | 204 | 404 | 403 | 403 | 403 |
 | credit | `GET /api/v1/applications/{id}/documents/{documentId}` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `GET /api/v1/applications/{id}/messages` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `POST /api/v1/applications/{id}/messages` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `POST /api/v1/applications/{id}/messages/read` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `POST /api/v1/applications/{id}/messages/attachments` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `GET /api/v1/applications/{id}/messages/audit` | 401 | 403 | 403 | 200 | 200 | 200 |
 | credit | `GET /api/v1/applications/{id}/events` | 401 | 200 | 404 | 200 | 200 | 200 |
 | credit | `POST /api/v1/applications/{id}/info-provided` | 401 | 200 | 404 | 403 | 403 | 403 |
 | credit | `POST /api/v1/applications/{id}/offer/accept` | 401 | 200 | 404 | 403 | 403 | 403 |
@@ -40,6 +58,9 @@
 | credit | `GET /api/v1/products/{code}/calculation` | 200 | 200 | 200 | 200 | 200 | 200 |
 | credit | `GET /api/v1/rules` | 401 | 403 | 403 | 200 | 200 | 200 |
 | credit | `POST /api/v1/rules` | 401 | 403 | 403 | 403 | 403 | 201 |
+| credit | `GET /api/v1/bank/products` | 401 | 403 | 403 | 200 | 200 | 200 |
+| credit | `GET /api/v1/bank/products/{code}` | 401 | 403 | 403 | 200 | 200 | 200 |
+| credit | `PUT /api/v1/bank/products/{code}` | 401 | 403 | 403 | 403 | 403 | 200 |
 | credit | `GET /api/v1/underwriting/applications/{id}` | 401 | 403 | 403 | 200 | 200 | 200 |
 | credit | `POST /api/v1/underwriting/applications/{id}/approve` | 401 | 403 | 403 | 403 | 200 | 403 |
 | credit | `POST /api/v1/underwriting/applications/{id}/counter-offer` | 401 | 403 | 403 | 403 | 200 | 403 |
@@ -48,6 +69,8 @@
 | engagement | `POST /api/v1/assistant/messages` | 401 | 200 | 404 | 200 | 200 | 200 |
 | engagement | `GET /api/v1/assistant/status` | 401 | 200 | 200 | 200 | 200 | 200 |
 | engagement | `GET /api/v1/notifications` | 401 | 200 | 200 | 200 | 200 | 200 |
+| engagement | `GET /api/v1/notifications/settings` | 401 | 200 | 200 | 200 | 200 | 200 |
+| engagement | `PUT /api/v1/notifications/settings` | 401 | 200 | 200 | 200 | 200 | 200 |
 | engagement | `POST /api/v1/notifications/read-all` | 401 | 200 | 200 | 200 | 200 | 200 |
 | engagement | `GET /api/v1/notifications/unread-count` | 401 | 200 | 200 | 200 | 200 | 200 |
 | engagement | `POST /api/v1/notifications/{id}/read` | 401 | 204 | 404 | 204 | 204 | 204 |

@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 from common import Deployment, ROOT
-from backup_support import DATABASES, checked_docker, database_snapshot, digest, document_inventory, document_volume
+from backup_support import DATABASES, checked_docker, database_snapshot, digest, document_inventory, storage_volume, backup_archives
 
 parser = argparse.ArgumentParser(description="Восстановление только в новый пустой cabinet-prod-restore* проект")
 parser.add_argument("backup")
@@ -19,18 +19,23 @@ assert args.project.startswith("cabinet-prod-restore"), "Для восстано
 deployment = Deployment(args.project, args.env_file, args.local)
 directory = Path(args.backup).resolve()
 manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
-assert manifest["format_version"] == 1 and manifest["backup_complete"], "Копия не завершена или формат неизвестен"
+archives = backup_archives(manifest)
 assert args.project != manifest["source_project"], "Нельзя перезаписать исходный проект копии"
 assert deployment.values["CABINET_RELEASE"] == manifest["release"], "Сначала выберите тот же выпуск приложений, что и в копии"
-assert set(manifest["files"]) == {"identity.dump", "credit.dump", "engagement.dump", "documents.tar.gz"}, "Неожиданный состав копии"
 for name, expected in manifest["files"].items():
     path = directory / name
     assert path.is_file() and path.stat().st_size == expected["bytes"] and digest(path) == expected["sha256"], "Нарушена целостность копии: " + name
-assert document_inventory(directory / "documents.tar.gz") == manifest["documents"], "Архив документов не совпадает с manifest"
+for archive, (_, inventory) in archives.items():
+    assert document_inventory(directory / archive) == inventory, "Архив хранилища не совпадает с manifest"
+if manifest.get("storage", {}).get("backends", {}).get("S3", 0):
+    assert deployment.values.get("STORAGE_BACKEND") == "s3" or deployment.values.get("STORAGE_ENABLED") == "true", "Для восстановления S3 включите storage"
+    credit_environment = deployment.config()["services"]["credit"]["environment"]
+    assert credit_environment["S3_ENDPOINT"] == "http://seaweedfs:8333", "Восстановление тома S3 требует собственного SeaweedFS"
+    assert credit_environment["S3_BUCKET"] == manifest["storage"]["s3_bucket"], "S3_BUCKET должен совпасть с бакетом копии"
 report = {"checked_at": datetime.now(timezone.utc).isoformat(), "source_project": manifest["source_project"], "target_project": args.project,
           "passed": False, "checks": []}
 try:
-    for service in ["identity", "credit", "engagement", "caddy"]:
+    for service in ["identity", "credit", "engagement", "caddy", "seaweedfs"]:
         assert not deployment.compose("ps", "-a", "-q", service, capture=True).strip(), "Целевой проект уже содержит приложения; выберите новый"
     deployment.compose("up", "-d", "--build", "--wait", "--wait-timeout", "180", "postgres")
     deployment.compose("run", "--rm", "--no-deps", "db-init")
@@ -38,27 +43,30 @@ try:
     for database in DATABASES:
         tables = int(deployment.sql(database, "select count(*) from pg_tables where schemaname='public'"))
         assert tables == 0, "Целевая БД не пуста; данные не будут перезаписаны"
-    volume = document_volume(deployment)
-    checked_docker("volume", "create", "--label", "com.docker.compose.project=" + args.project,
-                   "--label", "com.docker.compose.volume=cabinet-documents", volume)
-    metadata = json.loads(subprocess.check_output(["docker", "volume", "inspect", volume], text=True))[0]
-    assert metadata["Labels"].get("com.docker.compose.project") == args.project, "Том принадлежит другому проекту"
     image = deployment.config()["services"]["postgres"]["image"]
-    existing = checked_docker("run", "--rm", "--network", "none", "-v", volume + ":/documents", image,
-                              "sh", "-c", "find /documents -mindepth 1 -print -quit")
-    assert not existing.strip(), "Том документов не пуст; восстановление остановлено"
+    for _, (key, _) in archives.items():
+        volume = storage_volume(deployment, key)
+        checked_docker("volume", "create", "--label", "com.docker.compose.project=" + args.project,
+                       "--label", "com.docker.compose.volume=" + key, volume)
+        metadata = json.loads(subprocess.check_output(["docker", "volume", "inspect", volume], text=True))[0]
+        assert metadata["Labels"].get("com.docker.compose.project") == args.project, "Том принадлежит другому проекту"
+        existing = checked_docker("run", "--rm", "--network", "none", "-v", volume + ":/documents", image,
+                                  "sh", "-c", "find /documents -mindepth 1 -print -quit")
+        assert not existing.strip(), "Том хранилища не пуст; восстановление остановлено"
     for database in DATABASES:
         with (directory / f"{database}.dump").open("rb") as stream:
             checked_docker("exec", "-i", deployment.container("postgres"), "pg_restore", "-U", deployment.values.get("POSTGRES_USER", "cabinet"),
                            "-d", database, "--clean", "--if-exists", "--no-owner", "--no-acl", "--exit-on-error", stdin=stream)
     assert database_snapshot(deployment) == manifest["databases"], "Таблицы или последовательности после восстановления отличаются"
     report["checks"].append("Все таблицы, данные и последовательности трёх БД совпадают до запуска worker")
-    checked_docker("run", "--rm", "--network", "none", "-v", volume + ":/documents", "-v", str(directory) + ":/backup:ro", image,
-                   "sh", "-c", "tar -xzf /backup/documents.tar.gz -C /documents")
-    output = checked_docker("run", "--rm", "--network", "none", "-v", volume + ":/documents:ro", image,
-                            "sh", "-c", "cd /documents && find . -type f -exec sha256sum '{}' +").decode()
-    restored = {name.removeprefix("./"): checksum for line in output.splitlines() for checksum, name in [line.split("  ", 1)]}
-    assert restored == {name: value["sha256"] for name, value in manifest["documents"].items()}, "Содержимое восстановленного тома отличается"
+    for archive, (key, inventory) in archives.items():
+        volume = storage_volume(deployment, key)
+        checked_docker("run", "--rm", "--network", "none", "-v", volume + ":/documents", "-v", str(directory) + ":/backup:ro", image,
+                       "sh", "-c", "tar -xzf /backup/" + archive + " -C /documents")
+        output = checked_docker("run", "--rm", "--network", "none", "-v", volume + ":/documents:ro", image,
+                                "sh", "-c", "cd /documents && find . -type f -exec sha256sum '{}' +").decode()
+        restored = {name.removeprefix("./"): checksum for line in output.splitlines() for checksum, name in [line.split("  ", 1)]}
+        assert restored == {name: value["sha256"] for name, value in inventory.items()}, "Содержимое восстановленного тома отличается"
     report["checks"].append("Проверены SHA256 всех файлов, безопасные пути и восстановлен том документов")
     command = [sys.executable, str(ROOT / "deploy/start.py"), "--project", args.project, "--env-file", str(deployment.path), "--no-build"]
     if args.local:

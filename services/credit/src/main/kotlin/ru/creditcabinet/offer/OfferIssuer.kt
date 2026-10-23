@@ -36,6 +36,8 @@ class OfferIssuer(
             decisionId = decision.id,
             kind = kind,
             productCode = terms.productCode,
+            productVersion = application.productCatalogSnapshot[terms.productCode]
+                ?: throw IllegalStateException("Предложение требует зафиксированную версию продукта"),
             amount = terms.amount,
             termMonths = terms.termMonths,
             rate = terms.rate,
@@ -46,7 +48,14 @@ class OfferIssuer(
         )
         offers.save(offer)
         val saved = transitions.commit(
-            application.move(event, actor, now, reasonCode = kind.name, comment = comment, payload = payload + ("offerId" to offer.id.toString())),
+            application.move(
+                event,
+                actor,
+                now,
+                reasonCode = kind.name,
+                comment = comment,
+                payload = payload + mapOf("offerId" to offer.id.toString(), "deadline" to offer.validUntil.toString()),
+            ),
         )
         jobs.enqueue(application.id, PipelineStep.EXPIRE_OFFER, offer.validUntil)
         return saved

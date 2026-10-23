@@ -1,0 +1,59 @@
+{
+  "checked_at": "2026-10-22T11:11:13.664888+00:00",
+  "operations": 66,
+  "roles": [
+    "anonymous",
+    "owner",
+    "other_client",
+    "manager",
+    "underwriter",
+    "risk_admin"
+  ],
+  "expected_checks": 396,
+  "extra_checks": [
+    {
+      "fixture": "non_signer",
+      "method": "POST",
+      "path": "/api/v1/companies/me/invitations",
+      "expected": 403,
+      "actual": 403
+    },
+    {
+      "fixture": "non_signer",
+      "method": "DELETE",
+      "path": "/api/v1/companies/me/employees/b1c06a28-87be-402e-bf9c-18ce7e05d838/access",
+      "expected": 403,
+      "actual": 403
+    },
+    {
+      "fixture": "revoked",
+      "method": "GET",
+      "path": "/api/v1/users/me",
+      "expected": 401,
+      "actual": 401
+    },
+    {
+      "fixture": "revoked",
+      "method": "GET",
+      "path": "/api/v1/applications",
+      "expected": 401,
+      "actual": 401
+    },
+    {
+      "fixture": "revoked",
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "expected": 401,
+      "actual": 401
+    },
+    {
+      "fixture": "last_signer",
+      "expected": 409,
+      "actual": 409
+    }
+  ],
+  "passed": true,
+  "passed_checks": 396,
+  "source_revision": "working-tree",
+  "note": "Локальный кандидат пользовательского блока; финальный опубликованный SHA повторно проверяется в CI."
+}

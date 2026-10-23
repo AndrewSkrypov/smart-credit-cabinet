@@ -2,18 +2,25 @@ package ru.creditcabinet.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.company.domain.CompanyRegistry
 import ru.creditcabinet.company.domain.RegistryAnswer
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -37,6 +44,12 @@ class AuthIntegrationTest {
 
     @MockitoBean
     private lateinit var registry: CompanyRegistry
+
+    @MockitoSpyBean
+    private lateinit var passwordEncoder: PasswordEncoder
+
+    @Autowired
+    private lateinit var jdbc: JdbcTemplate
 
     @BeforeTest
     fun registryKnowsEveryone() {
@@ -109,6 +122,28 @@ class AuthIntegrationTest {
         assertEquals("UNDERWRITER", claims.role)
         assertEquals(null, claims.companyId)
         assertEquals(401, signIn("underwriter@demo.test", "wrong-password1").status)
+    }
+
+    @Test
+    fun `stale password validation cannot acquire a newly changed credentials version`() {
+        val email = "password-race-${UUID.randomUUID()}@example.test"
+        val oldPassword = "Secret2026"
+        val newPassword = "Changed2026safe"
+        assertEquals(200, signUp(randomInn12(), email, password = oldPassword).status)
+        val replacement = passwordEncoder.encode(newPassword)
+        val changed = AtomicBoolean(false)
+        doAnswer { invocation ->
+            val raw = invocation.arguments[0] as CharSequence
+            val encoded = invocation.arguments[1] as String
+            if (raw.toString() == oldPassword && changed.compareAndSet(false, true)) {
+                jdbc.update("update users set password_hash=?,credentials_version=credentials_version+1 where email=?", replacement, email)
+            }
+            BCryptPasswordEncoder().matches(raw, encoded)
+        }.whenever(passwordEncoder).matches(any(), any())
+        assertEquals(401, signIn(email, oldPassword).status, "A password checked before reset cannot gain the new session version")
+        val fresh = signIn(email, newPassword)
+        assertEquals(200, fresh.status)
+        assertEquals(1, jwtVerifier.parseClaims(tokenOf(fresh.contentAsString)).credentialsVersion)
     }
 
     @Test

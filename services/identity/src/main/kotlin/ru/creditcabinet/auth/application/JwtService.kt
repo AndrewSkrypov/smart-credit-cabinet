@@ -22,7 +22,7 @@ class JwtService(
 
     /**
      * Signs a token that carries the role, the company and the right to sign, so other services
-     * know who is calling and for which company without asking identity on every request.
+     * know who is calling and for which company; credentials revocation is checked separately.
      */
     fun issue(user: User): String {
         val now = Instant.now()

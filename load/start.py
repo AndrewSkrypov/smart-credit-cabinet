@@ -12,7 +12,7 @@ parser.add_argument("--project", default="cabinet-submission")
 parser.add_argument("--replicas", type=int, choices=[1, 2], default=2)
 parser.add_argument("--build", action="store_true")
 args = parser.parse_args()
-if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e)(?:-[a-z0-9]+)?", args.project):
+if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e|release)(?:-[a-z0-9]+)?", args.project):
     parser.error("Разрешён только отдельный тестовый проект cabinet-submission/cabinet-reliability/cabinet-e2e")
 subprocess.run([sys.executable, "load/prepare-config.py"], cwd=ROOT, check=True)
 subprocess.run([

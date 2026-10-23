@@ -1,0 +1,24 @@
+{
+  "started_at": "2026-10-22T09:31:13.663987+00:00",
+  "project": "cabinet-release-work",
+  "companies": 12,
+  "sender_instances": 2,
+  "passed": true,
+  "source_commit": "bc73efd9b3571c589056bbf6b4a509c763b55aab",
+  "business_completed_during_outage_seconds": 30.376,
+  "queued_before_restart": 20,
+  "maximum_attempts_before_restart": 5,
+  "catch_up_seconds": 24.303,
+  "sent": 20,
+  "delivered": 20,
+  "lost": 0,
+  "duplicates": 0,
+  "receiver": {
+    "receipts": 20,
+    "notifications": 20,
+    "duplicates": 0
+  },
+  "concurrent_replays": 4,
+  "additional_replay_notifications": 0,
+  "finished_at": "2026-10-22T09:32:12.296393+00:00"
+}

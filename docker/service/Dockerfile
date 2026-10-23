@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# Use the Docker Engine's bundled BuildKit frontend; no registry fetch is needed to parse this file.
 # One image recipe for every backend service: docker build --build-arg SERVICE=credit ...
 #
 # JAR_SOURCE=gradle   (default, local docker compose) compiles the service inside the build.
@@ -22,7 +22,7 @@ FROM jar-${JAR_SOURCE} AS jar
 
 # Split the fat jar into layers (dependencies change rarely, application code often),
 # so a code-only change pushes and pulls a few hundred KB instead of the whole image.
-FROM eclipse-temurin:21-jre-jammy AS extract
+FROM eclipse-temurin:21-jre-jammy@sha256:affcab5356e1270ac35d2361ee83135af2f03e8d580eca78a6d5d6fdbf048db0 AS extract
 WORKDIR /extract
 COPY --from=jar /app.jar app.jar
 RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination layers
@@ -33,7 +33,7 @@ RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination 
 # Paths are copied in the order they change: dependencies first, rarely touched,
 # Our own application code last, so a code-only release ships a few hundred KB.
 # Vulnerabilities in these layers stop the pipeline (Trivy): bump the base tags then.
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:21-jre-jammy@sha256:affcab5356e1270ac35d2361ee83135af2f03e8d580eca78a6d5d6fdbf048db0
 ARG SOURCE_REVISION=unknown
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 RUN apt-get update \

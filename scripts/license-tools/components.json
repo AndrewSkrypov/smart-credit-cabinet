@@ -37,7 +37,7 @@
       "source": "https://github.com/gradle/gradle/blob/v8.10.2/LICENSE"
     },
     {
-      "image": "eclipse-temurin:21-jre-jammy",
+      "image": "eclipse-temurin:21-jre-jammy@sha256:affcab5356e1270ac35d2361ee83135af2f03e8d580eca78a6d5d6fdbf048db0",
       "component": "Eclipse Temurin / OpenJDK",
       "license": "GPL-2.0-with-classpath-exception; Apache-2.0 (рецепт образа)",
       "source": "https://adoptium.net/about/faq/"
@@ -77,6 +77,30 @@
       "component": "Caddy",
       "license": "Apache-2.0",
       "source": "https://github.com/caddyserver/caddy/blob/v2.11.7/LICENSE"
+    },
+    {
+      "image": "axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387",
+      "component": "Mailpit, отдельный локальный SMTP-перехватчик",
+      "license": "MIT",
+      "source": "https://github.com/axllent/mailpit/blob/v1.31.6/LICENSE"
+    },
+    {
+      "image": "chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
+      "component": "SeaweedFS, отдельное приватное хранилище S3",
+      "license": "Apache-2.0",
+      "source": "https://github.com/seaweedfs/seaweedfs/blob/4.48/LICENSE"
+    },
+    {
+      "image": "clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e",
+      "component": "ClamAV, отдельный антивирусный контейнер; взаимодействие по TCP INSTREAM без связывания с кодом приложения",
+      "license": "GPL-2.0",
+      "source": "https://github.com/Cisco-Talos/clamav/blob/clamav-1.5.4/COPYING"
+    },
+    {
+      "image": "valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11",
+      "component": "Valkey, отдельное хранилище общих лимитов и отзыва",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/valkey-io/valkey/blob/9.1.2/COPYING"
     }
   ],
   "assets": [
@@ -114,6 +138,41 @@
       "license": "Apache-2.0",
       "source": "https://github.com/pyca/bcrypt/blob/5.0.0/LICENSE",
       "note": "Используется только локальным deploy/provision-bank-user.py, не добавляет публичных API и не выводит пароль."
+    },
+    {
+      "name": "botocore",
+      "version": "1.43.118",
+      "license": "Apache-2.0",
+      "source": "https://github.com/boto/botocore/blob/1.43.118/LICENSE.txt",
+      "note": "Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel."
+    },
+    {
+      "name": "jmespath",
+      "version": "1.1.0",
+      "license": "MIT",
+      "source": "https://github.com/jmespath/jmespath.py/blob/1.1.0/LICENSE",
+      "note": "Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel."
+    },
+    {
+      "name": "python-dateutil",
+      "version": "2.9.0.post0",
+      "license": "Apache-2.0 AND BSD-3-Clause",
+      "source": "https://github.com/dateutil/dateutil/blob/2.9.0.post0/LICENSE",
+      "note": "Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel."
+    },
+    {
+      "name": "six",
+      "version": "1.17.0",
+      "license": "MIT",
+      "source": "https://github.com/benjaminp/six/blob/1.17.0/LICENSE",
+      "note": "Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel."
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "license": "MIT",
+      "source": "https://github.com/urllib3/urllib3/blob/2.8.0/LICENSE.txt",
+      "note": "Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel."
     }
   ],
   "simulations": [

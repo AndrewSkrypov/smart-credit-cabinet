@@ -338,6 +338,20 @@
       ]
     },
     {
+      "name": "com.github.virtuald:curvesapi",
+      "version": "1.08",
+      "licenses": [
+        "BSD License"
+      ],
+      "sources": [
+        "http://opensource.org/licenses/BSD-3-Clause",
+        "https://github.com/virtuald/curvesapi"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "com.google.code.findbugs:jsr305",
       "version": "3.0.2",
       "licenses": [
@@ -679,6 +693,20 @@
       ]
     },
     {
+      "name": "com.zaxxer:SparseBitSet",
+      "version": "1.3",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/brettwooldridge/SparseBitSet"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "commons-codec:commons-codec",
       "version": "1.17.1",
       "licenses": [
@@ -695,6 +723,22 @@
       ]
     },
     {
+      "name": "commons-codec:commons-codec",
+      "version": "1.18.0",
+      "licenses": [
+        "Apache License, Version 2.0",
+        "Apache-2.0"
+      ],
+      "sources": [
+        "https://commons.apache.org/proper/commons-codec/",
+        "https://www.apache.org/licenses/LICENSE-2.0",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "commons-io:commons-io",
       "version": "2.17.0",
       "licenses": [
@@ -708,6 +752,22 @@
       ],
       "scopes": [
         "build-logic"
+      ]
+    },
+    {
+      "name": "commons-io:commons-io",
+      "version": "2.22.0",
+      "licenses": [
+        "Apache License, Version 2.0",
+        "Apache-2.0"
+      ],
+      "sources": [
+        "https://commons.apache.org/proper/commons-io/",
+        "https://www.apache.org/licenses/LICENSE-2.0",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
       ]
     },
     {
@@ -1513,6 +1573,22 @@
       ]
     },
     {
+      "name": "org.apache.commons:commons-collections4",
+      "version": "4.6.0",
+      "licenses": [
+        "Apache License, Version 2.0",
+        "Apache-2.0"
+      ],
+      "sources": [
+        "https://commons.apache.org/proper/commons-collections/",
+        "https://www.apache.org/licenses/LICENSE-2.0",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "org.apache.commons:commons-compress",
       "version": "1.27.1",
       "licenses": [
@@ -1526,6 +1602,22 @@
       ],
       "scopes": [
         "build-logic"
+      ]
+    },
+    {
+      "name": "org.apache.commons:commons-compress",
+      "version": "1.28.0",
+      "licenses": [
+        "Apache License, Version 2.0",
+        "Apache-2.0"
+      ],
+      "sources": [
+        "https://commons.apache.org/proper/commons-compress/",
+        "https://www.apache.org/licenses/LICENSE-2.0",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
       ]
     },
     {
@@ -1555,6 +1647,20 @@
         "https://commons.apache.org/proper/commons-lang/",
         "https://www.apache.org/licenses/LICENSE-2.0",
         "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.apache.commons:commons-math3",
+      "version": "3.6.1",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://commons.apache.org/proper/commons-math/",
+        "http://www.apache.org/licenses/LICENSE-2.0.txt"
       ],
       "scopes": [
         "backend"
@@ -1673,6 +1779,97 @@
       ]
     },
     {
+      "name": "org.apache.pdfbox:fontbox",
+      "version": "3.0.8",
+      "licenses": [
+        "Apache License, Version 2.0",
+        "Apache-2.0"
+      ],
+      "sources": [
+        "http://pdfbox.apache.org/",
+        "https://pdfbox.apache.org",
+        "https://www.apache.org/licenses/LICENSE-2.0",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.apache.pdfbox:pdfbox",
+      "version": "3.0.8",
+      "licenses": [
+        "Apache License, Version 2.0",
+        "Apache-2.0"
+      ],
+      "sources": [
+        "https://pdfbox.apache.org",
+        "https://www.apache.org/licenses/LICENSE-2.0",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.apache.pdfbox:pdfbox-io",
+      "version": "3.0.8",
+      "licenses": [
+        "Apache License, Version 2.0",
+        "Apache-2.0"
+      ],
+      "sources": [
+        "https://pdfbox.apache.org",
+        "https://www.apache.org/licenses/LICENSE-2.0",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.apache.poi:poi",
+      "version": "6.0.0",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://poi.apache.org/",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.apache.poi:poi-ooxml",
+      "version": "6.0.0",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://poi.apache.org/",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.apache.poi:poi-ooxml-lite",
+      "version": "6.0.0",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://poi.apache.org/",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "org.apache.tomcat.embed:tomcat-embed-core",
       "version": "10.1.60",
       "licenses": [
@@ -1714,6 +1911,22 @@
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
         "https://tomcat.apache.org/",
         "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.apache.xmlbeans:xmlbeans",
+      "version": "5.4.1",
+      "licenses": [
+        "Apache License, Version 2.0",
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "https://www.apache.org/licenses/LICENSE-2.0",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://xmlbeans.apache.org/"
       ],
       "scopes": [
         "backend"
@@ -10542,6 +10755,13 @@
       "license": "Apache-2.0",
       "source": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/blob/main/LICENSE",
       "note": "Отдельный проверенный override для контрольного набора; лицензия скачанного пакета совпала с издателем. Не меняет модель по умолчанию и не подтверждает качество ответов; результаты и ограничения в docs/assistant-eval.md."
+    },
+    {
+      "name": "DejaVu Sans (regular and bold)",
+      "version": "2.37 (fonts-dejavu-core from the pinned service runtime image)",
+      "license": "Bitstream-Vera; DejaVu changes public domain",
+      "source": "https://dejavu-fonts.github.io/License.html",
+      "note": "Unmodified TTF files used for embedded Cyrillic in generated PDFs; upstream copyright and permission are included in services/credit/src/main/resources/fonts/LICENSE-DejaVu.txt. No Debian packaging files included."
     }
   ],
   "simulations": [

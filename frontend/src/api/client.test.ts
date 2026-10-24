@@ -1,6 +1,7 @@
 import { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { Blob as ReadableBlob } from 'node:buffer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from './client';
+import { api, artifactsApi } from './client';
 import { readSession, writeSession } from '../auth/session';
 import { UserSession } from '../types';
 
@@ -49,5 +50,18 @@ describe('session response ordering', () => {
     await expect(api.get('/notifications')).rejects.toThrow('Проверка сессии временно недоступна');
     expect(readSession()?.token).toBe('current-session');
     expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('a failed bearer file download exposes the JSON blob error without clearing the session', async () => {
+    vi.stubGlobal('Blob', ReadableBlob);
+    writeSession(session('file-session'));
+    api.defaults.adapter = async (config) => {
+      expect(config.responseType).toBe('blob');
+      expect(config.headers.Authorization).toBe('Bearer file-session');
+      const data = new ReadableBlob([JSON.stringify({ message: 'Файл временно недоступен. Повторите создание.' })], { type: 'application/json' });
+      throw new AxiosError('download failed', 'ERR_BAD_RESPONSE', config, undefined, { status: 503, statusText: 'Unavailable', headers: {}, config, data });
+    };
+    await expect(artifactsApi.download('application', 'file', 'schedule.pdf')).rejects.toThrow('Файл временно недоступен. Повторите создание.');
+    expect(readSession()?.token).toBe('file-session');
   });
 });

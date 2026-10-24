@@ -27,6 +27,7 @@ Compose запускает [миграции отдельными владель
 | [docs/research.md](docs/research.md) | Персоны, JTBD, карта историй, приоритеты MoSCoW/RICE |
 | [docs/process-model.md](docs/process-model.md) | Границы процесса, этапы, данные, скоринг и кредитная логика |
 | [docs/state-machine.md](docs/state-machine.md) | Статусы заявки, переходы, инварианты |
+| [docs/generated-files.md](docs/generated-files.md) | PDF/XLSX условий и графика, хранение, скачивание и почтовое уведомление |
 | [docs/architecture.md](docs/architecture.md) | Сервисы, взаимодействие, безопасность |
 | [docs/assistant-eval.md](docs/assistant-eval.md) | 36 контрольных вопросов, измерения и ограничения помощника |
 | [docs/design-tokens.md](docs/design-tokens.md) | Цвета, шрифты, отступы и скругления интерфейса |

@@ -91,6 +91,26 @@ add('12. Подписание кодом', 'POST', `/applications/${ref('clientA
 poll('13. Ожидание выдачи', 'clientToken', 'clientApplication', 'DISBURSED');
 add('14. График выданного кредита', 'GET', `/applications/${ref('clientApplication')}/schedule`, { tests: "const schedule=pm.response.json().schedule;pm.test('12 платежей и нулевой остаток',()=>{pm.expect(schedule).to.have.length(12);pm.expect(schedule[11].balance).to.equal(0);});" });
 add('14.1. После выдачи сохранён тот же текст', 'GET', `/applications/${ref('clientApplication')}/contract`, { tests: "const view=pm.response.json();pm.test('Хеш не изменился и факт подписи сохранён',()=>{pm.expect(view.snapshot.sha256).to.equal(pm.collectionVariables.get('contractTextHash'));pm.expect(view.signedAt).to.be.a('string');pm.expect(view.signable).to.equal(false);});" });
+add('14.2. Готовность окончательных файлов', 'GET', `/applications/${ref('clientApplication')}/artifacts`, {
+  before: "if(!pm.collectionVariables.get('artifactsDeadline'))pm.collectionVariables.set('artifactsDeadline',Date.now()+90000);",
+  tests: `const files=pm.response.json();
+pm.test('Три окончательных файла без внутренних ключей',()=>{pm.expect(files).to.have.length(3);files.forEach(f=>{pm.expect(f.phase).to.equal('FINAL');pm.expect(f).not.to.have.property('storedName');pm.expect(f).not.to.have.property('storageBackend');});});
+if(files.some(f=>f.status!=='READY')&&Date.now()<Number(pm.collectionVariables.get('artifactsDeadline'))){pm.execution.setNextRequest(pm.info.requestName);setTimeout(()=>{},500);}
+else{pm.collectionVariables.unset('artifactsDeadline');pm.test('Файлы готовы с размером и SHA-256',()=>files.forEach(f=>{pm.expect(f.status).to.equal('READY');pm.expect(f.sizeBytes).to.be.above(0);pm.expect(f.checksum).to.match(/^[a-f0-9]{64}$/);}));
+for(const [kind,key] of [['CONTRACT_PDF','artifactContract'],['SCHEDULE_PDF','artifactSchedulePdf'],['SCHEDULE_XLSX','artifactScheduleXlsx']])pm.collectionVariables.set(key,files.find(f=>f.kind===kind).id);}`
+});
+for (const [label, variable, mime, signature] of [
+  ['14.3. PDF сохранённых условий', 'artifactContract', 'application/pdf', '%PDF-'],
+  ['14.4. PDF графика', 'artifactSchedulePdf', 'application/pdf', '%PDF-'],
+  ['14.5. XLSX графика', 'artifactScheduleXlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'PK']
+]) {
+  add(label, 'GET', `/applications/${ref('clientApplication')}/artifacts/${ref(variable)}/download`, {
+    tests: `pm.test('Авторизованное скачивание ожидаемого формата',()=>{pm.expect(pm.response.headers.get('Content-Type')).to.equal('${mime}');pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment;');pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');pm.expect(pm.response.text().startsWith('${signature}')).to.equal(true);});`
+  });
+}
+add('14.6. Повтор готового файла идемпотентен', 'POST', `/applications/${ref('clientApplication')}/artifacts/${ref('artifactContract')}/retry`, {
+  tests: "pm.test('Готовый файл сохранён под тем же ID',()=>{pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('artifactContract'));pm.expect(pm.response.json().status).to.equal('READY');});"
+});
 add('15. Журнал и идемпотентность', 'GET', `/applications/${ref('clientApplication')}/events`, { tests: "const events=pm.response.json();pm.test('Отправка и выдача записаны по одному разу',()=>{pm.expect(events.filter(e=>e.toStatus==='SUBMITTED')).to.have.length(1);pm.expect(events.filter(e=>e.toStatus==='DISBURSED')).to.have.length(1);});" });
 
 login('16. Вход клиента ручного сценария', 'logistic', 'manualClientToken');

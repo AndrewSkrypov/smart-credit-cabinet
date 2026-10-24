@@ -196,6 +196,22 @@ export interface ContractTextView {
   signedAt: string | null;
 }
 
+export interface GeneratedArtifact {
+  id: string;
+  kind: 'CONTRACT_PDF' | 'SCHEDULE_PDF' | 'SCHEDULE_XLSX';
+  phase: 'PREVIEW' | 'FINAL';
+  title: string;
+  fileName: string;
+  contentType: string;
+  status: 'PENDING' | 'READY' | 'ERROR';
+  sizeBytes: number | null;
+  checksum: string | null;
+  createdAt: string;
+  readyAt: string | null;
+  errorMessage: string | null;
+  downloadUrl: string | null;
+}
+
 export interface Loan {
   contractNumber: string;
   loanAccount: string;

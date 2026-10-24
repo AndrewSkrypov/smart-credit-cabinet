@@ -11,6 +11,8 @@ ktlint-gradle = "13.1.0"
 mockito-kotlin = "5.4.0"
 resilience4j = "2.3.0"
 license-report = "3.1.4"
+pdfbox = "3.0.8"
+poi = "6.0.0"
 
 [plugins]
 license-report = { id = "com.github.jk1.dependency-license-report", version.ref = "license-report" }
@@ -34,6 +36,8 @@ aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
 aws-sdk-url-connection-client = { module = "software.amazon.awssdk:url-connection-client" }
 valkey-java = { module = "io.valkey:valkey-java", version.ref = "valkey-java" }
 resilience4j-circuitbreaker = { module = "io.github.resilience4j:resilience4j-circuitbreaker", version.ref = "resilience4j" }
+pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
+poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "poi" }
 
 # Tests
 mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockito-kotlin" }

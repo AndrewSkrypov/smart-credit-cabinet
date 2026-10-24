@@ -24,6 +24,8 @@ class RoutingFileStore(
 
     override fun put(storedName: String, content: InputStream, sizeBytes: Long) = adapter(writeBackend).put(storedName, content, sizeBytes)
 
+    override fun put(storedName: String, content: InputStream, sizeBytes: Long, backend: StorageBackend) = adapter(backend).put(storedName, content, sizeBytes)
+
     override fun get(storedName: String): StoredFile? = get(storedName, writeBackend)
 
     override fun get(storedName: String, backend: StorageBackend): StoredFile? = adapter(backend).get(storedName)

@@ -111,7 +111,7 @@ def prepare(kind):
             response = api.request(method, path, body, employee["token"], headers={"Idempotency-Key": str(uuid4())}, expected=(403,))
             extra_checks.append({"fixture": "non_signer", "method": method, "path": path, "expected": 403, "actual": response["status"]})
         return {"id": employee["user"]["id"], "employee_token": employee["token"]}
-    if kind not in {"draft", "draft_document", "submitted", "submitted_document", "manual", "info", "offer", "signing", "chat_read", "chat_upload", "chat_send"}:
+    if kind not in {"draft", "draft_document", "submitted", "submitted_document", "manual", "info", "offer", "signing", "artifact", "chat_read", "chat_upload", "chat_send"}:
         return {}
     app = draft(tokens["owner"])
     app_id = app["id"]
@@ -130,20 +130,31 @@ def prepare(kind):
             "items": [{"documentType": "OTHER"}, {"question": "Поясните синтетическую выручку"}], "comment": "Подготовка проверки прав",
         }, tokens["underwriter"])
         api.upload(tokens["owner"], app_id, "OTHER", pdf)
-    if kind in {"offer", "signing"}:
+    if kind in {"offer", "signing", "artifact"}:
         api.json("POST", f"/api/v1/underwriting/applications/{app_id}/approve", {
             "comment": "Синтетическая проверка прав: расхождение рассмотрено специалистом",
         }, tokens["underwriter"])
     if kind == "signing":
         app = api.json("POST", f"/api/v1/applications/{app_id}/offer/accept", token=tokens["owner"])
         result["code"] = app["process"]["signing"]["code"]
+    if kind == "artifact":
+        deadline = time.monotonic() + 90
+        while True:
+            files = api.json("GET", f"/api/v1/applications/{app_id}/artifacts", token=tokens["owner"])
+            ready = next((item for item in files if item["kind"] == "SCHEDULE_PDF" and item["status"] == "READY"), None)
+            if ready:
+                result["artifactId"] = ready["id"]
+                break
+            if time.monotonic() >= deadline:
+                raise AssertionError("Файл матрицы доступа не подготовлен")
+            time.sleep(0.5)
     return result
 
 
 def invoke(method, template, kind, role, fixture):
     token = tokens.get(role)
     body = None
-    parameters = {"id": fixture.get("id", str(uuid4())), "documentId": fixture.get("documentId", str(uuid4())),
+    parameters = {"id": fixture.get("id", str(uuid4())), "documentId": fixture.get("documentId", str(uuid4())), "artifactId": fixture.get("artifactId", str(uuid4())),
                   "version": 1, "code": "WORKING_CAPITAL", "inn": "000100000004", "applicationId": str(uuid4()), "source": "BUREAU"}
     if kind == "notification":
         parameters["id"] = notifications["owner" if role in {"anonymous", "owner", "other_client"} else role]

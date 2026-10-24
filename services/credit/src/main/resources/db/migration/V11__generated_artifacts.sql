@@ -1,0 +1,27 @@
+create table generated_artifacts (
+    id uuid primary key,
+    application_id uuid not null references applications(id),
+    offer_id uuid not null references offers(id),
+    kind varchar(32) not null check (kind in ('CONTRACT_PDF','SCHEDULE_PDF','SCHEDULE_XLSX')),
+    phase varchar(16) not null check (phase in ('PREVIEW','FINAL')),
+    template_version integer not null,
+    input_hash varchar(64) not null,
+    input_json jsonb not null,
+    title varchar(255) not null,
+    file_name varchar(255) not null,
+    content_type varchar(150) not null,
+    stored_name varchar(255) not null unique,
+    storage_backend varchar(8) not null check (storage_backend in ('LOCAL','S3')),
+    status varchar(16) not null default 'PENDING' check (status in ('PENDING','READY','ERROR')),
+    size_bytes bigint,
+    checksum varchar(64),
+    attempts integer not null default 0,
+    next_attempt_at timestamptz not null,
+    error_code varchar(32),
+    created_at timestamptz not null,
+    updated_at timestamptz not null,
+    ready_at timestamptz,
+    unique(application_id,offer_id,kind,phase,template_version,input_hash),
+    check (status <> 'READY' or (size_bytes > 0 and checksum is not null and ready_at is not null))
+);
+create index generated_artifacts_pending on generated_artifacts(next_attempt_at) where status <> 'READY' and attempts < 5;

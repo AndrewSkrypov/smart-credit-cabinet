@@ -210,8 +210,15 @@ def migrate(project, target, apply, report_path, after_copy=None, resume_path=No
         transfer.begin(apply, resume)
         report["helper_id"] = transfer.helper
         checkpoint()
-        rows = json.loads(transfer.database.sql("select coalesce(json_agg(t),'[]') from (select id,stored_name,size_bytes,storage_backend,checksum_sha256 from documents order by id) t;"))
+        sources = "select 'documents' as source_table,id,stored_name,size_bytes,storage_backend,checksum_sha256 from documents"
+        if transfer.database.sql("select count(*) from information_schema.tables where table_schema='public' and table_name='generated_artifacts';") == "1":
+            sources += " union all select 'generated_artifacts' as source_table,id,stored_name,size_bytes,storage_backend,checksum as checksum_sha256 from generated_artifacts where status='READY'"
+        rows = json.loads(transfer.database.sql("select coalesce(json_agg(t),'[]') from (" + sources + " order by source_table,id) t;"))
         for row in rows:
+            table = row["source_table"]
+            if table not in ("documents", "generated_artifacts"):
+                raise ValueError("Неизвестный реестр файлов")
+            checksum_column = "checksum" if table == "generated_artifacts" else "checksum_sha256"
             identifier = str(UUID(row["id"]))
             name = row["stored_name"]
             if not re.fullmatch(r"[A-Za-z0-9_.-]{1,255}", name) or name in (".", ".."):
@@ -237,15 +244,15 @@ def migrate(project, target, apply, report_path, after_copy=None, resume_path=No
                     action = "copied"
                 if apply and transfer.read(target, name) != content:
                     raise ValueError("Копия не совпала с исходником: " + identifier)
-            report["documents"].append({"id": identifier, "source": source, "bytes": len(content), "sha256": checksum, "action": action})
+            report["documents"].append({"id": identifier, "source_table": table, "source": source, "bytes": len(content), "sha256": checksum, "action": action})
             checkpoint()
             if after_copy:
                 after_copy(len(report["documents"]))
             if apply:
                 updated = transfer.database.sql(
-                    f"update documents set storage_backend='{target}',checksum_sha256='{checksum}' "
+                    f"update {table} set storage_backend='{target}',{checksum_column}='{checksum}' "
                     f"where id='{identifier}' and storage_backend='{source}' and size_bytes={len(content)} "
-                    f"and (checksum_sha256 is null or checksum_sha256='{checksum}') returning id;")
+                    f"and ({checksum_column} is null or {checksum_column}='{checksum}') returning id;")
                 if updated != identifier:
                     raise RuntimeError("Метаданные документа изменились во время переноса")
         transfer.database.sql("commit;" if apply else "rollback;")

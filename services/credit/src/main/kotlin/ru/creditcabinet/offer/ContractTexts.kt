@@ -87,6 +87,9 @@ class ContractTexts(private val jdbc: JdbcTemplate, private val clock: Clock) {
         """.trimIndent()
     }
 
+    fun legacySummary(application: LoanApplication, offer: Offer, product: Product): String =
+        "Сводка сохранённых условий. Исходный подписываемый текст не сохранён.\n" + render(application, offer, product).substringAfter('\n')
+
     companion object {
         fun sha256(
             text: String,

@@ -50,6 +50,9 @@
 | credit | `POST /api/v1/applications/{id}/offer/decline` | 401 | 200 | 404 | 403 | 403 | 403 |
 | credit | `GET /api/v1/applications/{id}/schedule` | 401 | 200 | 404 | 200 | 200 | 200 |
 | credit | `GET /api/v1/applications/{id}/contract` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `GET /api/v1/applications/{id}/artifacts` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `GET /api/v1/applications/{id}/artifacts/{artifactId}/download` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `POST /api/v1/applications/{id}/artifacts/{artifactId}/retry` | 401 | 200 | 404 | 200 | 200 | 200 |
 | credit | `POST /api/v1/applications/{id}/sign` | 401 | 200 | 404 | 403 | 403 | 403 |
 | credit | `POST /api/v1/applications/{id}/signing/code` | 401 | 200 | 404 | 403 | 403 | 403 |
 | credit | `POST /api/v1/applications/{id}/submit` | 401 | 200 | 404 | 403 | 403 | 403 |

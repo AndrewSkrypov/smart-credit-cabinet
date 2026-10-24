@@ -56,6 +56,16 @@ def document_volume(deployment):
     return storage_volume(deployment, "cabinet-documents")
 
 
+def storage_backend_counts(deployment):
+    """Include generated files, even when there are no uploaded client documents in S3."""
+    has_backend = deployment.sql("credit", "select count(*) from information_schema.columns where table_schema='public' and table_name='documents' and column_name='storage_backend'") == "1"
+    sources = ["select storage_backend from documents" if has_backend else "select 'LOCAL' as storage_backend from documents"]
+    has_artifacts = deployment.sql("credit", "select count(*) from information_schema.tables where table_schema='public' and table_name='generated_artifacts'") == "1"
+    if has_artifacts:
+        sources.append("select storage_backend from generated_artifacts")
+    return json.loads(deployment.sql("credit", "select coalesce(json_object_agg(storage_backend,n),'{}') from (select storage_backend,count(*) n from (" + " union all ".join(sources) + ") files group by storage_backend) t"))
+
+
 def storage_volume(deployment, key):
     assert key in {"cabinet-documents", "cabinet-seaweedfs"}
     config = deployment.config()

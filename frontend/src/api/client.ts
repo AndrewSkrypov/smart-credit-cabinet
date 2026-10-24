@@ -46,17 +46,21 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     // A signed-in request answered 401: the token expired or was revoked. Start over at the
     // sign-in page instead of showing the same error on every page.
     const sentToken = error?.config?.headers?.Authorization;
     const currentToken = readSession()?.token;
     if (error?.response?.status === 401 && currentToken && sentToken === `Bearer ${currentToken}` && !window.location.pathname.startsWith('/sign-in')) {
       clearSession();
-      window.location.assign(`/sign-in?expired=1&next=${encodeURIComponent(window.location.pathname)}`);
+      window.location.assign(`/sign-in?expired=1&next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return new Promise(() => undefined);
     }
-    const backendMessage = error?.response?.data?.message;
+    let responseData = error?.response?.data;
+    if (responseData instanceof Blob && responseData.type.includes('json')) {
+      try { responseData = JSON.parse(await responseData.text()); } catch { /* Keep the ordinary HTTP error when the body is not JSON. */ }
+    }
+    const backendMessage = responseData?.message;
     if (typeof backendMessage === 'string' && backendMessage.trim()) {
       return Promise.reject(new Error(backendMessage));
     }
@@ -84,6 +88,22 @@ export async function put<T>(url: string, body: unknown): Promise<T> {
   const response = await api.put<T>(url, body);
   return response.data;
 }
+
+async function downloadFile(url: string, fileName: string) {
+  const response = await api.get<Blob>(url, { responseType: 'blob' });
+  const objectUrl = URL.createObjectURL(response.data);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(objectUrl);
+}
+
+export const artifactsApi = {
+  list: (id: string) => get<import('../types').GeneratedArtifact[]>(`/applications/${id}/artifacts`),
+  retry: (id: string, artifactId: string) => post<import('../types').GeneratedArtifact>(`/applications/${id}/artifacts/${artifactId}/retry`),
+  download: (id: string, artifactId: string, fileName: string) => downloadFile(`/applications/${id}/artifacts/${artifactId}/download`, fileName)
+};
 
 export const authApi = {
   options: () => get<{ demoAccounts: boolean; mailAvailable: boolean }>('/auth/options'),
@@ -162,13 +182,7 @@ export const applicationsApi = {
   },
   /** Downloads with the caller's token: a plain link would not carry it. */
   downloadDocument: async (id: string, documentId: string, fileName: string) => {
-    const response = await api.get<Blob>(`/applications/${id}/documents/${documentId}`, { responseType: 'blob' });
-    const url = URL.createObjectURL(response.data);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    link.click();
-    URL.revokeObjectURL(url);
+    await downloadFile(`/applications/${id}/documents/${documentId}`, fileName);
   },
   provideInfo: (id: string, answer?: string) => post<Application>(`/applications/${id}/info-provided`, { answer }),
   acceptOffer: (id: string) => post<Application>(`/applications/${id}/offer/accept`),

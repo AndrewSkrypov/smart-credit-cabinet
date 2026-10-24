@@ -9,7 +9,7 @@ import subprocess
 import uuid
 from common import Deployment, ROOT
 from maintenance import Database
-from backup_support import DATABASES, checked_docker, database_snapshot, digest, document_inventory, document_volume, storage_volume
+from backup_support import DATABASES, checked_docker, database_snapshot, digest, document_inventory, document_volume, storage_volume, storage_backend_counts
 
 parser = argparse.ArgumentParser(description="Согласованная копия БД и документов с короткой остановкой записи")
 parser.add_argument("--project", default="cabinet-prod")
@@ -40,8 +40,7 @@ try:
     if seaweed_running:
         seaweed_stopped = True
         checked_docker("stop", *seaweed_running)
-    has_backend = deployment.sql("credit", "select count(*) from information_schema.columns where table_schema='public' and table_name='documents' and column_name='storage_backend'") == "1"
-    backends = json.loads(deployment.sql("credit", "select coalesce(json_object_agg(storage_backend,n),'{}') from (select storage_backend,count(*) n from documents group by storage_backend) t")) if has_backend else {"LOCAL": int(deployment.sql("credit", "select count(*) from documents"))}
+    backends = storage_backend_counts(deployment)
     assert not backends.get("S3", 0) or include_seaweed, "Нет локального тома S3; резервная копия документов неполна"
     credit_environment = deployment.config()["services"]["credit"]["environment"]
     if backends.get("S3", 0):

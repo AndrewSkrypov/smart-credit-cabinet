@@ -13,6 +13,17 @@ spec.loader.exec_module(module)
 
 
 class BackupArchiveTest(unittest.TestCase):
+    def test_generated_s3_files_are_included_when_client_uploads_are_only_local(self):
+        deployment = Mock()
+        deployment.sql.side_effect = ["1", "1", '{"LOCAL": 2, "S3": 3}']
+        counts = module.storage_backend_counts(deployment)
+        self.assertEqual(counts, {"LOCAL": 2, "S3": 3})
+        self.assertIn("union all select storage_backend from generated_artifacts", deployment.sql.call_args.args[1])
+        manifest = self.manifest()
+        manifest["storage"]["backends"] = counts
+        with self.assertRaises(AssertionError):
+            module.backup_archives(manifest)
+
     def test_inactive_storage_volume_is_resolved_without_starting_it(self):
         deployment = Mock(project="cabinet-prod-test")
         deployment.config.return_value = {"volumes": {"cabinet-documents": {"name": "cabinet-prod-test_cabinet-documents"}}}

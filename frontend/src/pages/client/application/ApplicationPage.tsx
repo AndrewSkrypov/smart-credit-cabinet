@@ -16,6 +16,7 @@ import { HistoryBlock } from './HistoryBlock';
 import { InfoRequestBlock } from './InfoRequestBlock';
 import { LoanBlock } from './LoanBlock';
 import { OfferBlock } from './OfferBlock';
+import { GeneratedFilesBlock } from '../../../components/GeneratedFilesBlock';
 import { SigningBlock } from './SigningBlock';
 import { StageStepper } from './StageStepper';
 
@@ -115,6 +116,7 @@ export function ApplicationPage() {
               </Paper>
             )}
 
+            {application.process.offer && ['OFFER_ISSUED', 'SIGNING', 'DISBURSING', 'DISBURSED'].includes(application.status) && <GeneratedFilesBlock key={`${application.id}-${!!application.process.loan}`} applicationId={application.id} final={!!application.process.loan} />}
             <DocumentsBlock application={application} onChanged={load} />
             <MessagesBlock key={application.id} applicationId={application.id} status={application.status} />
             <HistoryBlock applicationId={application.id} version={`${application.status}-${application.documents.length}`} />

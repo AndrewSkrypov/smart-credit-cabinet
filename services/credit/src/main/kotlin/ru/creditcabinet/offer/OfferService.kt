@@ -127,7 +127,7 @@ class OfferService(
         val text = snapshot?.text ?: contracts.render(application, offer, products.version(offer.productCode, offer.productVersion)!!)
         return ContractTextView(
             snapshot,
-            if (legacy) "Сводка сохранённых условий. Исходный подписываемый текст не сохранён.\n" + text.substringAfter('\n') else text,
+            if (legacy) contracts.legacySummary(application, offer, products.version(offer.productCode, offer.productVersion)!!) else text,
             legacy,
             snapshot != null && session?.contractSnapshotId == snapshot.id && session?.signatureId == null && application.status == ApplicationStatus.SIGNING,
             session?.signedAt,

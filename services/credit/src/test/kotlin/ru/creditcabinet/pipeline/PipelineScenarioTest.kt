@@ -24,15 +24,23 @@ import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.TokenClaims
+import ru.creditcabinet.document.domain.FileStore
+import ru.creditcabinet.document.domain.StorageBackend
+import ru.creditcabinet.document.generated.GeneratedArtifacts
 import ru.creditcabinet.offer.ContractTexts
 import java.time.Duration
 import java.time.ZoneOffset
 import java.util.Date
 import java.util.UUID
+import java.util.concurrent.Callable
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertTrue
@@ -63,6 +71,10 @@ class PipelineScenarioTest {
 
     @Autowired private lateinit var signing: FakeSigning
 
+    @Autowired private lateinit var artifacts: GeneratedArtifacts
+
+    @Autowired private lateinit var fileStore: FileStore
+
     @MockitoBean private lateinit var companies: CompanyDirectory
 
     private val companyId = UUID.randomUUID()
@@ -76,6 +88,7 @@ class PipelineScenarioTest {
     fun setUp() {
         // Jobs left by other tests must not run in this one.
         jdbc.update("update pipeline_jobs set status = 'CANCELLED' where status in ('PENDING', 'RUNNING')")
+        jdbc.update("update generated_artifacts set attempts=5 where status <> 'READY'")
         whenever(companies.find(any())).thenAnswer { CompanySnapshot(it.getArgument(0), inn, "ИП Тест", LegalForm.ENTREPRENEUR) }
         sources.companies[inn] = FakeSources.healthy(inn, today)
     }
@@ -200,6 +213,145 @@ class PipelineScenarioTest {
         assertEquals(snapshot, issued["snapshot"])
         assertTrue(!issued["signedAt"].isNull)
         assertEquals(false, issued["signable"].asBoolean())
+    }
+
+    @Test
+    fun `generated files keep preview and final sets stable and authorize every download and retry`() {
+        val id = submitted()
+        worker.runDue()
+        fun list(token: String = client) = mockMvc.get("/api/v1/applications/$id/artifacts") { header("Authorization", "Bearer $token") }.andReturn().response
+        val preview = json(list())
+        assertEquals(2, preview.size())
+        assertTrue(preview.all { it["phase"].asText() == "PREVIEW" && it["status"].asText() == "PENDING" && it["downloadUrl"].isNull })
+        assertEquals(preview, json(list()))
+        val pendingId = preview[0]["id"].asText()
+        assertEquals(
+            409,
+            mockMvc.get("/api/v1/applications/$id/artifacts/$pendingId/download") {
+                header("Authorization", "Bearer $client")
+            }.andReturn().response.status,
+        )
+        repeat(2) { assertTrue(artifacts.generateOne()) }
+        assertTrue(!artifacts.generateOne())
+        val readyPreview = json(list())
+        val previewIds = readyPreview.map { it["id"].asText() }
+        assertEquals(200, post("/api/v1/applications/$id/offer/accept", client).status)
+        assertEquals(200, post("/api/v1/applications/$id/signing/code", client).status)
+        assertEquals(readyPreview, json(list()), "acceptance and a new code do not create extra preliminary copies")
+        assertEquals(200, post("/api/v1/applications/$id/sign", client, """{"code":"424242"}""").status)
+        worker.runDue()
+        val loan = get(id)["process"]["loan"]
+        val final = json(list())
+        assertEquals(3, final.size())
+        assertTrue(final.all { it["phase"].asText() == "FINAL" && it["id"].asText() !in previewIds })
+        repeat(2) { assertTrue(artifacts.generateOne()) }
+        artifacts.notifyReadyGroups()
+        assertEquals(0, jdbc.queryForObject("select count(*) from generated_artifact_notices where application_id=?::uuid", Int::class.java, id))
+        assertTrue(artifacts.generateOne())
+        assertTrue(!artifacts.generateOne())
+        val ready = json(list())
+        assertTrue(ready.all { it["status"].asText() == "READY" }, ready.toString())
+        assertEquals(5, jdbc.queryForObject("select count(*) from generated_artifacts where application_id=?::uuid", Int::class.java, id))
+        assertEquals(0, get(id)["documents"].size(), "generated files must not become uploaded client documents")
+        repeat(2) { artifacts.notifyReadyGroups() }
+        assertEquals(1, jdbc.queryForObject("select count(*) from generated_artifact_notices where application_id=?::uuid", Int::class.java, id))
+        assertEquals(
+            1,
+            jdbc.queryForObject(
+                "select count(*) from delivery_outbox where channel='notification' and event_key like ?",
+                Int::class.java,
+                "generated-files:$id:%",
+            ),
+        )
+        val notice = mapper.readTree(
+            jdbc.queryForObject("select payload::text from delivery_outbox where event_key like ?", String::class.java, "generated-files:$id:%"),
+        )
+        assertEquals("FILES_READY", notice["email"]["kind"].asText())
+        assertEquals("/client/applications/$id", notice["link"].asText())
+        assertTrue(!notice.toString().contains("stored_name"))
+        for (file in ready) {
+            val fileId = file["id"].asText()
+            val url = "/api/v1/applications/$id/artifacts/$fileId/download"
+            fun download(token: String) = mockMvc.get(url) { header("Authorization", "Bearer $token") }.andReturn().response
+            val first = download(client)
+            assertEquals(200, first.status, first.contentAsString)
+            assertEquals(file["checksum"].asText(), GeneratedArtifacts.checksum(first.contentAsByteArray))
+            assertEquals(file["sizeBytes"].asLong(), first.contentAsByteArray.size.toLong())
+            assertEquals(file["contentType"].asText(), first.contentType)
+            assertTrue(first.getHeader("Content-Disposition")!!.startsWith("attachment;"))
+            assertEquals("no-store", first.getHeader("Cache-Control"))
+            assertContentEquals(first.contentAsByteArray, download(client).contentAsByteArray)
+            assertEquals(200, download(manager).status)
+            val stranger = token("CLIENT", UUID.randomUUID())
+            assertEquals(404, download(stranger).status)
+            assertEquals(404, post("/api/v1/applications/$id/artifacts/$fileId/retry", stranger).status)
+            assertEquals(file, json(post("/api/v1/applications/$id/artifacts/$fileId/retry", client)))
+        }
+        assertEquals(404, list(token("CLIENT", UUID.randomUUID())).status)
+        assertEquals(loan, get(id)["process"]["loan"])
+    }
+
+    @Test
+    fun `a corrupted stored file is never downloaded and recovery keeps the issued loan and object key`() {
+        val id = submitted()
+        worker.runDue()
+        post("/api/v1/applications/$id/offer/accept", client)
+        post("/api/v1/applications/$id/sign", client, """{"code":"424242"}""")
+        worker.runDue()
+        val loan = get(id)["process"]["loan"]
+        fun list() = json(mockMvc.get("/api/v1/applications/$id/artifacts") { header("Authorization", "Bearer $client") }.andReturn().response)
+        val records = list()
+        repeat(3) { artifacts.generateOne() }
+        val fileId = UUID.fromString(records[0]["id"].asText())
+        val storedName = jdbc.queryForObject("select stored_name from generated_artifacts where id=?", String::class.java, fileId)!!
+        val corrupt = "Synthetic corrupted bytes".toByteArray()
+        fileStore.put(storedName, corrupt.inputStream(), corrupt.size.toLong(), StorageBackend.LOCAL)
+        val url = "/api/v1/applications/$id/artifacts/$fileId"
+        val failed = mockMvc.get("$url/download") { header("Authorization", "Bearer $client") }.andReturn().response
+        assertEquals(503, failed.status)
+        assertTrue(json(failed)["message"].asText().contains("временно недоступен"))
+        assertEquals("ERROR", list().first { it["id"].asText() == fileId.toString() }["status"].asText())
+        assertEquals(200, post("$url/retry", client).status)
+        assertTrue(artifacts.generateOne())
+        assertEquals(storedName, jdbc.queryForObject("select stored_name from generated_artifacts where id=?", String::class.java, fileId))
+        val restored = mockMvc.get("$url/download") { header("Authorization", "Bearer $client") }.andReturn().response
+        assertEquals(200, restored.status)
+        assertTrue(restored.contentAsByteArray.size > corrupt.size)
+        assertEquals(3, list().size())
+        assertEquals(loan, get(id)["process"]["loan"])
+        assertEquals("DISBURSED", status(id))
+    }
+
+    @Test
+    fun `competing artifact workers publish each final file once and queue a single readiness event`() {
+        val id = submitted()
+        worker.runDue()
+        post("/api/v1/applications/$id/offer/accept", client)
+        post("/api/v1/applications/$id/sign", client, """{"code":"424242"}""")
+        worker.runDue()
+        mockMvc.get("/api/v1/applications/$id/artifacts") { header("Authorization", "Bearer $client") }.andExpect { status { isOk() } }
+        Executors.newFixedThreadPool(4).use { executor ->
+            val gate = CountDownLatch(1)
+            val jobs = (1..4).map {
+                executor.submit(
+                    Callable {
+                        gate.await()
+                        artifacts.generateOne()
+                    },
+                )
+            }
+            gate.countDown()
+            assertEquals(3, jobs.count { it.get(30, TimeUnit.SECONDS) })
+            val notices = (1..2).map { executor.submit(Callable { artifacts.notifyReadyGroups() }) }
+            notices.forEach { it.get(30, TimeUnit.SECONDS) }
+        }
+        assertEquals(
+            3,
+            jdbc.queryForObject("select count(*) from generated_artifacts where application_id=?::uuid and status='READY' and attempts=1", Int::class.java, id),
+        )
+        assertEquals(1, jdbc.queryForObject("select count(*) from generated_artifact_notices where application_id=?::uuid", Int::class.java, id))
+        assertEquals(1, jdbc.queryForObject("select count(*) from delivery_outbox where event_key like ?", Int::class.java, "generated-files:$id:%"))
+        assertEquals("DISBURSED", status(id))
     }
 
     @Test

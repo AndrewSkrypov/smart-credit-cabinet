@@ -14,5 +14,7 @@ dependencies {
     }
     implementation(libs.aws.sdk.url.connection.client)
     implementation(libs.resilience4j.circuitbreaker)
+    implementation(libs.pdfbox) { exclude(group = "commons-logging", module = "commons-logging") }
+    implementation(libs.poi.ooxml)
     testImplementation(libs.mockito.kotlin)
 }

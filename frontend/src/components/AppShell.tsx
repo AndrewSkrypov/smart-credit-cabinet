@@ -1,8 +1,9 @@
-import { AppBar, Box, Button, Container, IconButton, Stack, Tab, Tabs, Toolbar, Tooltip, Typography } from '@mui/material';
+import { Box, Button, Container, IconButton, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { roleLabels } from '../shared/labels';
+import { nightGlow, tokens } from '../theme/theme';
 import { BrandMark } from './BrandMark';
 import { AssistantPanel } from './AssistantPanel';
 import { NotificationBell } from './NotificationBell';
@@ -15,48 +16,64 @@ const bankSections = [
   { path: '/bank/products', label: 'Продукты' }
 ];
 
-/** Frame of every signed-in page: product name, who is signed in, sign-out. */
+const clientSections = [
+  { path: '/client', label: 'Заявки' },
+  { path: '/client/employees', label: 'Сотрудники' }
+];
+
+// Light tabs on the dark band; the current one is marked by the brand's red line.
+const darkTabs = {
+  minHeight: 48,
+  '& .MuiTab-root': { color: 'rgba(255, 255, 255, 0.72)', minHeight: 48, fontWeight: 500 },
+  '& .MuiTab-root.Mui-selected': { color: '#fff' },
+  '& .MuiTabs-indicator': { backgroundColor: tokens.red, height: 3, borderRadius: 3 }
+} as const;
+
+/**
+ * Frame of every signed-in page, in the look of the landing: a dark band with the floating header
+ * on top, and the page itself on a light sheet with large rounded corners below it.
+ */
 export function AppShell() {
   const { session, signOut } = useAuth();
   const location = useLocation();
   if (!session) return null;
   const { user } = session;
   const bank = user.role !== 'CLIENT';
-  const section = [...bankSections].reverse().find((item) => location.pathname.startsWith(item.path))?.path ?? false;
+  const sections = bank ? bankSections : clientSections;
+  const section = [...sections].reverse().find((item) => location.pathname.startsWith(item.path))?.path ?? false;
+  const tabs = (sx: object) => (
+    <Tabs value={section} variant="scrollable" sx={{ ...darkTabs, ...sx }} aria-label={bank ? 'Разделы банка' : 'Разделы компании'}>
+      {sections.map((item) => <Tab key={item.path} value={item.path} label={item.label} component={RouterLink} to={item.path} />)}
+    </Tabs>
+  );
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppBar position="sticky" color="inherit" elevation={0}>
-        <Container maxWidth="lg" disableGutters>
-        <Toolbar sx={{ gap: 2, minHeight: { xs: 64, md: 72 } }}>
-          <Box sx={{ flexGrow: 1 }}>
-            <BrandMark to={roleHome[user.role]} compact label={bank ? 'Рабочее место банка' : 'Кабинет предпринимателя'} />
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: nightGlow }}>
+      <Box component="header" sx={{ position: 'sticky', top: 0, zIndex: 10, pt: { xs: 1, md: 2 } }}>
+        <Container maxWidth="lg">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 3 }, minHeight: { xs: 56, md: 64 }, pl: { xs: 1.5, md: 2.5 }, pr: { xs: 1, md: 1.5 },
+            borderRadius: '99px', bgcolor: 'rgba(28, 28, 30, 0.72)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#fff' }}>
+            <BrandMark to={roleHome[user.role]} compact inverted label={bank ? 'Рабочее место банка' : 'Кабинет предпринимателя'} />
+            {tabs({ display: { xs: 'none', lg: 'flex' }, flexGrow: 1 })}
+            <Box sx={{ flexGrow: 1, display: { lg: 'none' } }} />
+            <Stack sx={{ display: { xs: 'none', sm: 'flex' }, textAlign: 'right', minWidth: 0 }}>
+              <Typography variant="body2" fontWeight={500} noWrap>{user.fullName}</Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.64)' }} noWrap>{roleLabels[user.role]}</Typography>
+            </Stack>
+            <Tooltip title="Профиль">
+              <IconButton component={RouterLink} to="/profile" aria-label="Профиль" sx={{ color: '#fff' }}><AccountCircleOutlinedIcon /></IconButton>
+            </Tooltip>
+            <Box sx={{ color: '#fff', '& .MuiIconButton-root': { color: '#fff' } }}><NotificationBell /></Box>
+            <Button onClick={signOut} sx={{ borderRadius: '99px', paddingInline: 3, bgcolor: tokens.nightButton, color: '#fff', '&:hover': { bgcolor: '#3a3a3f' } }}>Выйти</Button>
           </Box>
-          <Stack sx={{ display: { xs: 'none', sm: 'flex' }, textAlign: 'right' }}>
-            <Typography variant="body2" fontWeight={500}>{user.fullName}</Typography>
-            <Typography variant="caption" color="text.secondary">{roleLabels[user.role]}</Typography>
-          </Stack>
-          <Tooltip title="Профиль">
-            <IconButton component={RouterLink} to="/profile" aria-label="Профиль"><AccountCircleOutlinedIcon /></IconButton>
-          </Tooltip>
-          <NotificationBell />
-          <Button variant="outlined" onClick={signOut}>Выйти</Button>
-        </Toolbar>
-        {bank && (
-          <Tabs value={section} variant="scrollable" sx={{ px: { xs: 1, md: 2 } }} aria-label="Разделы банка">
-            {bankSections.map((item) => <Tab key={item.path} value={item.path} label={item.label} component={RouterLink} to={item.path} sx={{ minHeight: 48 }} />)}
-          </Tabs>
-        )}
-        {!bank && (
-          <Tabs value={location.pathname.startsWith('/client/employees') ? '/client/employees' : location.pathname.startsWith('/client') ? '/client' : false} variant="scrollable" sx={{ px: { xs: 1, md: 2 } }} aria-label="Разделы компании">
-            <Tab value="/client" label="Заявки" component={RouterLink} to="/client" />
-            <Tab value="/client/employees" label="Сотрудники" component={RouterLink} to="/client/employees" />
-          </Tabs>
-        )}
         </Container>
-      </AppBar>
-      <Container component="main" maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
-        <Outlet />
-      </Container>
+      </Box>
+      <Container maxWidth="lg" sx={{ display: { lg: 'none' }, mt: 1 }}>{tabs({})}</Container>
+      <Box sx={{ height: { xs: 16, md: 32 } }} />
+      <Box sx={{ flexGrow: 1, bgcolor: 'background.default', borderRadius: { xs: '28px 28px 0 0', md: '48px 48px 0 0' } }}>
+        <Container component="main" maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
+          <Outlet />
+        </Container>
+      </Box>
       {!bank && <AssistantPanel />}
     </Box>
   );

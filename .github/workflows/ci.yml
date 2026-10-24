@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: [main, feature/submission-kit, feature/release-hardening, feature/release-hardening-final, feature/release-hardening-integration]
+    branches: [main]
   pull_request:
 
 permissions:

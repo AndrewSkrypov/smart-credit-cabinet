@@ -10,7 +10,7 @@ import { useApi } from '../../hooks/useApi';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { months, percent, rub } from '../../shared/format';
 import { productArt, purposeArt } from '../../shared/illustrations';
-import { fontDisplay, tokens } from '../../theme/theme';
+import { fontDisplay, nightGlow, tokens } from '../../theme/theme';
 import { FinancingPurpose, Product } from '../../types';
 import { LandingCalculator } from './LandingCalculator';
 
@@ -118,12 +118,8 @@ function CabinetPreview() {
   );
 }
 
-const glowBackground = [
-  'radial-gradient(640px 420px at 12% 0%, rgba(239, 49, 36, 0.32), transparent 65%)',
-  'radial-gradient(560px 420px at 92% 18%, rgba(155, 61, 250, 0.26), transparent 65%)',
-  'radial-gradient(520px 360px at 60% 820px, rgba(168, 238, 240, 0.12), transparent 70%)',
-  tokens.night
-].join(', ');
+const pill = { borderRadius: '99px', paddingInline: 3 } as const;
+const heroButton = { flex: { xs: '1 1 100%', sm: '0 0 auto' }, whiteSpace: 'nowrap', minHeight: 60, paddingInline: 4, fontSize: 17, fontWeight: 600, borderRadius: '16px' } as const;
 
 const audiences = [
   { title: 'Предпринимателю', bg: tokens.red, color: '#fff', art: 'briefcase', action: 'Войти как предприниматель',
@@ -146,7 +142,7 @@ export function LandingPage() {
   const largest = products.data?.reduce((max, item) => Math.max(max, item.maxAmount), 0);
 
   return (
-    <Box sx={{ background: glowBackground, minHeight: '100vh' }}>
+    <Box sx={{ background: nightGlow, minHeight: '100vh' }}>
       {/* Header and the first screen share the dark band. */}
       <Box component="header" sx={{ position: 'sticky', top: 0, zIndex: 10, pt: { xs: 1, md: 2 } }}>
         <Container maxWidth="lg">
@@ -160,12 +156,12 @@ export function LandingPage() {
           </Stack>
           <Box sx={{ flexGrow: { xs: 1, md: 0 } }} />
           {cabinet ? (
-            <Button component={RouterLink} to={cabinet} variant="contained">В кабинет</Button>
+            <Button component={RouterLink} to={cabinet} variant="contained" sx={pill}>В кабинет</Button>
           ) : (
             <Stack direction="row" spacing={1}>
               <Button component={RouterLink} to="/sign-up"
-                sx={{ display: { xs: 'none', sm: 'inline-flex' }, bgcolor: tokens.nightButton, color: '#fff', '&:hover': { bgcolor: '#3a3a3f' } }}>Регистрация</Button>
-              <Button component={RouterLink} to="/sign-in" variant="contained">Войти</Button>
+                sx={{ ...pill, display: { xs: 'none', sm: 'inline-flex' }, bgcolor: tokens.nightButton, color: '#fff', '&:hover': { bgcolor: '#3a3a3f' } }}>Регистрация</Button>
+              <Button component={RouterLink} to="/sign-in" variant="contained" sx={pill}>Войти</Button>
             </Stack>
           )}
         </Box>
@@ -191,9 +187,10 @@ export function LandingPage() {
                     <Typography sx={{ mt: 2, fontSize: { xs: 16, md: 18 }, color: tokens.text }}>
                       Подбор продукта, заявка, решение банка и подписание договора — в одном кабинете, без визита в офис.
                     </Typography>
-                    <Stack direction={{ xs: 'column', sm: 'row', md: 'column', lg: 'row' }} spacing={1.5} alignItems={{ sm: 'flex-start' }} sx={{ mt: 4 }}>
-                      <Button component={RouterLink} to={startPath} variant="contained" size="large" sx={{ whiteSpace: 'nowrap' }}>Оформить заявку онлайн</Button>
-                      <Button href="#calculator" size="large" sx={{ whiteSpace: 'nowrap', bgcolor: 'rgba(255,255,255,0.6)', '&:hover': { bgcolor: 'rgba(255,255,255,0.85)' } }}>Рассчитать платёж</Button>
+                    {/* Wraps instead of squeezing: each button keeps its padding at every width. */}
+                    <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1.5} sx={{ mt: 4 }}>
+                      <Button component={RouterLink} to={startPath} variant="contained" size="large" sx={heroButton}>Оформить заявку онлайн</Button>
+                      <Button href="#calculator" size="large" sx={{ ...heroButton, bgcolor: 'rgba(255,255,255,0.6)', '&:hover': { bgcolor: 'rgba(255,255,255,0.85)' } }}>Рассчитать платёж</Button>
                     </Stack>
                   </Box>
                   <Box aria-hidden sx={{ position: 'relative', flexShrink: 0, display: { xs: 'none', md: 'block' }, zIndex: 1 }}>

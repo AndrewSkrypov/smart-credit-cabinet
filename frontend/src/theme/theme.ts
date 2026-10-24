@@ -29,6 +29,14 @@ export const tokens = {
   tilePink: '#ffd3d3'
 } as const;
 
+// The dark band of the landing and the cabinets: soft red and purple light on near-black.
+export const nightGlow = [
+  'radial-gradient(640px 420px at 12% 0%, rgba(239, 49, 36, 0.32), transparent 65%)',
+  'radial-gradient(560px 420px at 92% 18%, rgba(155, 61, 250, 0.26), transparent 65%)',
+  'radial-gradient(520px 360px at 60% 820px, rgba(168, 238, 240, 0.12), transparent 70%)',
+  tokens.night
+].join(', ');
+
 // Phones and tablets are used with a finger: interactive elements there are at least 44×44 px.
 const touch = '@media (max-width: 899.95px)';
 

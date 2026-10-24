@@ -42,8 +42,9 @@ describe('version editors', () => {
     const user = userEvent.setup();
     show(<ProductsPage />);
     const name = await screen.findByLabelText('Название продукта');
-    await user.clear(name); await user.type(name, 'Обновлённый кредит');
-    await user.type(screen.getByLabelText(/Причина изменения продукта/), 'Обновление названия');
+    await user.clear(name); await user.paste('Обновлённый кредит');
+    await user.click(screen.getByLabelText(/Причина изменения продукта/));
+    await user.paste('Обновление названия');
     await user.click(screen.getByRole('button', { name: 'Сохранить новую версию продукта' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Отмена' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -54,14 +55,16 @@ describe('version editors', () => {
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'ОК' }));
     expect(await screen.findByText(/Сохранена версия 2/)).toBeInTheDocument();
     expect(productEditorApi.save).toHaveBeenCalledTimes(1);
+    expect(productEditorApi.save).toHaveBeenCalledWith(expect.objectContaining({ name: 'Обновлённый кредит', version: 1 }), 'Обновление названия');
   });
 
   it('keeps the stale product draft after a conflict and asks before replacing it', async () => {
     const user = userEvent.setup();
     show(<ProductsPage />);
     const name = await screen.findByLabelText('Название продукта');
-    await user.clear(name); await user.type(name, 'Мой черновик');
-    await user.type(screen.getByLabelText(/Причина изменения продукта/), 'Моя правка');
+    await user.clear(name); await user.paste('Мой черновик');
+    await user.click(screen.getByLabelText(/Причина изменения продукта/));
+    await user.paste('Моя правка');
     vi.mocked(productEditorApi.save).mockRejectedValue(new Error('Конфликт версий'));
     vi.mocked(productEditorApi.history).mockResolvedValue([{ ...original, product: { ...original.product, version: 2, name: 'Правка коллеги' } }, original]);
     await user.click(screen.getByRole('button', { name: 'Сохранить новую версию продукта' }));

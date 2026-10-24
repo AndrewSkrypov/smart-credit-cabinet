@@ -191,14 +191,20 @@ X09 стал штатным rules-маршрутом согласия, поэт�
   В окончательном прогоне самый медленный ответ RULES занял 29,765 с. Таймаут теперь по
   умолчанию PT30S; HTTP/обработка добавляют небольшое время поверх него.
 
-Для воспроизведения на отдельном синтетическом стенде задайте `ASSISTANT_MODEL=qwen3:4b-instruct-2507-q4_K_M`,
-непустой `OLLAMA_URL=http://ollama:11434`, `ASSISTANT_TIMEOUT=PT30S` и `OLLAMA_NUM_PARALLEL=1`,
-`OLLAMA_CONTEXT_LENGTH=4096` для Ollama. Пересоздайте engagement, загрузите выбранные веса
-профилем ai; учтите холодную задержку. Default 3B и его лицензия не заменяются автоматически.
+Для воспроизведения используйте [явный override](../docker/ollama/eval.compose.yaml):
+он задаёт модель/URL/таймаут engagement, тот же тег для ollama-pull и 4096/один запрос
+**в окружении контейнера Ollama**. Обычные host-переменные OLLAMA_CONTEXT_LENGTH сами по себе
+не передаются базовым Compose в сервис. Override не подключается к обычному запуску;
+default 3B и его лицензия не заменяются автоматически. Учтите холодную задержку и дополнительную память.
+
+Создайте отдельный синтетический `cabinet-e2e`; файл `.env.review` с независимыми портами
+описан в [передаче](cabinet-polish-review.md). Не используйте проект с пользовательскими данными:
+оценщик завершает активные демо-заявки. В этом примере origin — `http://localhost:18150`.
 
 ```bash
-python scripts/assistant-eval.py --project cabinet-e2e --mode model --model qwen3:4b-instruct-2507-q4_K_M --report-name model-polish
-python scripts/assistant-polish-eval.py --project cabinet-e2e --mode model --report-name model-polish-extra
+docker compose --env-file .env.review -p cabinet-e2e -f docker-compose.yml -f docker/ollama/eval.compose.yaml --profile ai up -d --build --wait --wait-timeout 300
+python scripts/assistant-eval.py --base http://localhost:18150 --project cabinet-e2e --mode model --model qwen3:4b-instruct-2507-q4_K_M --report-name model-polish
+python scripts/assistant-polish-eval.py --base http://localhost:18150 --project cabinet-e2e --mode model --report-name model-polish-extra
 ```
 
 Дополнительный скрипт временно останавливает только Ollama указанного проекта. Обычный

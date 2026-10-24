@@ -21,7 +21,7 @@ from uuid import uuid4
 from common import Deployment, ROOT
 from backup_support import database_snapshot
 from maintenance import Database
-from artifact_checks import ready_artifacts, download_artifacts
+from artifact_checks import issued_contract, ready_artifacts, download_artifacts
 
 sys.path.insert(0, str(ROOT / "scripts"))
 from cabinet_api import Cabinet
@@ -172,8 +172,9 @@ try:
     fixture = clients[0]
     route = "/api/v1/applications/" + fixture["application_id"]
     schedule = api.json("GET", route + "/schedule", token=fixture["token"])
-    contract_text = api.json("GET", route + "/contract-text", token=fixture["token"])
     stage = "generated-artifacts-source"
+    contract_text = issued_contract(api, route, fixture["token"])
+    report["contract_text_sha256"] = contract_text["snapshot"]["sha256"]
     artifact_rows = ready_artifacts(api, route, fixture["token"])
     generated_before = download_artifacts(api, route, fixture["token"], artifact_rows)
     report["generated_files"] = generated_before
@@ -246,7 +247,7 @@ try:
     check("Сохранён итоговый статус заявки", restored_api.json("GET", route, token=token)["status"] == "DISBURSED")
     check("График платежей совпадает побайтно по структуре JSON", restored_api.json("GET", route + "/schedule", token=token) == schedule)
     check("Замороженный текст договора сохранён после восстановления",
-          restored_api.json("GET", route + "/contract-text", token=token) == contract_text)
+          issued_contract(restored_api, route, token) == contract_text)
     restored_artifacts = ready_artifacts(restored_api, route, token)
     check("Сохранены ID, готовность и метаданные файлов", restored_artifacts == artifact_rows)
     check("Все три PDF/XLSX скачиваются после restore с прежними SHA256 и размерами",

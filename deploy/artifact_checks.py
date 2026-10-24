@@ -10,6 +10,14 @@ CONTENT_TYPES = {
 }
 
 
+def issued_contract(api, route, token):
+    view = api.json("GET", route + "/contract", token=token)
+    snapshot = view["snapshot"]
+    assert snapshot and not view["legacySummary"] and not view["signable"] and view["signedAt"], "Нет подписанного неизменяемого текста нового кредита"
+    assert view["text"] == snapshot["text"] and hashlib.sha256(view["text"].encode("utf-8")).hexdigest() == snapshot["sha256"], "Хеш договора не совпадает с текстом"
+    return view
+
+
 def ready_artifacts(api, route, token, timeout=120):
     deadline = time.monotonic() + timeout
     while True:

@@ -90,6 +90,14 @@ class AccessStore(private val jdbc: NamedParameterJdbcTemplate, private val revo
         publishVersion(userId)
     }
 
+    override fun updateProfile(userId: UUID, fullName: String, email: String) {
+        try {
+            jdbc.update("update users set full_name=:name,email=:email where id=:id", mapOf("id" to userId, "name" to fullName, "email" to email))
+        } catch (_: DataIntegrityViolationException) {
+            throw ConflictException("Этот адрес уже используется другим пользователем")
+        }
+    }
+
     override fun revokeSessions(userId: UUID) {
         jdbc.update("update users set credentials_version=credentials_version+1 where id=:id", mapOf("id" to userId))
         publishVersion(userId)

@@ -28,6 +28,7 @@ interface AccountAccessPort {
     fun useReset(id: UUID, at: Instant)
     fun revokeResets(userId: UUID, at: Instant)
     fun changePassword(userId: UUID, hash: String)
+    fun updateProfile(userId: UUID, fullName: String, email: String)
     fun revokeSessions(userId: UUID)
     fun expireInvitations(companyId: UUID, email: String, at: Instant)
     fun insertInvitation(invitation: StoredInvitation, createdAt: Instant)

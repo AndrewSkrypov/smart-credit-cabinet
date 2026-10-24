@@ -8,12 +8,14 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.access.application.CompanyAccessService
 import ru.creditcabinet.access.application.PasswordAccessService
+import ru.creditcabinet.access.application.ProfileAccessService
 import ru.creditcabinet.access.dto.AcceptInvitationRequest
 import ru.creditcabinet.access.dto.AccessMessage
 import ru.creditcabinet.access.dto.ChangePasswordRequest
@@ -24,6 +26,7 @@ import ru.creditcabinet.access.dto.InvitationResponse
 import ru.creditcabinet.access.dto.InviteEmployeeRequest
 import ru.creditcabinet.access.dto.RecoveryRequest
 import ru.creditcabinet.access.dto.ResetPasswordRequest
+import ru.creditcabinet.access.dto.UpdateProfileRequest
 import ru.creditcabinet.auth.dto.UserSessionResponse
 import ru.creditcabinet.common.security.JwtVerifier
 import java.util.UUID
@@ -34,6 +37,7 @@ import java.util.UUID
 class AccessController(
     private val passwords: PasswordAccessService,
     private val employees: CompanyAccessService,
+    private val profiles: ProfileAccessService,
     private val verifier: JwtVerifier,
 ) {
     @Operation(summary = "Запросить одноразовую ссылку восстановления; ответ не раскрывает наличие адреса")
@@ -51,6 +55,13 @@ class AccessController(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @Valid @RequestBody body: ChangePasswordRequest,
     ): AccessMessage = passwords.changePassword(verifier.requireClaims(authorization), body)
+
+    @Operation(summary = "Изменить имя и email; новый email требует текущий пароль, ответ — новая сессия")
+    @PutMapping("/users/me")
+    fun updateProfile(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @Valid @RequestBody body: UpdateProfileRequest,
+    ): UserSessionResponse = profiles.update(verifier.requireClaims(authorization), body)
 
     @Operation(summary = "Выйти на всех устройствах и отменить ожидающие ссылки восстановления")
     @PostMapping("/auth/logout-all")

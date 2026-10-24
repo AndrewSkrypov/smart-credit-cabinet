@@ -22,6 +22,16 @@ data class ChangePasswordRequest(
     @field:NotBlank(message = "Укажите текущий пароль") val currentPassword: String,
     @field:NotBlank(message = "Укажите новый пароль") val password: String,
 )
+
+/** Name and email of the signed-in person; the email is the login, so changing it needs the current password. */
+data class UpdateProfileRequest(
+    @field:NotBlank(message = "Укажите имя")
+    @field:Size(max = 255, message = "Имя должно быть не длиннее 255 символов") val fullName: String,
+    @field:NotBlank(message = "Укажите email")
+    @field:Email(message = "Email должен быть корректным")
+    @field:Size(max = 255, message = "Email должен быть не длиннее 255 символов") val email: String,
+    @field:Size(max = 72, message = "Текущий пароль слишком длинный") val currentPassword: String? = null,
+)
 data class InviteEmployeeRequest(
     @field:NotBlank(message = "Укажите email сотрудника")
     @field:Email(message = "Email должен быть корректным")

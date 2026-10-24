@@ -11,7 +11,7 @@ import { roleLabels } from '../shared/labels';
 import { NotificationSettings } from '../types';
 
 export function ProfilePage() {
-  const { session, signOut } = useAuth();
+  const { session, signOut, updateSession } = useAuth();
   const navigate = useNavigate();
   const loaded = useApi(notificationsApi.settings);
   const [saved, setSaved] = useState<NotificationSettings | null>(null);
@@ -22,6 +22,12 @@ export function ProfilePage() {
   const [securityBusy, setSecurityBusy] = useState(false);
   const [securityError, setSecurityError] = useState<string | null>(null);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [fullName, setFullName] = useState(session?.user.fullName ?? '');
+  const [email, setEmail] = useState(session?.user.email ?? '');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSaved, setProfileSaved] = useState(false);
   const settings = saved ?? loaded.data;
   if (!session) return null;
 
@@ -38,6 +44,27 @@ export function ProfilePage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const emailChanged = email.trim().toLowerCase() !== session.user.email;
+  const profileChanged = emailChanged || fullName.trim().replace(/\s+/g, ' ') !== session.user.fullName;
+
+  const saveProfile = async (event: FormEvent) => {
+    event.preventDefault();
+    if (profileBusy || !profileChanged) return;
+    setProfileBusy(true);
+    setProfileError(null);
+    setProfileSaved(false);
+    try {
+      const next = await authApi.updateProfile(fullName, email, emailChanged ? profilePassword : undefined);
+      updateSession(next);
+      setFullName(next.user.fullName);
+      setEmail(next.user.email);
+      setProfilePassword('');
+      setProfileSaved(true);
+    } catch (next) {
+      setProfileError(next instanceof Error ? next.message : 'Не удалось сохранить данные');
+    } finally { setProfileBusy(false); }
   };
 
   const secure = async (logout: boolean, event?: FormEvent) => {
@@ -62,9 +89,24 @@ export function ProfilePage() {
       <PageHeader title="Профиль" subtitle="Ваши данные и настройки кабинета" />
       <Stack spacing={3} sx={{ pb: 6 }}>
         <Paper sx={{ p: { xs: 3, md: 4 } }}>
-          <Typography variant="h6">{session.user.fullName}</Typography>
-          <Typography sx={{ overflowWrap: 'anywhere', mt: 1 }}>{session.user.email}</Typography>
-          <Typography color="text.secondary" sx={{ mt: 1 }}>{roleLabels[session.user.role]}</Typography>
+          <Typography variant="h6">Личные данные</Typography>
+          <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>{roleLabels[session.user.role]}</Typography>
+          <Stack component="form" spacing={2} onSubmit={(event) => void saveProfile(event)}>
+            {profileError && <Alert severity="error">{profileError}</Alert>}
+            {profileSaved && <Alert severity="success">Данные сохранены</Alert>}
+            <TextField label="Имя и фамилия" autoComplete="name" required value={fullName} inputProps={{ maxLength: 255 }}
+              onChange={(event) => { setFullName(event.target.value); setProfileSaved(false); }} />
+            <TextField label="Email" type="email" autoComplete="email" required value={email} inputProps={{ maxLength: 255 }}
+              helperText="Email — логин для входа и адрес для писем"
+              onChange={(event) => { setEmail(event.target.value); setProfileSaved(false); }} />
+            {emailChanged && (
+              <TextField label="Текущий пароль для смены email" type="password" autoComplete="current-password" required value={profilePassword}
+                onChange={(event) => setProfilePassword(event.target.value)} />
+            )}
+            <Box>
+              <Button type="submit" variant="contained" disabled={profileBusy || !profileChanged}>Сохранить данные</Button>
+            </Box>
+          </Stack>
         </Paper>
         <Paper sx={{ p: { xs: 3, md: 4 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Уведомления</Typography>

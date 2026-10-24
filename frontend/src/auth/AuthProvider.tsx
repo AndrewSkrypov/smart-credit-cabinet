@@ -10,6 +10,8 @@ interface AuthContextValue {
   signUp: (input: SignUpInput) => Promise<UserSession>;
   signOut: () => void;
   acceptSession: (session: UserSession) => UserSession;
+  /** Replaces the stored session in place, without leaving the page (a renamed profile). */
+  updateSession: (session: UserSession) => void;
   endSession: () => void;
   isAllowed: (roles: Role[]) => boolean;
 }
@@ -42,6 +44,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = useCallback(async (input: SignUpInput) => start(await authApi.signUp(input)), [start]);
 
+  const updateSession = useCallback((next: UserSession) => {
+    writeSession(next);
+    setSession(next);
+  }, []);
+
   const endSession = useCallback(() => {
     clearSession();
     setSession(null);
@@ -55,8 +62,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAllowed = useCallback((roles: Role[]) => !!session && roles.includes(session.user.role), [session]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ session, signIn, signUp, signOut, isAllowed, acceptSession: start, endSession }),
-    [session, signIn, signUp, signOut, isAllowed, start, endSession]
+    () => ({ session, signIn, signUp, signOut, isAllowed, acceptSession: start, updateSession, endSession }),
+    [session, signIn, signUp, signOut, isAllowed, start, updateSession, endSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

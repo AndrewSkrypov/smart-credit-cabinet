@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 import ru.creditcabinet.access.application.CompanyAccessService
 import ru.creditcabinet.access.application.PasswordAccessService
 import ru.creditcabinet.access.domain.LinkPurpose
@@ -279,6 +280,40 @@ class AccountAccessIntegrationTest {
         assertEquals(401, access(fresh).status)
         assertEquals(410, post("/api/v1/auth/password-reset", mapOf("token" to pending, "password" to "Updated2026")).status)
         assertEquals(1, jdbc.queryForObject("select count(*) from identity_audit where subject_id=? and action='SESSIONS_REVOKED'", Int::class.java, user.id))
+    }
+
+    @Test
+    fun `profile name changes freely, a new email needs the current password and becomes the login`() {
+        val user = user()
+        val other = user()
+        val token = jwt.issue(user)
+        fun update(body: Map<String, String>) = mvc.put("/api/v1/users/me") {
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(body)
+            header("Authorization", "Bearer $token")
+        }.andReturn().response
+
+        val renamed = update(mapOf("fullName" to "  Анна   Котова ", "email" to user.email))
+        assertEquals(200, renamed.status)
+        assertEquals("Анна Котова", json(renamed)["user"]["fullName"].asText())
+        assertEquals("Анна Котова", verifier.parseClaims(json(renamed)["token"].asText()).fullName)
+        val email = "${UUID.randomUUID()}@Example.test"
+        assertEquals(400, update(mapOf("fullName" to "Анна Котова", "email" to email)).status)
+        assertEquals(400, update(mapOf("fullName" to "Анна Котова", "email" to email, "currentPassword" to "wrong")).status)
+        assertEquals(409, update(mapOf("fullName" to "Анна Котова", "email" to other.email, "currentPassword" to "Secret2026")).status)
+        passwords.requestRecovery(user.email, UUID.randomUUID().toString())
+        val link = links.token(LinkPurpose.PASSWORD_RESET, resetId(user))
+        val moved = update(mapOf("fullName" to "Анна Котова", "email" to email, "currentPassword" to "Secret2026"))
+        assertEquals(200, moved.status)
+        assertEquals(email.lowercase(), json(moved)["user"]["email"].asText())
+        // The old address no longer signs in or resets the password; the old token still works until it expires.
+        assertEquals(401, post("/api/v1/auth/sign-in", mapOf("email" to user.email, "password" to "Secret2026")).status)
+        assertEquals(200, post("/api/v1/auth/sign-in", mapOf("email" to email.lowercase(), "password" to "Secret2026")).status)
+        assertEquals(410, post("/api/v1/auth/password-reset", mapOf("token" to link, "password" to "Updated2026")).status)
+        assertEquals(200, access(token).status)
+        val actions = jdbc.queryForList("select action from identity_audit where subject_id=?", String::class.java, user.id)
+        assertTrue("NAME_CHANGED" in actions && "EMAIL_CHANGED" in actions, actions.toString())
+        assertEquals(400, update(mapOf("fullName" to " ", "email" to email)).status)
     }
 
     @Test

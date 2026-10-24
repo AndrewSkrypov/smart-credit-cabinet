@@ -93,6 +93,8 @@ export const authApi = {
   resetPassword: (token: string, password: string) => post<{ message: string }>('/auth/password-reset', { token, password }),
   changePassword: (currentPassword: string, password: string) => post<{ message: string }>('/auth/password', { currentPassword, password }),
   logoutAll: () => post<{ message: string }>('/auth/logout-all'),
+  updateProfile: (fullName: string, email: string, currentPassword?: string) =>
+    put<UserSession>('/users/me', { fullName, email, currentPassword: currentPassword || undefined }),
   inspectInvitation: (token: string) => post<InvitationPreview>('/auth/invitations/inspect', { token }),
   acceptInvitation: (token: string, fullName: string, password: string, personalDataConsent: boolean) =>
     post<UserSession>('/auth/invitations/accept', { token, fullName, password, personalDataConsent })

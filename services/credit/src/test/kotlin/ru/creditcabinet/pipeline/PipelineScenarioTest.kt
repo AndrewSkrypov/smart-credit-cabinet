@@ -29,6 +29,7 @@ import ru.creditcabinet.document.domain.StorageBackend
 import ru.creditcabinet.document.generated.GeneratedArtifacts
 import ru.creditcabinet.offer.ContractTexts
 import java.time.Duration
+import java.time.Instant
 import java.time.ZoneOffset
 import java.util.Date
 import java.util.UUID
@@ -138,6 +139,17 @@ class PipelineScenarioTest {
 
     private fun events(id: String) =
         json(mockMvc.get("/api/v1/applications/$id/events") { header("Authorization", "Bearer $client") }.andReturn().response).map { it["event"].asText() }
+
+    @Test
+    fun `source receipt timestamps are exposed only in the bank card`() {
+        val id = submitted()
+        worker.runDue()
+        val card = json(mockMvc.get("/api/v1/underwriting/applications/$id") { header("Authorization", "Bearer $underwriter") }.andReturn().response)
+        assertEquals(SourceKind.entries.map { it.name }.toSet(), card["sourceFetchedAt"].fieldNames().asSequence().toSet())
+        card["sourceFetchedAt"].forEach { assertEquals(clock.now, Instant.parse(it.asText())) }
+        assertTrue(!get(id).has("sourceFetchedAt"), "Source metadata must not leak into the client DTO")
+        mockMvc.get("/api/v1/underwriting/applications/$id") { header("Authorization", "Bearer $client") }.andExpect { status { isForbidden() } }
+    }
 
     @Test
     fun `manual approval keeps the policy snapshot of its automatic assessment`() = verifyManualPolicySnapshot("approve")
@@ -419,6 +431,7 @@ class PipelineScenarioTest {
         assertEquals("MANUAL_REVIEW", status(id))
         val card = json(mockMvc.get("/api/v1/underwriting/applications/$id") { header("Authorization", "Bearer $underwriter") }.andReturn().response)
         assertEquals("SOURCE_UNAVAILABLE", card["automaticDecision"]["manualReasons"][0]["code"].asText())
+        assertTrue(!card["sourceFetchedAt"].has("BUREAU"), "No receipt time may be invented for an unavailable source")
         assertEquals(listOf("APPROVE", "COUNTER_OFFER", "REQUEST_INFO", "REJECT"), card["actions"].map { it.asText() })
 
         assertEquals(400, post("/api/v1/underwriting/applications/$id/approve", underwriter).status, "no recommendation: a reason is required")

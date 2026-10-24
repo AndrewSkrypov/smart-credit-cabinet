@@ -409,6 +409,7 @@ export interface AssessmentView {
   tax: TaxInfo | null;
   bureau: BureauInfo | null;
   bank: BankInfo | null;
+  sourceFetchedAt?: Partial<Record<'REGISTRY' | 'TAX' | 'BUREAU' | 'BANK', string>>;
   turnoverVariation: number | null;
   discrepancies: Discrepancy[];
   automaticDecision: DecisionView | null;

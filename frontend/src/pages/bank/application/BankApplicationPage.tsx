@@ -1,17 +1,19 @@
 import { Alert, Box, Button, Chip, Grid, List, ListItem, ListItemText, Paper, Stack, Typography } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { applicationsApi, underwritingApi } from '../../../api/client';
 import { ErrorState } from '../../../components/ErrorState';
 import { LoadingBlock } from '../../../components/LoadingBlock';
 import { PageHeader } from '../../../components/PageHeader';
 import { MessagesBlock } from '../../../components/MessagesBlock';
+import { GeneratedFilesBlock } from '../../../components/GeneratedFilesBlock';
 import { statusTitle, statusTone } from '../../../shared/applicationText';
 import { fileSize, formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
 import { Application, AssessmentView } from '../../../types';
 import { AuditBlock, DiscrepanciesBlock, ScoreBlock, SourcesBlock } from './AssessmentBlocks';
 import { DecisionPanel, outcomeTitles } from './DecisionPanel';
+import { BankSummary } from './BankSummary';
 
 const REFRESH_MS = 10000;
 
@@ -25,26 +27,41 @@ const offerStatusTitles: Record<string, string> = {
 
 export function BankApplicationPage() {
   const { id = '' } = useParams();
+  return <BankApplicationCard key={id} id={id} />;
+}
+
+function BankApplicationCard({ id }: { id: string }) {
   const [application, setApplication] = useState<Application | null>(null);
   const [assessment, setAssessment] = useState<AssessmentView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const mounted = useRef(false);
+  const requestSequence = useRef(0);
+  const inFlight = useRef(false);
 
   const load = useCallback(async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    const sequence = ++requestSequence.current;
     try {
       const [nextApplication, nextAssessment] = await Promise.all([applicationsApi.get(id), underwritingApi.assessment(id)]);
+      if (!mounted.current || sequence !== requestSequence.current) return;
       setApplication(nextApplication);
       setAssessment(nextAssessment);
       setError(null);
     } catch (nextError) {
+      if (!mounted.current || sequence !== requestSequence.current) return;
       setError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить заявку');
+    } finally {
+      inFlight.current = false;
     }
   }, [id]);
 
   useEffect(() => {
+    mounted.current = true;
     void load();
     const timer = window.setInterval(() => void load(), REFRESH_MS);
-    return () => window.clearInterval(timer);
+    return () => { mounted.current = false; window.clearInterval(timer); };
   }, [load]);
 
   if (error && !application) return <ErrorState message={error} onRetry={load} />;
@@ -70,10 +87,12 @@ export function BankApplicationPage() {
         actions={<Chip label={statusTitle(application.status)} color={tone === 'default' ? 'default' : tone} sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }} />}
       />
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
+      {error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => void load()}>Повторить</Button>}>{error}. Показаны последние полученные данные; действия появятся после обновления.</Alert>}
+      <BankSummary application={application} assessment={assessment} stale={Boolean(error)} />
       <Grid container spacing={3}>
         <Grid item xs={12} lg={7}>
           <Stack spacing={3}>
-            <DecisionPanel application={application} assessment={assessment} onDone={() => { setNotice('Решение сохранено, клиент увидит его в кабинете'); void load(); }} />
+            {!error && <DecisionPanel application={application} assessment={assessment} onDone={() => { setNotice('Решение сохранено, клиент увидит его в кабинете'); void load(); }} />}
             <ScoreBlock decision={assessment.automaticDecision} />
             {assessment.latestDecision && assessment.latestDecision.decidedByType !== 'SYSTEM' && (
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
@@ -104,7 +123,7 @@ export function BankApplicationPage() {
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
                 <Typography variant="h6" component="h2" gutterBottom>Предложение клиенту</Typography>
                 <Typography>{offer.kind === 'COUNTER' ? 'Другие условия' : 'Запрошенные условия'} · {offer.productName}</Typography>
-                <Typography>{rub(offer.amount)} · {months(offer.termMonths)} · {percent(offer.rate)} · {rubExact(offer.monthlyPayment)} в месяц</Typography>
+                <Typography>{rub(offer.amount)} · {months(offer.termMonths)} · {percent(offer.rate)} · первый платёж {rubExact(offer.monthlyPayment)}</Typography>
                 <Typography variant="body2" color="text.secondary">{offerStatusTitles[offer.status] ?? offer.status} · действует до {formatDateTime(offer.validUntil)}</Typography>
               </Paper>
             )}
@@ -115,6 +134,7 @@ export function BankApplicationPage() {
                 <Typography color="text.secondary">Ссудный счёт {application.process.loan.loanAccount}</Typography>
               </Paper>
             )}
+            {(offer || application.process.loan) && <GeneratedFilesBlock key={application.id} applicationId={application.id} final={Boolean(application.process.loan)} />}
             <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
               <Typography variant="h6" component="h2">Документы</Typography>
               {application.documents.length === 0 ? (

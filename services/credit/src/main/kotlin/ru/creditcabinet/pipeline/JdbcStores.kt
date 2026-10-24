@@ -127,6 +127,12 @@ class JdbcRuleSets(private val jdbc: NamedParameterJdbcTemplate, private val map
 
 @Component
 class JdbcEnrichmentStore(private val jdbc: NamedParameterJdbcTemplate, private val mapper: ObjectMapper) : EnrichmentStore {
+    override fun fetchedAt(applicationId: UUID): Map<SourceKind, Instant> =
+        jdbc.query(
+            "select source, fetched_at from enrichment_results where application_id = :application",
+            mapOf("application" to applicationId),
+        ) { rs, _ -> SourceKind.valueOf(rs.getString("source")) to rs.instant("fetched_at")!! }.toMap()
+
     override fun save(applicationId: UUID, kind: SourceKind, data: Any, at: Instant) {
         jdbc.update(
             """

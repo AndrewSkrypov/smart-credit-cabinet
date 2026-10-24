@@ -394,6 +394,11 @@ components:
           $ref: '#/components/schemas/DecisionView'
         registry:
           $ref: '#/components/schemas/RegistryInfo'
+        sourceFetchedAt:
+          additionalProperties:
+            format: date-time
+            type: string
+          type: object
         status:
           enum:
           - DRAFT
@@ -419,6 +424,7 @@ components:
       - actions
       - applicationId
       - discrepancies
+      - sourceFetchedAt
       - status
       type: object
     BankInfo:

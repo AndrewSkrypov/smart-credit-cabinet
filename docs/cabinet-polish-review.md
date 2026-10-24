@@ -62,7 +62,7 @@
 
 ```dotenv
 GATEWAY_PORT=127.0.0.1:18150
-MAILPIT_PORT=127.0.0.1:18151
+MAILPIT_PORT=18151
 PUBLIC_CABINET_URL=http://localhost:18150
 MAIL_MODE=on
 STORAGE_BACKEND=local
@@ -70,7 +70,7 @@ OLLAMA_URL=
 ```
 
 ```bash
-docker compose --env-file .env.review -p cabinet-review up -d --build --wait --wait-timeout 300
+docker compose --env-file .env.review -p cabinet-review --profile mail up -d --build --wait --wait-timeout 300
 ```
 
 Адреса — `http://localhost:18150` и Mailpit `http://localhost:18151`. Демо-роли доступны

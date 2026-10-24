@@ -202,10 +202,16 @@ default 3B и его лицензия не заменяются автомати
 оценщик завершает активные демо-заявки. В этом примере origin — `http://localhost:18150`.
 
 ```bash
-docker compose --env-file .env.review -p cabinet-e2e -f docker-compose.yml -f docker/ollama/eval.compose.yaml --profile ai up -d --build --wait --wait-timeout 300
+docker compose --env-file .env.review -p cabinet-e2e -f docker-compose.yml -f docker/ollama/eval.compose.yaml --profile ai --profile mail up -d --build --wait --wait-timeout 300
 python scripts/assistant-eval.py --base http://localhost:18150 --project cabinet-e2e --mode model --model qwen3:4b-instruct-2507-q4_K_M --report-name model-polish
 python scripts/assistant-polish-eval.py --base http://localhost:18150 --project cabinet-e2e --mode model --report-name model-polish-extra
 ```
+
+Override ожидает успешного ollama-pull перед стартом engagement. Загрузка весов на диск
+не прогревает модель в RAM: первый холодный оценочный прогон может быть отклонён из-за
+одних RULES. Сохраните его отдельно, дождитесь готовности модели и повторите с новым
+`--report-name model-polish-warm`; не подменяйте им холодное измерение. На медленной сети
+скачивание может требовать большего startup timeout, чем 300 секунд.
 
 Дополнительный скрипт временно останавливает только Ollama указанного проекта. Обычный
 feature-preview после приёмки работает в rules-only; AI требует отдельного запаса памяти.

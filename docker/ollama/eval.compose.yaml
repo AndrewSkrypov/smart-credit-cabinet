@@ -1,6 +1,9 @@
 # Explicit opt-in for isolated synthetic evaluation; ordinary runtime defaults stay unchanged.
 services:
   engagement:
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
     environment:
       OLLAMA_URL: http://ollama:11434
       ASSISTANT_MODEL: qwen3:4b-instruct-2507-q4_K_M

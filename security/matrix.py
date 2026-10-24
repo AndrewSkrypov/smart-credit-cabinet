@@ -198,6 +198,10 @@ def invoke(method, template, kind, role, fixture):
         body = {"currentPassword": password, "password": password}
     if kind == "logout_all":
         time.sleep(2.1)
+    if kind == "profile_update":
+        # The participant's own unchanged name and email: access is checked, the account stays as it was.
+        current = api.request("GET", "/api/v1/users/me", None, token, expected=None)["body"] or {}
+        body = {"fullName": current.get("fullName", "Синтетический участник"), "email": current.get("email", "matrix-anonymous@example.test")}
     if kind == "invite":
         body = {"email": f"matrix-invite-{uuid4().hex}@example.test", "canSign": False}
     if template.endswith("/documents"):

@@ -30,6 +30,7 @@ Compose запускает [миграции отдельными владель
 | [docs/generated-files.md](docs/generated-files.md) | PDF/XLSX условий и графика, хранение, скачивание и почтовое уведомление |
 | [docs/architecture.md](docs/architecture.md) | Сервисы, взаимодействие, безопасность |
 | [docs/assistant-eval.md](docs/assistant-eval.md) | 36 контрольных вопросов, измерения и ограничения помощника |
+| [docs/cabinet-polish-review.md](docs/cabinet-polish-review.md) | Дельта cabinet-polish, снимки до/после, образцы PDF/XLSX, отдельный стенд и ограничения |
 | [docs/design-tokens.md](docs/design-tokens.md) | Цвета, шрифты, отступы и скругления интерфейса |
 | [docs/integrations.md](docs/integrations.md) | Симуляторы ЕГРЮЛ/ЕГРИП, ФНС, БКИ, данных банка, подписания и АБС; тестовые компании |
 | [docs/demo.md](docs/demo.md) | Сценарий демонстрации на 7 минут |

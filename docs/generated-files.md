@@ -92,3 +92,10 @@ python load/generated-storage.py --project cabinet-e2e --base http://localhost:8
 обратно в `finally`. JSON-отчёты находятся в `load/reports/<report-name>/verified.json`;
 значение `passed` проверяется явно. Эти проверки дополняют общие storage/restore,
 security и сквозные проверки, а не заменяют их.
+
+Существующий `deploy/test-local.py` также проверяет эти файлы при независимом restore
+для LOCAL и S3. Перед backup он сохраняет исходную проверку двух загрузок, ожидает по
+три READY-файла на каждый выданный кредит и проверяет полный счётчик выбранного backend.
+После restore сравниваются замороженный текст договора, ID/метаданные файлов и фактически
+скачанные PDF/XLSX по размеру, Content-Type и SHA256. Это описание проверки; её результат
+принимается по `passed` и стадиям реального `deploy/reports/test-*/summary.json` нужного SHA.

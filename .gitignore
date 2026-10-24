@@ -20,6 +20,8 @@ services/*/uploads/
 # Case materials of the organisers: not ours to redistribute.
 *.pdf
 !contracts/postman/fixtures/synthetic.pdf
+!docs/review/cabinet-polish/contract-demo.pdf
+!docs/review/cabinet-polish/schedule-demo.pdf
 
 contracts/postman/node_modules/
 contracts/postman/reports/

@@ -122,6 +122,7 @@ function CabinetPreview() {
 
 const pill = { borderRadius: '99px', paddingInline: 3 } as const;
 const heroButton = { flex: { xs: '1 1 100%', sm: '0 0 auto' }, whiteSpace: { xs: 'normal', sm: 'nowrap' }, minHeight: 60, paddingInline: 4, fontSize: 17, fontWeight: 600, borderRadius: '16px' } as const;
+const wideHeader = '@media (min-width: 1024px)';
 
 const audiences = [
   { title: 'Предпринимателю', bg: tokens.red, color: '#fff', art: 'briefcase', action: 'Войти как предприниматель',
@@ -145,19 +146,19 @@ export function LandingPage() {
   const largest = availableProducts?.reduce((max, item) => Math.max(max, item.maxAmount), 0);
 
   return (
-    <Box sx={{ background: nightGlow, minHeight: '100vh' }}>
+    <Box sx={{ background: nightGlow, minHeight: '100vh', '& section[id]': { scrollMarginTop: { xs: 80, md: 96 } } }}>
       {/* Header and the first screen share the dark band. */}
       <Box component="header" sx={{ position: 'sticky', top: 0, zIndex: 10, pt: { xs: 1, md: 2 } }}>
         <Container maxWidth="lg">
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 4 }, minHeight: { xs: 56, md: 64 }, px: { xs: 1.5, md: 2.5 }, borderRadius: '99px',
           bgcolor: 'rgba(28, 28, 30, 0.72)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
           <BrandMark inverted compact />
-          <Stack component="nav" aria-label="Разделы страницы" direction="row" spacing={3} sx={{ display: { xs: 'none', md: 'flex' }, flexGrow: 1, ml: 2 }}>
+          <Stack component="nav" aria-label="Разделы страницы" direction="row" spacing={3} sx={{ display: 'none', [wideHeader]: { display: 'flex' }, flexGrow: 1, ml: 2 }}>
             {[['Кредиты', '#products'], ['Расчёт', '#calculator'], ['Задачи', '#purposes'], ['Как получить', '#steps']].map(([label, href]) => (
               <Typography key={href} component="a" href={href} sx={{ color: '#fff', textDecoration: 'none', fontWeight: 500, opacity: 0.88, '&:hover': { opacity: 1 } }}>{label}</Typography>
             ))}
           </Stack>
-          <Box sx={{ flexGrow: { xs: 1, md: 0 } }} />
+          <Box sx={{ flexGrow: 1, [wideHeader]: { flexGrow: 0 } }} />
           {cabinet ? (
             <Button component={RouterLink} to={cabinet} variant="contained" sx={pill}>В кабинет</Button>
           ) : (

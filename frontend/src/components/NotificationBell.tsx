@@ -62,6 +62,7 @@ export function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<CabinetNotification[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
 
   const refreshCount = useCallback(() => {
     notificationsApi.unreadCount().then(setUnread).catch(() => undefined);
@@ -104,9 +105,16 @@ export function NotificationBell() {
   }
 
   async function readAll() {
-    await notificationsApi.markAllRead().catch(() => undefined);
-    setUnread(0);
-    setItems((current) => current?.map((item) => ({ ...item, read: true })) ?? null);
+    if (reading) return;
+    setReading(true);
+    setError(null);
+    try {
+      await notificationsApi.markAllRead();
+      setUnread(0);
+      setItems((current) => current?.map((item) => ({ ...item, read: true })) ?? null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Не удалось отметить уведомления прочитанными');
+    } finally { setReading(false); }
   }
 
   const label = unread > 0 ? `Уведомления: ${unread} непрочитанных` : 'Уведомления: нет новых';
@@ -127,7 +135,7 @@ export function NotificationBell() {
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1, pb: 0.5, gap: 1 }}>
           <Typography component="h2" variant="subtitle1" fontWeight={700}>Уведомления</Typography>
-          {unread > 0 && <Button size="small" onClick={() => void readAll()} sx={{ minHeight: 44 }}>Прочитать все</Button>}
+          {unread > 0 && <Button size="small" disabled={reading} onClick={() => void readAll()} sx={{ minHeight: 44 }}>Прочитать все</Button>}
         </Box>
         {error && <Alert severity="error" sx={{ m: 1 }}>{error}</Alert>}
         {!items && !error && <CircularProgress size={20} aria-label="Загрузка уведомлений" sx={{ display: 'block', m: 2 }} />}

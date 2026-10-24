@@ -1,0 +1,969 @@
+[
+  {
+    "name": "82. Заявка для проверки переписки",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "url": "{{baseUrl}}/applications",
+      "body": {
+        "mode": "raw",
+        "raw": "{\"productCode\": \"WORKING_CAPITAL\", \"purpose\": \"WORKING_CAPITAL\", \"amount\": 3000000, \"termMonths\": 24, \"declaredRevenue12m\": 15000000, \"bureauConsent\": true}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      }
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 201\",()=>pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('chatApplication',pm.response.json().id);"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "83. Подача заявки для переписки",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/submit",
+      "body": {
+        "mode": "raw",
+        "raw": "{}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      }
+    },
+    "event": [
+      {
+        "listen": "prerequest",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+          ]
+        }
+      },
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "84. Ожидание готовности переписки",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}"
+    },
+    "event": [
+      {
+        "listen": "prerequest",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "if (!pm.collectionVariables.get('chat_deadline')) pm.collectionVariables.set('chat_deadline',Date.now()+90000);"
+          ]
+        }
+      },
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+            "const app=pm.response.json();",
+            "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('chat_deadline'))) {",
+            "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
+            "  pm.execution.setNextRequest(pm.info.requestName);",
+            "  setTimeout(()=>{},500);",
+            "} else {",
+            "  pm.collectionVariables.unset('chat_deadline');",
+            "  pm.test(\"Достигнут MANUAL_REVIEW\",()=>pm.expect(app.status).to.equal('MANUAL_REVIEW'));",
+            "}",
+            "if (pm.response.json().status==='MANUAL_REVIEW') pm.collectionVariables.set('chatBefore',JSON.stringify(pm.response.json()));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "85. Бизнес-журнал до переписки",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/events"
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.collectionVariables.set('chatEventsBefore',pm.response.text());"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "86. Сообщение клиента с безопасным текстом",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+      "body": {
+        "mode": "raw",
+        "raw": "{\"text\": \"5 < 10. <b>Простой текст</b>\"}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      }
+    },
+    "event": [
+      {
+        "listen": "prerequest",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.collectionVariables.set('chatMessageKey',pm.variables.replaceIn('{{$guid}}'));",
+            "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.collectionVariables.get('chatMessageKey')});"
+          ]
+        }
+      },
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "const m=pm.response.json();pm.collectionVariables.set('chatMessageId',m.id);pm.test('Текст не интерпретируется',()=>pm.expect(m.text).to.equal('5 < 10. <b>Простой текст</b>'));pm.test('Первая последовательность',()=>pm.expect(m.seq).to.equal(1));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "87. Повтор сообщения после потери ответа",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+      "body": {
+        "mode": "raw",
+        "raw": "{\"text\": \"5 < 10. <b>Простой текст</b>\"}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      }
+    },
+    "event": [
+      {
+        "listen": "prerequest",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.collectionVariables.get('chatMessageKey')});"
+          ]
+        }
+      },
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.test('То же неизменяемое сообщение',()=>pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('chatMessageId')));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "88. Ключ сообщения не принимает другое тело",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+      "body": {
+        "mode": "raw",
+        "raw": "{\"text\": \"Другой текст\"}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      }
+    },
+    "event": [
+      {
+        "listen": "prerequest",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.collectionVariables.get('chatMessageKey')});"
+          ]
+        }
+      },
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 409\",()=>pm.response.to.have.status(409));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "89. Переписка скрыта от чужой компании",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{clientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages"
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 404\",()=>pm.response.to.have.status(404));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "90. Банк видит непрочитанное",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{underwriterToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages"
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.test('Одно непрочитанное',()=>{pm.expect(pm.response.json().unreadCount).to.equal(1);pm.expect(pm.response.json().messages).to.have.length(1);});"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "91. Банк отмечает прочтение",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{underwriterToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages/read",
+      "body": {
+        "mode": "raw",
+        "raw": "{\"lastReadSeq\": 1}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      }
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.test('Курсор продвинут',()=>pm.expect(pm.response.json().readSeq).to.equal(1));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "92. Вложение переписки в существующем хранилище",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages/attachments",
+      "body": {
+        "mode": "formdata",
+        "formdata": [
+          {
+            "key": "file",
+            "type": "file",
+            "src": "fixtures/synthetic.pdf"
+          }
+        ]
+      }
+    },
+    "event": [
+      {
+        "listen": "prerequest",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+          ]
+        }
+      },
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.collectionVariables.set('chatFile',pm.response.json().id);"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "93. Банк не скачивает неопубликованное вложение",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{underwriterToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/documents/{{chatFile}}"
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 404\",()=>pm.response.to.have.status(404));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "94. Сообщение с вложением",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+      "body": {
+        "mode": "raw",
+        "raw": "{\"text\": \"Синтетический файл\", \"documentIds\": [\"{{chatFile}}\"]}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      }
+    },
+    "event": [
+      {
+        "listen": "prerequest",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+          ]
+        }
+      },
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.test('Вложение связано с сообщением',()=>pm.expect(pm.response.json().attachments[0].id).to.equal(pm.collectionVariables.get('chatFile')));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "95. Банк скачивает опубликованное вложение",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{underwriterToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/documents/{{chatFile}}"
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.test('Сигнатура PDF сохранена',()=>pm.expect(pm.response.text().startsWith('%PDF-')).to.equal(true));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "96. Ответ банка",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{underwriterToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+      "body": {
+        "mode": "raw",
+        "raw": "{\"text\": \"Банк получил файл\"}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      }
+    },
+    "event": [
+      {
+        "listen": "prerequest",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+          ]
+        }
+      },
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "97. Клиент видит ответ и непрочитанное",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages"
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "const p=pm.response.json();pm.test('Три сообщения, одно от банка',()=>{pm.expect(p.messages).to.have.length(3);pm.expect(p.unreadCount).to.equal(1);});"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "98. Клиент отмечает ответ прочитанным",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages/read",
+      "body": {
+        "mode": "raw",
+        "raw": "{\"lastReadSeq\": 3}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      }
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.test('Непрочитанных нет',()=>pm.expect(pm.response.json().unreadCount).to.equal(0));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "99. Отдельный аудит переписки банка",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{underwriterToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages/audit"
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.test('Ровно три отправки и одна загрузка',()=>{const a=pm.response.json();pm.expect(a.filter(x=>x.action==='MESSAGE_SENT')).to.have.length(3);pm.expect(a.filter(x=>x.action==='ATTACHMENT_UPLOADED')).to.have.length(1);});"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "100. Клиент не получает банковский аудит",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages/audit"
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 403\",()=>pm.response.to.have.status(403));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "101. Переписка не меняет процесс заявки",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}"
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.test('Статус, версия и бизнес-документы сохранены',()=>{const before=JSON.parse(pm.collectionVariables.get('chatBefore'));const after=pm.response.json();for(const k of ['status','version','documents'])pm.expect(after[k]).to.deep.equal(before[k]);});"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "102. Переписка не попадает в бизнес-журнал",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/events"
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.test('Журнал сохранён',()=>pm.expect(pm.response.json()).to.deep.equal(JSON.parse(pm.collectionVariables.get('chatEventsBefore'))));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "103. Закрытие проверки переписки",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/withdraw",
+      "body": {
+        "mode": "raw",
+        "raw": "{}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      }
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "104. Закрытая заявка только для чтения",
+    "request": {
+      "method": "POST",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages",
+      "body": {
+        "mode": "raw",
+        "raw": "{\"text\": \"После закрытия\"}",
+        "options": {
+          "raw": {
+            "language": "json"
+          }
+        }
+      }
+    },
+    "event": [
+      {
+        "listen": "prerequest",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.request.headers.upsert({key:'Idempotency-Key',value:pm.variables.replaceIn('{{$guid}}')});"
+          ]
+        }
+      },
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 409\",()=>pm.response.to.have.status(409));"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "105. История закрытой заявки доступна",
+    "request": {
+      "method": "GET",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{manualClientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "header": [],
+      "url": "{{baseUrl}}/applications/{{chatApplication}}/messages"
+    },
+    "event": [
+      {
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+            "pm.test('История сохранена, запись запрещена',()=>{pm.expect(pm.response.json().messages).to.have.length(3);pm.expect(pm.response.json().writable).to.equal(false);});"
+          ]
+        }
+      }
+    ]
+  }
+]

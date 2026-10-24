@@ -24,6 +24,7 @@ import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.TokenClaims
+import ru.creditcabinet.offer.ContractTexts
 import java.time.Duration
 import java.time.ZoneOffset
 import java.util.Date
@@ -33,6 +34,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFails
 import kotlin.test.assertTrue
 
 /**
@@ -58,6 +60,8 @@ class PipelineScenarioTest {
     @Autowired private lateinit var sources: FakeSources
 
     @Autowired private lateinit var core: FakeCore
+
+    @Autowired private lateinit var signing: FakeSigning
 
     @MockitoBean private lateinit var companies: CompanyDirectory
 
@@ -121,6 +125,82 @@ class PipelineScenarioTest {
 
     private fun events(id: String) =
         json(mockMvc.get("/api/v1/applications/$id/events") { header("Authorization", "Bearer $client") }.andReturn().response).map { it["event"].asText() }
+
+    @Test
+    fun `manual approval keeps the policy snapshot of its automatic assessment`() = verifyManualPolicySnapshot("approve")
+
+    @Test
+    fun `manual counter offer keeps the policy snapshot of its automatic assessment`() = verifyManualPolicySnapshot("counter-offer")
+
+    private fun verifyManualPolicySnapshot(action: String) {
+        sources.companies[inn] = FakeSources.healthy(inn, today, okved = "41.20")
+        val id = submitted()
+        worker.runDue()
+        assertEquals("MANUAL_REVIEW", status(id))
+        val card = json(mockMvc.get("/api/v1/underwriting/applications/$id") { header("Authorization", "Bearer $underwriter") }.andReturn().response)
+        val originalVersion = card["automaticDecision"]["ruleSetVersion"].asInt()
+        val originalRules = json(mockMvc.get("/api/v1/rules") { header("Authorization", "Bearer $underwriter") }.andReturn().response)
+        val rating = card["automaticDecision"]["rating"].asText()
+        val productRate = jdbc.queryForObject(
+            "select v.base_rate from applications a join product_versions v on v.code=a.product_code and v.version=a.product_version where a.id=?::uuid",
+            Double::class.java,
+            id,
+        )!!
+        val expectedRate = productRate + originalRules["params"]["ratingMargins"][rating].asDouble()
+        try {
+            jdbc.update(
+                "insert into rule_sets (version,params,created_at,comment) select version+1,jsonb_set(params,'{ratingMargins,$rating}',to_jsonb(?::numeric)),now(),'New policy after assessment' from rule_sets order by version desc limit 1",
+                originalRules["params"]["ratingMargins"][rating].asDouble() + 2,
+            )
+            val result =
+                post("/api/v1/underwriting/applications/$id/$action", underwriter, """{"amount":900000,"termMonths":12,"comment":"Проверено вручную"}""")
+            assertEquals(200, result.status, result.contentAsString)
+            assertEquals(expectedRate, get(id)["process"]["offer"]["rate"].asDouble())
+            assertEquals(
+                originalVersion,
+                jdbc.queryForObject(
+                    "select rule_set_version from decisions where application_id=?::uuid and decided_by_type='UNDERWRITER'",
+                    Int::class.java,
+                    id,
+                ),
+            )
+        } finally {
+            jdbc.update(
+                "insert into rule_sets (version,params,comment) select coalesce(max(version),0)+1,?::jsonb,'Test policy restoration' from rule_sets",
+                mapper.writeValueAsString(originalRules["params"]),
+            )
+        }
+    }
+
+    @Test
+    fun `the signing text is saved once matches the gateway and survives replacement codes and disbursement`() {
+        val id = submitted()
+        worker.runDue()
+        fun text(token: String = client) = mockMvc.get("/api/v1/applications/$id/contract") { header("Authorization", "Bearer $token") }.andReturn().response
+        val preview = json(text())
+        assertTrue(preview["snapshot"].isNull)
+        assertEquals(false, preview["legacySummary"].asBoolean())
+        assertEquals(200, post("/api/v1/applications/$id/offer/accept", client).status)
+        val original = json(text())
+        val snapshot = original["snapshot"]
+        assertEquals(true, original["signable"].asBoolean())
+        assertEquals(signing.texts.getValue("contract-$id"), original["text"].asText())
+        assertEquals(ContractTexts.sha256(original["text"].asText()), snapshot["sha256"].asText())
+        repeat(2) {
+            assertEquals(200, post("/api/v1/applications/$id/signing/code", client).status)
+            assertEquals(snapshot, json(text())["snapshot"])
+        }
+        assertEquals(1, jdbc.queryForObject("select count(*) from contract_text_snapshots where application_id=?::uuid", Int::class.java, id))
+        assertFails { jdbc.update("update contract_text_snapshots set contract_text='changed' where application_id=?::uuid", id) }
+        assertEquals(404, text(token("CLIENT", UUID.randomUUID())).status)
+        assertEquals(snapshot, json(text(manager))["snapshot"])
+        assertEquals(200, post("/api/v1/applications/$id/sign", client, """{"code":"424242"}""").status)
+        worker.runDue()
+        val issued = json(text())
+        assertEquals(snapshot, issued["snapshot"])
+        assertTrue(!issued["signedAt"].isNull)
+        assertEquals(false, issued["signable"].asBoolean())
+    }
 
     @Test
     fun `a healthy business goes from the request to the money without a person`() {

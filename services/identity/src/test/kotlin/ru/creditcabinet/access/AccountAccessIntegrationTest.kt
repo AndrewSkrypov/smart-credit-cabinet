@@ -371,12 +371,12 @@ class AccountAccessIntegrationTest {
             header("Authorization", "Bearer ${jwt.issue(owner)}")
             header("Idempotency-Key", UUID.randomUUID())
         }.andReturn().response
-        assertEquals(409, revoked.status)
+        assertEquals(403, revoked.status)
         assertEquals(200, access(jwt.issue(owner)).status)
     }
 
     @Test
-    fun `company lock preserves a signer during concurrent self revocations`() {
+    fun `self revocation is forbidden even when another signer exists`() {
         val first = user()
         val second = user(first.companyId!!)
         val actors = listOf(first, second).map { verifier.parseClaims(jwt.issue(it)) }
@@ -394,11 +394,19 @@ class AccountAccessIntegrationTest {
                     }
                 },
             ).map { it.get(10, TimeUnit.SECONDS) }.sorted()
-            assertEquals(listOf(200, 409), results)
+            assertEquals(listOf(403, 403), results)
         } finally {
             pool.shutdownNow()
         }
-        assertEquals(1, jdbc.queryForObject("select count(*) from users where company_id=? and status='ACTIVE' and can_sign", Int::class.java, first.companyId))
+        assertEquals(2, jdbc.queryForObject("select count(*) from users where company_id=? and status='ACTIVE' and can_sign", Int::class.java, first.companyId))
+        val secondToken = jwt.issue(second)
+        val revoked = mvc.delete("/api/v1/companies/me/employees/${second.id}/access") {
+            header("Authorization", "Bearer ${jwt.issue(first)}")
+            header("Idempotency-Key", UUID.randomUUID())
+        }.andReturn().response
+        assertEquals(200, revoked.status)
+        assertEquals(401, access(secondToken).status)
+        assertEquals(200, access(jwt.issue(first)).status)
     }
 
     @Test

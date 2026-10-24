@@ -32,6 +32,6 @@ class ProductEditor(private val catalog: ProductCatalog, private val versions: P
         require(reason.isNotBlank() && reason.length <= 1000) { "Опишите причину изменения — до 1000 символов" }
         val problems = candidate.problems()
         require(problems.isEmpty()) { problems.joinToString("; ") }
-        return versions.replace(candidate, expectedVersion, actor.userId, reason.trim(), clock.instant())
+        return versions.replace(candidate, expectedVersion, actor.userId, reason.trim(), clock.instant(), actor.fullName, actor.role)
     }
 }

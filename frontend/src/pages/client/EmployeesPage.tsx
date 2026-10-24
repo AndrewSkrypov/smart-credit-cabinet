@@ -114,7 +114,7 @@ export function EmployeesPage() {
                         <Chip size="small" label={member.status === 'ACTIVE' ? 'Доступ открыт' : 'Доступ отозван'} />
                         <Chip size="small" label={member.canSign ? 'С правом подписи' : 'Без права подписи'} />
                       </Stack>
-                      {data.canManage && member.status === 'ACTIVE' && <Button variant="outlined" disabled={busy} onClick={() => setConfirm({ kind: 'revoke', id: member.id, name: member.fullName })}>Отозвать доступ</Button>}
+                      {data.canManage && member.status === 'ACTIVE' && member.id !== session?.user.id && <Button variant="outlined" disabled={busy} onClick={() => setConfirm({ kind: 'revoke', id: member.id, name: member.fullName })}>Отозвать доступ</Button>}
                     </Stack>
                   </Paper>
                 ))}

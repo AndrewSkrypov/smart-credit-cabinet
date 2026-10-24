@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -86,9 +86,11 @@ submit('08. Отправка с Idempotency-Key', 'clientToken', 'clientApplicat
 submit('09. Повтор той же отправки', 'clientToken', 'clientApplication');
 poll('10. Ожидание оффера', 'clientToken', 'clientApplication', 'OFFER_ISSUED');
 add('11. Принятие оффера', 'POST', `/applications/${ref('clientApplication')}/offer/accept`, { data: {}, tests: "const app=pm.response.json();pm.test('Выпущен код подписи',()=>pm.expect(app.process.signing.code).to.match(/^\\d{6}$/));pm.collectionVariables.set('signingCode',app.process.signing.code);" });
+add('11.1. Точный сохранённый текст до подписи', 'GET', `/applications/${ref('clientApplication')}/contract`, { tests: "const view=pm.response.json();pm.test('Текст сохранён и связан с сессией',()=>{pm.expect(view.signable).to.equal(true);pm.expect(view.legacySummary).to.equal(false);pm.expect(view.text).to.equal(view.snapshot.text);pm.expect(view.snapshot.sha256).to.match(/^[a-f0-9]{64}$/);});pm.collectionVariables.set('contractTextHash',view.snapshot.sha256);" });
 add('12. Подписание кодом', 'POST', `/applications/${ref('clientApplication')}/sign`, { data: { code: '{{signingCode}}' }, tests: "pm.test('Подпись принята',()=>pm.expect(['DISBURSING','DISBURSED']).to.include(pm.response.json().status));" });
 poll('13. Ожидание выдачи', 'clientToken', 'clientApplication', 'DISBURSED');
 add('14. График выданного кредита', 'GET', `/applications/${ref('clientApplication')}/schedule`, { tests: "const schedule=pm.response.json().schedule;pm.test('12 платежей и нулевой остаток',()=>{pm.expect(schedule).to.have.length(12);pm.expect(schedule[11].balance).to.equal(0);});" });
+add('14.1. После выдачи сохранён тот же текст', 'GET', `/applications/${ref('clientApplication')}/contract`, { tests: "const view=pm.response.json();pm.test('Хеш не изменился и факт подписи сохранён',()=>{pm.expect(view.snapshot.sha256).to.equal(pm.collectionVariables.get('contractTextHash'));pm.expect(view.signedAt).to.be.a('string');pm.expect(view.signable).to.equal(false);});" });
 add('15. Журнал и идемпотентность', 'GET', `/applications/${ref('clientApplication')}/events`, { tests: "const events=pm.response.json();pm.test('Отправка и выдача записаны по одному разу',()=>{pm.expect(events.filter(e=>e.toStatus==='SUBMITTED')).to.have.length(1);pm.expect(events.filter(e=>e.toStatus==='DISBURSED')).to.have.length(1);});" });
 
 login('16. Вход клиента ручного сценария', 'logistic', 'manualClientToken');
@@ -120,8 +122,8 @@ poll('41. Клиент видит отказ', 'manualClientToken', 'rejectedApp
 
 login('42. Вход риск-администратора', 'risk', 'riskToken');
 add('43. Действующие правила', 'GET', '/rules', { token: 'riskToken', tests: "const rules=pm.response.json();pm.test('Правила имеют версию',()=>pm.expect(rules.version).to.be.a('number'));pm.collectionVariables.set('originalRules',JSON.stringify(rules.params));pm.collectionVariables.set('originalVersion',rules.version);const changed=JSON.parse(JSON.stringify(rules.params));changed.maxLoad-=0.01;pm.collectionVariables.set('changedRules',JSON.stringify(changed));" });
-add('44. Новая версия правил', 'POST', '/rules', { token: 'riskToken', status: 201, data: '{"params":{{changedRules}},"comment":"Проверка версии кредитной политики через API"}', tests: "pm.test('Версия увеличилась',()=>pm.expect(pm.response.json().version).to.equal(Number(pm.collectionVariables.get('originalVersion'))+1));" });
-add('45. Восстановление параметров', 'POST', '/rules', { token: 'riskToken', status: 201, data: '{"params":{{originalRules}},"comment":"Восстановление параметров после проверки"}', tests: "pm.test('Исходные параметры восстановлены',()=>pm.expect(pm.response.json().params).to.deep.equal(JSON.parse(pm.collectionVariables.get('originalRules'))));" });
+add('44. Новая версия правил', 'POST', '/rules', { token: 'riskToken', status: 201, data: '{"expectedVersion":{{originalVersion}},"params":{{changedRules}},"comment":"Проверка версии кредитной политики через API"}', tests: "pm.test('Версия увеличилась',()=>pm.expect(pm.response.json().version).to.equal(Number(pm.collectionVariables.get('originalVersion'))+1));pm.collectionVariables.set('savedRulesVersion',pm.response.json().version);" });
+add('45. Восстановление параметров', 'POST', '/rules', { token: 'riskToken', status: 201, data: '{"expectedVersion":{{savedRulesVersion}},"params":{{originalRules}},"comment":"Восстановление параметров после проверки"}', tests: "pm.test('Исходные параметры восстановлены',()=>pm.expect(pm.response.json().params).to.deep.equal(JSON.parse(pm.collectionVariables.get('originalRules'))));" });
 add('46. Аналитика реальных заявок', 'GET', '/analytics/funnel?from={{runStarted}}', { token: 'riskToken', tests: "const analytics=pm.response.json();pm.test('Воронка содержит поданные заявки',()=>{pm.expect(analytics.funnel).to.be.an('array').that.is.not.empty;pm.expect(analytics.funnel[0].applications).to.be.at.least(4);analytics.funnel.forEach(x=>pm.expect(x.applications).to.be.at.least(0));});" });
 
 add('47. Настройки уведомлений', 'GET', '/notifications/settings', { tests: "const value=pm.response.json();pm.test('Настройки принадлежат текущему пользователю',()=>{pm.expect(value.emailEnabled).to.be.a('boolean');pm.expect(value.emailAvailable).to.be.a('boolean');});pm.collectionVariables.set('notificationVersion',value.version);pm.collectionVariables.set('notificationEnabled',value.emailEnabled);" });
@@ -173,6 +175,9 @@ add('78. Андеррайтер не редактирует продукты', '
 add('79. Риск-администратор сохраняет новую версию', 'PUT', '/bank/products/WORKING_CAPITAL', { token: 'riskToken', data: '{{productEdit}}', tests: "const p=pm.response.json().product;pm.collectionVariables.set('editedProductVersion',p.version);pm.test('Создана следующая версия',()=>pm.expect(p.version).to.equal(JSON.parse(pm.collectionVariables.get('originalProduct')).version+1));" });
 add('80. Устаревшая правка отклонена', 'PUT', '/bank/products/WORKING_CAPITAL', { token: 'riskToken', data: '{{productEdit}}', status: 409 });
 add('81. Исходные условия восстановлены новой версией', 'PUT', '/bank/products/WORKING_CAPITAL', { token: 'riskToken', data: '{{productRestore}}', before: "const p=JSON.parse(pm.collectionVariables.get('originalProduct'));pm.collectionVariables.set('productRestore',JSON.stringify({...p,expectedVersion:Number(pm.collectionVariables.get('editedProductVersion')),reason:'Восстановление условий после проверки API'}));", tests: "pm.test('Ставка восстановлена',()=>pm.expect(pm.response.json().product.baseRate).to.equal(JSON.parse(pm.collectionVariables.get('originalProduct')).baseRate));" });
+
+// Keep the accepted account-access/chat checks in the reproducible generator as well.
+items.push(...JSON.parse(readFileSync(new URL('./postman-extra-requests.json', import.meta.url), 'utf8')));
 
 const collection = {
   info: { name: 'Кредитный кабинет — проверка API', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json', description: 'Только изолированный демо-стенд. Путь до выдачи, документы, идемпотентность, все решения андеррайтера, версии правил и аналитика. Восстановление параметров выполняется в конце успешного прогона.' },

@@ -82,10 +82,12 @@ export interface Product {
 }
 
 export interface ProductRevision {
-  product: Product;
+  product: Product & { version: number };
   authorId: string | null;
   reason: string;
   createdAt: string;
+  authorName?: string | null;
+  authorRole?: string | null;
 }
 
 export interface ProductMatch {
@@ -112,6 +114,7 @@ export interface Calculation {
   totalPayment: number;
   overpayment: number;
   schedule: ScheduleRow[];
+  revolving?: boolean;
 }
 
 export type ApplicationStatus =
@@ -182,6 +185,14 @@ export interface Offer {
 export interface Signing {
   code: string | null;
   expiresAt: string | null;
+  signedAt: string | null;
+}
+
+export interface ContractTextView {
+  snapshot: { id: string; applicationId: string; offerId: string; templateVersion: number; text: string; sha256: string; createdAt: string } | null;
+  text: string;
+  legacySummary: boolean;
+  signable: boolean;
   signedAt: string | null;
 }
 
@@ -403,7 +414,13 @@ export interface RuleParams {
 export interface RulesResponse {
   version: number;
   params: RuleParams;
-  versions: Array<{ version: number; createdAt: string; createdBy: string | null; comment: string | null }>;
+  versions: Array<{ version: number; createdAt: string; createdBy: string | null; comment: string | null; authorName?: string | null; authorRole?: string | null }>;
+}
+
+export interface RulesSnapshot {
+  version: number;
+  params: RuleParams;
+  metadata: RulesResponse['versions'][number];
 }
 
 export interface Analytics {

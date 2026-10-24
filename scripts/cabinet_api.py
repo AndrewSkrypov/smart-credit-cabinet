@@ -111,7 +111,7 @@ class DockerCabinet(Cabinet):
     """Access internal test fixtures only in explicitly named local demo projects."""
     def __init__(self, base="http://localhost:8080", project="cabinet-submission"):
         super().__init__(base)
-        if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e|release)(?:-[a-z0-9]+)?", project):
+        if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e|release|polish)(?:-[a-z0-9]+)?", project):
             raise ValueError("Нужен отдельный синтетический тестовый проект")
         if urlparse(base).hostname not in {"localhost", "127.0.0.1", "::1"}:
             raise ValueError("Внутренние фикстуры разрешены только для локального стенда")

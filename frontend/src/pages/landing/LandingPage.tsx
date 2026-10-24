@@ -9,10 +9,12 @@ import { Illustration } from '../../components/Illustration';
 import { useApi } from '../../hooks/useApi';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { months, percent, rub } from '../../shared/format';
+import { financingPath } from '../../shared/financingSelection';
 import { productArt, purposeArt } from '../../shared/illustrations';
 import { fontDisplay, nightGlow, tokens } from '../../theme/theme';
 import { FinancingPurpose, Product } from '../../types';
 import { LandingCalculator } from './LandingCalculator';
+import { ErrorState } from '../../components/ErrorState';
 
 const purposeText: Record<FinancingPurpose, string> = {
   CASH_GAP: 'Платежи проходят, даже когда деньги от клиентов ещё в пути',
@@ -119,7 +121,7 @@ function CabinetPreview() {
 }
 
 const pill = { borderRadius: '99px', paddingInline: 3 } as const;
-const heroButton = { flex: { xs: '1 1 100%', sm: '0 0 auto' }, whiteSpace: 'nowrap', minHeight: 60, paddingInline: 4, fontSize: 17, fontWeight: 600, borderRadius: '16px' } as const;
+const heroButton = { flex: { xs: '1 1 100%', sm: '0 0 auto' }, whiteSpace: { xs: 'normal', sm: 'nowrap' }, minHeight: 60, paddingInline: 4, fontSize: 17, fontWeight: 600, borderRadius: '16px' } as const;
 
 const audiences = [
   { title: 'Предпринимателю', bg: tokens.red, color: '#fff', art: 'briefcase', action: 'Войти как предприниматель',
@@ -136,10 +138,11 @@ export function LandingPage() {
   const cabinet = session ? roleHome[session.user.role] : null;
   const startPath = session ? (session.user.role === 'CLIENT' ? '/client/new' : cabinet!) : '/sign-up';
 
-  const byCode = (code: string) => products.data?.find((item) => item.code === code);
+  const availableProducts = products.data?.filter((item) => item.active !== false);
+  const byCode = (code: string) => availableProducts?.find((item) => item.code === code);
   const gov = byCode('GOV_PROGRAM');
   const overdraft = byCode('OVERDRAFT');
-  const largest = products.data?.reduce((max, item) => Math.max(max, item.maxAmount), 0);
+  const largest = availableProducts?.reduce((max, item) => Math.max(max, item.maxAmount), 0);
 
   return (
     <Box sx={{ background: nightGlow, minHeight: '100vh' }}>
@@ -218,16 +221,16 @@ export function LandingPage() {
             </Grid>
             <Grid item xs={12} md={4}>
               <Stack spacing={{ xs: 2, md: 3 }} sx={{ height: '100%' }}>
-                <Box sx={{ flex: 1 }}>
+                {gov && <Box sx={{ flex: 1 }}>
                   <PromoTile bg={tokens.tilePurple} color="#fff" align="center" art="bank" to={startPath} minHeight={{ xs: 260, md: 300 }} artSize={150}
                     title={gov ? `Кредит с господдержкой от ${percent(gov.baseRate)}` : 'Кредит с господдержкой'}
                     text={gov ? `до ${rub(gov.maxAmount)} для приоритетных отраслей` : undefined} />
-                </Box>
-                <Box sx={{ flex: 1 }}>
+                </Box>}
+                {overdraft && <Box sx={{ flex: 1 }}>
                   <PromoTile bg={tokens.tileCyan} align="center" art="hourglass" to={startPath} minHeight={{ xs: 260, md: 300 }} artSize={150}
                     title="Овердрафт для кассовых разрывов"
                     text={overdraft ? `до ${rub(overdraft.maxAmount)}, проценты только за дни использования` : 'Проценты только за дни использования'} />
-                </Box>
+                </Box>}
               </Stack>
             </Grid>
           </Grid>
@@ -241,9 +244,11 @@ export function LandingPage() {
               Кредиты для малого и микробизнеса{largest ? ` — до ${rub(largest)}` : ''}
             </Typography>
             <Grid container spacing={{ xs: 2, md: 3 }}>
-              {(products.data ?? Array.from({ length: 5 }, () => null)).map((product, index) => (
+              {products.error ? <Grid item xs={12}><ErrorState message={products.error} onRetry={products.reload} /></Grid> : availableProducts?.length === 0 ?
+                <Grid item xs={12}><Typography role="status">В каталоге пока нет доступных продуктов.</Typography></Grid> :
+              (availableProducts ?? Array.from({ length: 5 }, () => null)).map((product, index) => (
                 <Grid item xs={12} sm={6} md={4} key={product?.code ?? index}>
-                  <ProductTile product={product} to={startPath} />
+                  <ProductTile product={product} to={product ? financingPath(startPath, { product: product.code, purpose: product.purposes[0], amount: Math.max(product.minAmount, Math.min(1_000_000, product.maxAmount)), termMonths: Math.max(product.minTermMonths, Math.min(12, product.maxTermMonths)) }) : startPath} />
                 </Grid>
               ))}
               <Grid item xs={12} sm={6} md={4}>
@@ -313,7 +318,7 @@ export function LandingPage() {
                 const text = purposeText[item.code];
                 return (
                   <Grid item xs={12} md={6} key={item.code}>
-                    <ButtonBase component={RouterLink} to={startPath} focusRipple
+                    <ButtonBase component={RouterLink} to={financingPath(startPath, { purpose: item.code })} focusRipple
                       sx={{ display: 'flex', alignItems: 'center', gap: 2.5, width: '100%', height: '100%', p: { xs: 2.5, md: 3 }, borderRadius: '28px', bgcolor: tokens.tileLime, color: tokens.ink, textAlign: 'left',
                         transition: 'filter 0.2s ease', '&:hover': { filter: 'brightness(0.97)' } }}>
                       <Illustration name={purposeArt[item.code] ?? 'coin'} size={{ xs: 56, md: 64 }} />

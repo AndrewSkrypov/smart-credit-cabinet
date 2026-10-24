@@ -21,6 +21,7 @@ import {
   ProductRevision,
   RuleParams,
   RulesResponse,
+  RulesSnapshot,
   Purpose,
   SignUpInput,
   UserSession
@@ -174,7 +175,8 @@ export const applicationsApi = {
   declineOffer: (id: string, comment?: string) => post<Application>(`/applications/${id}/offer/decline`, { comment }),
   requestCode: (id: string) => post<Application>(`/applications/${id}/signing/code`),
   sign: (id: string, code: string) => post<Application>(`/applications/${id}/sign`, { code }),
-  schedule: (id: string) => get<Calculation>(`/applications/${id}/schedule`)
+  schedule: (id: string) => get<Calculation>(`/applications/${id}/schedule`),
+  contract: (id: string) => get<import('../types').ContractTextView>(`/applications/${id}/contract`)
 };
 
 export interface RequestedItem {
@@ -194,7 +196,8 @@ export const underwritingApi = {
 
 export const rulesApi = {
   current: () => get<RulesResponse>('/rules'),
-  save: (params: RuleParams, comment: string) => post<RulesResponse>('/rules', { params, comment })
+  version: (version: number) => get<RulesSnapshot>(`/rules/${version}`),
+  save: (params: RuleParams, comment: string, expectedVersion: number) => post<RulesResponse>('/rules', { params, comment, expectedVersion })
 };
 
 export const analyticsApi = {

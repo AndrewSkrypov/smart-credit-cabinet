@@ -1,12 +1,13 @@
 import { Alert, Box, Button, Checkbox, FormControlLabel, Link, Paper, Stack, TextField, Typography } from '@mui/material';
 import { FormEvent, useEffect, useState } from 'react';
-import { Link as RouterLink, Navigate, useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, Navigate, useSearchParams, useLocation } from 'react-router-dom';
 import { authApi } from '../api/client';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { BrandMark } from '../components/BrandMark';
 import { tokens } from '../theme/theme';
 import { Illustration } from '../components/Illustration';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { authPath, roleDestination } from '../shared/financingSelection';
 import { generateTestInn, isValidInn } from '../shared/inn';
 
 const DEMO_PASSWORD = 'Demo2026';
@@ -66,6 +67,7 @@ export function AuthFrame({ title, children }: { title: string; children: React.
 
 export function SignInPage() {
   const { session, signIn } = useAuth();
+  const location = useLocation();
   const [params] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -77,7 +79,7 @@ export function SignInPage() {
     authApi.options().then((options) => setDemo(options.demoAccounts)).catch(() => setDemo(false));
   }, []);
 
-  if (session) return <Navigate to={roleHome[session.user.role]} replace />;
+  if (session) return <Navigate to={roleDestination(session.user.role, location.search, roleHome[session.user.role])} replace />;
 
   const submit = async (event: FormEvent, credentials?: { email: string; password: string }) => {
     event.preventDefault();
@@ -102,7 +104,7 @@ export function SignInPage() {
         <Button type="submit" variant="contained" size="large" disabled={busy}>Войти</Button>
         <Link component={RouterLink} to="/password-recovery">Забыли пароль?</Link>
         <Typography variant="body2">
-          Нет кабинета? <Link component={RouterLink} to="/sign-up">Подключите компанию</Link>
+          Нет кабинета? <Link component={RouterLink} to={authPath('/sign-up', location.search)}>Подключите компанию</Link>
         </Typography>
       </Stack>
       {demo && (
@@ -125,6 +127,7 @@ export function SignInPage() {
 
 export function SignUpPage() {
   const { session, signUp } = useAuth();
+  const location = useLocation();
   const [demo, setDemo] = useState(false);
 
   useEffect(() => {
@@ -134,7 +137,7 @@ export function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (session) return <Navigate to={roleHome[session.user.role]} replace />;
+  if (session) return <Navigate to={roleDestination(session.user.role, location.search, roleHome[session.user.role])} replace />;
 
   const innDigits = form.inn.replace(/\D/g, '');
   const innComplete = innDigits.length === 10 || innDigits.length === 12;
@@ -182,7 +185,7 @@ export function SignUpPage() {
         />
         <Button type="submit" variant="contained" size="large" disabled={busy || !form.personalDataConsent}>Подключить</Button>
         <Typography variant="body2">
-          Уже есть кабинет? <Link component={RouterLink} to="/sign-in">Войти</Link>
+          Уже есть кабинет? <Link component={RouterLink} to={authPath('/sign-in', location.search)}>Войти</Link>
         </Typography>
       </Stack>
     </AuthFrame>

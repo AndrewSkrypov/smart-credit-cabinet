@@ -37,6 +37,7 @@ import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.document.DocumentService
 import ru.creditcabinet.document.domain.DocumentRequirements
 import ru.creditcabinet.document.domain.DocumentType
+import ru.creditcabinet.offer.ContractTextView
 import ru.creditcabinet.offer.Loans
 import ru.creditcabinet.offer.OfferKind
 import ru.creditcabinet.offer.OfferService
@@ -129,6 +130,10 @@ class ApplicationController(
         val product = service.product(application, offer.productCode)
         return LoanMath.calculate(loan?.amount ?: offer.amount, loan?.rate ?: offer.rate, loan?.termMonths ?: offer.termMonths, product.revolving)
     }
+
+    @Operation(summary = "Подписываемый текст договора и сохранённый снимок; для старых заявок — сводка условий")
+    @GetMapping("/{id}/contract")
+    fun contract(@PathVariable id: UUID): ContractTextView = offers.contract(id)
 
     @Operation(summary = "Журнал заявки: история для клиента, аудит для банка")
     @GetMapping("/{id}/events")

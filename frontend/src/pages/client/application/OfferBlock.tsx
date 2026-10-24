@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { applicationsApi } from '../../../api/client';
 import { formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
 import { Application } from '../../../types';
+import { PaymentSchedule } from './PaymentSchedule';
 
 /** The bank's terms next to the requested ones, so a counter offer is visible at a glance. */
 export function OfferBlock({ application, onChanged }: { application: Application; onChanged: (next: Application) => void }) {
@@ -32,7 +33,7 @@ export function OfferBlock({ application, onChanged }: { application: Applicatio
     ['Сумма', rub(application.amount), rub(offer.amount)],
     ['Срок', months(application.termMonths), months(offer.termMonths)],
     ['Ставка', application.estimate ? `от ${percent(application.estimate.rate)}` : '—', percent(offer.rate)],
-    ['Платёж в месяц', application.estimate ? rubExact(application.estimate.monthlyPayment) : '—', rubExact(offer.monthlyPayment)]
+    ['Первый платёж по графику', application.estimate ? rubExact(application.estimate.monthlyPayment) : '—', rubExact(offer.monthlyPayment)]
   ];
 
   return (
@@ -65,6 +66,7 @@ export function OfferBlock({ application, onChanged }: { application: Applicatio
         </Table>
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Всего к возврату: {rubExact(offer.totalPayment)}</Typography>
+      {!application.process.loan && <PaymentSchedule applicationId={application.id} revision={offer.id} preliminary />}
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
       {actionable && (
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 2 }}>

@@ -65,6 +65,7 @@ test('Клиент проходит подбор, черновик, решени
     await page.getByRole('button', { name: 'Подписать', exact: true }).click();
     await waitStatus(request, session, id, ['DISBURSED']);
     await expect(page.getByRole('heading', { name: 'Кредит выдан', exact: true })).toBeVisible();
+    await page.getByText('Показать все платежи по месяцам', { exact: true }).click();
     const schedule = page.getByRole('table', { name: 'График платежей', exact: true });
     await expect(schedule).toBeVisible();
     await expect(schedule.getByRole('row')).toHaveCount(13);
@@ -167,6 +168,7 @@ test('Риск-администратор создаёт версию прави
     await page.getByLabel('Предельная долговая нагрузка', { exact: false }).fill(String(before.params.maxLoad * 100 - 1));
     await page.getByLabel('Что и зачем меняется', { exact: false }).fill('Проверка версионирования и воспроизводимости');
     await page.getByRole('button', { name: 'Сохранить новую версию', exact: true }).click();
+    await page.getByRole('button', { name: 'ОК', exact: true }).click();
     await expect(page.getByText(`Сохранена версия ${before.version + 1}. Новые оценки идут по ней.`, { exact: true })).toBeVisible();
     const after = await (await request.get('/api/v1/rules', { headers: headers(risk) })).json();
     expect(after.version).toBe(before.version + 1);
@@ -180,7 +182,8 @@ test('Риск-администратор создаёт версию прави
     await expect(page.getByText('Отправлено заявок', { exact: true })).toBeVisible();
     await noHorizontalOverflow(page);
   } finally {
-    const restored = await request.post('/api/v1/rules', { headers: headers(risk), data: { params: before.params, comment: 'Восстановление исходных параметров после проверки' } });
+    const current = await (await request.get('/api/v1/rules', { headers: headers(risk) })).json();
+    const restored = await request.post('/api/v1/rules', { headers: headers(risk), data: { params: before.params, expectedVersion: current.version, comment: 'Восстановление исходных параметров после проверки' } });
     expect(restored.ok(), await restored.text()).toBeTruthy();
   }
 });

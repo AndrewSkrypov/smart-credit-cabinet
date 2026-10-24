@@ -19,7 +19,6 @@ import ru.creditcabinet.integration.SigningGateway
 import ru.creditcabinet.integration.SigningResult
 import ru.creditcabinet.integration.SourceUnavailableException
 import ru.creditcabinet.product.domain.ProductCatalog
-import ru.creditcabinet.product.domain.ProductMatcher.rubles
 import java.time.Clock
 import java.util.UUID
 
@@ -37,6 +36,7 @@ class OfferService(
     private val gateway: SigningGateway,
     private val jobs: PipelineJobs,
     private val products: ProductCatalog,
+    private val contracts: ContractTexts,
     private val tx: TransactionTemplate,
     private val clock: Clock,
 ) {
@@ -48,6 +48,7 @@ class OfferService(
         val now = clock.instant()
         if (offer.validUntil.isBefore(now)) throw ConflictException("Срок предложения истёк")
         val saved = tx.execute {
+            contracts.freeze(application, offer, products.version(offer.productCode, offer.productVersion)!!)
             offers.updateStatus(offer.id, OfferStatus.ACCEPTED, now)
             transitions.commit(application.move(ApplicationEvent.ACCEPT_OFFER, claims.toActor()!!, now, payload = mapOf("offerId" to offer.id.toString())))
         }!!
@@ -87,6 +88,14 @@ class OfferService(
         if (application.status == ApplicationStatus.DISBURSING || application.status == ApplicationStatus.DISBURSED) return application
         if (application.status != ApplicationStatus.SIGNING) throw ConflictException("Подписывать сейчас нечего")
         val session = sessions.latest(application.id)?.takeIf { it.signatureId == null } ?: throw ConflictException("Сначала получите код подписи")
+        val currentOffer = offers.current(id) ?: throw ConflictException("Предложение не найдено")
+        if (currentOffer.id != session.offerId || currentOffer.status != OfferStatus.ACCEPTED) throw ConflictException("Код относится к другому предложению")
+        val snapshot = contracts.find(session.offerId)
+        if (snapshot == null ||
+            session.contractSnapshotId != snapshot.id
+        ) {
+            throw ConflictException("Текст для прежнего кода не сохранён — получите новый код подписи")
+        }
         if (session.expiresAt.isBefore(clock.instant())) throw ConflictException("Срок действия кода истёк — запросите новый")
         val result = try {
             gateway.confirm(session.externalSessionId, code.trim())
@@ -109,6 +118,22 @@ class OfferService(
 
     fun current(applicationId: UUID): Offer? = offers.current(applicationId)
 
+    fun contract(id: UUID): ContractTextView {
+        val application = applications.get(id)
+        val offer = offers.current(id) ?: throw ru.creditcabinet.common.exception.NotFoundException("Текста пока нет: банк ещё не сделал предложение")
+        val snapshot = contracts.find(offer.id)
+        val session = sessions.latest(id)?.takeIf { it.offerId == offer.id }
+        val legacy = snapshot == null && application.status != ApplicationStatus.OFFER_ISSUED
+        val text = snapshot?.text ?: contracts.render(application, offer, products.version(offer.productCode, offer.productVersion)!!)
+        return ContractTextView(
+            snapshot,
+            if (legacy) "Сводка сохранённых условий. Исходный подписываемый текст не сохранён.\n" + text.substringAfter('\n') else text,
+            legacy,
+            snapshot != null && session?.contractSnapshotId == snapshot.id && session?.signatureId == null && application.status == ApplicationStatus.SIGNING,
+            session?.signedAt,
+        )
+    }
+
     private fun issuedOffer(application: LoanApplication): Offer {
         if (application.status != ApplicationStatus.OFFER_ISSUED) throw ConflictException("Предложения банка сейчас нет")
         return offers.current(application.id)?.takeIf { it.status == OfferStatus.ISSUED } ?: throw ConflictException("Предложения банка сейчас нет")
@@ -120,11 +145,11 @@ class OfferService(
 
     private fun startSigning(application: LoanApplication, offer: Offer, claims: TokenClaims): SigningSessionRecord {
         val product = products.version(offer.productCode, offer.productVersion)!!
-        val text = contractText(application, offer, product.name)
+        val snapshot = contracts.freeze(application, offer, product)
         val started = gateway.start(
             "contract-${application.id}",
             "Кредитный договор по заявке № ${application.number}",
-            text,
+            snapshot.text,
             claims.fullName ?: "Представитель компании",
         )
         val record = SigningSessionRecord(
@@ -134,18 +159,9 @@ class OfferService(
             code = started.code,
             expiresAt = started.expiresAt,
             createdAt = clock.instant(),
+            contractSnapshotId = snapshot.id,
         )
         sessions.save(record)
         return record
     }
-
-    /** The text the signature is bound to (its hash is kept by the signing service). */
-    fun contractText(application: LoanApplication, offer: Offer, productName: String): String =
-        """
-        Кредитный договор по заявке № ${application.number}
-        Заёмщик: ${application.company.name ?: "ИНН ${application.company.inn}"}, ИНН ${application.company.inn}
-        Продукт: $productName
-        Сумма: ${rubles(offer.amount)}; срок: ${offer.termMonths} мес.; ставка: ${offer.rate}% годовых
-        Ежемесячный платёж: ${offer.monthlyPayment} ₽; всего к возврату: ${offer.totalPayment} ₽
-        """.trimIndent()
 }

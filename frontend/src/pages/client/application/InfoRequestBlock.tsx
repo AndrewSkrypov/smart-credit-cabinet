@@ -37,7 +37,7 @@ export function InfoRequestBlock({ application, onChanged, onSent }: { applicati
       </Typography>
       <Stack spacing={1.5}>
         {request.items.map((item) => {
-          const done = item.documentType ? uploadedSince(item.documentType) : answer.trim().length > 0;
+          const done = item.documentType ? uploadedSince(item.documentType) : false;
           return (
             <Stack key={item.title} direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: 'center' }}>
               <Stack direction="row" spacing={1.5} alignItems="flex-start">
@@ -55,7 +55,7 @@ export function InfoRequestBlock({ application, onChanged, onSent }: { applicati
         })}
       </Stack>
       {hasQuestions && (
-        <TextField label="Ваш ответ" fullWidth multiline minRows={3} sx={{ mt: 2 }} value={answer} onChange={(event) => setAnswer(event.target.value)} inputProps={{ maxLength: 2000 }} />
+        <TextField label="Ваш ответ" helperText="Это общий ответ на вопросы банка. Перед отправкой проверьте, что ответили на каждый из них." fullWidth multiline minRows={3} sx={{ mt: 2 }} value={answer} onChange={(event) => setAnswer(event.target.value)} inputProps={{ maxLength: 2000 }} />
       )}
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
       <Button variant="contained" size="large" sx={{ mt: 2 }} disabled={!ready || sending} onClick={send}>

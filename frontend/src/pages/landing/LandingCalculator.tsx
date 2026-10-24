@@ -5,6 +5,7 @@ import { productsApi } from '../../api/client';
 import { MoneyField } from '../../components/MoneyField';
 import { useApi } from '../../hooks/useApi';
 import { months, percent, rubExact } from '../../shared/format';
+import { financingPath } from '../../shared/financingSelection';
 import { FinancingPurpose, ProductMatch } from '../../types';
 
 const TERMS = [6, 12, 18, 24, 36, 48, 60];
@@ -22,7 +23,9 @@ export function LandingCalculator({ startPath }: { startPath: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!amount) return;
+    setBest(undefined);
+    setError(null);
+    if (!amount || !Number.isFinite(amount) || amount <= 0) return;
     let current = true;
     const timer = window.setTimeout(() => {
       productsApi
@@ -51,7 +54,7 @@ export function LandingCalculator({ startPath }: { startPath: string }) {
       </Stack>
       <Box sx={{ mt: 3, minHeight: 112 }} aria-live="polite">
         {error && <Alert severity="error">{error}</Alert>}
-        {!error && best === undefined && <Skeleton variant="rounded" height={96} />}
+        {!amount ? <Typography color="text.secondary">Введите сумму для расчёта.</Typography> : !error && best === undefined && <Skeleton variant="rounded" height={96} />}
         {!error && best === null && <Typography color="text.secondary">Для этой цели продукта нет — выберите другую.</Typography>}
         {!error && best && (
           <>
@@ -64,7 +67,7 @@ export function LandingCalculator({ startPath }: { startPath: string }) {
           </>
         )}
       </Box>
-      <Button component={RouterLink} to={startPath} variant="contained" size="large" fullWidth sx={{ mt: 1 }}>Оформить заявку онлайн</Button>
+      <Button component={RouterLink} to={financingPath(startPath, { purpose, amount: amount ?? undefined, termMonths: best?.termMonths ?? termMonths, product: best?.product.code })} disabled={!amount || !best || !!error} variant="contained" size="large" fullWidth sx={{ mt: 1 }}>Оформить заявку онлайн</Button>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
         Платёж по базовой ставке. Итоговые условия — в предложении банка после оценки заявки.
       </Typography>

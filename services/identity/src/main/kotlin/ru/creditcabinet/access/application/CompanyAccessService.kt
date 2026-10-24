@@ -108,6 +108,7 @@ class CompanyAccessService(
     @Transactional
     fun revoke(claims: TokenClaims, id: UUID, key: UUID): AccessMessage {
         val actor = manage(claims)
+        if (id == actor.id) throw ForbiddenException("Нельзя отозвать доступ у себя")
         val target = store.account(id, true)?.user?.takeIf { it.companyId == actor.companyId } ?: throw NotFoundException("Сотрудник не найден")
         if (store.replay(actor.id, key, "REVOKE", id.toString()) == null) {
             if (target.status == UserStatus.ACTIVE) {

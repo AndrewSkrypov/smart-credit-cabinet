@@ -1,4 +1,4 @@
-import { Box, Button, Card, CardActionArea, Chip, Grid, Paper, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardActionArea, Chip, Grid, Paper, Stack, Typography } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
@@ -48,9 +48,9 @@ export function ClientHomePage() {
     return () => window.clearInterval(timer);
   }, [reloadApplications]);
 
-  if (company.loading || applications.loading) return <LoadingBlock />;
-  if (company.error || !company.data) return <ErrorState message={company.error ?? 'Компания не найдена'} onRetry={company.reload} />;
-  if (applications.error || !applications.data) return <ErrorState message={applications.error ?? 'Нет данных'} onRetry={applications.reload} />;
+  if ((company.loading && !company.data) || (applications.loading && !applications.data)) return <LoadingBlock />;
+  if (!company.data) return <ErrorState message={company.error ?? 'Компания не найдена'} onRetry={company.reload} />;
+  if (!applications.data) return <ErrorState message={applications.error ?? 'Нет данных'} onRetry={applications.reload} />;
 
   const active = applications.data.filter((item) => !FINISHED_STATUSES.includes(item.status));
   const finished = applications.data.filter((item) => FINISHED_STATUSES.includes(item.status));
@@ -63,6 +63,14 @@ export function ClientHomePage() {
         subtitle={`${legalFormLabels[company.data.legalForm]} · ИНН ${company.data.inn}`}
         actions={<Button component={RouterLink} to="/client/new" variant="contained" size="large" startIcon={<AddRoundedIcon />}>Подобрать финансирование</Button>}
       />
+      {(company.error || applications.error) && (
+        <Alert severity="warning" sx={{ mb: 3 }} action={<Button onClick={() => {
+          if (company.error) void company.reload();
+          if (applications.error) void applications.reload();
+        }}>Повторить</Button>}>
+          Не удалось обновить данные: {company.error ?? applications.error}. Показаны последние полученные сведения.
+        </Alert>
+      )}
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           <Stack spacing={3}>

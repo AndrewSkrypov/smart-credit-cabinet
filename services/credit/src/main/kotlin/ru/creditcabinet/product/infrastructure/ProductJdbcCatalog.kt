@@ -55,30 +55,47 @@ class ProductJdbcCatalog(private val jdbc: JdbcTemplate) : ProductCatalog, Produ
                 rs.getObject("author_id", UUID::class.java),
                 rs.getString("reason"),
                 rs.getTimestamp("created_at").toInstant(),
+                rs.getString("author_name"),
+                rs.getString("author_role"),
             )
         },
         code,
     )
 
-    override fun replace(product: Product, expectedVersion: Long, authorId: UUID, reason: String, now: Instant): ProductRevision {
+    override fun replace(
+        product: Product,
+        expectedVersion: Long,
+        authorId: UUID,
+        reason: String,
+        now: Instant,
+        authorName: String?,
+        authorRole: String?,
+    ): ProductRevision {
         val current = jdbc.queryForList("select current_version from products where code = ? for update", product.code).firstOrNull()
             ?: throw NotFoundException("Продукт не найден")
         if ((current["current_version"] as Number).toLong() != expectedVersion) {
             throw ConflictException("Условия только что изменил другой администратор — обновите карточку и проверьте изменения")
         }
+        val previous = version(product.code, expectedVersion)!!
+        require(
+            previous.copy(baseRate = previous.baseRate.stripTrailingZeros()) !=
+                product.copy(version = expectedVersion, baseRate = product.baseRate.stripTrailingZeros()),
+        ) {
+            "Условия не изменились — новая версия не требуется"
+        }
         val saved = product.copy(version = expectedVersion + 1)
         jdbc.update(
             """
             insert into product_versions (code, version, name, description, purposes, min_amount, max_amount, min_term_months, max_term_months,
-                base_rate, auto_approval_limit, revolving, active, author_id, reason, created_at)
-            values (?, ?, ?, ?, ?::varchar[], ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                base_rate, auto_approval_limit, revolving, active, author_id, reason, created_at, author_name, author_role)
+            values (?, ?, ?, ?, ?::varchar[], ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
             saved.code, saved.version, saved.name, saved.description, saved.purposes.joinToString(",", "{", "}") { it.name },
             saved.minAmount, saved.maxAmount, saved.minTermMonths, saved.maxTermMonths, saved.baseRate, saved.autoApprovalLimit,
-            saved.revolving, saved.active, authorId, reason, Timestamp.from(now),
+            saved.revolving, saved.active, authorId, reason, Timestamp.from(now), authorName, authorRole,
         )
         jdbc.update("update products set current_version = ? where code = ?", saved.version, saved.code)
-        return ProductRevision(saved, authorId, reason, now)
+        return ProductRevision(saved, authorId, reason, now, authorName, authorRole)
     }
 
     private companion object {

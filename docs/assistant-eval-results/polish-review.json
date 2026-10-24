@@ -1,0 +1,29 @@
+{
+  "scope": "Bounded synthetic local acceptance; not a guarantee for arbitrary requests or production recommendations",
+  "canonical_36_sha256": "212c120c0385b560c15df244474fb7fd283c945c8479293eadb53eb3079d620c",
+  "model_cases_read": {
+    "T02": "Reviewed: clear, complete for the asked question, agrees with reference; no invented personal conditions",
+    "T07": "Reviewed: clear, complete for the asked question, agrees with reference; no invented personal conditions",
+    "T08": "Reviewed: clear, complete for the asked question, agrees with reference; no invented personal conditions",
+    "T10": "Reviewed: clear, complete for the asked question, agrees with reference; no invented personal conditions"
+  },
+  "rules_and_http_cases_read": true,
+  "additional_nine_read": true,
+  "source_hashes_match_working_tree": true,
+  "unaccepted_candidates": [
+    "qwen2.5:1.5b R1 33/36",
+    "qwen3:1.7b R1 33/36",
+    "qwen3:4b R2: 36/36 regex but extra X03 omission and X02 semantic error"
+  ],
+  "cold_app_fallback_seconds": 31.066,
+  "explicit_preload_seconds": [
+    40.646,
+    35.493
+  ],
+  "limits": [
+    "CPU only, model non-deterministic, one request at a time",
+    "Cold model exceeds the target; application returns rules after its 30-second read timeout",
+    "Heuristic guards may reject valid paraphrases and cannot prove semantic accuracy",
+    "Final published HEAD and CI are accepted separately; these are working-tree runtime measurements"
+  ]
+}

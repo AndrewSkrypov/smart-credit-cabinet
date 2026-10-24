@@ -41,6 +41,8 @@ def main():
     parser.add_argument("--base", default="http://localhost:8080")
     parser.add_argument("--project", default="cabinet-e2e")
     parser.add_argument("--mode", choices=["rules", "model"], required=True)
+    parser.add_argument("--model", choices=["qwen2.5:1.5b", "qwen3:1.7b", "qwen3:4b-instruct-2507-q4_K_M"], default="qwen2.5:1.5b",
+                        help="Exact separately verified Apache-2.0 model tag; does not change the rubric")
     parser.add_argument("--report-name", required=True)
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", args.report_name):
@@ -87,7 +89,7 @@ def main():
                 if service == "engagement" and args.mode == "rules":
                     assert env.get("OLLAMA_URL") == "", "Rules CI requires explicitly empty OLLAMA_URL: no model probe/chat is possible"
                 if service == "engagement" and args.mode == "model":
-                    assert env.get("ASSISTANT_MODEL") == "qwen2.5:1.5b", "Use the separately verified Apache-2.0 evaluation model"
+                    assert env.get("ASSISTANT_MODEL") == args.model, "Use the separately verified Apache-2.0 evaluation model"
                 report["images"].append({"service": service, "container": cid, "image": info["Image"],
                                          "revision": (info["Config"].get("Labels") or {}).get("org.opencontainers.image.revision")})
         readers = [api.register("assistant-eval") for _ in range(3)]
@@ -96,7 +98,7 @@ def main():
         report["assistant_status"] = state
         if args.mode == "model":
             raw = docker("exec", engagement_ids[0], "curl", "-fsS", "--max-time", "10", "http://ollama:11434/api/tags")
-            tag = next(item for item in json.loads(raw)["models"] if item["name"] == "qwen2.5:1.5b")
+            tag = next(item for item in json.loads(raw)["models"] if item["name"] == args.model)
             report["model"] = {key: tag[key] for key in ("name", "digest", "size", "details") if key in tag}
         fixtures = {}
         companies = {row["inn"]: row for row in api.json("GET", "/sim/control")["companies"]}

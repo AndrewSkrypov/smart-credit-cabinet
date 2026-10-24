@@ -40,7 +40,7 @@ cabinet:
     # the assistant answers by rules from the same reference and application facts.
     ollama-url: ${OLLAMA_URL:}
     model: ${ASSISTANT_MODEL:qwen2.5:3b}
-    answer-timeout: ${ASSISTANT_TIMEOUT:PT90S}
+    answer-timeout: ${ASSISTANT_TIMEOUT:PT30S}
   openapi:
     title: "Кабинет предпринимателя: уведомления и помощник"
   auth:

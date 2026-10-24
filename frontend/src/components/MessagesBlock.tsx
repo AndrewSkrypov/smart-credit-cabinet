@@ -8,6 +8,7 @@ import { fileSize, formatDateTime } from '../shared/format';
 import { roleLabels } from '../shared/labels';
 import { ApplicationStatus, ChatAudit, ChatFile, ChatMessage, ChatPage, Role } from '../types';
 import { LoadingBlock } from './LoadingBlock';
+import { SensitiveDataNotice } from './SensitiveDataNotice';
 
 const POLL_MS = 5000;
 const actionTitles = { MESSAGE_SENT: 'Отправлено сообщение', ATTACHMENT_UPLOADED: 'Загружено вложение', READ_CURSOR_ADVANCED: 'Прочитаны сообщения' };
@@ -155,6 +156,7 @@ export function MessagesBlock({ applicationId, status }: { applicationId: string
         </Box>
         {page && !writable && <Alert severity="info">{page.readOnlyReason ?? 'Переписка доступна только для чтения'}</Alert>}
         {writable && <Stack component="form" spacing={2} onSubmit={(event) => void send(event)}>
+          <SensitiveDataNotice />
           <TextField label="Сообщение" multiline minRows={3} value={text} disabled={sending} inputProps={{ maxLength: 2000 }} helperText={`${text.length} из 2000 символов. Только простой текст.`}
             onChange={(event) => { setText(event.target.value); messageKey.current = crypto.randomUUID(); }} />
           {files.map((file) => <Chip key={file.id} label={file.fileName} sx={{ maxWidth: '100%', alignSelf: 'flex-start' }} disabled={sending || uploading} onDelete={() => { setFiles((current) => current.filter((entry) => entry.id !== file.id)); messageKey.current = crypto.randomUUID(); }} />)}

@@ -6,6 +6,7 @@ import { applicationsApi } from '../../../api/client';
 import { formatDateTime } from '../../../shared/format';
 import { Application } from '../../../types';
 import { UploadButton } from './UploadButton';
+import { SensitiveDataNotice } from '../../../components/SensitiveDataNotice';
 
 /** What the bank asked for, one line per item, with the upload right there and one button to send. */
 export function InfoRequestBlock({ application, onChanged, onSent }: { application: Application; onChanged: () => void; onSent: (next: Application) => void }) {
@@ -35,6 +36,7 @@ export function InfoRequestBlock({ application, onChanged, onSent }: { applicati
       <Typography color="text.secondary" sx={{ mb: 2 }}>
         Ответить нужно до {formatDateTime(request.deadline)}.{request.comment ? ` ${request.comment}` : ''}
       </Typography>
+      <SensitiveDataNotice />
       <Stack spacing={1.5}>
         {request.items.map((item) => {
           const done = item.documentType ? uploadedSince(item.documentType) : false;

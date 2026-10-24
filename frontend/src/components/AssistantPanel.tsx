@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { assistantApi } from '../api/client';
 import { tokens } from '../theme/theme';
+import { SensitiveDataNotice } from './SensitiveDataNotice';
 import { AssistantAnswer, AssistantTurn } from '../types';
 
 const APPLICATION_PATH = /^\/client\/applications\/([0-9a-f-]{36})/;
@@ -33,6 +34,9 @@ export function AssistantPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
+  const requestId = useRef(0);
+  const currentApplication = useRef(applicationId);
+  currentApplication.current = applicationId;
 
   useEffect(() => {
     if (open && !mode) assistantApi.status().then(setMode).catch(() => setMode(null));
@@ -43,11 +47,20 @@ export function AssistantPanel() {
   }, [messages, busy]);
 
   // Another application is another conversation.
-  useEffect(() => setMessages([]), [applicationId]);
+  useEffect(() => {
+    requestId.current += 1;
+    setMessages([]);
+    setQuestion('');
+    setError(null);
+    setBusy(false);
+    return () => { requestId.current += 1; };
+  }, [applicationId]);
 
   const ask = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
+    const request = ++requestId.current;
+    const isCurrent = () => request === requestId.current && applicationId === currentApplication.current;
     const history = messages.map(({ role, text: content }) => ({ role, text: content }));
     setMessages((current) => [...current, { role: 'user', text: trimmed }]);
     setQuestion('');
@@ -55,11 +68,11 @@ export function AssistantPanel() {
     setError(null);
     try {
       const answer = await assistantApi.ask(trimmed, applicationId, history);
-      setMessages((current) => [...current, { role: 'assistant', text: answer.text, answer }]);
+      if (isCurrent()) setMessages((current) => [...current, { role: 'assistant', text: answer.text, answer }]);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Помощник сейчас недоступен');
+      if (isCurrent()) setError(nextError instanceof Error ? nextError.message : 'Помощник сейчас недоступен');
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   };
 
@@ -80,7 +93,7 @@ export function AssistantPanel() {
           <Box>
             <Typography variant="subtitle1" component="h2" fontWeight={700}>Помощник</Typography>
             <Typography variant="caption" color="text.secondary">
-              {mode?.mode === 'MODEL' ? `Отвечает модель с открытыми весами ${mode.model}` : 'Справочный режим: ответы по правилам и данным заявки'}
+              {mode?.mode === 'MODEL' ? `Доступна модель с открытыми весами ${mode.model}` : 'Справочный режим: ответы по правилам и данным заявки'}
               {applicationId ? ' · про эту заявку' : ''}
             </Typography>
           </Box>
@@ -106,9 +119,12 @@ export function AssistantPanel() {
                 <Box sx={{ px: 2, py: 1.25, borderRadius: '16px', bgcolor: message.role === 'user' ? tokens.dark : tokens.secondaryFill, color: message.role === 'user' ? '#fff' : 'text.primary' }}>
                   <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{message.text}</Typography>
                 </Box>
-                {message.answer && message.answer.sources.length > 0 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>Источники: {message.answer.sources.join(', ')}</Typography>
-                )}
+                {message.answer && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  {message.answer.mode === 'MODEL' ? 'Ответ модели' : 'По правилам и данным кабинета'}
+                </Typography>}
+                {message.answer && message.answer.sources.length > 0 && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  Источники: {message.answer.sources.join(', ')}
+                </Typography>}
               </Box>
             ))}
             {busy && <Typography color="text.secondary">Помощник печатает…</Typography>}
@@ -116,6 +132,7 @@ export function AssistantPanel() {
           <div ref={end} />
         </Box>
 
+        <Box sx={{ px: 2, pt: 1 }}><SensitiveDataNotice compact /></Box>
         {error && <Alert severity="error" sx={{ mx: 2 }}>{error}</Alert>}
         <Stack component="form" onSubmit={submit} direction="row" spacing={1} sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
           <TextField label="Ваш вопрос" value={question} onChange={(event) => setQuestion(event.target.value)} fullWidth size="small" inputProps={{ maxLength: 500 }} />

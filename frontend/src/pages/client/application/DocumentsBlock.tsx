@@ -7,6 +7,7 @@ import { applicationsApi } from '../../../api/client';
 import { fileSize, formatDateTime } from '../../../shared/format';
 import { Application } from '../../../types';
 import { UploadButton } from './UploadButton';
+import { SensitiveDataNotice } from '../../../components/SensitiveDataNotice';
 
 /**
  * In a draft: the documents the application needs, with uploads. Once sent: what was uploaded
@@ -23,6 +24,7 @@ export function DocumentsBlock({ application, onChanged }: { application: Applic
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
       <Typography variant="h6" component="h2" gutterBottom>Документы</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      {canUpload && <SensitiveDataNotice />}
       {!draft ? null : application.requiredDocuments.length > 0 ? (
         <Stack spacing={1.5} sx={{ mb: 2 }}>
           {application.requiredDocuments.map((required) => (

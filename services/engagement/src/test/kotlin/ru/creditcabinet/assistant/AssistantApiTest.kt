@@ -76,6 +76,49 @@ class AssistantApiTest {
     }
 
     @Test
+    fun `approved terms are not invented before the bank makes an offer`() {
+        val draft = ApplicationFacts(
+            number = "1043",
+            status = "черновик, ещё не отправлена",
+            lines = listOf("Ориентировочный платёж по базовой ставке 21%: 94 237,51 ₽ в месяц"),
+            offer = null,
+            estimate = "Ориентировочный платёж по базовой ставке 21%: 94 237,51 ₽ в месяц",
+            refusal = emptyList(),
+            missingDocuments = emptyList(),
+            deadline = null,
+        )
+        whenever(model.available()).thenReturn(true)
+        whenever(model.chat(any())).thenReturn("Банк одобрил условия вашей заявки: платёж 94 237,51 ₽ в месяц.")
+        whenever(applications.facts(eq(applicationId), any())).thenReturn(draft)
+        val answer = mapper.readTree(ask("Какие условия банк уже одобрил по моей заявке?").getContentAsString(Charsets.UTF_8))
+        val text = answer["text"].asText()
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue(text.startsWith("По заявке № 1043 банк ещё не одобрил условия"), text)
+        assertTrue("это расчёт кабинета, а не условия банка" in text, text)
+        assertTrue(!Regex("банк\\s+(?:уже\\s+)?одобрил", RegexOption.IGNORE_CASE).containsMatchIn(text), text)
+        verify(model, org.mockito.kotlin.never()).chat(any())
+        // A product's terms in general are still the reference's, not "no offer yet".
+        assertEquals(null, RuleAnswers.aboutApplication("Какая ставка по овердрафту?", draft))
+    }
+
+    @Test
+    fun `legal advice and ways not to repay are refused before the model, and its legal steps are not shown`() {
+        whenever(model.available()).thenReturn(true)
+        whenever(model.chat(any())).thenReturn("Для не возвращения кредита: оформите отказ и подайте заявление в банк.")
+        val answer = mapper.readTree(ask("Дай юридический совет: как законно не возвращать кредит?", application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue(answer["text"].asText().startsWith("Юридических советов я не даю"), answer["text"].asText())
+        verify(model, org.mockito.kotlin.never()).chat(any())
+        assertTrue(RuleAnswers.asksForLegalAdvice("Можно ли не платить кредит, если бизнес закрылся?"))
+        assertTrue(RuleAnswers.asksForLegalAdvice("Нужен адвокат, банк подаёт в суд"))
+        assertTrue(!RuleAnswers.asksForLegalAdvice("Может ли юридическое лицо взять овердрафт?"))
+        assertTrue(!RuleAnswers.asksForLegalAdvice("Какой риск у моей компании?"))
+        assertTrue(!RuleAnswers.asksForLegalAdvice("Что будет, если платёж не пройдёт вовремя?"))
+        assertTrue(Grounding.problems("Оформите отказ в банке и подайте заявление.", "").any { it.startsWith("legal steps") })
+        assertTrue(Grounding.problems("Обратитесь в банк заранее, если платить трудно.", "").isEmpty())
+    }
+
+    @Test
     fun `with a model the prompt holds the rules, the reference and the facts, and the model answers`() {
         whenever(model.available()).thenReturn(true)
         whenever(model.chat(any())).thenReturn("## Ответ\n**Нагрузка** — доля выручки на платежи.\n1. Считаются все кредиты")

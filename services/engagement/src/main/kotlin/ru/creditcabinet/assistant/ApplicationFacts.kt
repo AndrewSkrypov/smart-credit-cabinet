@@ -20,6 +20,8 @@ data class ApplicationFacts(
     val status: String,
     val lines: List<String>,
     val offer: String?,
+    /** The cabinet's own estimate at the base rate: a calculation, never the bank's terms. */
+    val estimate: String? = null,
     val refusal: List<String>,
     val missingDocuments: List<String>,
     val deadline: String?,
@@ -75,6 +77,8 @@ class CreditApplications(
         }.orEmpty()
         val request = process["infoRequest"].takeIf { it != null && !it.isNull }
         val requested = request?.get("items")?.map { it["title"].asText() }.orEmpty()
+        val estimate = app["estimate"].takeIf { it != null && !it.isNull }
+            ?.let { "Ориентировочный платёж по базовой ставке ${percent(it["rate"].asText())}: ${kopecks(it["monthlyPayment"].asText())} в месяц" }
         val missingRequired = app["requiredDocuments"].filter { !it["uploaded"].asBoolean() }.map { it["title"].asText() }
         val lines = buildList {
             add(
@@ -82,9 +86,7 @@ class CreditApplications(
                     app["amount"].asLong(),
                 )} на ${app["termMonths"].asInt()} мес.; цель: ${app["purposeTitle"].asText()}",
             )
-            app["estimate"].takeIf {
-                it != null && !it.isNull
-            }?.let { add("Ориентировочный платёж по базовой ставке ${percent(it["rate"].asText())}: ${kopecks(it["monthlyPayment"].asText())} в месяц") }
+            estimate?.let(::add)
             if (requested.isNotEmpty()) add("Банк запросил: ${requested.joinToString("; ")}; срок ответа до ${date(request!!["deadline"].asText())}")
             if (app["status"].asText() == "DRAFT" && missingRequired.isNotEmpty()) add("Для отправки нужны документы: ${missingRequired.joinToString("; ")}")
             app["submissionProblems"].map(JsonNode::asText).takeIf { it.isNotEmpty() }?.let { add("Что мешает отправить: ${it.joinToString("; ")}") }
@@ -100,6 +102,7 @@ class CreditApplications(
                 (app["closeReason"]?.takeIf { !it.isNull }?.let { reason -> CLOSE_REASONS[reason.asText()]?.let { ": $it" } } ?: ""),
             lines = lines,
             offer = offer,
+            estimate = estimate,
             refusal = refusal,
             missingDocuments = requested.ifEmpty { missingRequired },
             deadline = request?.get("deadline")?.asText()?.let(::date),

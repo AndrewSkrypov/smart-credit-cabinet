@@ -43,6 +43,8 @@ class AssistantService(
         // advice there. The model explains terms and products, where only the reference counts.
         // "Why was I refused" with no application open: only the application knows the answer,
         // and a model would make one up.
+        // Legal advice and ways around repayment are refused before any model sees the question.
+        if (RuleAnswers.asksForLegalAdvice(question)) return Answer(RuleAnswers.NO_LEGAL_ADVICE, AnswerMode.RULES, sources)
         if (facts == null && RuleAnswers.isAboutOwnApplication(question)) {
             return Answer(RuleAnswers.openTheApplication(articles), AnswerMode.RULES, sources)
         }
@@ -157,6 +159,14 @@ object Grounding {
         Regex("одобрени\\S*\\s+гарантир"),
     )
 
+    // Procedures the assistant must not prescribe: a small model was seen to list "steps not to repay".
+    private val LEGAL_STEPS = listOf(
+        Regex("оформите\\s+отказ"),
+        Regex("(?:напишите|подайте)\\s+(?:\\S+\\s+){0,3}(?:отказ|заявлени|иск|жалоб)"),
+        Regex("(?:обратитесь|подайте)\\s+(?:\\S+\\s+){0,2}в\\s+суд"),
+        Regex("не\\s*возвращ\\S*\\s+(?:\\S+\\s+){0,3}кредит"),
+    )
+
     // Letters of scripts other than Cyrillic and Latin: a small model sometimes slips into Chinese mid-sentence.
     private val FOREIGN_SCRIPT = Regex("[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}\\p{IsHangul}\\p{IsArabic}]")
 
@@ -168,6 +178,7 @@ object Grounding {
         unknownNumbers(answer, context).takeIf { it.isNotEmpty() }?.let { add("numbers $it are not in the data") }
         falseClaims(answer).takeIf { it.isNotEmpty() }?.let { add("claims $it contradict the reference") }
         FOREIGN_SCRIPT.find(answer)?.let { add("foreign script '${it.value}'") }
+        LEGAL_STEPS.firstNotNullOfOrNull { it.find(answer.lowercase().replace('ё', 'е')) }?.let { add("legal steps '${it.value}'") }
         if (answer.length > MAX_ANSWER) add("too long: ${answer.length} characters")
         if (answer.isBlank()) add("empty")
     }
@@ -207,12 +218,38 @@ object RuleAnswers {
             ("отказ" in text || "почему" in text || "отклон" in text) && facts.refusal.isNotEmpty() ->
                 "По заявке № ${facts.number} банк отказал.\n" + facts.refusal.joinToString("\n") { "— $it" }
             OFFER_WORDS.any { it in text } && facts.offer != null -> "${facts.offer}."
+            // Asked for "approved terms" before the bank has made an offer, a model was seen to invent one.
+            facts.offer == null && facts.refusal.isEmpty() && asksForBankTerms(text) -> noOfferYet(facts)
             ("документ" in text || "загруз" in text) && facts.missingDocuments.isNotEmpty() ->
                 "Для заявки № ${facts.number} нужны: ${facts.missingDocuments.joinToString("; ")}" + (facts.deadline?.let { ". Срок — до $it." } ?: ".")
             isAboutStatus(text) -> "Заявка № ${facts.number}: ${facts.status}."
             else -> null
         }
     }
+
+    /** "What did the bank approve", "my terms": the bank's terms for this application, not a product's terms in general. */
+    private fun asksForBankTerms(text: String): Boolean {
+        val words = text.split(Regex("[^а-яё]+"))
+        return "одобр" in text || (NO_OFFER_WORDS.any { it in text } && (words.any { it in PERSONAL } || "заявк" in text))
+    }
+
+    private fun noOfferYet(facts: ApplicationFacts): String =
+        listOfNotNull(
+            "По заявке № ${facts.number} банк ещё не одобрил условия и предложения банка нет. Сейчас: ${facts.status}.",
+            facts.estimate?.let { "$it — это расчёт кабинета, а не условия банка." },
+            "Одобренные сумма, срок, ставка и платёж появятся в заявке, когда банк сделает предложение.",
+        ).joinToString("\n")
+
+    /** "Give legal advice", "how not to repay": outside what the assistant may answer. */
+    fun asksForLegalAdvice(question: String): Boolean {
+        val text = question.lowercase().replace('ё', 'е')
+        return (LEGAL_WORDS + EVASION).any { it.containsMatchIn(text) }
+    }
+
+    const val NO_LEGAL_ADVICE =
+        "Юридических советов я не даю и не подскажу, как не возвращать кредит. Если платить становится трудно, " +
+            "напишите банку заранее в чате заявки — специалист расскажет, какие есть варианты. " +
+            "Я подскажу, как устроены продукты и рассмотрение заявки и что означает решение банка."
 
     /** A question about "my" refusal, offer or status — it needs an application to answer. */
     fun isAboutOwnApplication(question: String): Boolean {
@@ -237,6 +274,19 @@ object RuleAnswers {
             "Например: «Чем овердрафт отличается от кредита?», «Почему мне предложили меньшую сумму?», «Какие документы загрузить?»."
     }
 
+    // "Юридическое лицо" is a client, not a request for advice: only advice, help or a lawyer count.
+    private val LEGAL_WORDS = listOf(
+        Regex("юридическ\\S*\\s+(?:совет|помощ|консультац)"),
+        Regex("(?<![а-я])(?:юрист|адвокат)"),
+        Regex("(?<![а-я])в\\s+суд(?![а-я])|судебн"),
+    )
+    private val EVASION = listOf(
+        Regex("не\\s*(?:возвращ|отда|плат|гас)\\S*\\s+(?:\\S+\\s+){0,2}(?:кредит|долг|деньг)"),
+        Regex("(?:кредит|долг)\\S*\\s+(?:\\S+\\s+){0,2}не\\s*(?:возвращ|отда|плат|гас)"),
+        Regex("уклон\\S*\\s+от\\s+(?:уплат|платеж|погашен)"),
+        Regex("списа\\S*\\s+(?:\\S+\\s+){0,2}(?:кредит|долг)"),
+    )
+    private val NO_OFFER_WORDS = listOf("предлож", "услови", "одобр", "ставк")
     private val OFFER_WORDS = listOf("предлож", "услови", "ставк", "платеж", "платёж", "меньш", "друг")
     private val PERSONAL = setOf("мне", "меня", "мой", "моя", "мою", "моей", "моего", "нам", "нас", "наш", "наша", "нашу", "нашей")
     private val OWN_TOPICS = listOf("отказ", "отклон", "одобр", "предлож", "услови", "документ")

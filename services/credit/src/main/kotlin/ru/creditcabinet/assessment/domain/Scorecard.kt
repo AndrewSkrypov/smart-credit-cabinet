@@ -51,8 +51,17 @@ data class Assessment(
     val existingMonthlyPayments: Long,
     val businessAgeMonths: Long,
     val industryRisk: IndustryRisk,
+    /** The registry's own words for a company that is not active: «В процессе ликвидации». */
+    val registryStatusTitle: String,
 ) {
     val monthlyRevenue: Double get() = annualRevenue / 12.0
+
+    /** What the client reads for each stop factor; an inactive company is told what the registry says. */
+    fun stopFactorTexts(): List<String> = stopFactors.map { factor ->
+        val status = registryStatusTitle.trim().replaceFirstChar { it.lowercase() }
+        val text = if (factor == StopFactor.SF_STATUS && status.isNotEmpty()) "${factor.clientText}: $status" else factor.clientText
+        "$text. ${factor.clientHint}"
+    }
 
     /** The factors that cost the most points, worst first: what a client is told after a refusal. */
     fun weakest(count: Int): List<FactorScore> = factors.filter { it.points < it.maxPoints }.sortedBy { it.points.toDouble() / it.maxPoints }.take(count)
@@ -95,7 +104,7 @@ object Scorecard {
             requestSize(requestShare, revenue),
         )
         val score = factors.sumOf { it.points }
-        return Assessment(stopFactors, factors, score, rules.ratingOf(score), revenue, revenueSource, existing, ageMonths, industry)
+        return Assessment(stopFactors, factors, score, rules.ratingOf(score), revenue, revenueSource, existing, ageMonths, industry, data.registry.statusTitle)
     }
 
     /** Revenue by the tax service; without reports — by turnover on the account; otherwise what the client declared. */

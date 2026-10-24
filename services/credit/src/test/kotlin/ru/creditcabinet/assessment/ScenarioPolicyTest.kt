@@ -37,6 +37,7 @@ import kotlin.test.assertTrue
  */
 class ScenarioPolicyTest {
     private val today = LocalDate.of(2026, 10, 21)
+    private val registryTitles = mapOf("ACTIVE" to "Действующее", "LIQUIDATING" to "В процессе ликвидации")
     private val rules = RuleSet(
         version = 1,
         maxLoad = 0.35,
@@ -99,7 +100,8 @@ class ScenarioPolicyTest {
                 fullName = company["fullName"].asText(),
                 shortName = company["shortName"].asText(),
                 status = company["status"].asText(),
-                statusTitle = "",
+                // The simulator's registry titles (external-sim RegistryStatus).
+                statusTitle = registryTitles[company["status"].asText()].orEmpty(),
                 registrationDate = today.minusMonths(company["registeredMonthsAgo"].asLong()),
                 okvedCode = company["okved"]["code"].asText(),
                 okvedName = company["okved"]["name"].asText(),
@@ -178,7 +180,10 @@ class ScenarioPolicyTest {
 
     @Test
     fun `stop factors refuse whatever the score`() {
-        assertEquals(RejectReason.SF_STATUS, assertIs<PolicyDecision.Reject>(run("0001001039").second).reason)
+        val inactive = assertIs<PolicyDecision.Reject>(run("0001001039").second)
+        assertEquals(RejectReason.SF_STATUS, inactive.reason)
+        // The client reads what the registry says, not only that the company is "not active".
+        assertTrue(inactive.explanation.single().contains("не действует: в процессе ликвидации"), inactive.explanation.single())
         assertEquals(RejectReason.SF_OVERDUE_90, assertIs<PolicyDecision.Reject>(run("000100020145").second).reason)
         assertEquals(RejectReason.SF_TOO_YOUNG, assertIs<PolicyDecision.Reject>(run("000100020392").second).reason)
     }

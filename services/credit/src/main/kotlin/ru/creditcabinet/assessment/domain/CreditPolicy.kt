@@ -75,7 +75,7 @@ object CreditPolicy {
         rules: RuleSet,
     ): PolicyDecision {
         assessment.stopFactors.firstOrNull()?.let { stop ->
-            return PolicyDecision.Reject(RejectReason.valueOf(stop.name), assessment.stopFactors.map { "${it.clientText}. ${it.clientHint}" })
+            return PolicyDecision.Reject(RejectReason.valueOf(stop.name), assessment.stopFactorTexts())
         }
         if (assessment.rating == Rating.E) return rejectByScore(assessment)
         val reasons = buildList {

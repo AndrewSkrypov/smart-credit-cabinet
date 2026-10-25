@@ -44,10 +44,11 @@ if (process.env.MAIL_TESTS !== '1') {
       const deniedChat = page.waitForResponse((response) => response.url().endsWith(`/applications/${app.id}/messages/attachments`) && response.request().method() === 'POST');
       await chat.getByLabel('Файл для сообщения', { exact: true }).setInputFiles(sample);
       expect((await deniedChat).status()).toBe(400);
-      await expect(chat.getByRole('alert')).toContainText('Файл содержит угрозу и не сохранён. Выберите безопасный файл');
+      const scannerError = chat.getByRole('alert').filter({ hasText: 'Файл содержит угрозу и не сохранён. Выберите безопасный файл' });
+      await expect(scannerError).toBeVisible();
       expect((await state()).documents).toEqual(afterBusiness.documents);
       expect(await events()).toEqual(afterBusinessJournal);
-      await chat.getByRole('alert').scrollIntoViewIfNeeded();
+      await scannerError.scrollIntoViewIfNeeded();
       await noHorizontalOverflow(page);
       await page.screenshot({ path: info.outputPath('infected-chat-attachment-rejected.png'), animations: 'disabled' });
       await chat.getByRole('button', { name: 'Отменить загрузку', exact: true }).click();

@@ -37,6 +37,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | com.github.ajalt.clikt:clikt-jvm | 5.0.2 | Apache-2.0 | https://github.com/ajalt/clikt/ ; https://www.apache.org/licenses/LICENSE-2.0 |
 | com.github.jk1.dependency-license-report:com.github.jk1.dependency-license-report.gradle.plugin | 3.1.4 | Apache-2.0 | https://github.com/jk1/Gradle-License-Report/blob/v3.1.4/src/main/groovy/com/github/jk1/license/render/JsonReportRenderer.groovy |
 | com.github.jk1:gradle-license-report | 3.1.4 | Apache-2.0 | https://github.com/jk1/Gradle-License-Report ; https://www.apache.org/licenses/LICENSE-2.0 |
+| com.github.virtuald:curvesapi | 1.08 | BSD License | http://opensource.org/licenses/BSD-3-Clause ; https://github.com/virtuald/curvesapi |
 | com.google.code.findbugs:jsr305 | 3.0.2 | The Apache Software License, Version 2.0 | http://findbugs.sourceforge.net/ ; http://www.apache.org/licenses/LICENSE-2.0.txt |
 | com.google.code.gson:gson | 2.11.0 | Apache-2.0 | https://github.com/google/gson ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | com.google.code.gson:gson | 2.13.2 | Apache-2.0 | https://github.com/google/gson ; https://www.apache.org/licenses/LICENSE-2.0.txt |
@@ -61,8 +62,11 @@ npm — из lock-файлов, дополненных license-checker для п
 | com.sun.istack:istack-commons-runtime | 4.1.2 | Eclipse Distribution License - v 1.0; Eclipse Public License v. 2.0; GNU General Public License, version 2 with the GNU Classpath Exception | http://www.eclipse.org/org/documents/edl-v10.php ; https://www.eclipse.org ; https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt ; https://www.gnu.org/software/classpath/license.html |
 | com.vaadin.external.google:android-json | 0.0.20131108.vaadin1 | Apache License 2.0 | http://developer.android.com/sdk ; http://www.apache.org/licenses/LICENSE-2.0 |
 | com.zaxxer:HikariCP | 6.3.3 | The Apache Software License, Version 2.0 | https://github.com/brettwooldridge ; https://github.com/brettwooldridge/HikariCP ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| com.zaxxer:SparseBitSet | 1.3 | The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/brettwooldridge/SparseBitSet |
 | commons-codec:commons-codec | 1.17.1 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-codec/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| commons-codec:commons-codec | 1.18.0 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-codec/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | commons-io:commons-io | 2.17.0 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-io/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| commons-io:commons-io | 2.22.0 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-io/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | dev.drewhamilton.poko:poko-annotations | 0.18.0 | The Apache Software License, Version 2.0 | https://github.com/drewhamilton/Poko ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | dev.drewhamilton.poko:poko-annotations-jvm | 0.18.0 | The Apache Software License, Version 2.0 | https://github.com/drewhamilton/Poko ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | io.github.detekt.sarif4k:sarif4k | 0.5.0 | The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://detekt.github.io/detekt |
@@ -115,9 +119,12 @@ npm — из lock-файлов, дополненных license-checker для п
 | net.swiftzer.semver:semver | 1.1.1 | MIT License | https://github.com/swiftzer/semver ; https://opensource.org/licenses/mit-license.php |
 | org.antlr:antlr4-runtime | 4.13.2 | BSD-3-Clause | https://www.antlr.org/ ; https://www.antlr.org/license.html |
 | org.antlr:antlr4-runtime | 4.7.2 | The BSD License | http://www.antlr.org ; http://www.antlr.org/license.html |
+| org.apache.commons:commons-collections4 | 4.6.0 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-collections/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.commons:commons-compress | 1.27.1 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-compress/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.commons:commons-compress | 1.28.0 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-compress/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.commons:commons-lang3 | 3.16.0 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-lang/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.commons:commons-lang3 | 3.17.0 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-lang/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.commons:commons-math3 | 3.6.1 | Apache License, Version 2.0 | http://commons.apache.org/proper/commons-math/ ; http://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.commons:commons-pool2 | 2.12.1 | Apache License, Version 2.0; Apache-2.0 | https://commons.apache.org/proper/commons-pool/ ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.httpcomponents.client5:httpclient5 | 5.5.2 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.httpcomponents.core5:httpcore5 | 5.3.6 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0.txt |
@@ -126,9 +133,16 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.apache.httpcomponents.core5:httpcore5-h2 | 5.4.4 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.logging.log4j:log4j-api | 2.24.3 | Apache License, Version 2.0; Apache-2.0 | https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.logging.log4j:log4j-to-slf4j | 2.24.3 | Apache License, Version 2.0; Apache-2.0 | https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.pdfbox:fontbox | 3.0.8 | Apache License, Version 2.0; Apache-2.0 | http://pdfbox.apache.org/ ; https://pdfbox.apache.org ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.pdfbox:pdfbox | 3.0.8 | Apache License, Version 2.0; Apache-2.0 | https://pdfbox.apache.org ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.pdfbox:pdfbox-io | 3.0.8 | Apache License, Version 2.0; Apache-2.0 | https://pdfbox.apache.org ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.poi:poi | 6.0.0 | Apache License, Version 2.0 | https://poi.apache.org/ ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.poi:poi-ooxml | 6.0.0 | Apache License, Version 2.0 | https://poi.apache.org/ ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.poi:poi-ooxml-lite | 6.0.0 | Apache License, Version 2.0 | https://poi.apache.org/ ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.tomcat.embed:tomcat-embed-core | 10.1.60 | Apache License, Version 2.0; Eclipse Public License - v 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://tomcat.apache.org/ ; https://www.apache.org/licenses/LICENSE-2.0.txt ; https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt |
 | org.apache.tomcat.embed:tomcat-embed-el | 10.1.60 | Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://tomcat.apache.org/ ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.tomcat.embed:tomcat-embed-websocket | 10.1.60 | Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://tomcat.apache.org/ ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.xmlbeans:xmlbeans | 5.4.1 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt ; https://xmlbeans.apache.org/ |
 | org.apiguardian:apiguardian-api | 1.1.2 | Apache License, Version 2.0; The Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/apiguardian-team/apiguardian ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.aspectj:aspectjweaver | 1.9.25.1 | Eclipse Public License - v 2.0 | https://www.eclipse.org/aspectj/ ; https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt |
 | org.assertj:assertj-core | 3.27.7 | Apache-2.0 | https://assertj.github.io/doc/#assertj-core ; https://www.apache.org/licenses/LICENSE-2.0.txt |
@@ -1021,6 +1035,7 @@ npm — из lock-файлов, дополненных license-checker для п
 - six, 1.17.0: MIT. https://github.com/benjaminp/six/blob/1.17.0/LICENSE. Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel.
 - urllib3, 2.8.0: MIT. https://github.com/urllib3/urllib3/blob/2.8.0/LICENSE.txt. Оператор переноса local/S3; точные прямые и транзитивные версии закреплены в scripts/requirements-storage.txt. Лицензия проверена по файлу установленного wheel.
 - Qwen2.5-1.5B-Instruct, Ollama qwen2.5:1.5b Q4_K_M; sha256:65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b: Apache-2.0. https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/blob/main/LICENSE. Отдельный проверенный override для контрольного набора; лицензия скачанного пакета совпала с издателем. Не меняет модель по умолчанию и не подтверждает качество ответов; результаты и ограничения в docs/assistant-eval.md.
+- DejaVu Sans (regular and bold), 2.37 (fonts-dejavu-core from the pinned service runtime image): Bitstream-Vera; DejaVu changes public domain. https://dejavu-fonts.github.io/License.html. Unmodified TTF files used for embedded Cyrillic in generated PDFs; upstream copyright and permission are included in services/credit/src/main/resources/fonts/LICENSE-DejaVu.txt. No Debian packaging files included.
 
 ## Смоделированные интеграции
 

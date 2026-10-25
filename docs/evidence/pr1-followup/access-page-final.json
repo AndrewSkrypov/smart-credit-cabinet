@@ -1,0 +1,37 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "role": "anonymous",
+      "expected": 401,
+      "actual": 401
+    },
+    {
+      "role": "owner",
+      "expected": 200,
+      "actual": 200
+    },
+    {
+      "role": "other_client",
+      "expected": 200,
+      "actual": 200
+    },
+    {
+      "role": "manager",
+      "expected": 200,
+      "actual": 200
+    },
+    {
+      "role": "underwriter",
+      "expected": 200,
+      "actual": 200
+    },
+    {
+      "role": "risk_admin",
+      "expected": 200,
+      "actual": 200
+    }
+  ],
+  "matrix_source_sha256": "96101be173220abbd5db51d6cdaeff82f2b2e6b963296853cfa0bcb985c9364e",
+  "boundary": "Exact current invoke function loaded by AST; only new GET page row exercised. No mutations; full prior486 preserved separately; final full script required in CI."
+}

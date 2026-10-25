@@ -4,6 +4,7 @@ import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { roleLabels } from '../shared/labels';
 import { nightGlow, tokens } from '../theme/theme';
+import { DocumentSurface } from './DocumentSurface';
 import { BrandMark } from './BrandMark';
 import { AssistantPanel } from './AssistantPanel';
 import { NotificationBell } from './NotificationBell';
@@ -47,7 +48,7 @@ export function AppShell() {
     </Tabs>
   );
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: nightGlow }}>
+    <DocumentSurface kind="workspace"><Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: nightGlow }}>
       <Box component="header" sx={{ position: 'sticky', top: 0, zIndex: 10, pt: { xs: 1, md: 2 } }}>
         <Container maxWidth="lg">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 3 }, minHeight: { xs: 56, md: 64 }, pl: { xs: 1.5, md: 2.5 }, pr: { xs: 1, md: 1.5 },
@@ -75,6 +76,6 @@ export function AppShell() {
         </Container>
       </Box>
       {!bank && <AssistantPanel />}
-    </Box>
+    </Box></DocumentSurface>
   );
 }

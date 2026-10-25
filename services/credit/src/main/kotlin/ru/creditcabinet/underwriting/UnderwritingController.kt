@@ -90,6 +90,8 @@ data class AssessmentView(
     val tax: TaxInfo?,
     val bureau: BureauInfo?,
     val bank: BankInfo?,
+    /** When responses reached the cabinet; does not assert when the source's facts became current. */
+    val sourceFetchedAt: Map<SourceKind, Instant>,
     val turnoverVariation: Double?,
     val discrepancies: List<Discrepancy>,
     val automaticDecision: DecisionView?,
@@ -152,6 +154,7 @@ class UnderwritingController(
             tax = sources[SourceKind.TAX] as TaxInfo?,
             bureau = sources[SourceKind.BUREAU] as BureauInfo?,
             bank = bank,
+            sourceFetchedAt = enrichment.fetchedAt(application.id),
             turnoverVariation = bank?.let { Scorecard.coefficientOfVariation(it.monthlyInflows) },
             discrepancies = discrepancies(application, sources),
             automaticDecision = decisions.latestAutomatic(application.id)?.let(DecisionView::of),

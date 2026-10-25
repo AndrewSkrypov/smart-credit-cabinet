@@ -3,12 +3,27 @@ package ru.creditcabinet.product.domain
 import java.time.Instant
 import java.util.UUID
 
-data class ProductRevision(val product: Product, val authorId: UUID?, val reason: String, val createdAt: Instant)
+data class ProductRevision(
+    val product: Product,
+    val authorId: UUID?,
+    val reason: String,
+    val createdAt: Instant,
+    val authorName: String? = null,
+    val authorRole: String? = null,
+)
 
 interface ProductVersions {
     fun list(): List<Product>
     fun history(code: String): List<ProductRevision>
-    fun replace(product: Product, expectedVersion: Long, authorId: UUID, reason: String, now: Instant): ProductRevision
+    fun replace(
+        product: Product,
+        expectedVersion: Long,
+        authorId: UUID,
+        reason: String,
+        now: Instant,
+        authorName: String? = null,
+        authorRole: String? = null,
+    ): ProductRevision
 }
 
 /** Invalid edits cannot enter a historical snapshot used for lending. */

@@ -28,6 +28,7 @@ import ru.creditcabinet.application.domain.ApplicationStateMachine
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.InfoRequests
 import ru.creditcabinet.application.domain.LoanApplication
+import ru.creditcabinet.application.infrastructure.ApplicationPages
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.application.service.toActor
 import ru.creditcabinet.assessment.domain.DecisionRepository
@@ -37,6 +38,7 @@ import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.document.DocumentService
 import ru.creditcabinet.document.domain.DocumentRequirements
 import ru.creditcabinet.document.domain.DocumentType
+import ru.creditcabinet.offer.ContractTextView
 import ru.creditcabinet.offer.Loans
 import ru.creditcabinet.offer.OfferKind
 import ru.creditcabinet.offer.OfferService
@@ -58,6 +60,7 @@ class ApplicationController(
     private val signing: SigningSessions,
     private val loans: Loans,
     private val chat: ChatService,
+    private val pages: ApplicationPages,
 ) {
     @Operation(summary = "Заявки: клиенту — его компании, сотрудникам банка — очередь без черновиков")
     @GetMapping
@@ -65,6 +68,24 @@ class ApplicationController(
         val applications = service.list(status)
         val unread = chat.unread(applications)
         return applications.map { summary(it).copy(unreadChatCount = unread[it.id] ?: 0) }
+    }
+
+    @Operation(summary = "Ограниченная SQL-страница заявок; счётчики по поиску, клиентское превью действий глобально")
+    @GetMapping("/page")
+    fun page(
+        @RequestParam(defaultValue = "0") page: Long,
+        @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(required = false) group: String?,
+        @RequestParam(defaultValue = "") q: String,
+        @RequestParam(defaultValue = "default") sort: String,
+    ): ApplicationPageResponse {
+        val result = pages.read(page, size, group, q, sort)
+        val unread = chat.unread((result.items + result.actionRequiredPreview).distinctBy { it.id })
+        fun view(application: LoanApplication) = summary(application).copy(unreadChatCount = unread[application.id] ?: 0)
+        return ApplicationPageResponse(
+            result.items.map(::view), result.page, result.size, result.totalElements, result.totalPages,
+            result.hasNext, result.countsByGroup, result.actionRequiredCount, result.actionRequiredPreview.map(::view),
+        )
     }
 
     @Operation(summary = "Создать черновик заявки")
@@ -129,6 +150,10 @@ class ApplicationController(
         val product = service.product(application, offer.productCode)
         return LoanMath.calculate(loan?.amount ?: offer.amount, loan?.rate ?: offer.rate, loan?.termMonths ?: offer.termMonths, product.revolving)
     }
+
+    @Operation(summary = "Подписываемый текст договора и сохранённый снимок; для старых заявок — сводка условий")
+    @GetMapping("/{id}/contract")
+    fun contract(@PathVariable id: UUID): ContractTextView = offers.contract(id)
 
     @Operation(summary = "Журнал заявки: история для клиента, аудит для банка")
     @GetMapping("/{id}/events")
@@ -264,3 +289,15 @@ class ApplicationController(
         )
     }
 }
+
+data class ApplicationPageResponse(
+    val items: List<ApplicationSummary>,
+    val page: Int,
+    val size: Int,
+    val totalElements: Long,
+    val totalPages: Int,
+    val hasNext: Boolean,
+    val countsByGroup: Map<String, Long>,
+    val actionRequiredCount: Long,
+    val actionRequiredPreview: List<ApplicationSummary>,
+)

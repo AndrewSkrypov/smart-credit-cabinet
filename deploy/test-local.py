@@ -21,6 +21,7 @@ from uuid import uuid4
 from common import Deployment, ROOT
 from backup_support import database_snapshot
 from maintenance import Database
+from artifact_checks import issued_contract, ready_artifacts, download_artifacts
 
 sys.path.insert(0, str(ROOT / "scripts"))
 from cabinet_api import Cabinet
@@ -171,6 +172,22 @@ try:
     fixture = clients[0]
     route = "/api/v1/applications/" + fixture["application_id"]
     schedule = api.json("GET", route + "/schedule", token=fixture["token"])
+    stage = "generated-artifacts-source"
+    contract_text = issued_contract(api, route, fixture["token"])
+    report["contract_text_sha256"] = contract_text["snapshot"]["sha256"]
+    artifact_rows = ready_artifacts(api, route, fixture["token"])
+    generated_before = download_artifacts(api, route, fixture["token"], artifact_rows)
+    report["generated_files"] = generated_before
+    # Keep the original two-upload fixture, and require three READY final files for every loan.
+    expected_generated = args.companies * 3
+    deadline = time.monotonic() + 180
+    while int(source.sql("credit", "select count(*) from generated_artifacts where phase='FINAL' and status='READY'")) != expected_generated:
+        assert time.monotonic() < deadline, "Генерация файлов всех выданных кредитов не завершилась"
+        time.sleep(1)
+    check("Оба загруженных документа сохранены", int(source.sql("credit", "select count(*) from documents")) == 2)
+    check("Для каждого кредита готовы три окончательных файла без лишних записей",
+          int(source.sql("credit", "select count(*) from generated_artifacts")) == expected_generated)
+    check("Авторизованно скачаны три PDF/XLSX с верными размером, типом и SHA256", len(generated_before) == 3)
     stage = "maintenance-lock"
     lock = Database(source.container("postgres"), source.values["POSTGRES_USER"])
     try:
@@ -192,7 +209,8 @@ try:
     run("backup.py", "--project", source_name, "--env-file", source_path, "--local", "--output", backup)
     manifest = json.loads((backup / "manifest.json").read_text(encoding="utf-8"))
     check("Согласованная копия завершена, исходные writers восстановлены", manifest["backup_complete"] and manifest["source_resumed"])
-    check("Копия охватывает выбранный backend", manifest["storage"]["backends"] == {args.storage.upper(): 2})
+    check("Копия охватывает выбранный backend, две загрузки и все сгенерированные файлы",
+          manifest["storage"]["backends"] == {args.storage.upper(): 2 + expected_generated})
     if args.legacy_backup:
         assert not manifest["storage"]["s3_volume_included"]
         manifest["format_version"] = 1
@@ -228,6 +246,12 @@ try:
     check("Восстановленная учётная запись входит с прежним паролем", session["user"]["id"] == fixture["user_id"])
     check("Сохранён итоговый статус заявки", restored_api.json("GET", route, token=token)["status"] == "DISBURSED")
     check("График платежей совпадает побайтно по структуре JSON", restored_api.json("GET", route + "/schedule", token=token) == schedule)
+    check("Замороженный текст договора сохранён после восстановления",
+          issued_contract(restored_api, route, token) == contract_text)
+    restored_artifacts = ready_artifacts(restored_api, route, token)
+    check("Сохранены ID, готовность и метаданные файлов", restored_artifacts == artifact_rows)
+    check("Все три PDF/XLSX скачиваются после restore с прежними SHA256 и размерами",
+          download_artifacts(restored_api, route, token, restored_artifacts) == generated_before)
     request = urllib.request.Request(restored_api.base + route + "/documents/" + document["id"], headers={"Authorization": "Bearer " + token})
     with urllib.request.urlopen(request, context=restored_api.ssl_context, timeout=20) as response:
         content = response.read()

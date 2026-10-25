@@ -25,7 +25,11 @@ import ru.creditcabinet.common.security.TokenClaims
 import java.time.ZoneOffset
 import java.util.Date
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
+import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -57,17 +61,28 @@ class RulesAndAnalyticsTest {
     private val manager by lazy { token("MANAGER") }
     private val risk by lazy { token("RISK_ADMIN") }
 
+    private lateinit var initialParams: String
+
     @BeforeTest
     fun setUp() {
+        initialParams = jdbc.queryForObject("select params::text from rule_sets order by version desc limit 1", String::class.java)!!
         jdbc.update("update pipeline_jobs set status = 'CANCELLED' where status in ('PENDING', 'RUNNING')")
         whenever(companies.find(any())).thenAnswer { CompanySnapshot(it.getArgument(0), inn, "ИП Тест", LegalForm.ENTREPRENEUR) }
         sources.companies[inn] = FakeSources.healthy(inn, clock.now.atZone(ZoneOffset.UTC).toLocalDate())
     }
 
+    @AfterTest
+    fun restorePolicy() {
+        val current = jdbc.queryForObject("select params::text from rule_sets order by version desc limit 1", String::class.java)!!
+        if (mapper.readTree(current) != mapper.readTree(initialParams)) {
+            jdbc.update("insert into rule_sets (version,params,comment) select max(version)+1,?::jsonb,'Test policy restoration' from rule_sets", initialParams)
+        }
+    }
+
     private fun token(role: String, company: UUID? = null) =
         Jwts.builder().subject(UUID.randomUUID().toString()).claim(TokenClaims.ROLE, role)
             .apply { company?.let { claim(TokenClaims.COMPANY_ID, it.toString()) } }
-            .claim(TokenClaims.CAN_SIGN, company != null)
+            .claim(TokenClaims.FULL_NAME, "Тестовый администратор").claim(TokenClaims.CAN_SIGN, company != null)
             .expiration(Date(System.currentTimeMillis() + 3_600_000)).signWith(verifier.signingKey).compact()
 
     private fun json(response: MockHttpServletResponse): JsonNode = mapper.readTree(response.getContentAsString(Charsets.UTF_8))
@@ -82,20 +97,112 @@ class RulesAndAnalyticsTest {
         }.andReturn().response
 
     @Test
+    fun `a stale editor cannot overwrite a rule version saved by another administrator`() {
+        val original = json(getAs("/api/v1/rules", risk))
+        val version = original["version"].asInt()
+        val first = original["params"].deepCopy<ObjectNode>().put("maxLoad", 0.4)
+        val stale = original["params"].deepCopy<ObjectNode>()
+        (stale["ratingMargins"] as ObjectNode).put("B", 1.75)
+        try {
+            val saved = postRules(risk, mapper.writeValueAsString(mapOf("params" to first, "comment" to "Первый редактор", "expectedVersion" to version)))
+            assertEquals(201, saved.status, saved.contentAsString)
+            val rejected =
+                postRules(risk, mapper.writeValueAsString(mapOf("params" to stale, "comment" to "Устаревший редактор", "expectedVersion" to version)))
+            assertEquals(409, rejected.status, rejected.contentAsString)
+            val current = json(getAs("/api/v1/rules", risk))
+            assertEquals(version + 1, current["version"].asInt())
+            assertEquals(0.4, current["params"]["maxLoad"].asDouble())
+        } finally {
+            jdbc.update(
+                "insert into rule_sets (version,params,comment) select coalesce(max(version),0)+1,?::jsonb,'Test policy restoration' from rule_sets",
+                mapper.writeValueAsString(original["params"]),
+            )
+        }
+    }
+
+    @Test
+    fun `concurrent rule editors publish exactly one revision`() {
+        val original = json(getAs("/api/v1/rules", risk))
+        val executor = Executors.newFixedThreadPool(2)
+        val start = CountDownLatch(1)
+        try {
+            val results = (1..2).map { n ->
+                executor.submit<Int> {
+                    start.await()
+                    val params = original["params"].deepCopy<ObjectNode>().put("maxLoad", 0.4 + n * 0.01)
+                    postRules(
+                        risk,
+                        mapper.writeValueAsString(
+                            mapOf(
+                                "params" to params,
+                                "expectedVersion" to original["version"],
+                                "comment" to "Конкурентный редактор $n",
+                            ),
+                        ),
+                    ).status
+                }
+            }
+            start.countDown()
+            assertEquals(listOf(201, 409), results.map { it.get(20, TimeUnit.SECONDS) }.sorted())
+            assertEquals(original["version"].asInt() + 1, json(getAs("/api/v1/rules", risk))["version"].asInt())
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun `unchanged rules and missing version are rejected without a new revision`() {
+        val current = json(getAs("/api/v1/rules", risk))
+        val missing = postRules(risk, mapper.writeValueAsString(mapOf("params" to current["params"], "comment" to "Нет версии")))
+        assertEquals(400, missing.status, missing.contentAsString)
+        val noop = postRules(
+            risk,
+            mapper.writeValueAsString(
+                mapOf(
+                    "params" to current["params"],
+                    "expectedVersion" to current["version"],
+                    "comment" to "Без изменений",
+                ),
+            ),
+        )
+        assertEquals(400, noop.status, noop.contentAsString)
+        assertEquals(current["version"], json(getAs("/api/v1/rules", risk))["version"])
+    }
+
+    @Test
+    fun `historical rule snapshots keep parameters author role and time and are bank only`() {
+        val original = json(getAs("/api/v1/rules", risk))
+        val changed = original["params"].deepCopy<ObjectNode>().put("maxLoad", 0.39)
+        val saved =
+            postRules(risk, mapper.writeValueAsString(mapOf("params" to changed, "expectedVersion" to original["version"], "comment" to "Снимок автора")))
+        assertEquals(201, saved.status, saved.contentAsString)
+        val version = json(saved)["version"].asInt()
+        val snapshot = json(getAs("/api/v1/rules/$version", manager))
+        assertEquals(changed, snapshot["params"])
+        assertEquals("Тестовый администратор", snapshot["metadata"]["authorName"].asText())
+        assertEquals("RISK_ADMIN", snapshot["metadata"]["authorRole"].asText())
+        assertTrue(snapshot["metadata"]["createdAt"].asText().isNotBlank())
+        assertEquals(original["params"], json(getAs("/api/v1/rules/${original["version"].asInt()}", risk))["params"])
+        assertEquals(403, getAs("/api/v1/rules/$version", client).status)
+        assertEquals(404, getAs("/api/v1/rules/2147483647", risk).status)
+    }
+
+    @Test
     fun `the bank reads the rules, only the risk administrator changes them, clients see neither rules nor analytics`() {
         assertEquals(403, getAs("/api/v1/rules", client).status)
         assertEquals(403, getAs("/api/v1/analytics/funnel", client).status)
         val current = json(getAs("/api/v1/rules", manager))
-        val body = mapper.writeValueAsString(mapOf("params" to current["params"], "comment" to "Проверка"))
+        val body = mapper.writeValueAsString(mapOf("params" to current["params"], "expectedVersion" to current["version"], "comment" to "Проверка"))
         assertEquals(403, postRules(manager, body).status)
     }
 
     @Test
     fun `inconsistent thresholds are refused with the reason`() {
-        val params = json(getAs("/api/v1/rules", risk))["params"] as ObjectNode
+        val original = json(getAs("/api/v1/rules", risk))
+        val params = original["params"] as ObjectNode
         (params["ratingCutoffs"] as ObjectNode).put("B", 85)
         params.putArray("highRiskOkved").add("62").add("4")
-        val response = postRules(risk, mapper.writeValueAsString(mapOf("params" to params, "comment" to "Ошибка")))
+        val response = postRules(risk, mapper.writeValueAsString(mapOf("params" to params, "expectedVersion" to original["version"], "comment" to "Ошибка")))
         assertEquals(400, response.status)
         val message = json(response)["message"].asText()
         assertTrue(message.contains("A > B > C > D"), message)
@@ -106,7 +213,17 @@ class RulesAndAnalyticsTest {
     @Test
     fun `a new version applies to the next assessment and the funnel counts the application`() {
         val current = json(getAs("/api/v1/rules", risk))
-        val saved = postRules(risk, mapper.writeValueAsString(mapOf("params" to current["params"], "comment" to "Пересмотр порогов без изменений")))
+        val changed = current["params"].deepCopy<ObjectNode>().put("maxLoad", 0.36)
+        val saved = postRules(
+            risk,
+            mapper.writeValueAsString(
+                mapOf(
+                    "params" to changed,
+                    "expectedVersion" to current["version"],
+                    "comment" to "Пересмотр порогов",
+                ),
+            ),
+        )
         assertEquals(201, saved.status, saved.contentAsString)
         val version = json(saved)["version"].asInt()
         assertEquals(current["version"].asInt() + 1, version)

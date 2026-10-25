@@ -62,6 +62,11 @@ export function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<CabinetNotification[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pageNumber, setPageNumber] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const request = useRef(0);
+  const [reading, setReading] = useState(false);
 
   const refreshCount = useCallback(() => {
     notificationsApi.unreadCount().then(setUnread).catch(() => undefined);
@@ -72,20 +77,24 @@ export function NotificationBell() {
     const timer = window.setInterval(refreshCount, REFRESH_MS);
     window.addEventListener('focus', refreshCount);
     return () => {
+      request.current += 1;
       window.clearInterval(timer);
       window.removeEventListener('focus', refreshCount);
     };
   }, [refreshCount]);
 
-  async function load() {
-    setError(null);
+  async function load(next = pageNumber) {
+    const ticket = ++request.current;
+    setLoading(true); setError(null);
     try {
-      const page = await notificationsApi.page(0, 10);
+      const page = await notificationsApi.page(next, 10);
+      if (ticket !== request.current) return;
+      setPageNumber(page.page); setTotal(page.total);
       setItems(page.items);
       setUnread(page.unread);
     } catch (reason) {
-      setError(reason instanceof Error && reason.message ? reason.message : 'Не удалось загрузить уведомления');
-    }
+      if (ticket === request.current) setError(reason instanceof Error && reason.message ? reason.message : 'Не удалось загрузить уведомления');
+    } finally { if (ticket === request.current) setLoading(false); }
   }
 
   function toggle() {
@@ -104,9 +113,16 @@ export function NotificationBell() {
   }
 
   async function readAll() {
-    await notificationsApi.markAllRead().catch(() => undefined);
-    setUnread(0);
-    setItems((current) => current?.map((item) => ({ ...item, read: true })) ?? null);
+    if (reading) return;
+    setReading(true);
+    setError(null);
+    try {
+      await notificationsApi.markAllRead();
+      setUnread(0);
+      setItems((current) => current?.map((item) => ({ ...item, read: true })) ?? null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Не удалось отметить уведомления прочитанными');
+    } finally { setReading(false); }
   }
 
   const label = unread > 0 ? `Уведомления: ${unread} непрочитанных` : 'Уведомления: нет новых';
@@ -123,13 +139,13 @@ export function NotificationBell() {
         onClose={() => setOpen(false)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{ paper: { role: 'dialog', 'aria-label': 'Уведомления', sx: { width: 'min(380px, calc(100vw - 32px))', maxHeight: '70vh', p: 1 } } }}
+        slotProps={{ paper: { role: 'dialog', 'aria-label': 'Уведомления', sx: { width: 'min(380px, calc(100vw - 32px))', maxHeight: '70vh', p: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } } }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1, pb: 0.5, gap: 1 }}>
+        <Box sx={{ display: 'flex', flexShrink: 0, justifyContent: 'space-between', alignItems: 'center', px: 1, pb: 0.5, gap: 1 }}>
           <Typography component="h2" variant="subtitle1" fontWeight={700}>Уведомления</Typography>
-          {unread > 0 && <Button size="small" onClick={() => void readAll()} sx={{ minHeight: 44 }}>Прочитать все</Button>}
+          {unread > 0 && <Button size="small" disabled={reading || loading} onClick={() => void readAll()} sx={{ minHeight: 44 }}>Прочитать все</Button>}
         </Box>
-        {error && <Alert severity="error" sx={{ m: 1 }}>{error}</Alert>}
+        {error && <Alert severity="error" sx={{ m: 1 }} action={<Button disabled={loading} onClick={() => void load()}>Повторить</Button>}>{error}</Alert>}
         {!items && !error && <CircularProgress size={20} aria-label="Загрузка уведомлений" sx={{ display: 'block', m: 2 }} />}
         {items && items.length === 0 && (
           <Typography color="text.secondary" sx={{ p: 1.5 }}>
@@ -137,12 +153,19 @@ export function NotificationBell() {
           </Typography>
         )}
         {items && items.length > 0 && (
-          <Stack component="ul" spacing={0.5} sx={{ listStyle: 'none', p: 0, m: 0 }}>
+          <Stack component="ul" aria-label="Список уведомлений" aria-busy={loading} spacing={0.5} sx={{ minHeight: 0, overflowY: 'auto', listStyle: 'none', p: 0, m: 0 }}>
             {items.map((item) => (
               <li key={item.id}><NotificationItem item={item} onOpen={(chosen) => void openItem(chosen)} /></li>
             ))}
           </Stack>
         )}
+        {total > 10 && <Stack component="nav" aria-label="Страницы уведомлений" sx={{ pt: 1, flexShrink: 0, borderTop: 1, borderColor: 'divider' }}>
+          <Typography variant="caption" textAlign="center">{pageNumber * 10 + 1}–{Math.min((pageNumber + 1) * 10, total)} из {total}</Typography>
+          <Stack direction="row" justifyContent="space-between" gap={1}>
+            <Button disabled={loading || reading || pageNumber === 0} onClick={() => void load(pageNumber - 1)}>Более новые</Button>
+            <Button disabled={loading || reading || (pageNumber + 1) * 10 >= total} onClick={() => void load(pageNumber + 1)}>Более ранние</Button>
+          </Stack>
+        </Stack>}
       </Popover>
     </>
   );

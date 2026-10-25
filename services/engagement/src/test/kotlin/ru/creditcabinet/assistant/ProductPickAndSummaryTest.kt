@@ -78,7 +78,7 @@ class ProductPickAndSummaryTest {
         assertEquals("RULES", answer["mode"].asText())
         val text = answer["text"].asText()
         assertTrue("Кредит на пополнение оборота" in text && "185 270,37 ₽" in text && "Овердрафт" !in text, text)
-        assertEquals("/client/new?purpose=WORKING_CAPITAL&amount=2000000&term=12", answer["link"]["path"].asText())
+        assertEquals("/client/new?purpose=WORKING_CAPITAL&amount=2000000&termMonths=12", answer["link"]["path"].asText())
         verify(model, never()).chat(any())
     }
 

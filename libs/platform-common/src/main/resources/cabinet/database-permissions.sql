@@ -48,7 +48,7 @@ do $$
 declare item text;
 begin
   foreach item in array array['personal_data_consents','identity_audit','notification_receipts',
-    'product_versions','application_events','application_messages','message_attachments',
+    'product_versions','contract_text_snapshots','application_events','application_messages','message_attachments',
     'application_chat_audit','application_chat_upload_keys']
   loop
     if to_regclass('public.' || item) is not null then

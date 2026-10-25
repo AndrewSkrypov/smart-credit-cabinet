@@ -1,13 +1,16 @@
-import { Alert, Box, Button, Grid, List, ListItem, ListItemText, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Button, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { rulesApi } from '../../api/client';
 import { useAuth } from '../../auth/AuthProvider';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingBlock } from '../../components/LoadingBlock';
 import { PageHeader } from '../../components/PageHeader';
+import { SaveVersionDialog, VersionHistory, VersionPreviewDialog } from '../../components/VersionHistory';
 import { useApi } from '../../hooks/useApi';
-import { formatDateTime } from '../../shared/format';
-import { RuleParams } from '../../types';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
+import { RuleSnapshot } from '../../components/VersionSnapshots';
+import { sameVersionParams } from '../../shared/versionParams';
+import { RuleParams, RulesResponse } from '../../types';
 
 const RATINGS = ['A', 'B', 'C', 'D'] as const;
 
@@ -31,28 +34,43 @@ export function RulesPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [baseVersion, setBaseVersion] = useState(0);
+  const [confirm, setConfirm] = useState(false);
+  const [viewedVersion, setViewedVersion] = useState<number | null>(null);
+  const candidate = draft ? { ...draft, lowRiskOkved: codes(lowRisk), highRiskOkved: codes(highRisk) } : null;
+  const changed = !!candidate && !!rules.data && !sameVersionParams(candidate, rules.data.params);
+  const guard = useUnsavedChanges(changed || !!comment.trim(), busy);
 
   useEffect(() => {
-    if (!rules.data) return;
+    if (!rules.data || draft) return;
     setDraft(rules.data.params);
+    setBaseVersion(rules.data.version);
     setLowRisk(rules.data.params.lowRiskOkved.join(', '));
     setHighRisk(rules.data.params.highRiskOkved.join(', '));
-  }, [rules.data]);
+  }, [rules.data, draft]);
 
   if (rules.loading && !rules.data) return <LoadingBlock />;
-  if (rules.error || !rules.data || !draft) return <ErrorState message={rules.error ?? 'Нет данных'} onRetry={rules.reload} />;
+  if (!rules.data || !draft) return <ErrorState message={rules.error ?? 'Нет данных'} onRetry={rules.reload} />;
 
   const save = async () => {
+    if (busy || !candidate || !changed || !comment.trim()) return;
     setBusy(true);
     setError(null);
     setSaved(null);
     try {
-      const next = await rulesApi.save({ ...draft, lowRiskOkved: codes(lowRisk), highRiskOkved: codes(highRisk) }, comment.trim());
+      const next = await rulesApi.save(candidate, comment.trim(), baseVersion);
       setSaved(`Сохранена версия ${next.version}. Новые оценки идут по ней.`);
+      setDraft(next.params);
+      setLowRisk(next.params.lowRiskOkved.join(', '));
+      setHighRisk(next.params.highRiskOkved.join(', '));
+      setBaseVersion(next.version);
       setComment('');
+      setConfirm(false);
       await rules.reload();
     } catch (nextError) {
+      setConfirm(false);
       setError(nextError instanceof Error ? nextError.message : 'Не удалось сохранить');
+      await rules.reload();
     } finally {
       setBusy(false);
     }
@@ -107,30 +125,37 @@ export function RulesPage() {
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
                 <TextField label="Что и зачем меняется" fullWidth multiline minRows={2} value={comment} onChange={(event) => setComment(event.target.value)} inputProps={{ maxLength: 1000 }}
                   helperText="Попадёт в историю версий" required />
-                {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+                {error && <Alert severity="error" sx={{ mt: 2 }}>{error}. Черновик остался в форме.
+                  <Button onClick={() => guard.request(() => { setDraft(null); setComment(''); setError(null); })}>Загрузить текущие условия</Button>
+                </Alert>}
                 {saved && <Alert severity="success" sx={{ mt: 2 }}>{saved}</Alert>}
-                <Button variant="contained" size="large" sx={{ mt: 2 }} disabled={busy || !comment.trim()} onClick={save}>Сохранить новую версию</Button>
+                <Button variant="contained" size="large" sx={{ mt: 2 }} disabled={busy || !comment.trim() || !changed} onClick={() => setConfirm(true)}>Сохранить новую версию</Button>
               </Paper>
             )}
           </Stack>
         </Grid>
         <Grid item xs={12} lg={4}>
-          <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
-            <Typography variant="h6" component="h2">История версий</Typography>
-            <List dense>
-              {rules.data.versions.map((version) => (
-                <ListItem key={version.version} disableGutters>
-                  <ListItemText primary={`Версия ${version.version}${version.version === rules.data!.version ? ' — действует' : ''}`}
-                    secondary={[formatDateTime(version.createdAt), version.comment].filter(Boolean).join(' · ')} />
-                </ListItem>
-              ))}
-            </List>
-            <Box>
-              <Typography variant="body2" color="text.secondary">Каждое решение хранит версию правил, по которой принято, поэтому изменения не пересматривают прошлые решения.</Typography>
-            </Box>
-          </Paper>
+          <VersionHistory title="История версий правил" items={rules.data.versions.map(ruleMetadata)} currentVersion={rules.data.version} onOpen={setViewedVersion} />
         </Grid>
       </Grid>
+      <SaveVersionDialog open={confirm} busy={busy} onCancel={() => setConfirm(false)} onConfirm={() => void save()} />
+      {viewedVersion !== null && <RuleSnapshotDialog currentVersion={rules.data.version} version={viewedVersion} onClose={() => setViewedVersion(null)} />}
+      {guard.dialog}
     </>
   );
+}
+
+const ruleMetadata = (item: RulesResponse['versions'][number]) => ({
+  version: item.version, createdAt: item.createdAt, authorId: item.createdBy,
+  authorName: item.authorName, authorRole: item.authorRole, reason: item.comment
+});
+
+function RuleSnapshotDialog({ version, currentVersion, onClose }: { version: number; currentVersion: number; onClose: () => void }) {
+  const loaded = useApi(() => rulesApi.version(version), [version]);
+  const p = loaded.data?.params;
+  return <VersionPreviewDialog currentVersion={currentVersion} title={`Правила · версия ${version}`} onClose={onClose} metadata={loaded.data ? ruleMetadata(loaded.data.metadata) : undefined}>
+    {loaded.loading && <LoadingBlock />}
+    {loaded.error && <ErrorState message={loaded.error} onRetry={loaded.reload} />}
+    {p && <RuleSnapshot params={p} />}
+  </VersionPreviewDialog>;
 }

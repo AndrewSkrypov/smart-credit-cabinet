@@ -1,8 +1,9 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/client';
 import { Role, SignUpInput, UserSession } from '../types';
 import { clearSession, readSession, writeSession } from './session';
+import { roleDestination } from '../shared/financingSelection';
 
 interface AuthContextValue {
   session: UserSession | null;
@@ -28,17 +29,17 @@ export const roleHome: Record<Role, string> = {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [session, setSession] = useState<UserSession | null>(readSession);
 
   const start = useCallback((next: UserSession) => {
     writeSession(next);
     setSession(next);
     // Back to the page the user was on when the session expired, if it is in their area.
-    const requested = new URLSearchParams(window.location.search).get('next');
     const home = roleHome[next.user.role];
-    navigate(requested && requested.startsWith(`${home}/`) ? requested : home, { replace: true });
+    navigate(roleDestination(next.user.role, location.search, home), { replace: true });
     return next;
-  }, [navigate]);
+  }, [navigate, location.search]);
 
   const signIn = useCallback(async (email: string, password: string) => start(await authApi.signIn(email, password)), [start]);
 

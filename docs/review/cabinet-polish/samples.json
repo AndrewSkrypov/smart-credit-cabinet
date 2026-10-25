@@ -1,0 +1,88 @@
+{
+  "scope": "Real UI screenshots and actual authorized downloads; synthetic companies and loans only",
+  "before": "Read-only main-preview capture, application code matches main a1f1c18",
+  "after": "Independent cabinet-polish stand; screenshots may show different demo fixtures/roles",
+  "samples": [
+    {
+      "file": "landing-320-before.png",
+      "sha256": "61a48e01fa966c6367065166afc34ced9efcbd4daaef083e7ed941e136f82d02",
+      "bytes": 42404
+    },
+    {
+      "file": "landing-320-after.png",
+      "sha256": "5a30ab8a2650acf6a8a488dddce58f0e5ef2c7c4df23e7a9129e6442c46f1e59",
+      "bytes": 40891
+    },
+    {
+      "file": "landing-900-before.png",
+      "sha256": "49a6b0202c6d340fab8f1ed318f3d3c81406083ccc3ee01b8cbddc019c942f6e",
+      "bytes": 189562,
+      "provenance": "Feature working tree before the narrow-header fix, not main-preview"
+    },
+    {
+      "file": "landing-900-after.png",
+      "sha256": "db864e12b2e5b7fe6f14c21e05500b01f9a394d1fe3ca25dd60e062ac93343fd",
+      "bytes": 185606
+    },
+    {
+      "file": "calculator-anchor-320.png",
+      "sha256": "219e328ce53a63c363135d870117c0bddd97028cae433c84d208d1549da25e44",
+      "bytes": 69494
+    },
+    {
+      "file": "rules-before.png",
+      "sha256": "0be60ca1d00f8d5ba42ce992cad9417af351df722c88a1bdbe374f9080110e30",
+      "bytes": 85206
+    },
+    {
+      "file": "rules-after.png",
+      "sha256": "df10e17f6ec8a1cd6f0b2b84ea4ee89b307cfb6bcf3c544ea210f33e70b89baa",
+      "bytes": 73020
+    },
+    {
+      "file": "bank-before.png",
+      "sha256": "12778c23b440075e17a780c062e8a5287b1a79f20a18835ff64776f40598b9cc",
+      "bytes": 102794
+    },
+    {
+      "file": "bank-after.png",
+      "sha256": "b7286e3b15bd42e7d0a20cab2748dc02994fe51c127f4b2e3560877b4732b758",
+      "bytes": 74453
+    },
+    {
+      "file": "bank-source-receipts.png",
+      "sha256": "ed86a11e8d0d04bb8a67d2d6c3181716c4de18b7f02dcaec3755eb2357f990ce",
+      "bytes": 98276
+    },
+    {
+      "file": "assistant-model.png",
+      "sha256": "f67f0470a2a51ea3b9848e29dc86fa4d3bbb36c35b8435bc377f1073d729b1df",
+      "bytes": 74593
+    },
+    {
+      "file": "credit-files.png",
+      "sha256": "9e3e24611aed8199d350a1b22bb7a70edc99732beeb6d2b8f5c452010ebd1168",
+      "bytes": 209552
+    },
+    {
+      "file": "pci-mobile.png",
+      "sha256": "f981189eca000ffb8bb0c69b737c49154a9eab11940adbc116584389913968ea",
+      "bytes": 149807
+    },
+    {
+      "file": "contract-demo.pdf",
+      "sha256": "f5461f2349cc75d1ebf35f3afee5b05f2c8777b40bea62b9787b36ff251b7d53",
+      "bytes": 25888
+    },
+    {
+      "file": "schedule-demo.pdf",
+      "sha256": "9b24605bca3bf0940795d9d7f5c83c758c3a158f7018653a0a65ea8b1fb8b035",
+      "bytes": 25202
+    },
+    {
+      "file": "schedule-demo.xlsx",
+      "sha256": "47c68c587c1458a9e859692147439ae4d29d829eb899c26f779e4822e4fb8b71",
+      "bytes": 5256
+    }
+  ]
+}

@@ -79,7 +79,10 @@ class ProductVersionsIntegrationTest {
     private val risk by lazy { token("RISK_ADMIN") }
     private val underwriter by lazy { token("UNDERWRITER") }
     private fun token(role: String, company: UUID? = null) = Jwts.builder().subject(UUID.randomUUID().toString())
-        .claim(TokenClaims.ROLE, role).claim(TokenClaims.COMPANY_ID, company?.toString()).claim(TokenClaims.CAN_SIGN, company != null)
+        .claim(TokenClaims.FULL_NAME, "Редактор Тест").claim(TokenClaims.ROLE, role).claim(TokenClaims.COMPANY_ID, company?.toString()).claim(
+            TokenClaims.CAN_SIGN,
+            company != null,
+        )
         .expiration(Date(System.currentTimeMillis() + 3_600_000)).signWith(verifier.signingKey).compact()
 
     @BeforeTest fun setup() {
@@ -91,6 +94,7 @@ class ProductVersionsIntegrationTest {
     @AfterTest fun restore() {
         for ((code, original) in originals) {
             val current = catalog.latest(code)!!
+            if (current.copy(version = original.version) == original) continue
             tx.executeWithoutResult {
                 versions.replace(original, current.version, UUID.randomUUID(), "Восстановление исходных условий после проверки", clock.instant())
             }
@@ -235,9 +239,12 @@ class ProductVersionsIntegrationTest {
         )
         for (candidate in invalid) assertEquals(400, edit(candidate).status)
         assertEquals(400, edit(original, reason = " ").status)
+        assertEquals(400, edit(original).status)
         assertEquals(original.version, catalog.latest(original.code)!!.version)
         val saved = edit(original.copy(baseRate = 26.toBigDecimal()))
         assertEquals(200, saved.status)
+        assertEquals("Редактор Тест", json(saved)["authorName"].asText())
+        assertEquals("RISK_ADMIN", json(saved)["authorRole"].asText())
         assertEquals(409, edit(original).status)
         assertEquals(26.0, json(get("/api/v1/products/${original.code}"))["baseRate"].asDouble())
         assertEquals(26.0, json(get("/api/v1/products/${original.code}/calculation?amount=1000000&termMonths=12"))["rate"].asDouble())

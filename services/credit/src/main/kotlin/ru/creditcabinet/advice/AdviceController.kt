@@ -14,6 +14,7 @@ import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.service.notFound
 import ru.creditcabinet.assessment.domain.BankInfo
 import ru.creditcabinet.assessment.domain.BureauInfo
+import ru.creditcabinet.assessment.domain.CreditPolicy
 import ru.creditcabinet.assessment.domain.DecisionRepository
 import ru.creditcabinet.assessment.domain.EnrichmentStore
 import ru.creditcabinet.assessment.domain.RegistryInfo
@@ -73,7 +74,8 @@ class AdviceService(
         val facts: Map<String, Any?> = mapOf(
             P.AMOUNT to terms.amount,
             P.TERM to terms.termMonths,
-            P.BASE_RATE to product.baseRate,
+            // The rate the policy offers at this rating, so the advised amount matches the system's counter offer.
+            P.BASE_RATE to CreditPolicy.rate(product, decision?.rating, policy),
             P.MAX_TERM to product.maxTermMonths,
             P.MIN_AMOUNT to product.minAmount,
             P.AUTO_LIMIT to product.autoApprovalLimit,

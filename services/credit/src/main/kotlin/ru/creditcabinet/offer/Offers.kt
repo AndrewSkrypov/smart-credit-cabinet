@@ -38,6 +38,7 @@ data class SigningSessionRecord(
     val signedAt: Instant? = null,
     val signedBy: UUID? = null,
     val createdAt: Instant,
+    val contractSnapshotId: UUID? = null,
 )
 
 data class Loan(

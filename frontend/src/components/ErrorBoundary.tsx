@@ -1,5 +1,6 @@
 import { Box, Button, Stack, Typography } from '@mui/material';
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { DocumentSurface } from './DocumentSurface';
 import { useLocation } from 'react-router-dom';
 
 const RELOADED_FOR_NEW_VERSION = 'cabinet.reloadedForNewVersion';
@@ -44,7 +45,7 @@ class Boundary extends Component<{ children: ReactNode }, State> {
     if (!error) return this.props.children;
     const newVersion = isStaleChunk(error);
     return (
-      <Box sx={{ display: 'grid', placeItems: 'center', minHeight: '60vh', p: 3 }}>
+      <DocumentSurface kind="light" priority={1}><Box sx={{ display: 'grid', placeItems: 'center', minHeight: '100vh', bgcolor: 'background.default', p: 3 }}>
         <Stack spacing={2} alignItems="center" sx={{ maxWidth: 480, textAlign: 'center' }}>
           <Typography variant="h5">{newVersion ? 'Вышла новая версия кабинета' : 'Не удалось показать страницу'}</Typography>
           <Typography color="text.secondary">
@@ -54,7 +55,7 @@ class Boundary extends Component<{ children: ReactNode }, State> {
           </Typography>
           <Button variant="contained" onClick={() => window.location.reload()}>Обновить страницу</Button>
         </Stack>
-      </Box>
+      </Box></DocumentSurface>
     );
   }
 }

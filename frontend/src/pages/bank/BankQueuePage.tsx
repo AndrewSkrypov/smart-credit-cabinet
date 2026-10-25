@@ -1,12 +1,10 @@
 import { Box, ButtonBase, Chip, Paper, Stack, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Typography, useMediaQuery, useTheme } from '@mui/material';
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { applicationsApi } from '../../api/client';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ApplicationListRegion, ApplicationPageFilters, ApplicationPageNavigation } from '../../components/ApplicationPageControls';
+import { useApplicationPage } from '../../hooks/useApplicationPage';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
-import { LoadingBlock } from '../../components/LoadingBlock';
 import { PageHeader } from '../../components/PageHeader';
-import { useApi } from '../../hooks/useApi';
 import { statusTitle, statusTone } from '../../shared/applicationText';
 import { hoursSince, waitingFor } from '../../shared/duration';
 import { months, rub } from '../../shared/format';
@@ -19,47 +17,43 @@ const groups: Array<{ key: string; title: string; statuses: ApplicationStatus[];
   { key: 'review', title: 'Ждут решения', statuses: ['MANUAL_REVIEW'], oldestFirst: true },
   { key: 'client', title: 'Ждут клиента', statuses: ['INFO_REQUESTED', 'OFFER_ISSUED', 'SIGNING'], oldestFirst: true },
   { key: 'system', title: 'В обработке', statuses: ['SUBMITTED', 'ENRICHMENT', 'SCORING', 'DISBURSING'], oldestFirst: true },
-  { key: 'done', title: 'Завершённые', statuses: ['DISBURSED', 'REJECTED', 'WITHDRAWN', 'CLOSED'], oldestFirst: false }
+  { key: 'done', title: 'Выданные и закрытые', statuses: ['DISBURSED', 'REJECTED', 'WITHDRAWN', 'CLOSED'], oldestFirst: false }
 ];
-
-const REFRESH_MS = 10000;
 
 export function BankQueuePage() {
   const navigate = useNavigate();
   const narrow = useMediaQuery(useTheme().breakpoints.down('md'));
-  const { data, loading, error, reload } = useApi(applicationsApi.list);
-  const [tab, setTab] = useState('review');
-
-  useEffect(() => {
-    const timer = window.setInterval(() => void reload(), REFRESH_MS);
-    return () => window.clearInterval(timer);
-  }, [reload]);
-
-  if (loading && !data) return <LoadingBlock />;
-  if (error && !data) return <ErrorState message={error} onRetry={reload} />;
-  const all = data ?? [];
+  const location = useLocation();
+  const state = useApplicationPage('review', 20, groups.map((item) => item.key), [20, 50, 100], 10000, { scrollTarget: 'bank-list' });
+  const { data, error, reload } = state;
+  const tab = state.query.group;
   const group = groups.find((item) => item.key === tab)!;
-  const rows = all
-    .filter((item) => group.statuses.includes(item.status))
-    .sort((a, b) => (new Date(a.statusChangedAt).getTime() - new Date(b.statusChangedAt).getTime()) * (group.oldestFirst ? 1 : -1));
+  const rows = data?.items ?? [];
+  const open = (id: string) => {
+    state.rememberPosition();
+    navigate(`/bank/applications/${id}`, { state: { listUrl: location.pathname + location.search } });
+  };
 
   return (
     <>
-      <PageHeader title="Заявки" subtitle="Очередь заявок малого и микробизнеса. Сверху — те, что ждут дольше всех." />
+      <PageHeader title="Заявки" subtitle={state.query.sort === 'default' && tab !== 'done' ? 'Очередь заявок малого и микробизнеса. Сверху — те, что ждут дольше всех.' : 'Заявки малого и микробизнеса в выбранном порядке.'} />
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-        <Tabs value={tab} onChange={(_, value: string) => setTab(value)} variant="scrollable" allowScrollButtonsMobile sx={{ px: { xs: 1, md: 2 }, borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={tab} onChange={(_, value: string) => state.update({ group: value, page: 0 })} variant="scrollable" allowScrollButtonsMobile sx={{ px: { xs: 1, md: 2 }, borderBottom: 1, borderColor: 'divider' }}>
           {groups.map((item) => {
-            const count = all.filter((application) => item.statuses.includes(application.status)).length;
+            const count = state.counts?.[item.key] ?? '…';
             return <Tab key={item.key} value={item.key} label={`${item.title} · ${count}`} sx={{ minHeight: 56 }} />;
           })}
         </Tabs>
-        {rows.length === 0 ? (
+        <Box sx={{ px: { xs: 2, md: 3 }, pt: 2 }}><ApplicationPageFilters state={state} bank /></Box>
+        <ApplicationListRegion state={state} id="bank-list">
+        {error && !data && <ErrorState message={error} onRetry={reload} />}
+        {!data ? null : rows.length === 0 ? (
           <Box sx={{ p: 3 }}>
-            <EmptyState title="Здесь пусто" description={tab === 'review' ? 'Заявок на ручном рассмотрении нет — всё решено автоматически.' : 'Заявок в этом состоянии нет.'} />
+            <EmptyState title={state.query.q ? 'По вашему поиску заявок нет' : Object.values(data.countsByGroup).every((n) => n === 0) ? 'Заявок пока нет' : 'В этой группе заявок нет'} description={!state.query.q && tab === 'review' ? 'Заявок на ручном рассмотрении сейчас нет.' : 'Измените группу или условия поиска.'} />
           </Box>
         ) : narrow ? (
           <Stack component="ul" aria-label={group.title} sx={{ m: 0, p: 0, listStyle: 'none' }}>
-            {rows.map((item) => <QueueCard key={item.id} item={item} onOpen={() => navigate(`/bank/applications/${item.id}`)} />)}
+            {rows.map((item) => <QueueCard key={item.id} item={item} onOpen={() => open(item.id)} />)}
           </Stack>
         ) : (
           <Box sx={{ overflowX: 'auto' }}>
@@ -74,11 +68,13 @@ export function BankQueuePage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {rows.map((item) => <QueueRow key={item.id} item={item} onOpen={() => navigate(`/bank/applications/${item.id}`)} />)}
+                {rows.map((item) => <QueueRow key={item.id} item={item} onOpen={() => open(item.id)} />)}
               </TableBody>
             </Table>
           </Box>
         )}
+        </ApplicationListRegion>
+        <Box sx={{ px: { xs: 2, md: 3 } }}><ApplicationPageNavigation state={state} /></Box>
       </Paper>
     </>
   );

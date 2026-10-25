@@ -1,0 +1,636 @@
+{
+  "passed": true,
+  "environment": "Headless Edge, Windows, isolated localhost:18150",
+  "nativeGesture": "unavailable; not proved by wheel/CDP/screenshot",
+  "records": [
+    {
+      "label": "auth-320",
+      "width": 320,
+      "documentWidth": 320,
+      "family": "auth",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [],
+      "checks": []
+    },
+    {
+      "label": "landing-320",
+      "width": 320,
+      "documentWidth": 320,
+      "family": "landing",
+      "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [
+        {
+          "dotY": 3930.28125,
+          "textY": 3922.28125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 3990.28125,
+          "textY": 3982.28125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 4050.28125,
+          "textY": 4042.28125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 72,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 4433.28125,
+          "textY": 4425.28125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 4493.28125,
+          "textY": 4485.28125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 72,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 4577.28125,
+          "textY": 4569.28125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        }
+      ],
+      "checks": []
+    },
+    {
+      "label": "auth-390",
+      "width": 390,
+      "documentWidth": 390,
+      "family": "auth",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [],
+      "checks": []
+    },
+    {
+      "label": "landing-390",
+      "width": 390,
+      "documentWidth": 390,
+      "family": "landing",
+      "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [
+        {
+          "dotY": 3631.34375,
+          "textY": 3623.34375,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 3691.34375,
+          "textY": 3683.34375,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 3751.34375,
+          "textY": 3743.34375,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 4090.34375,
+          "textY": 4082.34375,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 4150.34375,
+          "textY": 4142.34375,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 4210.34375,
+          "textY": 4202.34375,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        }
+      ],
+      "checks": []
+    },
+    {
+      "label": "auth-900",
+      "width": 900,
+      "documentWidth": 900,
+      "family": "auth",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(to right, rgb(18, 18, 19) 0%, rgb(18, 18, 19) 41.6667%, rgb(243, 244, 245) 41.6667%, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [
+        {
+          "dotY": 563.546875,
+          "textY": 555.546875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 627.546875,
+          "textY": 619.546875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 72,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 715.546875,
+          "textY": 707.546875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 72,
+          "ariaHidden": "true"
+        }
+      ],
+      "checks": []
+    },
+    {
+      "label": "landing-900",
+      "width": 900,
+      "documentWidth": 900,
+      "family": "landing",
+      "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [
+        {
+          "dotY": 2421.546875,
+          "textY": 2413.546875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2481.546875,
+          "textY": 2473.546875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2541.546875,
+          "textY": 2533.546875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2421.546875,
+          "textY": 2413.546875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2481.546875,
+          "textY": 2473.546875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2541.546875,
+          "textY": 2533.546875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        }
+      ],
+      "checks": []
+    },
+    {
+      "label": "auth-1024",
+      "width": 1024,
+      "documentWidth": 1024,
+      "family": "auth",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(to right, rgb(18, 18, 19) 0%, rgb(18, 18, 19) 41.6667%, rgb(243, 244, 245) 41.6667%, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [
+        {
+          "dotY": 550.046875,
+          "textY": 542.046875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 614.046875,
+          "textY": 606.046875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 678.046875,
+          "textY": 670.046875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        }
+      ],
+      "checks": []
+    },
+    {
+      "label": "landing-1024",
+      "width": 1024,
+      "documentWidth": 1024,
+      "family": "landing",
+      "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [
+        {
+          "dotY": 2225,
+          "textY": 2217,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 24,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2261,
+          "textY": 2253,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 24,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2297,
+          "textY": 2289,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2225,
+          "textY": 2217,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 24,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2261,
+          "textY": 2253,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2321,
+          "textY": 2313,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 24,
+          "ariaHidden": "true"
+        }
+      ],
+      "checks": []
+    },
+    {
+      "label": "auth-1440",
+      "width": 1440,
+      "documentWidth": 1440,
+      "family": "auth",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(to right, rgb(18, 18, 19) 0%, rgb(18, 18, 19) 41.6667%, rgb(243, 244, 245) 41.6667%, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [
+        {
+          "dotY": 562.046875,
+          "textY": 554.046875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 24,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 602.046875,
+          "textY": 594.046875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 666.046875,
+          "textY": 658.046875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        }
+      ],
+      "checks": []
+    },
+    {
+      "label": "landing-1440",
+      "width": 1440,
+      "documentWidth": 1440,
+      "family": "landing",
+      "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [
+        {
+          "dotY": 2018.203125,
+          "textY": 2010.203125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 24,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2054.203125,
+          "textY": 2046.203125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 24,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2090.203125,
+          "textY": 2082.203125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2018.203125,
+          "textY": 2010.203125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 24,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2054.203125,
+          "textY": 2046.203125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 2114.203125,
+          "textY": 2106.203125,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 24,
+          "ariaHidden": "true"
+        }
+      ],
+      "checks": []
+    },
+    {
+      "label": "auth-engine-page-zoom200",
+      "width": 1440,
+      "documentWidth": 1440,
+      "family": "auth",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(to right, rgb(18, 18, 19) 0%, rgb(18, 18, 19) 41.6667%, rgb(243, 244, 245) 41.6667%, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [
+        {
+          "dotY": 562.046875,
+          "textY": 554.046875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 24,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 602.046875,
+          "textY": 594.046875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        },
+        {
+          "dotY": 666.046875,
+          "textY": 658.046875,
+          "dotHeight": 8,
+          "lineHeight": 24,
+          "textHeight": 48,
+          "ariaHidden": "true"
+        }
+      ],
+      "checks": []
+    },
+    {
+      "label": "product-320",
+      "width": 320,
+      "documentWidth": 320,
+      "family": "workspace",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [],
+      "checks": [
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        }
+      ]
+    },
+    {
+      "label": "product-390",
+      "width": 390,
+      "documentWidth": 390,
+      "family": "workspace",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [],
+      "checks": [
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        },
+        {
+          "x": 49,
+          "labelX": 82
+        }
+      ]
+    },
+    {
+      "label": "product-900",
+      "width": 900,
+      "documentWidth": 900,
+      "family": "workspace",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [],
+      "checks": [
+        {
+          "x": 65,
+          "labelX": 98
+        },
+        {
+          "x": 65,
+          "labelX": 98
+        },
+        {
+          "x": 65,
+          "labelX": 98
+        },
+        {
+          "x": 65,
+          "labelX": 98
+        },
+        {
+          "x": 65,
+          "labelX": 98
+        },
+        {
+          "x": 65,
+          "labelX": 98
+        },
+        {
+          "x": 65,
+          "labelX": 98
+        },
+        {
+          "x": 65,
+          "labelX": 98
+        },
+        {
+          "x": 65,
+          "labelX": 98
+        }
+      ]
+    },
+    {
+      "label": "product-1440",
+      "width": 1440,
+      "documentWidth": 1440,
+      "family": "workspace",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "bullets": [],
+      "checks": [
+        {
+          "x": 185,
+          "labelX": 218
+        },
+        {
+          "x": 185,
+          "labelX": 218
+        },
+        {
+          "x": 185,
+          "labelX": 218
+        },
+        {
+          "x": 185,
+          "labelX": 218
+        },
+        {
+          "x": 185,
+          "labelX": 218
+        },
+        {
+          "x": 185,
+          "labelX": 218
+        },
+        {
+          "x": 185,
+          "labelX": 218
+        },
+        {
+          "x": 185,
+          "labelX": 218
+        },
+        {
+          "x": 185,
+          "labelX": 218
+        }
+      ]
+    }
+  ],
+  "browser": "156.0.4314.42"
+}

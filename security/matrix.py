@@ -52,7 +52,7 @@ else:
 print(f"Полнота: {len(actual)} операций × {len(roles)} ролей = {len(actual)*len(roles)} проверок", flush=True)
 if args.check_only or args.write_table:
     raise SystemExit(0)
-if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e|release)(?:-[a-z0-9]+)?", args.project):
+if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e|release|polish)(?:-[a-z0-9]+)?", args.project):
     parser.error("Разрешён только отдельный синтетический тестовый проект")
 if urlparse(args.base).hostname not in {"localhost", "127.0.0.1", "::1"}:
     parser.error("HTTP-стенд должен быть локальным; внешние серверы этой проверкой не изменяются")
@@ -67,6 +67,7 @@ extra_checks = []
 completed = False
 failure = None
 original_rules = None
+original_products = []
 original_modes = api.json("GET", "/sim/control")["sources"]
 run = uuid4().hex[:12]
 
@@ -110,7 +111,7 @@ def prepare(kind):
             response = api.request(method, path, body, employee["token"], headers={"Idempotency-Key": str(uuid4())}, expected=(403,))
             extra_checks.append({"fixture": "non_signer", "method": method, "path": path, "expected": 403, "actual": response["status"]})
         return {"id": employee["user"]["id"], "employee_token": employee["token"]}
-    if kind not in {"draft", "draft_document", "submitted", "submitted_document", "manual", "info", "offer", "signing", "chat_read", "chat_upload", "chat_send"}:
+    if kind not in {"draft", "draft_document", "submitted", "submitted_document", "manual", "info", "offer", "signing", "artifact", "chat_read", "chat_upload", "chat_send"}:
         return {}
     app = draft(tokens["owner"])
     app_id = app["id"]
@@ -129,21 +130,32 @@ def prepare(kind):
             "items": [{"documentType": "OTHER"}, {"question": "Поясните синтетическую выручку"}], "comment": "Подготовка проверки прав",
         }, tokens["underwriter"])
         api.upload(tokens["owner"], app_id, "OTHER", pdf)
-    if kind in {"offer", "signing"}:
+    if kind in {"offer", "signing", "artifact"}:
         api.json("POST", f"/api/v1/underwriting/applications/{app_id}/approve", {
             "comment": "Синтетическая проверка прав: расхождение рассмотрено специалистом",
         }, tokens["underwriter"])
     if kind == "signing":
         app = api.json("POST", f"/api/v1/applications/{app_id}/offer/accept", token=tokens["owner"])
         result["code"] = app["process"]["signing"]["code"]
+    if kind == "artifact":
+        deadline = time.monotonic() + 90
+        while True:
+            files = api.json("GET", f"/api/v1/applications/{app_id}/artifacts", token=tokens["owner"])
+            ready = next((item for item in files if item["kind"] == "SCHEDULE_PDF" and item["status"] == "READY"), None)
+            if ready:
+                result["artifactId"] = ready["id"]
+                break
+            if time.monotonic() >= deadline:
+                raise AssertionError("Файл матрицы доступа не подготовлен")
+            time.sleep(0.5)
     return result
 
 
 def invoke(method, template, kind, role, fixture):
     token = tokens.get(role)
     body = None
-    parameters = {"id": fixture.get("id", str(uuid4())), "documentId": fixture.get("documentId", str(uuid4())),
-                  "code": "WORKING_CAPITAL", "inn": "000100000004", "applicationId": str(uuid4()), "source": "BUREAU"}
+    parameters = {"id": fixture.get("id", str(uuid4())), "documentId": fixture.get("documentId", str(uuid4())), "artifactId": fixture.get("artifactId", str(uuid4())),
+                  "version": 1, "code": "WORKING_CAPITAL", "inn": "000100000004", "applicationId": str(uuid4()), "source": "BUREAU"}
     if kind == "notification":
         parameters["id"] = notifications["owner" if role in {"anonymous", "owner", "other_client"} else role]
     route = template.format(**parameters)
@@ -168,10 +180,12 @@ def invoke(method, template, kind, role, fixture):
     if template.endswith("/sign"):
         body = {"code": fixture.get("code", "123456")}
     if template == "/api/v1/rules" and method == "POST":
-        body = {"params": original_rules, "comment": "Проверка права публикации без изменения порогов"}
+        current = api.json("GET", "/api/v1/rules", token=tokens["risk_admin"])
+        params = {**current["params"], "maxLoad": round(current["params"]["maxLoad"] + (0.01 if current["params"]["maxLoad"] < 0.8 else -0.01), 2)}
+        body = {"params": params, "expectedVersion": current["version"], "comment": "Синтетическая проверка права публикации с восстановлением порогов"}
     if kind == "product_edit":
         product = api.json("GET", "/api/v1/bank/products/WORKING_CAPITAL", token=tokens["risk_admin"])[0]["product"]
-        body = {**product, "expectedVersion": product["version"], "reason": "Проверка права публикации без изменения условий"}
+        body = {**product, "name": product["name"][:240] + " [матрица]", "expectedVersion": product["version"], "reason": "Синтетическая проверка права публикации с восстановлением условий"}
     if template == "/api/v1/assistant/messages":
         body = {"question": "Какой статус у этой заявки?", "applicationId": fixture["id"], "history": []}
     if template == "/api/v1/assistant/underwriting-summary":
@@ -227,6 +241,14 @@ def invoke(method, template, kind, role, fixture):
         created.append((response["body"]["id"], token))
     if template == "/api/v1/applications" and method == "GET" and role == "other_client":
         assert all(app["id"] != fixture["id"] for app in response["body"]), "Список другого клиента содержит чужую заявку"
+    if template == "/api/v1/applications/page" and response["status"] == 200:
+        page = response["body"]
+        assert len(page["items"]) <= page["size"] <= 100
+        assert len(page["actionRequiredPreview"]) <= 5
+        if role == "other_client":
+            assert all(app["companyInn"] == other["inn"] for app in page["items"] + page["actionRequiredPreview"])
+        if role in {"manager", "underwriter", "risk_admin"}:
+            assert all(app["status"] != "DRAFT" for app in page["items"])
     return response
 
 
@@ -241,6 +263,7 @@ try:
         sessions[role] = api.sign_in(email)
     tokens = {role: session["token"] for role, session in sessions.items()}
     original_rules = api.json("GET", "/api/v1/rules", token=tokens["risk_admin"])["params"]
+    original_products = api.json("GET", "/api/v1/bank/products", token=tokens["risk_admin"])
     notifications = {}
     for role, session in sessions.items():
         user_id = session.get("user_id") or session["user"]["id"]
@@ -263,12 +286,15 @@ try:
             assert response["status"] == expected, f"{service}: {method} {template} / {role}: {response['status']} вместо {expected}"
             if method not in {"GET", "HEAD"} and response["status"] in {200, 201, 204}:
                 fixture["used"] = True
+        if kind == "rules":
+            current = api.json("GET", "/api/v1/rules", token=tokens["risk_admin"])
+            api.json("POST", "/api/v1/rules", {"params": original_rules, "expectedVersion": current["version"], "comment": "Восстановление после проверки прав"}, tokens["risk_admin"], expected=(201,))
         if kind == "employee_access":
             for path in ["/api/v1/users/me", "/api/v1/applications", "/api/v1/notifications"]:
                 response = api.request("GET", path, token=fixture["employee_token"], expected=(401,))
                 extra_checks.append({"fixture": "revoked", "method": "GET", "path": path, "expected": 401, "actual": response["status"]})
-            response = api.request("DELETE", f"/api/v1/companies/me/employees/{owner['user_id']}/access", token=tokens["owner"], headers={"Idempotency-Key": str(uuid4())}, expected=(409,))
-            extra_checks.append({"fixture": "last_signer", "expected": 409, "actual": response["status"]})
+            response = api.request("DELETE", f"/api/v1/companies/me/employees/{owner['user_id']}/access", token=tokens["owner"], headers={"Idempotency-Key": str(uuid4())}, expected=(403,))
+            extra_checks.append({"fixture": "self_revoke", "expected": 403, "actual": response["status"]})
         if fixture.get("id") and kind not in {"company_invitation", "employee_access"}:
             close(fixture["id"], tokens["owner"])
         if kind == "create":
@@ -286,8 +312,15 @@ finally:
         try:
             current = api.json("GET", "/api/v1/rules", token=tokens["risk_admin"])
             if current["params"] != original_rules:
-                restored = api.json("POST", "/api/v1/rules", {"params": original_rules, "comment": "Восстановление после матрицы доступа"}, tokens["risk_admin"], expected=(201,))
+                restored = api.json("POST", "/api/v1/rules", {"params": original_rules, "expectedVersion": current["version"], "comment": "Восстановление после матрицы доступа"}, tokens["risk_admin"], expected=(201,))
                 assert restored["params"] == original_rules, "Пороги правил не восстановлены"
+        except Exception as error:
+            cleanup_errors.append(str(error))
+    for original in original_products:
+        try:
+            current = api.json("GET", f"/api/v1/bank/products/{original['code']}", token=tokens["risk_admin"])[0]["product"]
+            if {k:v for k,v in current.items() if k != "version"} != {k:v for k,v in original.items() if k != "version"}:
+                api.json("PUT", f"/api/v1/bank/products/{original['code']}", {**original, "expectedVersion": current["version"], "reason": "Восстановление после матрицы доступа"}, tokens["risk_admin"])
         except Exception as error:
             cleanup_errors.append(str(error))
     for source in original_modes:

@@ -20,6 +20,7 @@ import ru.creditcabinet.assessment.domain.DecisionOutcome
 import ru.creditcabinet.assessment.domain.DecisionRepository
 import ru.creditcabinet.assessment.domain.OfferTerms
 import ru.creditcabinet.assessment.domain.RejectReason
+import ru.creditcabinet.assessment.domain.RuleSet
 import ru.creditcabinet.assessment.domain.RuleSets
 import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.security.CurrentCaller
@@ -54,16 +55,16 @@ class UnderwritingService(
 ) {
     @Transactional
     fun approve(id: UUID, comment: String?): LoanApplication {
-        val (claims, application, automatic) = reviewed(id, Roles.UNDERWRITER)
+        val (claims, application, automatic, rules) = reviewed(id, Roles.UNDERWRITER)
         requireJustified(automatic, DecisionOutcome.APPROVE, comment)
         val product = products.forApplication(application)
         val terms = OfferTerms.of(
             product,
             application.terms.amount,
             application.terms.termMonths,
-            CreditPolicy.rate(product, automatic?.rating, ruleSets.current()),
+            CreditPolicy.rate(product, automatic?.rating, rules),
         )
-        val decision = record(application, claims, automatic, DecisionOutcome.APPROVE, null, comment)
+        val decision = record(application, claims, automatic, rules.version, DecisionOutcome.APPROVE, null, comment)
         return issuer.issue(
             application, decision, OfferKind.APPROVED, terms, ApplicationEvent.APPROVE, claims.toActor()!!, clock.instant(),
             mapOf(
@@ -75,15 +76,15 @@ class UnderwritingService(
 
     @Transactional
     fun counterOffer(id: UUID, productCode: String?, amount: Long, termMonths: Int, comment: String?): LoanApplication {
-        val (claims, application, automatic) = reviewed(id, Roles.UNDERWRITER)
+        val (claims, application, automatic, rules) = reviewed(id, Roles.UNDERWRITER)
         val product = products.forApplication(application, productCode ?: application.terms.productCode)
         require(product.amountFits(amount)) { "Сумма для «${product.name}» — от ${rubles(product.minAmount)} до ${rubles(product.maxAmount)}" }
         require(product.termFits(termMonths)) { "Срок для «${product.name}» — от ${product.minTermMonths} до ${product.maxTermMonths} мес." }
         val sameAsRecommended =
             automatic?.recommendation?.terms?.let { it.productCode == product.code && it.amount == amount && it.termMonths == termMonths } == true
         if (!sameAsRecommended) requireComment(comment, "Укажите, почему условия отличаются от рекомендованных")
-        val terms = OfferTerms.of(product, amount, termMonths, CreditPolicy.rate(product, automatic?.rating, ruleSets.current()))
-        val decision = record(application, claims, automatic, DecisionOutcome.COUNTER_OFFER, null, comment)
+        val terms = OfferTerms.of(product, amount, termMonths, CreditPolicy.rate(product, automatic?.rating, rules))
+        val decision = record(application, claims, automatic, rules.version, DecisionOutcome.COUNTER_OFFER, null, comment)
         return issuer.issue(
             application, decision, OfferKind.COUNTER, terms, ApplicationEvent.COUNTER_OFFER, claims.toActor()!!, clock.instant(),
             mapOf(
@@ -96,7 +97,7 @@ class UnderwritingService(
     /** T14: a manager asks for documents too; the client gets a list and a deadline. */
     @Transactional
     fun requestInfo(id: UUID, items: List<InfoItem>, comment: String?): LoanApplication {
-        val (claims, application, automatic) = reviewed(id, Roles.UNDERWRITER, Roles.MANAGER)
+        val (claims, application, automatic, rules) = reviewed(id, Roles.UNDERWRITER, Roles.MANAGER)
         require(items.isNotEmpty()) { "Укажите, что нужно от клиента" }
         val now = clock.instant()
         val request = InfoRequest(
@@ -108,7 +109,7 @@ class UnderwritingService(
             createdAt = now,
         )
         infoRequests.save(request)
-        record(application, claims, automatic, DecisionOutcome.REQUEST_INFO, null, comment)
+        record(application, claims, automatic, rules.version, DecisionOutcome.REQUEST_INFO, null, comment)
         val saved = transitions.commit(
             application.move(
                 ApplicationEvent.REQUEST_INFO,
@@ -125,9 +126,9 @@ class UnderwritingService(
     /** T15: a refusal always explains itself to the client. */
     @Transactional
     fun reject(id: UUID, comment: String?): LoanApplication {
-        val (claims, application, automatic) = reviewed(id, Roles.UNDERWRITER)
+        val (claims, application, automatic, rules) = reviewed(id, Roles.UNDERWRITER)
         requireComment(comment, "Укажите причину отказа — клиент увидит её")
-        record(application, claims, automatic, DecisionOutcome.REJECT, RejectReason.R_MANUAL.name, comment)
+        record(application, claims, automatic, rules.version, DecisionOutcome.REJECT, RejectReason.R_MANUAL.name, comment)
         return transitions.commit(
             application.move(
                 ApplicationEvent.REJECT,
@@ -139,13 +140,19 @@ class UnderwritingService(
         )
     }
 
-    private data class Reviewed(val claims: TokenClaims, val application: LoanApplication, val automatic: Decision?)
+    private data class Reviewed(val claims: TokenClaims, val application: LoanApplication, val automatic: Decision?, val rules: RuleSet)
 
     private fun reviewed(id: UUID, vararg roles: String): Reviewed {
         val claims = CurrentCaller.requireRole(*roles)
         val application = applications.find(id)?.takeIf { it.visibleToBank } ?: throw notFound()
         if (application.status != ApplicationStatus.MANUAL_REVIEW) throw ConflictException("Заявка не на ручном рассмотрении")
-        return Reviewed(claims, application, decisions.latestAutomatic(application.id))
+        val automatic = decisions.latestAutomatic(application.id)
+        val rules = if (automatic == null) {
+            ruleSets.current()
+        } else {
+            ruleSets.find(automatic.ruleSetVersion) ?: throw ConflictException("Не найдена сохранённая версия правил оценки; решение не сохранено")
+        }
+        return Reviewed(claims, application, automatic, rules)
     }
 
     /** An action against the rules' recommendation, or without one (a source was silent), needs a reason. */
@@ -159,13 +166,14 @@ class UnderwritingService(
         application: LoanApplication,
         claims: TokenClaims,
         automatic: Decision?,
+        ruleSetVersion: Int,
         outcome: DecisionOutcome,
         reason: String?,
         comment: String?,
     ): Decision {
         val decision = Decision(
             applicationId = application.id,
-            ruleSetVersion = automatic?.ruleSetVersion ?: ruleSets.current().version,
+            ruleSetVersion = ruleSetVersion,
             decidedByType = claims.toActor()!!.type,
             decidedBy = claims.userId,
             score = automatic?.score,

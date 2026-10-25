@@ -82,10 +82,12 @@ export interface Product {
 }
 
 export interface ProductRevision {
-  product: Product;
+  product: Product & { version: number };
   authorId: string | null;
   reason: string;
   createdAt: string;
+  authorName?: string | null;
+  authorRole?: string | null;
 }
 
 export interface ProductMatch {
@@ -112,6 +114,7 @@ export interface Calculation {
   totalPayment: number;
   overpayment: number;
   schedule: ScheduleRow[];
+  revolving?: boolean;
 }
 
 export type ApplicationStatus =
@@ -185,6 +188,30 @@ export interface Signing {
   signedAt: string | null;
 }
 
+export interface ContractTextView {
+  snapshot: { id: string; applicationId: string; offerId: string; templateVersion: number; text: string; sha256: string; createdAt: string } | null;
+  text: string;
+  legacySummary: boolean;
+  signable: boolean;
+  signedAt: string | null;
+}
+
+export interface GeneratedArtifact {
+  id: string;
+  kind: 'CONTRACT_PDF' | 'SCHEDULE_PDF' | 'SCHEDULE_XLSX';
+  phase: 'PREVIEW' | 'FINAL';
+  title: string;
+  fileName: string;
+  contentType: string;
+  status: 'PENDING' | 'READY' | 'ERROR';
+  sizeBytes: number | null;
+  checksum: string | null;
+  createdAt: string;
+  readyAt: string | null;
+  errorMessage: string | null;
+  downloadUrl: string | null;
+}
+
 export interface Loan {
   contractNumber: string;
   loanAccount: string;
@@ -253,6 +280,26 @@ export interface ApplicationSummary {
   submittedAt: string | null;
   statusChangedAt: string;
   unreadChatCount?: number;
+}
+
+export interface ApplicationPage {
+  items: ApplicationSummary[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+  countsByGroup: Record<string, number>;
+  actionRequiredCount: number;
+  actionRequiredPreview: ApplicationSummary[];
+}
+
+export interface ApplicationPageQuery {
+  page: number;
+  size: number;
+  group: string;
+  q: string;
+  sort: string;
 }
 
 export interface JournalEntry {
@@ -382,6 +429,7 @@ export interface AssessmentView {
   tax: TaxInfo | null;
   bureau: BureauInfo | null;
   bank: BankInfo | null;
+  sourceFetchedAt?: Partial<Record<'REGISTRY' | 'TAX' | 'BUREAU' | 'BANK', string>>;
   turnoverVariation: number | null;
   discrepancies: Discrepancy[];
   automaticDecision: DecisionView | null;
@@ -403,7 +451,13 @@ export interface RuleParams {
 export interface RulesResponse {
   version: number;
   params: RuleParams;
-  versions: Array<{ version: number; createdAt: string; createdBy: string | null; comment: string | null }>;
+  versions: Array<{ version: number; createdAt: string; createdBy: string | null; comment: string | null; authorName?: string | null; authorRole?: string | null }>;
+}
+
+export interface RulesSnapshot {
+  version: number;
+  params: RuleParams;
+  metadata: RulesResponse['versions'][number];
 }
 
 export interface Analytics {

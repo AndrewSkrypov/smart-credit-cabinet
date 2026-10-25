@@ -48,7 +48,7 @@ try {
   try {
     const current = await call('GET', '/rules', session.token);
     if (!isDeepStrictEqual(current.params, original.params)) {
-      const restored = await call('POST', '/rules', session.token, { params: original.params, comment: 'Восстановление параметров после завершения API-проверки' });
+      const restored = await call('POST', '/rules', session.token, { params: original.params, expectedVersion: current.version, comment: 'Восстановление параметров после завершения API-проверки' });
       if (!isDeepStrictEqual(restored.params, original.params)) throw new Error('Параметры правил не восстановлены');
       console.log(`Исходные параметры правил восстановлены, версия ${restored.version}.`);
     }

@@ -78,6 +78,11 @@ interface FileStore {
 
     fun put(storedName: String, content: InputStream, sizeBytes: Long)
 
+    fun put(storedName: String, content: InputStream, sizeBytes: Long, backend: StorageBackend) {
+        require(backend == writeBackend) { "Неверное хранилище документа" }
+        put(storedName, content, sizeBytes)
+    }
+
     /** Null when no object with this name exists. */
     fun get(storedName: String): StoredFile?
 

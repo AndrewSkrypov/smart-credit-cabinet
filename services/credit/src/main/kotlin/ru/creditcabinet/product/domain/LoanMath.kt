@@ -13,6 +13,7 @@ data class Calculation(
     val totalPayment: BigDecimal,
     val overpayment: BigDecimal,
     val schedule: List<ScheduleRow>,
+    val revolving: Boolean = false,
 )
 
 /**
@@ -67,6 +68,6 @@ object LoanMath {
             ScheduleRow(month, principal.add(interest), principal, interest, balance)
         }
         val total = rows.fold(BigDecimal.ZERO) { sum, row -> sum.add(row.payment) }
-        return Calculation(rate, rows.first().payment, total, total.subtract(BigDecimal(amount)), rows)
+        return Calculation(rate, rows.first().payment, total, total.subtract(BigDecimal(amount)), rows, revolving = true)
     }
 }

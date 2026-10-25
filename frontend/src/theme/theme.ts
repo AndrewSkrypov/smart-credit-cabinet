@@ -7,7 +7,7 @@ export const tokens = {
   redDark: '#d22b1f',
   ink: '#030306',
   text: 'rgba(3, 3, 6, 0.88)',
-  neutral: '#898991',
+  neutral: '#62636b',
   dark: '#212124',
   secondaryFill: 'rgba(15, 25, 55, 0.1)',
   inputFill: 'rgba(11, 31, 53, 0.07)',
@@ -47,7 +47,7 @@ export const fontDisplay = '"Manrope", "Inter", -apple-system, BlinkMacSystemFon
 export const cabinetTheme = createTheme({
   palette: {
     mode: 'light',
-    primary: { main: tokens.red, dark: tokens.redDark, contrastText: '#ffffff' },
+    primary: { main: tokens.redDark, dark: '#b6251b', contrastText: '#ffffff' },
     secondary: { main: tokens.dark, contrastText: '#ffffff' },
     error: { main: '#c4211a' },
     success: { main: tokens.success },
@@ -84,16 +84,17 @@ export const cabinetTheme = createTheme({
           minHeight: 48,
           paddingInline: 19,
           transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
+          '&.Mui-focusVisible': { outline: `3px solid ${tokens.info}`, outlineOffset: 3 },
           [touch]: { minHeight: 48 }
         },
         sizeLarge: { minHeight: 56, paddingInline: 23 },
         sizeSmall: { minHeight: 36, paddingInline: 12, fontSize: '0.875rem', [touch]: { minHeight: 44 } },
         // Secondary actions: the light filled button of the brand instead of an outline.
         outlined: {
-          border: '1px solid transparent',
+          border: `1px solid ${tokens.neutral}`,
           backgroundColor: tokens.secondaryFill,
           color: tokens.ink,
-          '&:hover': { border: '1px solid transparent', backgroundColor: alpha('#0f1937', 0.16) }
+          '&:hover': { border: `1px solid ${tokens.ink}`, backgroundColor: alpha('#0f1937', 0.16) }
         },
         text: { color: tokens.ink }
       }

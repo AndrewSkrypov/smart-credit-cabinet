@@ -1,6 +1,10 @@
+import { useEffect, useState } from 'react';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import { DocumentSurface } from '../../components/DocumentSurface';
+import { BulletItem } from '../../components/BulletItem';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { Accordion, AccordionDetails, AccordionSummary, Box, Button, ButtonBase, Container, Grid, Skeleton, Stack, Typography } from '@mui/material';
+import { Accordion, AccordionDetails, AccordionSummary, Box, Button, ButtonBase, Container, Grid, Skeleton, Stack, Typography, Fab, useMediaQuery } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { productsApi } from '../../api/client';
 import { roleHome, useAuth } from '../../auth/AuthProvider';
@@ -9,10 +13,12 @@ import { Illustration } from '../../components/Illustration';
 import { useApi } from '../../hooks/useApi';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { months, percent, rub } from '../../shared/format';
+import { financingPath } from '../../shared/financingSelection';
 import { productArt, purposeArt } from '../../shared/illustrations';
 import { fontDisplay, nightGlow, tokens } from '../../theme/theme';
 import { FinancingPurpose, Product } from '../../types';
 import { LandingCalculator } from './LandingCalculator';
+import { ErrorState } from '../../components/ErrorState';
 
 const purposeText: Record<FinancingPurpose, string> = {
   CASH_GAP: 'Платежи проходят, даже когда деньги от клиентов ещё в пути',
@@ -42,21 +48,19 @@ const sectionTitle = { fontFamily: fontDisplay, fontSize: { xs: 28, md: 44 }, fo
 
 /** A bright rounded tile of the dark first screen, as on the bank's business pages. */
 function PromoTile({ bg, color = tokens.ink, title, text, art, to, minHeight, artSize = 120, align = 'left' }: {
-  bg: string; color?: string; title: string; text?: string; art: string; to: string; minHeight: number | Record<string, number>; artSize?: number; align?: 'left' | 'center';
+  bg: string; color?: string; title: string; text?: string; art: string; to?: string; minHeight: number | Record<string, number>; artSize?: number; align?: 'left' | 'center';
 }) {
-  return (
-    <ButtonBase component={RouterLink} to={to} focusRipple
-      sx={{ display: 'flex', flexDirection: 'column', alignItems: align === 'center' ? 'center' : 'stretch', justifyContent: 'space-between', width: '100%', height: '100%', minHeight,
-        p: { xs: 2.5, md: 3.5 }, borderRadius: '32px', bgcolor: bg, color, textAlign: align, overflow: 'hidden', position: 'relative',
-        transition: 'transform 0.2s ease', '&:hover': { transform: 'translateY(-2px)' } }}>
-      <Box sx={{ position: 'relative', zIndex: 1, maxWidth: align === 'center' ? '100%' : '68%' }}>
-        <Typography component="p" fontWeight={700} sx={{ fontSize: { xs: 20, md: 26 }, lineHeight: 1.2 }}>{title}</Typography>
-        {text && <Typography sx={{ mt: 1, opacity: 0.85 }}>{text}</Typography>}
-      </Box>
-      <Illustration name={art} size={artSize}
-        sx={align === 'center' ? { mt: 2 } : { position: 'absolute', right: { xs: 12, md: 20 }, bottom: { xs: 12, md: 16 } }} />
-    </ButtonBase>
-  );
+  const sx = { display: 'flex', flexDirection: 'column', alignItems: align === 'center' ? 'center' : 'stretch', justifyContent: 'space-between', width: '100%', height: '100%', minHeight,
+    p: { xs: 2.5, md: 3.5 }, borderRadius: '32px', bgcolor: bg, color, textAlign: align, overflow: 'hidden', position: 'relative',
+    '&:focus-visible': { outline: '3px solid #fff', outlineOffset: 3 } } as const;
+  const content = <>
+    <Box sx={{ position: 'relative', zIndex: 1, maxWidth: align === 'center' ? '100%' : '68%' }}>
+      <Typography component="p" fontWeight={700} sx={{ fontSize: { xs: 20, md: 26 }, lineHeight: 1.2 }}>{title}</Typography>
+      {text && <Typography sx={{ mt: 1 }}>{text}</Typography>}
+    </Box>
+    <Illustration name={art} size={artSize} sx={align === 'center' ? { mt: 2 } : { position: 'absolute', right: { xs: 12, md: 20 }, bottom: { xs: 12, md: 16 } }} />
+  </>;
+  return to ? <ButtonBase component={RouterLink} to={to} focusRipple sx={sx}>{content}</ButtonBase> : <Box sx={sx}>{content}</Box>;
 }
 
 function ProductTile({ product, to }: { product: Product | null; to: string }) {
@@ -119,10 +123,11 @@ function CabinetPreview() {
 }
 
 const pill = { borderRadius: '99px', paddingInline: 3 } as const;
-const heroButton = { flex: { xs: '1 1 100%', sm: '0 0 auto' }, whiteSpace: 'nowrap', minHeight: 60, paddingInline: 4, fontSize: 17, fontWeight: 600, borderRadius: '16px' } as const;
+const heroButton = { flex: { xs: '1 1 100%', sm: '0 0 auto' }, whiteSpace: { xs: 'normal', sm: 'nowrap' }, minHeight: 60, paddingInline: 4, fontSize: 17, fontWeight: 600, borderRadius: '16px' } as const;
+const wideHeader = '@media (min-width: 1024px)';
 
 const audiences = [
-  { title: 'Предпринимателю', bg: tokens.red, color: '#fff', art: 'briefcase', action: 'Войти как предприниматель',
+  { title: 'Предпринимателю', bg: tokens.redDark, color: '#fff', art: 'briefcase', action: 'Войти как предприниматель',
     points: ['Подбор продукта и платёж ещё до заявки', 'Статус и «что нужно от вас» на каждом шаге', 'Предложение, подпись кодом и график платежей в кабинете'] },
   { title: 'Банку', bg: tokens.dark, color: '#fff', art: 'chart', action: 'Рабочее место банка',
     points: ['Очередь заявок со сроками рассмотрения', 'Оценка по восьми факторам, расхождения и данные источников', 'Правила с версиями, воронка и время на этапах'] }
@@ -133,28 +138,37 @@ export function LandingPage() {
   const { session } = useAuth();
   const products = useApi(productsApi.list);
   const purposes = useApi(productsApi.purposes);
+  const [showTop, setShowTop] = useState(false);
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  useEffect(() => {
+    const update = () => setShowTop(window.scrollY > window.innerHeight);
+    update(); window.addEventListener('scroll', update, { passive: true }); window.addEventListener('resize', update);
+    return () => { window.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
+  }, []);
+  const bankSession = !!session && session.user.role !== 'CLIENT';
   const cabinet = session ? roleHome[session.user.role] : null;
   const startPath = session ? (session.user.role === 'CLIENT' ? '/client/new' : cabinet!) : '/sign-up';
 
-  const byCode = (code: string) => products.data?.find((item) => item.code === code);
+  const availableProducts = products.data?.filter((item) => item.active !== false);
+  const byCode = (code: string) => availableProducts?.find((item) => item.code === code);
   const gov = byCode('GOV_PROGRAM');
   const overdraft = byCode('OVERDRAFT');
-  const largest = products.data?.reduce((max, item) => Math.max(max, item.maxAmount), 0);
+  const largest = availableProducts?.reduce((max, item) => Math.max(max, item.maxAmount), 0);
 
   return (
-    <Box sx={{ background: nightGlow, minHeight: '100vh' }}>
+    <DocumentSurface kind="landing"><Box sx={{ background: nightGlow, minHeight: '100vh', '& section[id]': { scrollMarginTop: { xs: 80, md: 96 } } }}>
       {/* Header and the first screen share the dark band. */}
       <Box component="header" sx={{ position: 'sticky', top: 0, zIndex: 10, pt: { xs: 1, md: 2 } }}>
         <Container maxWidth="lg">
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, md: 4 }, minHeight: { xs: 56, md: 64 }, px: { xs: 1.5, md: 2.5 }, borderRadius: '99px',
           bgcolor: 'rgba(28, 28, 30, 0.72)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
           <BrandMark inverted compact />
-          <Stack component="nav" aria-label="Разделы страницы" direction="row" spacing={3} sx={{ display: { xs: 'none', md: 'flex' }, flexGrow: 1, ml: 2 }}>
+          <Stack component="nav" aria-label="Разделы страницы" direction="row" spacing={3} sx={{ display: 'none', [wideHeader]: { display: 'flex' }, flexGrow: 1, ml: 2 }}>
             {[['Кредиты', '#products'], ['Расчёт', '#calculator'], ['Задачи', '#purposes'], ['Как получить', '#steps']].map(([label, href]) => (
               <Typography key={href} component="a" href={href} sx={{ color: '#fff', textDecoration: 'none', fontWeight: 500, opacity: 0.88, '&:hover': { opacity: 1 } }}>{label}</Typography>
             ))}
           </Stack>
-          <Box sx={{ flexGrow: { xs: 1, md: 0 } }} />
+          <Box sx={{ flexGrow: 1, [wideHeader]: { flexGrow: 0 } }} />
           {cabinet ? (
             <Button component={RouterLink} to={cabinet} variant="contained" sx={pill}>В кабинет</Button>
           ) : (
@@ -181,7 +195,7 @@ export function LandingPage() {
                         <Box key={label} sx={{ px: 1.5, py: 0.5, borderRadius: '99px', bgcolor: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: 600, color: tokens.ink }}>{label}</Box>
                       ))}
                     </Stack>
-                    <Typography component="h1" sx={{ fontFamily: fontDisplay, fontWeight: 800, fontSize: { xs: 36, md: 46 }, lineHeight: 1.04, letterSpacing: '-0.03em', color: tokens.ink }}>
+                    <Typography id="landing-title" tabIndex={-1} component="h1" sx={{ fontFamily: fontDisplay, fontWeight: 800, fontSize: { xs: 36, md: 46 }, lineHeight: 1.04, letterSpacing: '-0.03em', color: tokens.ink }}>
                       Кредит для бизнеса онлайн
                     </Typography>
                     <Typography sx={{ mt: 2, fontSize: { xs: 16, md: 18 }, color: tokens.text }}>
@@ -189,7 +203,7 @@ export function LandingPage() {
                     </Typography>
                     {/* Wraps instead of squeezing: each button keeps its padding at every width. */}
                     <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1.5} sx={{ mt: 4 }}>
-                      <Button component={RouterLink} to={startPath} variant="contained" size="large" sx={heroButton}>Оформить заявку онлайн</Button>
+                      <Button component={RouterLink} to={startPath} variant="contained" size="large" sx={heroButton}>{bankSession ? 'В кабинет банка' : 'Оформить заявку онлайн'}</Button>
                       <Button href="#calculator" size="large" sx={{ ...heroButton, bgcolor: 'rgba(255,255,255,0.6)', '&:hover': { bgcolor: 'rgba(255,255,255,0.85)' } }}>Рассчитать платёж</Button>
                     </Stack>
                   </Box>
@@ -207,10 +221,10 @@ export function LandingPage() {
                 <Box>
                 <Grid container spacing={{ xs: 2, md: 3 }}>
                   <Grid item xs={12} sm={6}>
-                    <PromoTile bg={tokens.tileGreen} title="Решение за минуты" text="По небольшим суммам — без участия сотрудника" art="check" to={startPath} minHeight={{ xs: 150, md: 170 }} artSize={96} />
+                    <PromoTile bg={tokens.tileGreen} title="Автоматическая проверка" text="По небольшим суммам — без участия сотрудника" art="check" minHeight={{ xs: 150, md: 170 }} artSize={96} />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <PromoTile bg={tokens.tilePeach} title="Без визита в офис" text="Договор подписывается кодом прямо в кабинете" art="pen" to={startPath} minHeight={{ xs: 150, md: 170 }} artSize={96} />
+                    <PromoTile bg={tokens.tilePeach} title="Без визита в офис" text="Договор подписывается кодом прямо в кабинете" art="pen" minHeight={{ xs: 150, md: 170 }} artSize={96} />
                   </Grid>
                 </Grid>
                 </Box>
@@ -218,16 +232,16 @@ export function LandingPage() {
             </Grid>
             <Grid item xs={12} md={4}>
               <Stack spacing={{ xs: 2, md: 3 }} sx={{ height: '100%' }}>
-                <Box sx={{ flex: 1 }}>
-                  <PromoTile bg={tokens.tilePurple} color="#fff" align="center" art="bank" to={startPath} minHeight={{ xs: 260, md: 300 }} artSize={150}
+                {gov && <Box sx={{ flex: 1 }}>
+                  <PromoTile bg={tokens.tilePurple} color="#fff" align="center" art="bank" to={financingPath(startPath, { product: gov.code })} minHeight={{ xs: 260, md: 300 }} artSize={150}
                     title={gov ? `Кредит с господдержкой от ${percent(gov.baseRate)}` : 'Кредит с господдержкой'}
                     text={gov ? `до ${rub(gov.maxAmount)} для приоритетных отраслей` : undefined} />
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <PromoTile bg={tokens.tileCyan} align="center" art="hourglass" to={startPath} minHeight={{ xs: 260, md: 300 }} artSize={150}
+                </Box>}
+                {overdraft && <Box sx={{ flex: 1 }}>
+                  <PromoTile bg={tokens.tileCyan} align="center" art="hourglass" to={financingPath(startPath, { product: overdraft.code })} minHeight={{ xs: 260, md: 300 }} artSize={150}
                     title="Овердрафт для кассовых разрывов"
                     text={overdraft ? `до ${rub(overdraft.maxAmount)}, проценты только за дни использования` : 'Проценты только за дни использования'} />
-                </Box>
+                </Box>}
               </Stack>
             </Grid>
           </Grid>
@@ -241,13 +255,15 @@ export function LandingPage() {
               Кредиты для малого и микробизнеса{largest ? ` — до ${rub(largest)}` : ''}
             </Typography>
             <Grid container spacing={{ xs: 2, md: 3 }}>
-              {(products.data ?? Array.from({ length: 5 }, () => null)).map((product, index) => (
+              {products.error ? <Grid item xs={12}><ErrorState message={products.error} onRetry={products.reload} /></Grid> : availableProducts?.length === 0 ?
+                <Grid item xs={12}><Typography role="status">В каталоге пока нет доступных продуктов.</Typography></Grid> :
+              (availableProducts ?? Array.from({ length: 5 }, () => null)).map((product, index) => (
                 <Grid item xs={12} sm={6} md={4} key={product?.code ?? index}>
-                  <ProductTile product={product} to={startPath} />
+                  <ProductTile product={product} to={product ? financingPath(startPath, { product: product.code, purpose: product.purposes[0], amount: Math.max(product.minAmount, Math.min(1_000_000, product.maxAmount)), termMonths: Math.max(product.minTermMonths, Math.min(12, product.maxTermMonths)) }) : startPath} />
                 </Grid>
               ))}
               <Grid item xs={12} sm={6} md={4}>
-                <PromoTile bg={tokens.tilePink} align="center" art="briefcase" to={startPath} minHeight={{ xs: 240, md: 300 }} artSize={150}
+                <PromoTile bg={tokens.tilePink} align="center" art="briefcase" minHeight={{ xs: 240, md: 300 }} artSize={150}
                   title="Подобрать кредит под задачу" text="Ответьте на два вопроса — покажем подходящие продукты" />
               </Grid>
             </Grid>
@@ -263,13 +279,12 @@ export function LandingPage() {
                     <Typography component="h3" sx={{ fontFamily: fontDisplay, fontWeight: 800, fontSize: { xs: 26, md: 32 }, maxWidth: '65%' }}>{audience.title}</Typography>
                     <Stack component="ul" spacing={1.5} sx={{ mt: 3, mb: 4, p: 0, listStyle: 'none' }}>
                       {audience.points.map((point) => (
-                        <Stack component="li" key={point} direction="row" spacing={1.5} alignItems="flex-start">
-                          <Box aria-hidden sx={{ mt: '9px', width: 8, height: 8, borderRadius: '99px', bgcolor: '#fff', opacity: 0.8, flexShrink: 0 }} />
+                        <BulletItem key={point} color="#fff">
                           <Typography sx={{ opacity: 0.92 }}>{point}</Typography>
-                        </Stack>
+                        </BulletItem>
                       ))}
                     </Stack>
-                    <Button component={RouterLink} to={cabinet ?? '/sign-in'} sx={{ bgcolor: '#fff', color: tokens.ink, '&:hover': { bgcolor: '#f1f1f1' } }}>{audience.action}</Button>
+                    <Button component={RouterLink} to={cabinet ?? '/sign-in'} sx={{ bgcolor: '#fff', color: tokens.ink, '&:hover': { bgcolor: '#f1f1f1' } }}>{session ? (bankSession ? 'В кабинет банка' : 'В кабинет компании') : audience.action}</Button>
                   </Box>
                 </Grid>
               ))}
@@ -294,7 +309,7 @@ export function LandingPage() {
                   </Stack>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <LandingCalculator startPath={startPath} />
+                  <LandingCalculator actionLabel={bankSession ? 'В кабинет банка' : 'Оформить заявку онлайн'} startPath={startPath} />
                 </Grid>
               </Grid>
             </Container>
@@ -306,14 +321,14 @@ export function LandingPage() {
                 <Typography id="purposes-title" component="h2" sx={sectionTitle}>Деньги под вашу задачу</Typography>
                 <Typography color="text.secondary" sx={{ mt: 1.5, fontSize: 18 }}>Выберите, на что нужны деньги, — подберём продукт и посчитаем платёж</Typography>
               </Box>
-              <Button component={RouterLink} to={startPath} variant="outlined" sx={{ alignSelf: { xs: 'flex-start', md: 'auto' } }}>Все продукты</Button>
+              <Button href="#products" variant="outlined" sx={{ alignSelf: { xs: 'flex-start', md: 'auto' } }}>Все продукты</Button>
             </Stack>
             <Grid container spacing={{ xs: 2, md: 3 }}>
               {(purposes.data ?? []).map((item) => {
                 const text = purposeText[item.code];
                 return (
                   <Grid item xs={12} md={6} key={item.code}>
-                    <ButtonBase component={RouterLink} to={startPath} focusRipple
+                    <ButtonBase component={RouterLink} to={financingPath(startPath, { purpose: item.code })} focusRipple
                       sx={{ display: 'flex', alignItems: 'center', gap: 2.5, width: '100%', height: '100%', p: { xs: 2.5, md: 3 }, borderRadius: '28px', bgcolor: tokens.tileLime, color: tokens.ink, textAlign: 'left',
                         transition: 'filter 0.2s ease', '&:hover': { filter: 'brightness(0.97)' } }}>
                       <Illustration name={purposeArt[item.code] ?? 'coin'} size={{ xs: 56, md: 64 }} />
@@ -335,7 +350,7 @@ export function LandingPage() {
               <Grid container spacing={{ xs: 3, md: 4 }} component="ol" sx={{ listStyle: 'none', p: 0, m: 0 }}>
                 {steps.map((step, index) => (
                   <Grid item xs={12} sm={6} md={3} key={step.title} component="li">
-                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                    <Stack direction="row" gap={2} alignItems="center">
                       <Typography aria-hidden sx={{ fontFamily: fontDisplay, fontWeight: 800, fontSize: { xs: 44, md: 56 }, lineHeight: 1, color: tokens.red }}>{index + 1}</Typography>
                       <Illustration name={step.art} size={64} />
                     </Stack>
@@ -350,11 +365,11 @@ export function LandingPage() {
           <Container maxWidth="lg" sx={{ pb: { xs: 6, md: 10 } }}>
             <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: '32px', background: `linear-gradient(120deg, ${tokens.red} 0%, #c4211a 55%, #4a0d10 100%)`, color: '#fff', p: { xs: 3, md: 5 }, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, gap: 3 }}>
               <Box sx={{ flexGrow: 1, position: 'relative', zIndex: 1 }}>
-                <Typography component="h2" sx={{ fontFamily: fontDisplay, fontWeight: 800, fontSize: { xs: 26, md: 36 }, lineHeight: 1.15 }}>Подключите компанию за пару минут</Typography>
+                <Typography component="h2" sx={{ fontFamily: fontDisplay, fontWeight: 800, fontSize: { xs: 26, md: 36 }, lineHeight: 1.15 }}>Подключите компанию онлайн</Typography>
                 <Typography sx={{ mt: 1, opacity: 0.9 }}>Реквизиты подтянутся из реестра по ИНН — останется выбрать продукт</Typography>
               </Box>
               <Button component={RouterLink} to={startPath} size="large" sx={{ whiteSpace: 'nowrap', flexShrink: 0, bgcolor: '#fff', color: tokens.ink, position: 'relative', zIndex: 1, alignSelf: { xs: 'flex-start', md: 'center' }, '&:hover': { bgcolor: '#f1f1f1' } }}>
-                {session ? 'Оформить заявку' : 'Подключить компанию'}
+                {bankSession ? 'В кабинет банка' : session ? 'Оформить заявку' : 'Подключить компанию'}
               </Button>
               <Illustration name="handshake" size={{ xs: 110, md: 150 }} sx={{ position: { xs: 'absolute', md: 'static' }, right: 16, bottom: -16, opacity: { xs: 0.35, md: 1 } }} />
             </Box>
@@ -381,10 +396,14 @@ export function LandingPage() {
           <BrandMark inverted />
           <Typography variant="body2" sx={{ mt: 2, maxWidth: 720 }}>
             Прототип для хакатона. Все компании, заявки и решения — синтетические; реальные кредиты не выдаются,
-            внешние реестры и бюро заменены симуляторами. Иллюстрации — Fluent Emoji 3D (MIT).
+            внешние реестры и бюро заменены симуляторами. Демонстрационные ставки не являются публичной офертой банка. Иллюстрации — Fluent Emoji 3D (MIT).
           </Typography>
         </Container>
       </Box>
-    </Box>
+      {showTop && <Fab size="small" color="secondary" aria-label="Наверх" onClick={() => {
+        window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+        document.getElementById('landing-title')?.focus({ preventScroll: true });
+      }} sx={{ position: 'fixed', right: { xs: 16, md: 32 }, bottom: 'max(16px, env(safe-area-inset-bottom))', width: 44, height: 44, zIndex: 1100 }}><KeyboardArrowUpIcon /></Fab>}
+    </Box></DocumentSurface>
   );
 }

@@ -6,6 +6,7 @@ import { applicationsApi } from '../../../api/client';
 import { formatDateTime } from '../../../shared/format';
 import { Application } from '../../../types';
 import { UploadButton } from './UploadButton';
+import { SensitiveDataNotice } from '../../../components/SensitiveDataNotice';
 
 /** What the bank asked for, one line per item, with the upload right there and one button to send. */
 export function InfoRequestBlock({ application, onChanged, onSent }: { application: Application; onChanged: () => void; onSent: (next: Application) => void }) {
@@ -35,9 +36,10 @@ export function InfoRequestBlock({ application, onChanged, onSent }: { applicati
       <Typography color="text.secondary" sx={{ mb: 2 }}>
         Ответить нужно до {formatDateTime(request.deadline)}.{request.comment ? ` ${request.comment}` : ''}
       </Typography>
+      <SensitiveDataNotice />
       <Stack spacing={1.5}>
         {request.items.map((item) => {
-          const done = item.documentType ? uploadedSince(item.documentType) : answer.trim().length > 0;
+          const done = item.documentType ? uploadedSince(item.documentType) : false;
           return (
             <Stack key={item.title} direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: 'center' }}>
               <Stack direction="row" spacing={1.5} alignItems="flex-start">
@@ -55,7 +57,7 @@ export function InfoRequestBlock({ application, onChanged, onSent }: { applicati
         })}
       </Stack>
       {hasQuestions && (
-        <TextField label="Ваш ответ" fullWidth multiline minRows={3} sx={{ mt: 2 }} value={answer} onChange={(event) => setAnswer(event.target.value)} inputProps={{ maxLength: 2000 }} />
+        <TextField label="Ваш ответ" helperText="Это общий ответ на вопросы банка. Перед отправкой проверьте, что ответили на каждый из них." fullWidth multiline minRows={3} sx={{ mt: 2 }} value={answer} onChange={(event) => setAnswer(event.target.value)} inputProps={{ maxLength: 2000 }} />
       )}
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
       <Button variant="contained" size="large" sx={{ mt: 2 }} disabled={!ready || sending} onClick={send}>

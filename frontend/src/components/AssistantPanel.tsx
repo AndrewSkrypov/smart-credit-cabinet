@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { assistantApi } from '../api/client';
 import { tokens } from '../theme/theme';
+import { SensitiveDataNotice } from './SensitiveDataNotice';
 import { AssistantAnswer, AssistantTurn } from '../types';
 
 const APPLICATION_PATH = /^\/client\/applications\/([0-9a-f-]{36})/;
@@ -16,7 +17,14 @@ const suggestionsFor = (onApplication: boolean) =>
 
 interface Message extends AssistantTurn {
   answer?: AssistantAnswer;
+  completed?: boolean;
 }
+
+// The transcript stays visible; only successful, bounded turns enter the model context.
+const contextFor = (messages: Message[]): AssistantTurn[] => messages
+  .filter((message) => message.completed)
+  .slice(-4)
+  .map(({ role, text }) => ({ role, text: text.slice(0, 1000) }));
 
 /**
  * The assistant: explains products, statuses and the bank's decisions in plain words. On an
@@ -33,6 +41,9 @@ export function AssistantPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
+  const requestId = useRef(0);
+  const currentApplication = useRef(applicationId);
+  currentApplication.current = applicationId;
 
   useEffect(() => {
     if (open && !mode) assistantApi.status().then(setMode).catch(() => setMode(null));
@@ -43,23 +54,38 @@ export function AssistantPanel() {
   }, [messages, busy]);
 
   // Another application is another conversation.
-  useEffect(() => setMessages([]), [applicationId]);
+  useEffect(() => {
+    requestId.current += 1;
+    setMessages([]);
+    setQuestion('');
+    setError(null);
+    setBusy(false);
+    return () => { requestId.current += 1; };
+  }, [applicationId]);
 
   const ask = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
-    const history = messages.map(({ role, text: content }) => ({ role, text: content }));
-    setMessages((current) => [...current, { role: 'user', text: trimmed }]);
+    const request = ++requestId.current;
+    const isCurrent = () => request === requestId.current && applicationId === currentApplication.current;
+    const history = contextFor(messages);
+    const last = messages.at(-1);
+    const retry = last?.role === 'user' && !last.completed && last.text === trimmed;
+    const questionIndex = retry ? messages.length - 1 : messages.length;
+    if (!retry) setMessages((current) => [...current, { role: 'user', text: trimmed }]);
     setQuestion('');
     setBusy(true);
     setError(null);
     try {
       const answer = await assistantApi.ask(trimmed, applicationId, history);
-      setMessages((current) => [...current, { role: 'assistant', text: answer.text, answer }]);
+      if (isCurrent()) setMessages((current) => [
+        ...current.map((message, index) => index === questionIndex ? { ...message, completed: true } : message),
+        { role: 'assistant', text: answer.text, answer, completed: true }
+      ]);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Помощник сейчас недоступен');
+      if (isCurrent()) setError(nextError instanceof Error ? nextError.message : 'Помощник сейчас недоступен');
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   };
 
@@ -81,7 +107,7 @@ export function AssistantPanel() {
           <Box>
             <Typography variant="subtitle1" component="h2" fontWeight={700}>Помощник</Typography>
             <Typography variant="caption" color="text.secondary">
-              {mode?.mode === 'MODEL' ? `Отвечает модель с открытыми весами ${mode.model}` : 'Справочный режим: ответы по правилам и данным заявки'}
+              {mode?.mode === 'MODEL' ? `Доступна модель с открытыми весами ${mode.model}` : 'Справочный режим: ответы по правилам и данным заявки'}
               {applicationId ? ' · про эту заявку' : ''}
             </Typography>
           </Box>
@@ -108,11 +134,14 @@ export function AssistantPanel() {
                   <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{message.text}</Typography>
                 </Box>
                 {message.answer?.link && (
-                  <Button component={RouterLink} to={message.answer.link.path} variant="contained" size="small" sx={{ mt: 1 }}>{message.answer.link.label}</Button>
+                  <Button component={RouterLink} to={message.answer.link.path} variant="contained" size="small" sx={{ mt: 1, display: 'flex', width: 'fit-content' }}>{message.answer.link.label}</Button>
                 )}
-                {message.answer && message.answer.sources.length > 0 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>Источники: {message.answer.sources.join(', ')}</Typography>
-                )}
+                {message.answer && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  {message.answer.mode === 'MODEL' ? 'Ответ модели' : 'По правилам и данным кабинета'}
+                </Typography>}
+                {message.answer && message.answer.sources.length > 0 && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  Источники: {message.answer.sources.join(', ')}
+                </Typography>}
               </Box>
             ))}
             {busy && <Typography color="text.secondary">Помощник печатает…</Typography>}
@@ -120,7 +149,8 @@ export function AssistantPanel() {
           <div ref={end} />
         </Box>
 
-        {error && <Alert severity="error" sx={{ mx: 2 }}>{error}</Alert>}
+        <Box sx={{ px: 2, pt: 1 }}><SensitiveDataNotice compact /></Box>
+        {error && <Alert severity="error" sx={{ mx: 2 }} action={<Button disabled={busy} onClick={() => void ask(messages.at(-1)?.text ?? '')}>Повторить вопрос</Button>}>{error}</Alert>}
         <Stack component="form" onSubmit={submit} direction="row" spacing={1} sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
           <TextField label="Ваш вопрос" value={question} onChange={(event) => setQuestion(event.target.value)} fullWidth size="small" inputProps={{ maxLength: 500 }} />
           <Button type="submit" variant="contained" disabled={busy || !question.trim()}>Спросить</Button>

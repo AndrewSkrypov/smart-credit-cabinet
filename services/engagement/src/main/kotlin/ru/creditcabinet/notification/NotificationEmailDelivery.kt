@@ -91,11 +91,17 @@ object NotificationMailTemplates {
             NotificationEmailKind.DISBURSED -> "Кредит выдан"
             NotificationEmailKind.REFUSED -> "По заявке принято решение"
             NotificationEmailKind.REVIEW_REQUIRED -> "Новая заявка ждёт решения"
+            NotificationEmailKind.FILES_READY -> "Документы по кредиту готовы"
         }
         val deadline = content.deadline?.let {
             val formatted = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm").withZone(ZoneId.of("Europe/Moscow")).format(Instant.parse(it))
             "\nСрок ответа: $formatted (Москва)."
         } ?: ""
-        return subject to "$subject.$deadline\nПодробности доступны в кабинете. Откройте кабинет:\n$link"
+        val details = when (content.kind) {
+            NotificationEmailKind.DISBURSED -> "Файлы по кредиту появятся после подготовки. Об их готовности сообщим отдельно."
+            NotificationEmailKind.FILES_READY -> "В кабинете доступны PDF условий и график платежей в PDF и XLSX. Файлы открываются после входа в кабинет."
+            else -> "Подробности доступны в кабинете."
+        }
+        return subject to "$subject.$deadline\n$details Откройте кабинет:\n$link"
     }
 }

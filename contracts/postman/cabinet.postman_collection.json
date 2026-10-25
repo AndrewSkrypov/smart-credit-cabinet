@@ -501,6 +501,36 @@
       ]
     },
     {
+      "name": "11.1. Точный сохранённый текст до подписи",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/contract"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const view=pm.response.json();pm.test('Текст сохранён и связан с сессией',()=>{pm.expect(view.signable).to.equal(true);pm.expect(view.legacySummary).to.equal(false);pm.expect(view.text).to.equal(view.snapshot.text);pm.expect(view.snapshot.sha256).to.match(/^[a-f0-9]{64}$/);});pm.collectionVariables.set('contractTextHash',view.snapshot.sha256);"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "12. Подписание кодом",
       "request": {
         "method": "POST",
@@ -567,7 +597,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "if (!pm.collectionVariables.get('deadline_12')) pm.collectionVariables.set('deadline_12',Date.now()+90000);"
+              "if (!pm.collectionVariables.get('deadline_13')) pm.collectionVariables.set('deadline_13',Date.now()+90000);"
             ]
           }
         },
@@ -578,12 +608,12 @@
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
               "const app=pm.response.json();",
-              "if (app.status !== 'DISBURSED' && Date.now() < Number(pm.collectionVariables.get('deadline_12'))) {",
+              "if (app.status !== 'DISBURSED' && Date.now() < Number(pm.collectionVariables.get('deadline_13'))) {",
               "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
               "  pm.execution.setNextRequest(pm.info.requestName);",
               "  setTimeout(()=>{},500);",
               "} else {",
-              "  pm.collectionVariables.unset('deadline_12');",
+              "  pm.collectionVariables.unset('deadline_13');",
               "  pm.test(\"Достигнут DISBURSED\",()=>pm.expect(app.status).to.equal('DISBURSED'));",
               "}"
             ]
@@ -616,6 +646,199 @@
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
               "const schedule=pm.response.json().schedule;pm.test('12 платежей и нулевой остаток',()=>{pm.expect(schedule).to.have.length(12);pm.expect(schedule[11].balance).to.equal(0);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14.1. После выдачи сохранён тот же текст",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/contract"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const view=pm.response.json();pm.test('Хеш не изменился и факт подписи сохранён',()=>{pm.expect(view.snapshot.sha256).to.equal(pm.collectionVariables.get('contractTextHash'));pm.expect(view.signedAt).to.be.a('string');pm.expect(view.signable).to.equal(false);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14.2. Готовность окончательных файлов",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/artifacts"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if(!pm.collectionVariables.get('artifactsDeadline'))pm.collectionVariables.set('artifactsDeadline',Date.now()+90000);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const files=pm.response.json();",
+              "pm.test('Три окончательных файла без внутренних ключей',()=>{pm.expect(files).to.have.length(3);files.forEach(f=>{pm.expect(f.phase).to.equal('FINAL');pm.expect(f).not.to.have.property('storedName');pm.expect(f).not.to.have.property('storageBackend');});});",
+              "if(files.some(f=>f.status!=='READY')&&Date.now()<Number(pm.collectionVariables.get('artifactsDeadline'))){pm.execution.setNextRequest(pm.info.requestName);setTimeout(()=>{},500);}",
+              "else{pm.collectionVariables.unset('artifactsDeadline');pm.test('Файлы готовы с размером и SHA-256',()=>files.forEach(f=>{pm.expect(f.status).to.equal('READY');pm.expect(f.sizeBytes).to.be.above(0);pm.expect(f.checksum).to.match(/^[a-f0-9]{64}$/);}));",
+              "for(const [kind,key] of [['CONTRACT_PDF','artifactContract'],['SCHEDULE_PDF','artifactSchedulePdf'],['SCHEDULE_XLSX','artifactScheduleXlsx']])pm.collectionVariables.set(key,files.find(f=>f.kind===kind).id);}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14.3. PDF сохранённых условий",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/artifacts/{{artifactContract}}/download"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Авторизованное скачивание ожидаемого формата',()=>{pm.expect(pm.response.headers.get('Content-Type')).to.equal('application/pdf');pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment;');pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');pm.expect(pm.response.text().startsWith('%PDF-')).to.equal(true);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14.4. PDF графика",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/artifacts/{{artifactSchedulePdf}}/download"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Авторизованное скачивание ожидаемого формата',()=>{pm.expect(pm.response.headers.get('Content-Type')).to.equal('application/pdf');pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment;');pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');pm.expect(pm.response.text().startsWith('%PDF-')).to.equal(true);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14.5. XLSX графика",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/artifacts/{{artifactScheduleXlsx}}/download"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Авторизованное скачивание ожидаемого формата',()=>{pm.expect(pm.response.headers.get('Content-Type')).to.equal('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment;');pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store');pm.expect(pm.response.text().startsWith('PK')).to.equal(true);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14.6. Повтор готового файла идемпотентен",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{clientToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": "{{baseUrl}}/applications/{{clientApplication}}/artifacts/{{artifactContract}}/retry"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test('Готовый файл сохранён под тем же ID',()=>{pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('artifactContract'));pm.expect(pm.response.json().status).to.equal('READY');});"
             ]
           }
         }
@@ -915,7 +1138,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "if (!pm.collectionVariables.get('deadline_20')) pm.collectionVariables.set('deadline_20',Date.now()+90000);"
+              "if (!pm.collectionVariables.get('deadline_27')) pm.collectionVariables.set('deadline_27',Date.now()+90000);"
             ]
           }
         },
@@ -926,12 +1149,12 @@
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
               "const app=pm.response.json();",
-              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_20'))) {",
+              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_27'))) {",
               "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
               "  pm.execution.setNextRequest(pm.info.requestName);",
               "  setTimeout(()=>{},500);",
               "} else {",
-              "  pm.collectionVariables.unset('deadline_20');",
+              "  pm.collectionVariables.unset('deadline_27');",
               "  pm.test(\"Достигнут MANUAL_REVIEW\",()=>pm.expect(app.status).to.equal('MANUAL_REVIEW'));",
               "}"
             ]
@@ -1120,7 +1343,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "if (!pm.collectionVariables.get('deadline_25')) pm.collectionVariables.set('deadline_25',Date.now()+90000);"
+              "if (!pm.collectionVariables.get('deadline_32')) pm.collectionVariables.set('deadline_32',Date.now()+90000);"
             ]
           }
         },
@@ -1131,12 +1354,12 @@
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
               "const app=pm.response.json();",
-              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_25'))) {",
+              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_32'))) {",
               "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
               "  pm.execution.setNextRequest(pm.info.requestName);",
               "  setTimeout(()=>{},500);",
               "} else {",
-              "  pm.collectionVariables.unset('deadline_25');",
+              "  pm.collectionVariables.unset('deadline_32');",
               "  pm.test(\"Достигнут MANUAL_REVIEW\",()=>pm.expect(app.status).to.equal('MANUAL_REVIEW'));",
               "}"
             ]
@@ -1211,7 +1434,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "if (!pm.collectionVariables.get('deadline_27')) pm.collectionVariables.set('deadline_27',Date.now()+90000);"
+              "if (!pm.collectionVariables.get('deadline_34')) pm.collectionVariables.set('deadline_34',Date.now()+90000);"
             ]
           }
         },
@@ -1222,12 +1445,12 @@
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
               "const app=pm.response.json();",
-              "if (app.status !== 'OFFER_ISSUED' && Date.now() < Number(pm.collectionVariables.get('deadline_27'))) {",
+              "if (app.status !== 'OFFER_ISSUED' && Date.now() < Number(pm.collectionVariables.get('deadline_34'))) {",
               "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
               "  pm.execution.setNextRequest(pm.info.requestName);",
               "  setTimeout(()=>{},500);",
               "} else {",
-              "  pm.collectionVariables.unset('deadline_27');",
+              "  pm.collectionVariables.unset('deadline_34');",
               "  pm.test(\"Достигнут OFFER_ISSUED\",()=>pm.expect(app.status).to.equal('OFFER_ISSUED'));",
               "}"
             ]
@@ -1401,7 +1624,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "if (!pm.collectionVariables.get('deadline_31')) pm.collectionVariables.set('deadline_31',Date.now()+90000);"
+              "if (!pm.collectionVariables.get('deadline_38')) pm.collectionVariables.set('deadline_38',Date.now()+90000);"
             ]
           }
         },
@@ -1412,12 +1635,12 @@
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
               "const app=pm.response.json();",
-              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_31'))) {",
+              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_38'))) {",
               "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
               "  pm.execution.setNextRequest(pm.info.requestName);",
               "  setTimeout(()=>{},500);",
               "} else {",
-              "  pm.collectionVariables.unset('deadline_31');",
+              "  pm.collectionVariables.unset('deadline_38');",
               "  pm.test(\"Достигнут MANUAL_REVIEW\",()=>pm.expect(app.status).to.equal('MANUAL_REVIEW'));",
               "}"
             ]
@@ -1492,7 +1715,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "if (!pm.collectionVariables.get('deadline_33')) pm.collectionVariables.set('deadline_33',Date.now()+90000);"
+              "if (!pm.collectionVariables.get('deadline_40')) pm.collectionVariables.set('deadline_40',Date.now()+90000);"
             ]
           }
         },
@@ -1503,12 +1726,12 @@
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
               "const app=pm.response.json();",
-              "if (app.status !== 'OFFER_ISSUED' && Date.now() < Number(pm.collectionVariables.get('deadline_33'))) {",
+              "if (app.status !== 'OFFER_ISSUED' && Date.now() < Number(pm.collectionVariables.get('deadline_40'))) {",
               "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
               "  pm.execution.setNextRequest(pm.info.requestName);",
               "  setTimeout(()=>{},500);",
               "} else {",
-              "  pm.collectionVariables.unset('deadline_33');",
+              "  pm.collectionVariables.unset('deadline_40');",
               "  pm.test(\"Достигнут OFFER_ISSUED\",()=>pm.expect(app.status).to.equal('OFFER_ISSUED'));",
               "}"
             ]
@@ -1712,7 +1935,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "if (!pm.collectionVariables.get('deadline_38')) pm.collectionVariables.set('deadline_38',Date.now()+90000);"
+              "if (!pm.collectionVariables.get('deadline_45')) pm.collectionVariables.set('deadline_45',Date.now()+90000);"
             ]
           }
         },
@@ -1723,12 +1946,12 @@
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
               "const app=pm.response.json();",
-              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_38'))) {",
+              "if (app.status !== 'MANUAL_REVIEW' && Date.now() < Number(pm.collectionVariables.get('deadline_45'))) {",
               "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
               "  pm.execution.setNextRequest(pm.info.requestName);",
               "  setTimeout(()=>{},500);",
               "} else {",
-              "  pm.collectionVariables.unset('deadline_38');",
+              "  pm.collectionVariables.unset('deadline_45');",
               "  pm.test(\"Достигнут MANUAL_REVIEW\",()=>pm.expect(app.status).to.equal('MANUAL_REVIEW'));",
               "}"
             ]
@@ -1803,7 +2026,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "if (!pm.collectionVariables.get('deadline_40')) pm.collectionVariables.set('deadline_40',Date.now()+90000);"
+              "if (!pm.collectionVariables.get('deadline_47')) pm.collectionVariables.set('deadline_47',Date.now()+90000);"
             ]
           }
         },
@@ -1814,12 +2037,12 @@
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
               "const app=pm.response.json();",
-              "if (app.status !== 'REJECTED' && Date.now() < Number(pm.collectionVariables.get('deadline_40'))) {",
+              "if (app.status !== 'REJECTED' && Date.now() < Number(pm.collectionVariables.get('deadline_47'))) {",
               "  pm.test(\"Допустимый промежуточный статус\",()=>pm.expect(['SUBMITTED','ENRICHMENT','SCORING','DISBURSING']).to.include(app.status));",
               "  pm.execution.setNextRequest(pm.info.requestName);",
               "  setTimeout(()=>{},500);",
               "} else {",
-              "  pm.collectionVariables.unset('deadline_40');",
+              "  pm.collectionVariables.unset('deadline_47');",
               "  pm.test(\"Достигнут REJECTED\",()=>pm.expect(app.status).to.equal('REJECTED'));",
               "}"
             ]
@@ -1929,7 +2152,7 @@
         "url": "{{baseUrl}}/rules",
         "body": {
           "mode": "raw",
-          "raw": "{\"params\":{{changedRules}},\"comment\":\"Проверка версии кредитной политики через API\"}",
+          "raw": "{\"expectedVersion\":{{originalVersion}},\"params\":{{changedRules}},\"comment\":\"Проверка версии кредитной политики через API\"}",
           "options": {
             "raw": {
               "language": "json"
@@ -1944,7 +2167,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
-              "pm.test('Версия увеличилась',()=>pm.expect(pm.response.json().version).to.equal(Number(pm.collectionVariables.get('originalVersion'))+1));"
+              "pm.test('Версия увеличилась',()=>pm.expect(pm.response.json().version).to.equal(Number(pm.collectionVariables.get('originalVersion'))+1));pm.collectionVariables.set('savedRulesVersion',pm.response.json().version);"
             ]
           }
         }
@@ -1973,7 +2196,7 @@
         "url": "{{baseUrl}}/rules",
         "body": {
           "mode": "raw",
-          "raw": "{\"params\":{{originalRules}},\"comment\":\"Восстановление параметров после проверки\"}",
+          "raw": "{\"expectedVersion\":{{savedRulesVersion}},\"params\":{{originalRules}},\"comment\":\"Восстановление параметров после проверки\"}",
           "options": {
             "raw": {
               "language": "json"

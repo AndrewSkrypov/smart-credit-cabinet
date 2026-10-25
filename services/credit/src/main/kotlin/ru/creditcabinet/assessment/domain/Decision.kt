@@ -49,4 +49,7 @@ interface EnrichmentStore {
 
     /** What has been fetched for the application so far, by source. */
     fun load(applicationId: UUID): Map<SourceKind, Any>
+
+    /** Receipt time of each stored response, not the source's reporting/freshness date. */
+    fun fetchedAt(applicationId: UUID): Map<SourceKind, Instant>
 }

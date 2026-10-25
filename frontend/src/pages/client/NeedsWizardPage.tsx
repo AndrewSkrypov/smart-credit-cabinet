@@ -2,7 +2,7 @@ import { Alert, Box, Button, Card, CardActionArea, Chip, Grid, MenuItem, Paper, 
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { FormEvent, useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { applicationsApi, productsApi } from '../../api/client';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingBlock } from '../../components/LoadingBlock';
@@ -10,6 +10,7 @@ import { Illustration } from '../../components/Illustration';
 import { MoneyField } from '../../components/MoneyField';
 import { PageHeader } from '../../components/PageHeader';
 import { useApi } from '../../hooks/useApi';
+import { readFinancingSelection } from '../../shared/financingSelection';
 import { months, rub, rubExact } from '../../shared/format';
 import { purposeArt } from '../../shared/illustrations';
 import { tokens } from '../../theme/theme';
@@ -23,14 +24,16 @@ const TERMS = [3, 6, 12, 18, 24, 36, 48, 60];
  */
 export function NeedsWizardPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [selection] = useState(() => readFinancingSelection(location.search));
   const purposes = useApi(productsApi.purposes);
-  // The assistant's «Оформить» opens the wizard with the need it understood: ?purpose=…&amount=…&term=…
-  const [params] = useSearchParams();
-  const linkedAmount = Number(params.get('amount')) || null;
-  const linkedTerm = Number(params.get('term')) || null;
-  const [purpose, setPurpose] = useState<FinancingPurpose | null>((params.get('purpose') as FinancingPurpose | null) ?? null);
-  const [amount, setAmount] = useState<number | null>(linkedAmount ?? 1_000_000);
-  const [termMonths, setTermMonths] = useState(linkedTerm && TERMS.includes(linkedTerm) ? linkedTerm : linkedTerm ? TERMS.reduce((best, term) => (Math.abs(term - linkedTerm) < Math.abs(best - linkedTerm) ? term : best)) : 12);
+  const [purpose, setPurpose] = useState<FinancingPurpose | null>(selection.purpose ?? null);
+  const [amount, setAmount] = useState<number | null>(selection.amount ?? 1_000_000);
+  // A term from a link (the assistant's «Оформить») snaps to the nearest one the form offers.
+  const [termMonths, setTermMonths] = useState(() => {
+    const wanted = selection.termMonths ?? 12;
+    return TERMS.reduce((best, term) => (Math.abs(term - wanted) < Math.abs(best - wanted) ? term : best));
+  });
   const [matches, setMatches] = useState<ProductMatch[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -38,7 +41,7 @@ export function NeedsWizardPage() {
   // A known purpose and amount from the link: show the products straight away.
   const knownPurpose = purpose !== null && (purposes.data ?? []).some((item) => item.code === purpose);
   useEffect(() => {
-    if (!knownPurpose || !linkedAmount || !amount || matches) return;
+    if (!knownPurpose || !selection.amount || !amount || matches) return;
     productsApi.match(purpose!, amount, termMonths).then(setMatches).catch(() => undefined);
     // Only once, when the purposes arrive and confirm the linked one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,6 +81,7 @@ export function NeedsWizardPage() {
     <>
       <PageHeader title="Подбор финансирования" subtitle="Расскажите, зачем нужны деньги, — подскажем подходящий продукт и платёж" />
       <Stack spacing={3}>
+        {(selection.purpose || selection.product) && <Alert severity="info">Ваш выбор перенесён с сайта. Проверьте параметры и нажмите «Подобрать» — условия будут рассчитаны заново.</Alert>}
         <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
           <Typography variant="h6" component="h2" gutterBottom>1. На что нужны деньги?</Typography>
           <Grid container spacing={1.5}>
@@ -100,7 +104,7 @@ export function NeedsWizardPage() {
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'flex-start' }}>
             <MoneyField label="Сумма" value={amount} onChange={(value) => { setAmount(value); setMatches(null); }} sx={{ minWidth: 240 }} required />
             <TextField select label="Срок" value={termMonths} onChange={(event) => { setTermMonths(Number(event.target.value)); setMatches(null); }} sx={{ minWidth: 200 }}>
-              {TERMS.map((term) => <MenuItem key={term} value={term}>{months(term)}</MenuItem>)}
+              {[...new Set([...TERMS, termMonths])].sort((a, b) => a - b).map((term) => <MenuItem key={term} value={term}>{months(term)}</MenuItem>)}
             </TextField>
             <Button type="submit" variant="contained" size="large" disabled={!purpose || !amount || busy} sx={{ minHeight: 56 }}>Подобрать</Button>
           </Stack>
@@ -114,7 +118,7 @@ export function NeedsWizardPage() {
             <Typography variant="h6" component="h2" gutterBottom>3. Подходящие продукты</Typography>
             {matches.length === 0 && <Alert severity="info">Для этой цели продуктов нет — попробуйте выбрать другую цель.</Alert>}
             <Stack spacing={2}>
-              {matches.map((match) => {
+              {[...matches].sort((a, b) => Number(b.product.code === selection.product) - Number(a.product.code === selection.product)).map((match) => {
                 const amountFits = !!amount && amount >= match.product.minAmount && amount <= match.product.maxAmount;
                 return (
                   <Paper key={match.product.code} variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
@@ -122,7 +126,8 @@ export function NeedsWizardPage() {
                       <Box sx={{ flex: 1 }}>
                         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                           <Typography variant="h6" component="h3">{match.product.name}</Typography>
-                          {match.fits && <Chip size="small" color="success" label="Подходит" />}
+                          {match.product.code === selection.product && <Chip size="small" label="Выбран на сайте" />}
+                          {match.fits && <Chip size="small" color="success" label="Соответствует параметрам" />}
                         </Stack>
                         <Typography color="text.secondary" sx={{ mt: 0.5 }}>{match.product.description}</Typography>
                         <Stack spacing={0.5} sx={{ mt: 1.5 }}>

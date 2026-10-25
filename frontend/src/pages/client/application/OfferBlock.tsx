@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { applicationsApi } from '../../../api/client';
 import { formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
 import { Application } from '../../../types';
+import { PaymentSchedule } from './PaymentSchedule';
 
 /** The bank's terms next to the requested ones, so a counter offer is visible at a glance. */
-export function OfferBlock({ application, onChanged }: { application: Application; onChanged: (next: Application) => void }) {
+export function OfferBlock({ application, onChanged, historical = false }: { application: Application; onChanged: (next: Application) => void; historical?: boolean }) {
   const offer = application.process.offer!;
   const [declining, setDeclining] = useState(false);
   const [comment, setComment] = useState('');
@@ -32,12 +33,12 @@ export function OfferBlock({ application, onChanged }: { application: Applicatio
     ['Сумма', rub(application.amount), rub(offer.amount)],
     ['Срок', months(application.termMonths), months(offer.termMonths)],
     ['Ставка', application.estimate ? `от ${percent(application.estimate.rate)}` : '—', percent(offer.rate)],
-    ['Платёж в месяц', application.estimate ? rubExact(application.estimate.monthlyPayment) : '—', rubExact(offer.monthlyPayment)]
+    ['Первый платёж по графику', application.estimate ? rubExact(application.estimate.monthlyPayment) : '—', rubExact(offer.monthlyPayment)]
   ];
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: actionable ? 'success.main' : undefined }}>
-      <Typography variant="h6" component="h2">{counter ? 'Банк предлагает другие условия' : 'Заявка одобрена'}</Typography>
+      <Typography variant="h6" component="h2">{historical ? 'Принятое предложение' : counter ? 'Банк предлагает другие условия' : 'Заявка одобрена'}</Typography>
       {actionable && <Typography color="text.secondary">Предложение действует до {formatDateTime(offer.validUntil)}.</Typography>}
       {offer.changes.length > 0 && (
         <Alert severity="info" sx={{ mt: 2 }}>
@@ -50,7 +51,7 @@ export function OfferBlock({ application, onChanged }: { application: Applicatio
             <TableRow>
               <TableCell />
               <TableCell>Вы запросили</TableCell>
-              <TableCell>Предлагает банк</TableCell>
+              <TableCell>{historical ? 'Согласовано с банком' : 'Предлагает банк'}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -65,6 +66,7 @@ export function OfferBlock({ application, onChanged }: { application: Applicatio
         </Table>
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Всего к возврату: {rubExact(offer.totalPayment)}</Typography>
+      {!application.process.loan && <PaymentSchedule applicationId={application.id} revision={offer.id} preliminary />}
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
       {actionable && (
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 2 }}>

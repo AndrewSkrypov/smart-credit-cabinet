@@ -125,7 +125,7 @@ export function AnalyticsPage() {
                   ))}
                 </Paper>
                 <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
-                  <Typography variant="h6" component="h2" gutterBottom>Сейчас в работе</Typography>
+                  <Typography variant="h6" component="h2" gutterBottom>Распределение заявок по статусам</Typography>
                   {statuses.map(([status, count]) => (
                     <Stack key={status} direction="row" justifyContent="space-between" sx={{ py: 0.5 }}>
                       <Typography>{statusTitle(status as ApplicationStatus)}</Typography>

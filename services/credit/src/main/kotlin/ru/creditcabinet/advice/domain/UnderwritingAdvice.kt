@@ -96,7 +96,7 @@ object UnderwritingAdviceModel {
                 "Платёж по запрошенным условиям",
                 listOf(P.AMOUNT, P.BASE_RATE, P.TERM),
                 listOf(P.NEW_PAYMENT),
-                explain = { "Платёж по запрошенным условиям по базовой ставке — ${rub(it.long(P.NEW_PAYMENT))} в месяц" },
+                explain = { "Платёж по запрошенным условиям по ставке с учётом рейтинга — ${rub(it.long(P.NEW_PAYMENT))} в месяц" },
             ) {
                 mapOf(P.NEW_PAYMENT to LoanMath.annuityPayment(it.long(P.AMOUNT), it.getValue(P.BASE_RATE) as BigDecimal, it.int(P.TERM)).toLong())
             },

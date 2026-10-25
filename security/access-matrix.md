@@ -33,6 +33,7 @@
 | identity | `PUT /api/v1/users/me` | 401 | 200 | 200 | 200 | 200 | 200 |
 | credit | `GET /api/v1/analytics/funnel` | 401 | 403 | 403 | 200 | 200 | 200 |
 | credit | `GET /api/v1/applications` | 401 | 200 | 200 | 200 | 200 | 200 |
+| credit | `GET /api/v1/applications/page` | 401 | 200 | 200 | 200 | 200 | 200 |
 | credit | `POST /api/v1/applications` | 401 | 201 | 201 | 403 | 403 | 403 |
 | credit | `GET /api/v1/applications/{id}` | 401 | 200 | 404 | 200 | 200 | 200 |
 | credit | `PUT /api/v1/applications/{id}` | 401 | 200 | 404 | 403 | 403 | 403 |
@@ -49,6 +50,10 @@
 | credit | `POST /api/v1/applications/{id}/offer/accept` | 401 | 200 | 404 | 403 | 403 | 403 |
 | credit | `POST /api/v1/applications/{id}/offer/decline` | 401 | 200 | 404 | 403 | 403 | 403 |
 | credit | `GET /api/v1/applications/{id}/schedule` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `GET /api/v1/applications/{id}/contract` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `GET /api/v1/applications/{id}/artifacts` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `GET /api/v1/applications/{id}/artifacts/{artifactId}/download` | 401 | 200 | 404 | 200 | 200 | 200 |
+| credit | `POST /api/v1/applications/{id}/artifacts/{artifactId}/retry` | 401 | 200 | 404 | 200 | 200 | 200 |
 | credit | `POST /api/v1/applications/{id}/sign` | 401 | 200 | 404 | 403 | 403 | 403 |
 | credit | `POST /api/v1/applications/{id}/signing/code` | 401 | 200 | 404 | 403 | 403 | 403 |
 | credit | `POST /api/v1/applications/{id}/submit` | 401 | 200 | 404 | 403 | 403 | 403 |
@@ -59,6 +64,7 @@
 | credit | `GET /api/v1/products/{code}` | 200 | 200 | 200 | 200 | 200 | 200 |
 | credit | `GET /api/v1/products/{code}/calculation` | 200 | 200 | 200 | 200 | 200 | 200 |
 | credit | `GET /api/v1/rules` | 401 | 403 | 403 | 200 | 200 | 200 |
+| credit | `GET /api/v1/rules/{version}` | 401 | 403 | 403 | 200 | 200 | 200 |
 | credit | `POST /api/v1/rules` | 401 | 403 | 403 | 403 | 403 | 201 |
 | credit | `GET /api/v1/bank/products` | 401 | 403 | 403 | 200 | 200 | 200 |
 | credit | `GET /api/v1/bank/products/{code}` | 401 | 403 | 403 | 200 | 200 | 200 |

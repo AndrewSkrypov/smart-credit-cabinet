@@ -44,6 +44,9 @@ class FileStoreTest {
         val store = RoutingFileStore(local, remote, "s3")
         assertEquals(StorageBackend.S3, store.writeBackend)
         store.get("legacy.pdf", StorageBackend.LOCAL)!!.content.use { assertContentEquals(bytes, it.readAllBytes()) }
+        // A queued generated file also retains its recorded write backend after a mode switch.
+        store.put("generated-retry.pdf", bytes.inputStream(), bytes.size.toLong(), StorageBackend.LOCAL)
+        store.get("generated-retry.pdf", StorageBackend.LOCAL)!!.content.use { assertContentEquals(bytes, it.readAllBytes()) }
         assertFailsWith<IllegalArgumentException> { local.get("../other.pdf") }
     }
 }

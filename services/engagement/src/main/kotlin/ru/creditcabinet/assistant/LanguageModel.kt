@@ -28,7 +28,7 @@ interface LanguageModel {
 class OllamaModel(
     @Value("\${cabinet.assistant.ollama-url:}") url: String,
     @Value("\${cabinet.assistant.model:qwen2.5:3b}") override val name: String,
-    @Value("\${cabinet.assistant.answer-timeout:PT90S}") answerTimeout: Duration,
+    @Value("\${cabinet.assistant.answer-timeout:PT30S}") answerTimeout: Duration,
     private val builder: RestClient.Builder,
     private val clock: Clock,
 ) : LanguageModel {
@@ -74,13 +74,16 @@ class OllamaModel(
                         "model" to name,
                         "messages" to messages,
                         "stream" to false,
+                        // Native Ollama API: supported thinking models must return the final answer
+                        // within the same bounded request, without spending its budget on a trace.
+                        "think" to false,
                         // Low temperature: the answer retells facts, it does not invent them.
                         "options" to mapOf("temperature" to 0.2, "num_predict" to 300),
                     ),
                 )
                 .retrieve().body(Reply::class.java)?.message?.content?.trim()?.takeIf { it.isNotEmpty() }
         } catch (exception: Exception) {
-            log.warn("Assistant model did not answer, falling back to the rules: {}", exception.message)
+            log.warn("Assistant model did not answer, falling back to the rules: {}", exception.javaClass.simpleName)
             known = false to clock.instant()
             null
         }

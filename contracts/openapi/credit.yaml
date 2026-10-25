@@ -130,6 +130,49 @@ components:
       - stageTimes
       - to
       type: object
+    ApplicationPageResponse:
+      properties:
+        actionRequiredCount:
+          format: int64
+          type: integer
+        actionRequiredPreview:
+          items:
+            $ref: '#/components/schemas/ApplicationSummary'
+          type: array
+        countsByGroup:
+          additionalProperties:
+            format: int64
+            type: integer
+          type: object
+        hasNext:
+          type: boolean
+        items:
+          items:
+            $ref: '#/components/schemas/ApplicationSummary'
+          type: array
+        page:
+          format: int32
+          type: integer
+        size:
+          format: int32
+          type: integer
+        totalElements:
+          format: int64
+          type: integer
+        totalPages:
+          format: int32
+          type: integer
+      required:
+      - actionRequiredCount
+      - actionRequiredPreview
+      - countsByGroup
+      - hasNext
+      - items
+      - page
+      - size
+      - totalElements
+      - totalPages
+      type: object
     ApplicationRequest:
       properties:
         amount:
@@ -377,6 +420,59 @@ components:
       - termMonths
       - unreadChatCount
       type: object
+    ArtifactView:
+      properties:
+        checksum:
+          type: string
+        contentType:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        downloadUrl:
+          type: string
+        errorMessage:
+          type: string
+        fileName:
+          type: string
+        id:
+          format: uuid
+          type: string
+        kind:
+          enum:
+          - CONTRACT_PDF
+          - SCHEDULE_PDF
+          - SCHEDULE_XLSX
+          type: string
+        phase:
+          enum:
+          - PREVIEW
+          - FINAL
+          type: string
+        readyAt:
+          format: date-time
+          type: string
+        sizeBytes:
+          format: int64
+          type: integer
+        status:
+          enum:
+          - PENDING
+          - READY
+          - ERROR
+          type: string
+        title:
+          type: string
+      required:
+      - contentType
+      - createdAt
+      - fileName
+      - id
+      - kind
+      - phase
+      - status
+      - title
+      type: object
     AssessmentView:
       properties:
         actions:
@@ -400,6 +496,11 @@ components:
           $ref: '#/components/schemas/DecisionView'
         registry:
           $ref: '#/components/schemas/RegistryInfo'
+        sourceFetchedAt:
+          additionalProperties:
+            format: date-time
+            type: string
+          type: object
         status:
           enum:
           - DRAFT
@@ -425,6 +526,7 @@ components:
       - actions
       - applicationId
       - discrepancies
+      - sourceFetchedAt
       - status
       type: object
     BankInfo:
@@ -501,6 +603,8 @@ components:
           type: number
         rate:
           type: number
+        revolving:
+          type: boolean
         schedule:
           items:
             $ref: '#/components/schemas/ScheduleRow'
@@ -511,6 +615,7 @@ components:
       - monthlyPayment
       - overpayment
       - rate
+      - revolving
       - schedule
       - totalPayment
       type: object
@@ -647,6 +752,54 @@ components:
       - id
       - inn
       - legalForm
+      type: object
+    ContractTextSnapshot:
+      properties:
+        applicationId:
+          format: uuid
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        id:
+          format: uuid
+          type: string
+        offerId:
+          format: uuid
+          type: string
+        sha256:
+          type: string
+        templateVersion:
+          format: int32
+          type: integer
+        text:
+          type: string
+      required:
+      - applicationId
+      - createdAt
+      - id
+      - offerId
+      - sha256
+      - templateVersion
+      - text
+      type: object
+    ContractTextView:
+      properties:
+        legacySummary:
+          type: boolean
+        signable:
+          type: boolean
+        signedAt:
+          format: date-time
+          type: string
+        snapshot:
+          $ref: '#/components/schemas/ContractTextSnapshot'
+        text:
+          type: string
+      required:
+      - legacySummary
+      - signable
+      - text
       type: object
     CounterOfferRequest:
       properties:
@@ -1130,10 +1283,15 @@ components:
           maxLength: 1000
           minLength: 0
           type: string
+        expectedVersion:
+          format: int32
+          minimum: 1
+          type: integer
         params:
           $ref: '#/components/schemas/RuleParams'
       required:
       - comment
+      - expectedVersion
       - params
       type: object
     OfferTerms:
@@ -1390,6 +1548,10 @@ components:
         authorId:
           format: uuid
           type: string
+        authorName:
+          type: string
+        authorRole:
+          type: string
         createdAt:
           format: date-time
           type: string
@@ -1619,6 +1781,10 @@ components:
       type: object
     RuleSetVersion:
       properties:
+        authorName:
+          type: string
+        authorRole:
+          type: string
         comment:
           type: string
         createdAt:
@@ -1649,6 +1815,20 @@ components:
       - params
       - version
       - versions
+      type: object
+    RulesSnapshot:
+      properties:
+        metadata:
+          $ref: '#/components/schemas/RuleSetVersion'
+        params:
+          $ref: '#/components/schemas/RuleParams'
+        version:
+          format: int32
+          type: integer
+      required:
+      - metadata
+      - params
+      - version
       type: object
     ScheduleRow:
       properties:
@@ -2011,6 +2191,92 @@ paths:
       summary: Создать черновик заявки
       tags:
       - Заявки, документы и выдача
+  /api/v1/applications/page:
+    get:
+      operationId: page
+      parameters:
+      - in: query
+        name: page
+        required: false
+        schema:
+          default: 0
+          format: int64
+          type: integer
+      - in: query
+        name: size
+        required: false
+        schema:
+          default: 20
+          format: int32
+          type: integer
+      - in: query
+        name: group
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: q
+        required: false
+        schema:
+          default: ''
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          default: default
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationPageResponse'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/page
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/page
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/page
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Ограниченная SQL-страница заявок; счётчики по поиску, клиентское превью действий глобально
+      tags:
+      - Заявки, документы и выдача
   /api/v1/applications/{id}:
     get:
       operationId: get
@@ -2188,6 +2454,343 @@ paths:
       security:
       - bearerAuth: []
       summary: Изменить черновик
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/{id}/artifacts:
+    get:
+      operationId: list_4
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArtifactView'
+                type: array
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/artifacts
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/artifacts
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/artifacts
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/artifacts
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Готовность демонстрационных файлов договора и графика
+      tags:
+      - Файлы условий и графика платежей
+  /api/v1/applications/{id}/artifacts/{artifactId}/download:
+    get:
+      operationId: download_1
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: path
+        name: artifactId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                format: byte
+                type: string
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/artifacts/{artifactId}/download
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/artifacts/{artifactId}/download
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/artifacts/{artifactId}/download
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/artifacts/{artifactId}/download
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: 'Скачать готовый файл: представителям компании и сотрудникам банка'
+      tags:
+      - Файлы условий и графика платежей
+  /api/v1/applications/{id}/artifacts/{artifactId}/retry:
+    post:
+      operationId: retry
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: path
+        name: artifactId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ArtifactView'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/applications/{id}/artifacts/{artifactId}/retry
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/artifacts/{artifactId}/retry
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/artifacts/{artifactId}/retry
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/artifacts/{artifactId}/retry
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/applications/{id}/artifacts/{artifactId}/retry
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/artifacts/{artifactId}/retry
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Повторить создание файла после ошибки
+      tags:
+      - Файлы условий и графика платежей
+  /api/v1/applications/{id}/contract:
+    get:
+      operationId: contract
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ContractTextView'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/contract
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/contract
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/contract
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/contract
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Подписываемый текст договора и сохранённый снимок; для старых заявок — сводка условий
       tags:
       - Заявки, документы и выдача
   /api/v1/applications/{id}/documents:
@@ -4518,6 +5121,80 @@ paths:
       security:
       - bearerAuth: []
       summary: Сохранить новую версию порогов (риск-администратор)
+      tags:
+      - Версии кредитной политики
+  /api/v1/rules/{version}:
+    get:
+      operationId: version
+      parameters:
+      - in: path
+        name: version
+        required: true
+        schema:
+          format: int32
+          type: integer
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RulesSnapshot'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/rules/{version}
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/rules/{version}
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/rules/{version}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/rules/{version}
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Неизменяемый снимок выбранной версии правил
       tags:
       - Версии кредитной политики
   /api/v1/underwriting/applications/{id}:

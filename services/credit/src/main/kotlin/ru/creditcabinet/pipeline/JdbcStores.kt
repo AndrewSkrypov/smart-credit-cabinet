@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.InfoItem
@@ -28,6 +29,7 @@ import ru.creditcabinet.assessment.domain.RuleSets
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.assessment.domain.StopFactor
 import ru.creditcabinet.assessment.domain.TaxInfo
+import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.offer.Loan
 import ru.creditcabinet.offer.Loans
 import ru.creditcabinet.offer.Offer
@@ -80,21 +82,43 @@ class JdbcRuleSets(private val jdbc: NamedParameterJdbcTemplate, private val map
     override fun find(version: Int): RuleSet? = jdbc.query("select * from rule_sets where version = :v", mapOf("v" to version), rowMapper).firstOrNull()
 
     override fun history(): List<RuleSetVersion> =
-        jdbc.query("select version, created_at, created_by, comment from rule_sets order by version desc", emptyMap<String, Any>()) { rs, _ ->
-            RuleSetVersion(rs.getInt("version"), rs.instant("created_at")!!, rs.uuid("created_by"), rs.getString("comment"))
+        jdbc.query("select version, created_at, created_by, comment, author_name, author_role from rule_sets order by version desc", emptyMap<String, Any>()) {
+                rs,
+                _,
+            ->
+            RuleSetVersion(
+                rs.getInt("version"),
+                rs.instant("created_at")!!,
+                rs.uuid("created_by"),
+                rs.getString("comment"),
+                rs.getString("author_name"),
+                rs.getString("author_role"),
+            )
         }
 
-    override fun create(rules: RuleSet, createdBy: UUID, comment: String): RuleSet {
+    @Transactional
+    override fun create(rules: RuleSet, expectedVersion: Int, createdBy: UUID, comment: String, authorName: String?, authorRole: String?): RuleSet {
+        // Serialize appends before reading the head; checking only the insert's unique key loses sequential stale edits.
+        jdbc.jdbcTemplate.execute("lock table rule_sets in share row exclusive mode")
+        val current = current()
+        if (current.version != expectedVersion) throw ConflictException("Правила только что изменил другой администратор — откройте действующую версию")
+        require(current.copy(version = 0) != rules.copy(version = 0)) { "Условия не изменились — новая версия не требуется" }
         val params =
             with(rules) { Params(maxLoad, revenueMismatch, ratingCutoffs, ratingMargins, lowRiskOkved, highRiskOkved, weakAmountShare, weakRevenueShare) }
-        // The primary key settles two administrators saving at once: the second insert fails and is retried by them.
         val version = jdbc.queryForObject(
             """
-            insert into rule_sets (version, params, created_by, comment)
-            values ((select coalesce(max(version), 0) + 1 from rule_sets), cast(:params as jsonb), :by, :comment)
+            insert into rule_sets (version, params, created_by, comment, author_name, author_role)
+            values (:version, cast(:params as jsonb), :by, :comment, :name, :role)
             returning version
             """.trimIndent(),
-            mapOf("params" to mapper.writeValueAsString(params), "by" to createdBy, "comment" to comment),
+            mapOf(
+                "version" to current.version + 1,
+                "params" to mapper.writeValueAsString(params),
+                "by" to createdBy,
+                "comment" to comment,
+                "name" to authorName,
+                "role" to authorRole,
+            ),
             Int::class.java,
         )!!
         return rules.copy(version = version)
@@ -103,6 +127,12 @@ class JdbcRuleSets(private val jdbc: NamedParameterJdbcTemplate, private val map
 
 @Component
 class JdbcEnrichmentStore(private val jdbc: NamedParameterJdbcTemplate, private val mapper: ObjectMapper) : EnrichmentStore {
+    override fun fetchedAt(applicationId: UUID): Map<SourceKind, Instant> =
+        jdbc.query(
+            "select source, fetched_at from enrichment_results where application_id = :application",
+            mapOf("application" to applicationId),
+        ) { rs, _ -> SourceKind.valueOf(rs.getString("source")) to rs.instant("fetched_at")!! }.toMap()
+
     override fun save(applicationId: UUID, kind: SourceKind, data: Any, at: Instant) {
         jdbc.update(
             """
@@ -304,14 +334,15 @@ class JdbcSigningSessions(private val jdbc: NamedParameterJdbcTemplate) : Signin
     override fun save(session: SigningSessionRecord) {
         jdbc.update(
             """
-            insert into signing_sessions (id, application_id, offer_id, external_session_id, code, expires_at, created_at)
-            values (:id, :application, :offer, :external, :code, :expires, :at)
+            insert into signing_sessions (id, application_id, offer_id, external_session_id, code, expires_at, created_at, contract_snapshot_id)
+            values (:id, :application, :offer, :external, :code, :expires, :at, :snapshot)
             """.trimIndent(),
             mapOf(
                 "id" to session.id,
                 "application" to session.applicationId,
                 "offer" to session.offerId,
                 "external" to session.externalSessionId,
+                "snapshot" to session.contractSnapshotId,
                 "code" to session.code,
                 "expires" to ts(session.expiresAt),
                 "at" to ts(session.createdAt),
@@ -320,7 +351,10 @@ class JdbcSigningSessions(private val jdbc: NamedParameterJdbcTemplate) : Signin
     }
 
     override fun latest(applicationId: UUID): SigningSessionRecord? =
-        jdbc.query("select * from signing_sessions where application_id = :a order by created_at desc limit 1", mapOf("a" to applicationId)) { rs, _ ->
+        jdbc.query("select * from signing_sessions where application_id = :a order by created_at desc, sequence_no desc limit 1", mapOf("a" to applicationId)) {
+                rs,
+                _,
+            ->
             SigningSessionRecord(
                 id = rs.uuid("id")!!,
                 applicationId = rs.uuid("application_id")!!,
@@ -332,6 +366,7 @@ class JdbcSigningSessions(private val jdbc: NamedParameterJdbcTemplate) : Signin
                 signedAt = rs.instant("signed_at"),
                 signedBy = rs.uuid("signed_by"),
                 createdAt = rs.instant("created_at")!!,
+                contractSnapshotId = rs.uuid("contract_snapshot_id"),
             )
         }.firstOrNull()
 

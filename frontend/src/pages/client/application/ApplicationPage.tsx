@@ -1,7 +1,7 @@
 import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import { useCallback, useEffect, useState } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Link as RouterLink, useParams, useLocation } from 'react-router-dom';
 import { applicationsApi } from '../../../api/client';
 import { ErrorState } from '../../../components/ErrorState';
 import { LoadingBlock } from '../../../components/LoadingBlock';
@@ -16,6 +16,7 @@ import { HistoryBlock } from './HistoryBlock';
 import { InfoRequestBlock } from './InfoRequestBlock';
 import { LoanBlock } from './LoanBlock';
 import { OfferBlock } from './OfferBlock';
+import { GeneratedFilesBlock } from '../../../components/GeneratedFilesBlock';
 import { SigningBlock } from './SigningBlock';
 import { StageStepper } from './StageStepper';
 
@@ -33,6 +34,7 @@ const FAST_REFRESH_MS = 2000;
 const SLOW_REFRESH_MS = 15000;
 
 export function ApplicationPage() {
+  const location = useLocation();
   const { id = '' } = useParams();
   const [application, setApplication] = useState<Application | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export function ApplicationPage() {
 
   return (
     <>
-      <Button component={RouterLink} to="/client" startIcon={<ArrowBackRoundedIcon />} sx={{ mb: 1 }}>Все заявки</Button>
+      <Button component={RouterLink} to={typeof location.state?.listUrl === 'string' && /^\/client(?:\?|$)/.test(location.state.listUrl) ? location.state.listUrl : '/client'} state={{ restoreList: true }} startIcon={<ArrowBackRoundedIcon />} sx={{ mb: 1 }}>Все заявки</Button>
       <PageHeader
         title={`Заявка${application.number ? ` № ${application.number}` : ''}`}
         subtitle={`${application.product.name} · ${rub(application.amount)} · ${months(application.termMonths)}`}
@@ -100,11 +102,13 @@ export function ApplicationPage() {
             {application.status === 'INFO_REQUESTED' && application.process.infoRequest && (
               <InfoRequestBlock application={application} onChanged={load} onSent={setApplication} />
             )}
-            {application.process.offer && ['OFFER_ISSUED', 'SIGNING', 'DISBURSING', 'DISBURSED'].includes(application.status) && (
+            {application.process.offer && ['OFFER_ISSUED', 'SIGNING', 'DISBURSING'].includes(application.status) && (
               <OfferBlock application={application} onChanged={setApplication} />
             )}
             {application.status === 'SIGNING' && <SigningBlock application={application} onChanged={setApplication} />}
             {application.status === 'DISBURSED' && application.process.loan && <LoanBlock application={application} />}
+            {application.status === 'DISBURSED' && application.process.loan && <GeneratedFilesBlock applicationId={application.id} final />}
+            {application.status === 'DISBURSED' && application.process.offer && <Box component="details"><Typography component="summary" sx={{ cursor: 'pointer', py: 1 }}>Согласованные условия</Typography><OfferBlock historical application={application} onChanged={setApplication} /></Box>}
             {outcome && (
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'error.main' }}>
                 <Typography variant="h6" component="h2">{outcome.reasonTitle ?? 'Банк не может выдать кредит'}</Typography>
@@ -115,6 +119,7 @@ export function ApplicationPage() {
               </Paper>
             )}
 
+            {application.process.offer && ['OFFER_ISSUED', 'SIGNING', 'DISBURSING'].includes(application.status) && <GeneratedFilesBlock key={`${application.id}-${!!application.process.loan}`} applicationId={application.id} final={!!application.process.loan} />}
             <DocumentsBlock application={application} onChanged={load} />
             <MessagesBlock key={application.id} applicationId={application.id} status={application.status} />
             <HistoryBlock applicationId={application.id} version={`${application.status}-${application.documents.length}`} />

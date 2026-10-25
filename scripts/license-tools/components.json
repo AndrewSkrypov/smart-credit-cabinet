@@ -187,6 +187,13 @@
       "license": "Apache-2.0",
       "source": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/blob/main/LICENSE",
       "note": "Отдельный проверенный override для контрольного набора; лицензия скачанного пакета совпала с издателем. Не меняет модель по умолчанию и не подтверждает качество ответов; результаты и ограничения в docs/assistant-eval.md."
+    },
+    {
+      "name": "DejaVu Sans (regular and bold)",
+      "version": "2.37 (fonts-dejavu-core from the pinned service runtime image)",
+      "license": "Bitstream-Vera; DejaVu changes public domain",
+      "source": "https://dejavu-fonts.github.io/License.html",
+      "note": "Unmodified TTF files used for embedded Cyrillic in generated PDFs; upstream copyright and permission are included in services/credit/src/main/resources/fonts/LICENSE-DejaVu.txt. No Debian packaging files included."
     }
   ],
   "simulations": [

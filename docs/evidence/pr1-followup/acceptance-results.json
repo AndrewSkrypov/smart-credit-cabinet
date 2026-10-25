@@ -1,0 +1,69 @@
+{
+  "candidate": "FU-20261025-r3",
+  "base_sha": "c9cb5343463be92cd823ad230a7be5857257b700",
+  "frontend": {
+    "files": 27,
+    "tests": 82,
+    "passed": true,
+    "lines": "989/1716",
+    "lines_percent": 57.63,
+    "local_workers": 2
+  },
+  "backend": {
+    "real_postgres": true,
+    "test": "ru.creditcabinet.application.ApplicationPagesIntegrationTest",
+    "tests": 1,
+    "failures": 0,
+    "ktlint": "passed",
+    "dataset": [
+      0,
+      1,
+      20,
+      21,
+      1001
+    ]
+  },
+  "security_matrix": {
+    "operations": 81,
+    "checks": 486,
+    "passed": true,
+    "cleanup_errors": [],
+    "execution": "full r2 plus exact final invoke/page row6/6 with new bounds/ownership checks; new full script required in CI"
+  },
+  "e2e": {
+    "cases": 58,
+    "passed": 55,
+    "skipped": 3,
+    "failed": 0,
+    "method": "full default run plus targeted rerun of changed tests; same production candidate",
+    "mail": {
+      "passed": 8,
+      "failed": 0
+    }
+  },
+  "review_findings": [
+    "A-B-A clears incoming; unit and browser regression",
+    "own role root query/hash preserved; external/traversal/cross-role blocked",
+    "fixed ordered IDs/numbers; distant exact match and known13 substring matches"
+  ],
+  "initial_failures": [
+    "frontend r3: existing five-second editor timeout under concurrent local load; r4 82/82 with two workers, same assertions/timeouts",
+    "first browser fixture incorrectly tried anonymous assistant; corrected to client sign-in",
+    "old chat assertion expected silent background mutation; explicit apply now tested before exact unread check",
+    "old snapshot assertion expected a flat sentence; structured dt/dd rate checked instead"
+  ],
+  "U10": {
+    "status": "partially_verified",
+    "automated": "verified canvas owners/routes/transitions/wheel/resize/modal; browser-engine scale2 and layout-equivalent viewport",
+    "native_gesture": "unavailable; user-reported overscroll effect not accepted"
+  },
+  "publication": {
+    "status": "pending",
+    "PR": "https://github.com/AndrewSkrypov/smart-credit-cabinet/pull/1",
+    "CI": "new exact SHA required after commit"
+  },
+  "preserved": {
+    "user_containers": 32,
+    "protected_inputs_workflows_migrations": 23
+  }
+}

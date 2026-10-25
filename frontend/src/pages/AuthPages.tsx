@@ -1,12 +1,15 @@
 import { Alert, Box, Button, Checkbox, FormControlLabel, Link, Paper, Stack, TextField, Typography } from '@mui/material';
 import { FormEvent, useEffect, useState } from 'react';
-import { Link as RouterLink, Navigate, useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, Navigate, useSearchParams, useLocation } from 'react-router-dom';
 import { authApi } from '../api/client';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { BrandMark } from '../components/BrandMark';
+import { DocumentSurface } from '../components/DocumentSurface';
+import { BulletItem } from '../components/BulletItem';
 import { tokens } from '../theme/theme';
 import { Illustration } from '../components/Illustration';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { authPath, roleDestination } from '../shared/financingSelection';
 import { generateTestInn, isValidInn } from '../shared/inn';
 
 const DEMO_PASSWORD = 'Demo2026';
@@ -19,7 +22,7 @@ const demoAccounts = [
 ];
 
 const promises = [
-  'Решение по небольшим суммам — за минуты, без участия сотрудника',
+  'Автоматическая проверка небольших заявок',
   'Сведения о компании банк получит сам: из реестра, налоговой и бюро',
   'Предложение и подписание договора — онлайн, в этом же кабинете'
 ];
@@ -28,7 +31,7 @@ const promises = [
 export function AuthFrame({ title, children }: { title: string; children: React.ReactNode }) {
   usePageTitle(title);
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, bgcolor: 'background.default' }}>
+    <DocumentSurface kind="auth"><Box sx={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: { xs: '1fr', md: '5fr 7fr' }, bgcolor: 'background.default' }}>
       <Box component="aside" sx={{ display: { xs: 'none', md: 'flex' }, flexDirection: 'column', justifyContent: 'space-between', bgcolor: tokens.night, color: '#fff', p: 6, position: 'relative', overflow: 'hidden' }}>
         <BrandMark inverted />
         <Box>
@@ -40,10 +43,9 @@ export function AuthFrame({ title, children }: { title: string; children: React.
           <Typography variant="h4" component="p" fontWeight={700} sx={{ maxWidth: 420 }}>Кредит для бизнеса онлайн</Typography>
           <Stack component="ul" spacing={2} sx={{ mt: 4, p: 0, listStyle: 'none' }}>
             {promises.map((text) => (
-              <Stack component="li" key={text} direction="row" spacing={1.5} alignItems="flex-start">
-                <Box aria-hidden sx={{ mt: '7px', width: 8, height: 8, borderRadius: '99px', bgcolor: tokens.red, flexShrink: 0 }} />
+              <BulletItem key={text} color={tokens.red}>
                 <Typography sx={{ color: 'rgba(255,255,255,0.8)' }}>{text}</Typography>
-              </Stack>
+              </BulletItem>
             ))}
           </Stack>
         </Box>
@@ -60,12 +62,13 @@ export function AuthFrame({ title, children }: { title: string; children: React.
           </Paper>
         </Box>
       </Box>
-    </Box>
+    </Box></DocumentSurface>
   );
 }
 
 export function SignInPage() {
   const { session, signIn } = useAuth();
+  const location = useLocation();
   const [params] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -77,7 +80,7 @@ export function SignInPage() {
     authApi.options().then((options) => setDemo(options.demoAccounts)).catch(() => setDemo(false));
   }, []);
 
-  if (session) return <Navigate to={roleHome[session.user.role]} replace />;
+  if (session) return <Navigate to={roleDestination(session.user.role, location.search, roleHome[session.user.role])} replace />;
 
   const submit = async (event: FormEvent, credentials?: { email: string; password: string }) => {
     event.preventDefault();
@@ -102,7 +105,7 @@ export function SignInPage() {
         <Button type="submit" variant="contained" size="large" disabled={busy}>Войти</Button>
         <Link component={RouterLink} to="/password-recovery">Забыли пароль?</Link>
         <Typography variant="body2">
-          Нет кабинета? <Link component={RouterLink} to="/sign-up">Подключите компанию</Link>
+          Нет кабинета? <Link component={RouterLink} to={authPath('/sign-up', location.search)}>Подключите компанию</Link>
         </Typography>
       </Stack>
       {demo && (
@@ -125,6 +128,7 @@ export function SignInPage() {
 
 export function SignUpPage() {
   const { session, signUp } = useAuth();
+  const location = useLocation();
   const [demo, setDemo] = useState(false);
 
   useEffect(() => {
@@ -134,7 +138,7 @@ export function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (session) return <Navigate to={roleHome[session.user.role]} replace />;
+  if (session) return <Navigate to={roleDestination(session.user.role, location.search, roleHome[session.user.role])} replace />;
 
   const innDigits = form.inn.replace(/\D/g, '');
   const innComplete = innDigits.length === 10 || innDigits.length === 12;
@@ -182,7 +186,7 @@ export function SignUpPage() {
         />
         <Button type="submit" variant="contained" size="large" disabled={busy || !form.personalDataConsent}>Подключить</Button>
         <Typography variant="body2">
-          Уже есть кабинет? <Link component={RouterLink} to="/sign-in">Войти</Link>
+          Уже есть кабинет? <Link component={RouterLink} to={authPath('/sign-in', location.search)}>Войти</Link>
         </Typography>
       </Stack>
     </AuthFrame>

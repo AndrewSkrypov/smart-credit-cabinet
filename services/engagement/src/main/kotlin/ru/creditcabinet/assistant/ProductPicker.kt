@@ -162,7 +162,7 @@ object ProductAdvice {
     private fun link(purpose: String, amount: Long?, term: Int?): AnswerLink =
         AnswerLink(
             "Оформить",
-            "/client/new?" + listOfNotNull("purpose=$purpose", amount?.let { "amount=$it" }, term?.let { "term=$it" }).joinToString("&"),
+            "/client/new?" + listOfNotNull("purpose=$purpose", amount?.let { "amount=$it" }, term?.let { "termMonths=$it" }).joinToString("&"),
         )
 
     private fun rub(amount: Long) = "%,d ₽".format(Locale.ROOT, amount).replace(',', ' ')

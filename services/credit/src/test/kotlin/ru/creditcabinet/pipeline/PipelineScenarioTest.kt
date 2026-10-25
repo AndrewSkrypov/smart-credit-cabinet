@@ -24,15 +24,26 @@ import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.TokenClaims
+import ru.creditcabinet.document.domain.FileStore
+import ru.creditcabinet.document.domain.StorageBackend
+import ru.creditcabinet.document.generated.GeneratedArtifacts
+import ru.creditcabinet.offer.ContractTexts
 import java.time.Duration
+import java.time.Instant
 import java.time.ZoneOffset
 import java.util.Date
 import java.util.UUID
+import java.util.concurrent.Callable
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFails
 import kotlin.test.assertTrue
 
 /**
@@ -59,6 +70,12 @@ class PipelineScenarioTest {
 
     @Autowired private lateinit var core: FakeCore
 
+    @Autowired private lateinit var signing: FakeSigning
+
+    @Autowired private lateinit var artifacts: GeneratedArtifacts
+
+    @Autowired private lateinit var fileStore: FileStore
+
     @MockitoBean private lateinit var companies: CompanyDirectory
 
     private val companyId = UUID.randomUUID()
@@ -72,6 +89,7 @@ class PipelineScenarioTest {
     fun setUp() {
         // Jobs left by other tests must not run in this one.
         jdbc.update("update pipeline_jobs set status = 'CANCELLED' where status in ('PENDING', 'RUNNING')")
+        jdbc.update("update generated_artifacts set attempts=5 where status <> 'READY'")
         whenever(companies.find(any())).thenAnswer { CompanySnapshot(it.getArgument(0), inn, "ИП Тест", LegalForm.ENTREPRENEUR) }
         sources.companies[inn] = FakeSources.healthy(inn, today)
     }
@@ -121,6 +139,232 @@ class PipelineScenarioTest {
 
     private fun events(id: String) =
         json(mockMvc.get("/api/v1/applications/$id/events") { header("Authorization", "Bearer $client") }.andReturn().response).map { it["event"].asText() }
+
+    @Test
+    fun `source receipt timestamps are exposed only in the bank card`() {
+        val id = submitted()
+        worker.runDue()
+        val card = json(mockMvc.get("/api/v1/underwriting/applications/$id") { header("Authorization", "Bearer $underwriter") }.andReturn().response)
+        assertEquals(SourceKind.entries.map { it.name }.toSet(), card["sourceFetchedAt"].fieldNames().asSequence().toSet())
+        card["sourceFetchedAt"].forEach { assertEquals(clock.now, Instant.parse(it.asText())) }
+        assertTrue(!get(id).has("sourceFetchedAt"), "Source metadata must not leak into the client DTO")
+        mockMvc.get("/api/v1/underwriting/applications/$id") { header("Authorization", "Bearer $client") }.andExpect { status { isForbidden() } }
+    }
+
+    @Test
+    fun `manual approval keeps the policy snapshot of its automatic assessment`() = verifyManualPolicySnapshot("approve")
+
+    @Test
+    fun `manual counter offer keeps the policy snapshot of its automatic assessment`() = verifyManualPolicySnapshot("counter-offer")
+
+    private fun verifyManualPolicySnapshot(action: String) {
+        sources.companies[inn] = FakeSources.healthy(inn, today, okved = "41.20")
+        val id = submitted()
+        worker.runDue()
+        assertEquals("MANUAL_REVIEW", status(id))
+        val card = json(mockMvc.get("/api/v1/underwriting/applications/$id") { header("Authorization", "Bearer $underwriter") }.andReturn().response)
+        val originalVersion = card["automaticDecision"]["ruleSetVersion"].asInt()
+        val originalRules = json(mockMvc.get("/api/v1/rules") { header("Authorization", "Bearer $underwriter") }.andReturn().response)
+        val rating = card["automaticDecision"]["rating"].asText()
+        val productRate = jdbc.queryForObject(
+            "select v.base_rate from applications a join product_versions v on v.code=a.product_code and v.version=a.product_version where a.id=?::uuid",
+            Double::class.java,
+            id,
+        )!!
+        val expectedRate = productRate + originalRules["params"]["ratingMargins"][rating].asDouble()
+        try {
+            jdbc.update(
+                "insert into rule_sets (version,params,created_at,comment) select version+1,jsonb_set(params,'{ratingMargins,$rating}',to_jsonb(?::numeric)),now(),'New policy after assessment' from rule_sets order by version desc limit 1",
+                originalRules["params"]["ratingMargins"][rating].asDouble() + 2,
+            )
+            val result =
+                post("/api/v1/underwriting/applications/$id/$action", underwriter, """{"amount":900000,"termMonths":12,"comment":"Проверено вручную"}""")
+            assertEquals(200, result.status, result.contentAsString)
+            assertEquals(expectedRate, get(id)["process"]["offer"]["rate"].asDouble())
+            assertEquals(
+                originalVersion,
+                jdbc.queryForObject(
+                    "select rule_set_version from decisions where application_id=?::uuid and decided_by_type='UNDERWRITER'",
+                    Int::class.java,
+                    id,
+                ),
+            )
+        } finally {
+            jdbc.update(
+                "insert into rule_sets (version,params,comment) select coalesce(max(version),0)+1,?::jsonb,'Test policy restoration' from rule_sets",
+                mapper.writeValueAsString(originalRules["params"]),
+            )
+        }
+    }
+
+    @Test
+    fun `the signing text is saved once matches the gateway and survives replacement codes and disbursement`() {
+        val id = submitted()
+        worker.runDue()
+        fun text(token: String = client) = mockMvc.get("/api/v1/applications/$id/contract") { header("Authorization", "Bearer $token") }.andReturn().response
+        val preview = json(text())
+        assertTrue(preview["snapshot"].isNull)
+        assertEquals(false, preview["legacySummary"].asBoolean())
+        assertEquals(200, post("/api/v1/applications/$id/offer/accept", client).status)
+        val original = json(text())
+        val snapshot = original["snapshot"]
+        assertEquals(true, original["signable"].asBoolean())
+        assertEquals(signing.texts.getValue("contract-$id"), original["text"].asText())
+        assertEquals(ContractTexts.sha256(original["text"].asText()), snapshot["sha256"].asText())
+        repeat(2) {
+            assertEquals(200, post("/api/v1/applications/$id/signing/code", client).status)
+            assertEquals(snapshot, json(text())["snapshot"])
+        }
+        assertEquals(1, jdbc.queryForObject("select count(*) from contract_text_snapshots where application_id=?::uuid", Int::class.java, id))
+        assertFails { jdbc.update("update contract_text_snapshots set contract_text='changed' where application_id=?::uuid", id) }
+        assertEquals(404, text(token("CLIENT", UUID.randomUUID())).status)
+        assertEquals(snapshot, json(text(manager))["snapshot"])
+        assertEquals(200, post("/api/v1/applications/$id/sign", client, """{"code":"424242"}""").status)
+        worker.runDue()
+        val issued = json(text())
+        assertEquals(snapshot, issued["snapshot"])
+        assertTrue(!issued["signedAt"].isNull)
+        assertEquals(false, issued["signable"].asBoolean())
+    }
+
+    @Test
+    fun `generated files keep preview and final sets stable and authorize every download and retry`() {
+        val id = submitted()
+        worker.runDue()
+        fun list(token: String = client) = mockMvc.get("/api/v1/applications/$id/artifacts") { header("Authorization", "Bearer $token") }.andReturn().response
+        val preview = json(list())
+        assertEquals(2, preview.size())
+        assertTrue(preview.all { it["phase"].asText() == "PREVIEW" && it["status"].asText() == "PENDING" && it["downloadUrl"].isNull })
+        assertEquals(preview, json(list()))
+        val pendingId = preview[0]["id"].asText()
+        assertEquals(
+            409,
+            mockMvc.get("/api/v1/applications/$id/artifacts/$pendingId/download") {
+                header("Authorization", "Bearer $client")
+            }.andReturn().response.status,
+        )
+        repeat(2) { assertTrue(artifacts.generateOne()) }
+        assertTrue(!artifacts.generateOne())
+        val readyPreview = json(list())
+        val previewIds = readyPreview.map { it["id"].asText() }
+        assertEquals(200, post("/api/v1/applications/$id/offer/accept", client).status)
+        assertEquals(200, post("/api/v1/applications/$id/signing/code", client).status)
+        assertEquals(readyPreview, json(list()), "acceptance and a new code do not create extra preliminary copies")
+        assertEquals(200, post("/api/v1/applications/$id/sign", client, """{"code":"424242"}""").status)
+        worker.runDue()
+        val loan = get(id)["process"]["loan"]
+        val final = json(list())
+        assertEquals(3, final.size())
+        assertTrue(final.all { it["phase"].asText() == "FINAL" && it["id"].asText() !in previewIds })
+        repeat(2) { assertTrue(artifacts.generateOne()) }
+        artifacts.notifyReadyGroups()
+        assertEquals(0, jdbc.queryForObject("select count(*) from generated_artifact_notices where application_id=?::uuid", Int::class.java, id))
+        assertTrue(artifacts.generateOne())
+        assertTrue(!artifacts.generateOne())
+        val ready = json(list())
+        assertTrue(ready.all { it["status"].asText() == "READY" }, ready.toString())
+        assertEquals(5, jdbc.queryForObject("select count(*) from generated_artifacts where application_id=?::uuid", Int::class.java, id))
+        assertEquals(0, get(id)["documents"].size(), "generated files must not become uploaded client documents")
+        repeat(2) { artifacts.notifyReadyGroups() }
+        assertEquals(1, jdbc.queryForObject("select count(*) from generated_artifact_notices where application_id=?::uuid", Int::class.java, id))
+        assertEquals(
+            1,
+            jdbc.queryForObject(
+                "select count(*) from delivery_outbox where channel='notification' and event_key like ?",
+                Int::class.java,
+                "generated-files:$id:%",
+            ),
+        )
+        val notice = mapper.readTree(
+            jdbc.queryForObject("select payload::text from delivery_outbox where event_key like ?", String::class.java, "generated-files:$id:%"),
+        )
+        assertEquals("FILES_READY", notice["email"]["kind"].asText())
+        assertEquals("/client/applications/$id", notice["link"].asText())
+        assertTrue(!notice.toString().contains("stored_name"))
+        for (file in ready) {
+            val fileId = file["id"].asText()
+            val url = "/api/v1/applications/$id/artifacts/$fileId/download"
+            fun download(token: String) = mockMvc.get(url) { header("Authorization", "Bearer $token") }.andReturn().response
+            val first = download(client)
+            assertEquals(200, first.status, first.contentAsString)
+            assertEquals(file["checksum"].asText(), GeneratedArtifacts.checksum(first.contentAsByteArray))
+            assertEquals(file["sizeBytes"].asLong(), first.contentAsByteArray.size.toLong())
+            assertEquals(file["contentType"].asText(), first.contentType)
+            assertTrue(first.getHeader("Content-Disposition")!!.startsWith("attachment;"))
+            assertEquals("no-store", first.getHeader("Cache-Control"))
+            assertContentEquals(first.contentAsByteArray, download(client).contentAsByteArray)
+            assertEquals(200, download(manager).status)
+            val stranger = token("CLIENT", UUID.randomUUID())
+            assertEquals(404, download(stranger).status)
+            assertEquals(404, post("/api/v1/applications/$id/artifacts/$fileId/retry", stranger).status)
+            assertEquals(file, json(post("/api/v1/applications/$id/artifacts/$fileId/retry", client)))
+        }
+        assertEquals(404, list(token("CLIENT", UUID.randomUUID())).status)
+        assertEquals(loan, get(id)["process"]["loan"])
+    }
+
+    @Test
+    fun `a corrupted stored file is never downloaded and recovery keeps the issued loan and object key`() {
+        val id = submitted()
+        worker.runDue()
+        post("/api/v1/applications/$id/offer/accept", client)
+        post("/api/v1/applications/$id/sign", client, """{"code":"424242"}""")
+        worker.runDue()
+        val loan = get(id)["process"]["loan"]
+        fun list() = json(mockMvc.get("/api/v1/applications/$id/artifacts") { header("Authorization", "Bearer $client") }.andReturn().response)
+        val records = list()
+        repeat(3) { artifacts.generateOne() }
+        val fileId = UUID.fromString(records[0]["id"].asText())
+        val storedName = jdbc.queryForObject("select stored_name from generated_artifacts where id=?", String::class.java, fileId)!!
+        val corrupt = "Synthetic corrupted bytes".toByteArray()
+        fileStore.put(storedName, corrupt.inputStream(), corrupt.size.toLong(), StorageBackend.LOCAL)
+        val url = "/api/v1/applications/$id/artifacts/$fileId"
+        val failed = mockMvc.get("$url/download") { header("Authorization", "Bearer $client") }.andReturn().response
+        assertEquals(503, failed.status)
+        assertTrue(json(failed)["message"].asText().contains("временно недоступен"))
+        assertEquals("ERROR", list().first { it["id"].asText() == fileId.toString() }["status"].asText())
+        assertEquals(200, post("$url/retry", client).status)
+        assertTrue(artifacts.generateOne())
+        assertEquals(storedName, jdbc.queryForObject("select stored_name from generated_artifacts where id=?", String::class.java, fileId))
+        val restored = mockMvc.get("$url/download") { header("Authorization", "Bearer $client") }.andReturn().response
+        assertEquals(200, restored.status)
+        assertTrue(restored.contentAsByteArray.size > corrupt.size)
+        assertEquals(3, list().size())
+        assertEquals(loan, get(id)["process"]["loan"])
+        assertEquals("DISBURSED", status(id))
+    }
+
+    @Test
+    fun `competing artifact workers publish each final file once and queue a single readiness event`() {
+        val id = submitted()
+        worker.runDue()
+        post("/api/v1/applications/$id/offer/accept", client)
+        post("/api/v1/applications/$id/sign", client, """{"code":"424242"}""")
+        worker.runDue()
+        mockMvc.get("/api/v1/applications/$id/artifacts") { header("Authorization", "Bearer $client") }.andExpect { status { isOk() } }
+        Executors.newFixedThreadPool(4).use { executor ->
+            val gate = CountDownLatch(1)
+            val jobs = (1..4).map {
+                executor.submit(
+                    Callable {
+                        gate.await()
+                        artifacts.generateOne()
+                    },
+                )
+            }
+            gate.countDown()
+            assertEquals(3, jobs.count { it.get(30, TimeUnit.SECONDS) })
+            val notices = (1..2).map { executor.submit(Callable { artifacts.notifyReadyGroups() }) }
+            notices.forEach { it.get(30, TimeUnit.SECONDS) }
+        }
+        assertEquals(
+            3,
+            jdbc.queryForObject("select count(*) from generated_artifacts where application_id=?::uuid and status='READY' and attempts=1", Int::class.java, id),
+        )
+        assertEquals(1, jdbc.queryForObject("select count(*) from generated_artifact_notices where application_id=?::uuid", Int::class.java, id))
+        assertEquals(1, jdbc.queryForObject("select count(*) from delivery_outbox where event_key like ?", Int::class.java, "generated-files:$id:%"))
+        assertEquals("DISBURSED", status(id))
+    }
 
     @Test
     fun `a healthy business goes from the request to the money without a person`() {
@@ -187,6 +431,7 @@ class PipelineScenarioTest {
         assertEquals("MANUAL_REVIEW", status(id))
         val card = json(mockMvc.get("/api/v1/underwriting/applications/$id") { header("Authorization", "Bearer $underwriter") }.andReturn().response)
         assertEquals("SOURCE_UNAVAILABLE", card["automaticDecision"]["manualReasons"][0]["code"].asText())
+        assertTrue(!card["sourceFetchedAt"].has("BUREAU"), "No receipt time may be invented for an unavailable source")
         assertEquals(listOf("APPROVE", "COUNTER_OFFER", "REQUEST_INFO", "REJECT"), card["actions"].map { it.asText() })
 
         assertEquals(400, post("/api/v1/underwriting/applications/$id/approve", underwriter).status, "no recommendation: a reason is required")

@@ -45,7 +45,7 @@ data class PlatformNotification(
     }
 }
 
-enum class NotificationEmailKind { DOCUMENTS_REQUESTED, OFFER_READY, SIGNING_READY, DISBURSED, REFUSED, REVIEW_REQUIRED }
+enum class NotificationEmailKind { DOCUMENTS_REQUESTED, OFFER_READY, SIGNING_READY, DISBURSED, REFUSED, REVIEW_REQUIRED, FILES_READY }
 
 data class NotificationEmail(val kind: NotificationEmailKind, val deadline: String? = null)
 

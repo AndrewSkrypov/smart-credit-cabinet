@@ -91,6 +91,10 @@ export function ProfilePage() {
         <Paper sx={{ p: { xs: 3, md: 4 } }}>
           <Typography variant="h6">Личные данные</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>{roleLabels[session.user.role]}</Typography>
+          {session.user.role === 'CLIENT' && <Box sx={{ mb: 2 }}>
+            <Typography variant="body2">Подписание договоров: {session.user.canSign ? 'доступно' : 'недоступно'}</Typography>
+            <Typography variant="body2" color="text.secondary">{session.user.canSign ? 'Вы можете подписывать договоры от имени компании.' : 'Договор должен подписать представитель компании с правом подписи.'}</Typography>
+          </Box>}
           <Stack component="form" spacing={2} onSubmit={(event) => void saveProfile(event)}>
             {profileError && <Alert severity="error">{profileError}</Alert>}
             {profileSaved && <Alert severity="success">Данные сохранены</Alert>}

@@ -82,15 +82,21 @@ function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
 }
 
 /** What each source answered, as it was when the bank asked. */
+function SourceReceived({ at }: { at: string | undefined }) {
+  return <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{at ? `Получено: ${formatDateTime(at)}` : 'Дата получения не сохранена'}</Typography>;
+}
+
 export function SourcesBlock({ assessment }: { assessment: AssessmentView }) {
   const { registry, tax, bureau, bank } = assessment;
   const maxInflow = Math.max(1, ...(bank?.monthlyInflows ?? []));
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
       <Typography variant="h6" component="h2" gutterBottom>Данные источников</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>«Получено» — время ответа в кабинете, а не дата актуальности сведений. Отчётный период указан отдельно.</Typography>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <Typography variant="subtitle1" fontWeight={700} gutterBottom>ЕГРЮЛ / ЕГРИП</Typography>
+          {registry && <SourceReceived at={assessment.sourceFetchedAt?.REGISTRY} />}
           {registry ? (
             <Facts rows={[
               ['Наименование', registry.fullName || registry.shortName],
@@ -106,6 +112,7 @@ export function SourcesBlock({ assessment }: { assessment: AssessmentView }) {
         </Grid>
         <Grid item xs={12} md={6}>
           <Typography variant="subtitle1" fontWeight={700} gutterBottom>ФНС</Typography>
+          {tax && <SourceReceived at={assessment.sourceFetchedAt?.TAX} />}
           {tax ? (
             tax.hasReports ? (
               <Facts rows={[
@@ -121,6 +128,7 @@ export function SourcesBlock({ assessment }: { assessment: AssessmentView }) {
         </Grid>
         <Grid item xs={12}>
           <Typography variant="subtitle1" fontWeight={700} gutterBottom>Бюро кредитных историй</Typography>
+          {bureau && <SourceReceived at={assessment.sourceFetchedAt?.BUREAU} />}
           {bureau ? (
             <>
               <Facts rows={[
@@ -160,6 +168,7 @@ export function SourcesBlock({ assessment }: { assessment: AssessmentView }) {
         </Grid>
         <Grid item xs={12}>
           <Typography variant="subtitle1" fontWeight={700} gutterBottom>Обороты по счёту в банке</Typography>
+          {bank && <SourceReceived at={assessment.sourceFetchedAt?.BANK} />}
           {bank && bank.client && bank.monthlyInflows.length > 0 ? (
             <>
               <Stack direction="row" spacing="2px" alignItems="flex-end" sx={{ height: 96 }} role="img"

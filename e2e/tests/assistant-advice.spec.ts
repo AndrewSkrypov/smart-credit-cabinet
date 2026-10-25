@@ -14,7 +14,7 @@ if (process.env.MAIL_TESTS !== '1') {
     await page.getByRole('button', { name: 'Спросить' }).click();
     await expect(page.getByText('Кредит на пополнение оборота: ставка от', { exact: false })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('link', { name: 'Оформить', exact: true }).click();
-    await expect(page).toHaveURL(/\/client\/new\?purpose=WORKING_CAPITAL&amount=2000000&term=12/);
+    await expect(page).toHaveURL(/\/client\/new\?purpose=WORKING_CAPITAL&amount=2000000&termMonths=12/);
     await expect(page.getByText('Подходящие продукты')).toBeVisible();
     await noHorizontalOverflow(page);
   });

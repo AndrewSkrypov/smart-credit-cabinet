@@ -5,6 +5,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doNothing
 import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -105,6 +106,51 @@ class NotificationMailTest {
         assertFalse((sent.subject + sent.text).contains("Секретов"))
         assertFalse((sent.subject + sent.text).contains("R_SCORE"))
         assertEquals(0, service.deliver(listOf(notification())))
+    }
+
+    @Test
+    fun `files-ready retry uses current email and the same mail key without attaching financial details`() {
+        preferences.save(user, NotificationPreference(true))
+        whenever(recipients.email(user)).thenReturn("old@example.test")
+        doThrow(IllegalStateException("Synthetic SMTP outage")).whenever(transport).send(any())
+        val item = notification().copy(email = NotificationEmail(NotificationEmailKind.FILES_READY))
+        assertEquals(1, service.deliver(listOf(item)))
+        val now = Instant.now().plusSeconds(1)
+        work(now)
+        assertEquals("PENDING", state())
+        whenever(recipients.email(user)).thenReturn("updated@example.test")
+        doNothing().whenever(transport).send(any())
+        work(now.plusSeconds(30))
+        val mail = argumentCaptor<OutgoingMail>()
+        verify(transport, times(2)).send(mail.capture())
+        assertEquals("old@example.test", mail.firstValue.recipient)
+        assertEquals("updated@example.test", mail.lastValue.recipient)
+        assertEquals(mail.firstValue.key, mail.lastValue.key)
+        assertEquals("Документы по кредиту готовы", mail.lastValue.subject)
+        assertTrue(mail.lastValue.text.contains("PDF и XLSX"))
+        assertTrue(mail.lastValue.text.endsWith(link))
+        assertFalse(mail.lastValue.text.contains("R_SCORE") || mail.lastValue.text.contains("1000000"))
+        assertEquals(0, service.deliver(listOf(item)))
+        assertEquals("DELIVERED", state())
+    }
+
+    @Test
+    fun `files-ready mail respects preference changes and inactive recipients after enqueue`() {
+        val preference = preferences.save(user, NotificationPreference(true))
+        val item = notification().copy(email = NotificationEmail(NotificationEmailKind.FILES_READY))
+        service.deliver(listOf(item))
+        preferences.save(user, NotificationPreference(false, preference.version))
+        work(Instant.now().plusSeconds(1))
+        verify(recipients, never()).email(user)
+        verify(transport, never()).send(any())
+        assertEquals("DELIVERED", state(), "suppressed jobs complete without pretending an SMTP send occurred")
+
+        preferences.save(user, NotificationPreference(true, preference.version + 1))
+        whenever(recipients.email(user)).thenReturn(null)
+        service.deliver(listOf(item.copy(dedupKey = "inactive-$key")))
+        work(Instant.now().plusSeconds(2))
+        verify(recipients).email(user)
+        verify(transport, never()).send(any())
     }
 
     @Test

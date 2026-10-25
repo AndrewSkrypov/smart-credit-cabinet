@@ -10,6 +10,7 @@ import { MessagesBlock } from '../../../components/MessagesBlock';
 import { statusTitle, statusTone } from '../../../shared/applicationText';
 import { fileSize, formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
 import { Application, AssessmentView } from '../../../types';
+import { AdviceBlock } from './AdviceBlock';
 import { AuditBlock, DiscrepanciesBlock, ScoreBlock, SourcesBlock } from './AssessmentBlocks';
 import { DecisionPanel, outcomeTitles } from './DecisionPanel';
 
@@ -74,6 +75,7 @@ export function BankApplicationPage() {
         <Grid item xs={12} lg={7}>
           <Stack spacing={3}>
             <DecisionPanel application={application} assessment={assessment} onDone={() => { setNotice('Решение сохранено, клиент увидит его в кабинете'); void load(); }} />
+            <AdviceBlock applicationId={application.id} version={`${application.status}-${application.statusChangedAt}`} />
             <ScoreBlock decision={assessment.automaticDecision} />
             {assessment.latestDecision && assessment.latestDecision.decidedByType !== 'SYSTEM' && (
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>

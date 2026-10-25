@@ -2,6 +2,8 @@ components:
   schemas:
     Answer:
       properties:
+        link:
+          $ref: '#/components/schemas/AnswerLink'
         mode:
           enum:
           - MODEL
@@ -17,6 +19,16 @@ components:
       - mode
       - sources
       - text
+      type: object
+    AnswerLink:
+      properties:
+        label:
+          type: string
+        path:
+          type: string
+      required:
+      - label
+      - path
       type: object
     AssistantQuestion:
       properties:
@@ -154,6 +166,14 @@ components:
       - read
       - title
       - type
+      type: object
+    SummaryRequest:
+      properties:
+        applicationId:
+          format: uuid
+          type: string
+      required:
+      - applicationId
       type: object
     SystemKeyError:
       properties:
@@ -352,6 +372,98 @@ paths:
       security:
       - bearerAuth: []
       summary: 'Режим помощника: модель с открытыми весами или справочные ответы по правилам'
+      tags:
+      - Кредитный помощник
+  /api/v1/assistant/underwriting-summary:
+    post:
+      operationId: underwritingSummary
+      parameters:
+      - in: header
+        name: Authorization
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SummaryRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/Answer'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/assistant/underwriting-summary
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/assistant/underwriting-summary
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/assistant/underwriting-summary
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/assistant/underwriting-summary
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/assistant/underwriting-summary
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: 'Сводка для андеррайтера: пересказ рекомендаций экспертной системы по заявке (только сотрудники банка)'
       tags:
       - Кредитный помощник
   /api/v1/notifications:

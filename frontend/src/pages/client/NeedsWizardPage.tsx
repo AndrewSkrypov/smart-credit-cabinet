@@ -1,8 +1,8 @@
 import { Alert, Box, Button, Card, CardActionArea, Chip, Grid, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { FormEvent, useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { applicationsApi, productsApi } from '../../api/client';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingBlock } from '../../components/LoadingBlock';
@@ -24,12 +24,25 @@ const TERMS = [3, 6, 12, 18, 24, 36, 48, 60];
 export function NeedsWizardPage() {
   const navigate = useNavigate();
   const purposes = useApi(productsApi.purposes);
-  const [purpose, setPurpose] = useState<FinancingPurpose | null>(null);
-  const [amount, setAmount] = useState<number | null>(1_000_000);
-  const [termMonths, setTermMonths] = useState(12);
+  // The assistant's «Оформить» opens the wizard with the need it understood: ?purpose=…&amount=…&term=…
+  const [params] = useSearchParams();
+  const linkedAmount = Number(params.get('amount')) || null;
+  const linkedTerm = Number(params.get('term')) || null;
+  const [purpose, setPurpose] = useState<FinancingPurpose | null>((params.get('purpose') as FinancingPurpose | null) ?? null);
+  const [amount, setAmount] = useState<number | null>(linkedAmount ?? 1_000_000);
+  const [termMonths, setTermMonths] = useState(linkedTerm && TERMS.includes(linkedTerm) ? linkedTerm : linkedTerm ? TERMS.reduce((best, term) => (Math.abs(term - linkedTerm) < Math.abs(best - linkedTerm) ? term : best)) : 12);
   const [matches, setMatches] = useState<ProductMatch[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // A known purpose and amount from the link: show the products straight away.
+  const knownPurpose = purpose !== null && (purposes.data ?? []).some((item) => item.code === purpose);
+  useEffect(() => {
+    if (!knownPurpose || !linkedAmount || !amount || matches) return;
+    productsApi.match(purpose!, amount, termMonths).then(setMatches).catch(() => undefined);
+    // Only once, when the purposes arrive and confirm the linked one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [knownPurpose]);
 
   if (purposes.loading) return <LoadingBlock />;
   if (purposes.error || !purposes.data) return <ErrorState message={purposes.error ?? 'Нет данных'} onRetry={purposes.reload} />;

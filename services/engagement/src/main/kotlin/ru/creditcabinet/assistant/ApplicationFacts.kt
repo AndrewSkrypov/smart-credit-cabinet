@@ -46,6 +46,19 @@ class CreditApplications(
         builder.clone().baseUrl(it).requestFactory(requestFactory).build()
     }
 
+    /** The expert system's advice on an application, read with the staff member's own token. */
+    fun advice(applicationId: UUID, authorization: String): JsonNode? {
+        val client = client ?: return null
+        return try {
+            client.get().uri("/api/v1/underwriting/applications/{id}/advice", applicationId).header(HttpHeaders.AUTHORIZATION, authorization)
+                .retrieve().body(JsonNode::class.java)
+        } catch (exception: HttpClientErrorException.NotFound) {
+            throw NotFoundException("Заявка не найдена")
+        } catch (exception: Exception) {
+            null
+        }
+    }
+
     fun facts(applicationId: UUID, authorization: String): ApplicationFacts? {
         val client = client ?: return null
         val application = try {

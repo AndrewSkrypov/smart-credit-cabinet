@@ -2,7 +2,7 @@ import { Alert, Box, Button, Chip, Drawer, Fab, IconButton, Stack, TextField, Ty
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { assistantApi } from '../api/client';
 import { tokens } from '../theme/theme';
 import { AssistantAnswer, AssistantTurn } from '../types';
@@ -107,6 +107,9 @@ export function AssistantPanel() {
                 <Box sx={{ px: 2, py: 1.25, borderRadius: '16px', bgcolor: message.role === 'user' ? tokens.dark : tokens.secondaryFill, color: message.role === 'user' ? '#fff' : 'text.primary' }}>
                   <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{message.text}</Typography>
                 </Box>
+                {message.answer?.link && (
+                  <Button component={RouterLink} to={message.answer.link.path} variant="contained" size="small" sx={{ mt: 1 }}>{message.answer.link.label}</Button>
+                )}
                 {message.answer && message.answer.sources.length > 0 && (
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>Источники: {message.answer.sources.join(', ')}</Typography>
                 )}

@@ -26,6 +26,8 @@ data class AssistantQuestion(
 
 data class AssistantStatus(val mode: AnswerMode, val model: String?)
 
+data class SummaryRequest(val applicationId: UUID)
+
 @Tag(name = "Кредитный помощник")
 @RestController
 @RequestMapping("/api/v1/assistant")
@@ -40,4 +42,11 @@ class AssistantController(private val service: AssistantService) {
         @Valid @RequestBody request: AssistantQuestion,
         @RequestHeader(HttpHeaders.AUTHORIZATION) authorization: String,
     ): Answer = service.answer(request.question.trim(), request.applicationId, request.history, authorization)
+
+    @Operation(summary = "Сводка для андеррайтера: пересказ рекомендаций экспертной системы по заявке (только сотрудники банка)")
+    @PostMapping("/underwriting-summary")
+    fun underwritingSummary(
+        @RequestBody request: SummaryRequest,
+        @RequestHeader(HttpHeaders.AUTHORIZATION) authorization: String,
+    ): Answer = service.underwritingSummary(request.applicationId, authorization)
 }

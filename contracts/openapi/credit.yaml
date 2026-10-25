@@ -25,6 +25,65 @@ components:
       - applicationId
       - status
       type: object
+    AdviceItemView:
+      properties:
+        because:
+          items:
+            type: string
+          type: array
+        code:
+          type: string
+        kind:
+          enum:
+          - STOP
+          - RISK
+          - CHECK
+          - ASK
+          - OPTION
+          - INFO
+          type: string
+        text:
+          type: string
+        title:
+          type: string
+      required:
+      - because
+      - code
+      - kind
+      - text
+      - title
+      type: object
+    AdviceView:
+      properties:
+        applicationId:
+          format: uuid
+          type: string
+        engine:
+          type: string
+        items:
+          items:
+            $ref: '#/components/schemas/AdviceItemView'
+          type: array
+        modelVersion:
+          format: int32
+          type: integer
+        rulesFired:
+          format: int32
+          type: integer
+        rulesTotal:
+          format: int32
+          type: integer
+        verdict:
+          type: string
+      required:
+      - applicationId
+      - engine
+      - items
+      - modelVersion
+      - rulesFired
+      - rulesTotal
+      - verdict
+      type: object
     Analytics:
       properties:
         automaticOutcomes:
@@ -4533,6 +4592,81 @@ paths:
       security:
       - bearerAuth: []
       summary: 'Карточка оценки: данные источников, расхождения, скоринг и рекомендация'
+      tags:
+      - Решения сотрудников банка
+  /api/v1/underwriting/applications/{id}/advice:
+    get:
+      operationId: advice
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AdviceView'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/underwriting/applications/{id}/advice
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/underwriting/applications/{id}/advice
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/underwriting/applications/{id}/advice
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/underwriting/applications/{id}/advice
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: 'Рекомендации экспертной системы (МИВАР): что проверить, что запросить, какие условия проходят — с цепочкой
+        «почему»'
       tags:
       - Решения сотрудников банка
   /api/v1/underwriting/applications/{id}/approve:

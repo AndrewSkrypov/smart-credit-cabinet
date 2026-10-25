@@ -64,12 +64,14 @@
 | credit | `GET /api/v1/bank/products/{code}` | 401 | 403 | 403 | 200 | 200 | 200 |
 | credit | `PUT /api/v1/bank/products/{code}` | 401 | 403 | 403 | 403 | 403 | 200 |
 | credit | `GET /api/v1/underwriting/applications/{id}` | 401 | 403 | 403 | 200 | 200 | 200 |
+| credit | `GET /api/v1/underwriting/applications/{id}/advice` | 401 | 403 | 403 | 200 | 200 | 200 |
 | credit | `POST /api/v1/underwriting/applications/{id}/approve` | 401 | 403 | 403 | 403 | 200 | 403 |
 | credit | `POST /api/v1/underwriting/applications/{id}/counter-offer` | 401 | 403 | 403 | 403 | 200 | 403 |
 | credit | `POST /api/v1/underwriting/applications/{id}/reject` | 401 | 403 | 403 | 403 | 200 | 403 |
 | credit | `POST /api/v1/underwriting/applications/{id}/request-info` | 401 | 403 | 403 | 200 | 200 | 403 |
 | engagement | `POST /api/v1/assistant/messages` | 401 | 200 | 404 | 200 | 200 | 200 |
 | engagement | `GET /api/v1/assistant/status` | 401 | 200 | 200 | 200 | 200 | 200 |
+| engagement | `POST /api/v1/assistant/underwriting-summary` | 401 | 403 | 403 | 200 | 200 | 200 |
 | engagement | `GET /api/v1/notifications` | 401 | 200 | 200 | 200 | 200 | 200 |
 | engagement | `GET /api/v1/notifications/settings` | 401 | 200 | 200 | 200 | 200 | 200 |
 | engagement | `PUT /api/v1/notifications/settings` | 401 | 200 | 200 | 200 | 200 | 200 |

@@ -174,6 +174,8 @@ def invoke(method, template, kind, role, fixture):
         body = {**product, "expectedVersion": product["version"], "reason": "Проверка права публикации без изменения условий"}
     if template == "/api/v1/assistant/messages":
         body = {"question": "Какой статус у этой заявки?", "applicationId": fixture["id"], "history": []}
+    if template == "/api/v1/assistant/underwriting-summary":
+        body = {"applicationId": fixture["id"]}
     if kind == "sim_mode":
         body = {"mode": "OK"}
     if kind == "notification_settings" and method == "PUT":

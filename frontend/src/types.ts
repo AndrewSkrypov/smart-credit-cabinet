@@ -474,4 +474,26 @@ export interface AssistantAnswer {
   text: string;
   mode: 'MODEL' | 'RULES';
   sources: string[];
+  /** Where the cabinet continues what the assistant started, e.g. the wizard with the need filled in. */
+  link?: { label: string; path: string } | null;
+}
+
+export type AdviceKind = 'STOP' | 'RISK' | 'CHECK' | 'ASK' | 'OPTION' | 'INFO';
+
+export interface AdviceItem {
+  code: string;
+  kind: AdviceKind;
+  title: string;
+  text: string;
+  because: string[];
+}
+
+export interface UnderwritingAdvice {
+  applicationId: string;
+  engine: string;
+  modelVersion: number;
+  verdict: string;
+  items: AdviceItem[];
+  rulesFired: number;
+  rulesTotal: number;
 }

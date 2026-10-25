@@ -3,10 +3,10 @@ import { clearSession, readSession } from '../auth/session';
 import {
   Analytics,
   Application,
-  AssessmentView,
   ApplicationDocument,
   ApplicationInput,
   ApplicationSummary,
+  AssessmentView,
   AssistantAnswer,
   AssistantTurn,
   Calculation,
@@ -19,10 +19,11 @@ import {
   Product,
   ProductMatch,
   ProductRevision,
+  Purpose,
   RuleParams,
   RulesResponse,
-  Purpose,
   SignUpInput,
+  UnderwritingAdvice,
   UserSession
 } from '../types';
 import { ChatAudit, ChatFile, ChatMessage, ChatPage, ChatRead } from '../types';
@@ -185,6 +186,7 @@ export interface RequestedItem {
 /** The underwriter's card and decisions (T13–T15); a manager may only ask for information. */
 export const underwritingApi = {
   assessment: (id: string) => get<AssessmentView>(`/underwriting/applications/${id}`),
+  advice: (id: string) => get<UnderwritingAdvice>(`/underwriting/applications/${id}/advice`),
   approve: (id: string, comment?: string) => post<{ status: string }>(`/underwriting/applications/${id}/approve`, { comment }),
   counterOffer: (id: string, body: { productCode?: string; amount: number; termMonths: number; comment?: string }) =>
     post<{ status: string }>(`/underwriting/applications/${id}/counter-offer`, body),
@@ -214,5 +216,6 @@ export const notificationsApi = {
 export const assistantApi = {
   status: () => get<{ mode: 'MODEL' | 'RULES'; model: string | null }>('/assistant/status'),
   ask: (question: string, applicationId: string | null, history: AssistantTurn[]) =>
-    post<AssistantAnswer>('/assistant/messages', { question, applicationId, history })
+    post<AssistantAnswer>('/assistant/messages', { question, applicationId, history }),
+  underwritingSummary: (applicationId: string) => post<AssistantAnswer>('/assistant/underwriting-summary', { applicationId })
 };

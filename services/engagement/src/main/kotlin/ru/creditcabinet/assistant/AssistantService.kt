@@ -14,7 +14,7 @@ enum class AnswerMode { MODEL, RULES }
 
 data class Turn(val role: String, val text: String)
 
-data class Answer(val text: String, val mode: AnswerMode, val sources: List<String>)
+data class Answer(val text: String, val mode: AnswerMode, val sources: List<String>, val link: AnswerLink? = null)
 
 /**
  * The cabinet's assistant: explains terms, the status and the bank's decision of an application
@@ -25,6 +25,7 @@ data class Answer(val text: String, val mode: AnswerMode, val sources: List<Stri
 class AssistantService(
     private val model: LanguageModel,
     private val applications: CreditApplications,
+    private val products: CreditProducts,
     private val clock: Clock,
 ) {
     private val recent = ConcurrentHashMap<UUID, List<Instant>>()
@@ -45,6 +46,11 @@ class AssistantService(
         // and a model would make one up.
         // Legal advice and ways around repayment are refused before any model sees the question.
         if (RuleAnswers.asksForLegalAdvice(question)) return Answer(RuleAnswers.NO_LEGAL_ADVICE, AnswerMode.RULES, sources)
+        // «Подбери кредит…»: products and payments come from the matcher of the needs wizard, by rules.
+        financingNeed(question, history)?.let { need ->
+            val (text, link) = ProductAdvice.answer(need, products, authorization)
+            return Answer(text, AnswerMode.RULES, listOf("Подбор продукта"), link)
+        }
         if (facts == null && RuleAnswers.isAboutOwnApplication(question)) {
             return Answer(RuleAnswers.openTheApplication(articles), AnswerMode.RULES, sources)
         }
@@ -65,6 +71,49 @@ class AssistantService(
             log.warn("Assistant answer dropped: {}", problems)
         }
         return Answer(RuleAnswers.answer(question, facts, articles), AnswerMode.RULES, sources)
+    }
+
+    /**
+     * A few sentences for the underwriter over the expert system's advice. The model only retells
+     * the conclusions it is given; a figure not in them, or a model that is not there, gives the
+     * summary by rules: the verdict and the first items.
+     */
+    fun underwritingSummary(applicationId: UUID, authorization: String): Answer {
+        val claims = CurrentCaller.requireBankStaff()
+        throttle(claims.userId)
+        val advice = applications.advice(applicationId, authorization)
+            ?: return Answer("Рекомендации сейчас недоступны — данные заявки видны в карточке.", AnswerMode.RULES, emptyList())
+        val verdict = advice["verdict"].asText()
+        val items = advice["items"].map { "${it["title"].asText()}. ${it["text"].asText()}" }
+        val sources = listOf("Экспертная система МИВАР, модель v${advice["modelVersion"].asInt()}")
+        val byRules = (listOf(verdict) + items.take(3).map { "— $it" }).joinToString("\n")
+        if (items.isEmpty()) return Answer(verdict, AnswerMode.RULES, sources)
+        val context = "Вывод: $verdict\nПункты:\n" + items.joinToString("\n") { "— $it" }
+        val messages = listOf(ChatMessage("system", UNDERWRITER_SYSTEM), ChatMessage("user", context))
+        model.chat(messages)?.let { reply ->
+            val text = withoutPromptEcho(plainText(reply))
+            val problems = Grounding.problems(text, context)
+            if (problems.isEmpty()) return Answer(text, AnswerMode.MODEL, sources)
+            log.warn("Underwriting summary dropped: {}", problems)
+        }
+        return Answer(byRules, AnswerMode.RULES, sources)
+    }
+
+    /**
+     * The need of a product question, or of an answer to the assistant's own «На что нужны деньги?» /
+     * «Сколько нужно…?»: then the client's earlier words in the conversation fill what this one lacks.
+     */
+    internal fun financingNeed(question: String, history: List<Turn>): FinancingNeed? {
+        val lastAnswer = history.lastOrNull { it.role == "assistant" }?.text.orEmpty()
+        val followsUp = ProductAdvice.ASK_PURPOSE in lastAnswer || ProductAdvice.ASK_AMOUNT in lastAnswer
+        if (!NeedParser.asksForProduct(question) && !followsUp) return null
+        val asks = NeedParser.asksForProduct(question)
+        val now = NeedParser.parse(question)
+        if (!followsUp) return now
+        // A different question after «Сколько нужно…?» is not an answer to it.
+        if (!asks && now == FinancingNeed(null, null, null)) return null
+        val before = NeedParser.parse(history.filter { it.role == "user" }.takeLast(2).joinToString(" ") { it.text })
+        return FinancingNeed(now.purpose ?: before.purpose, now.amount ?: before.amount, now.termMonths ?: before.termMonths)
     }
 
     private fun prompt(question: String, facts: ApplicationFacts?, articles: List<Article>, history: List<Turn>): List<ChatMessage> {
@@ -132,6 +181,15 @@ class AssistantService(
         private const val MAX_HISTORY = 4
         private const val MAX_QUESTIONS = 20
         private val WINDOW: Duration = Duration.ofMinutes(10)
+
+        /** The underwriter's summary: a retelling of the expert system's conclusions, never a decision. */
+        val UNDERWRITER_SYSTEM =
+            """
+            Ты помогаешь андеррайтеру банка быстро прочитать выводы экспертной системы по заявке малого бизнеса.
+            Перескажи их по-русски в трёх–четырёх предложениях: главное — что мешает решению и что сделать перед ним.
+            Используй только данные из сообщения, цифры — ровно как там. Не принимай решение за андеррайтера, не советуй одобрить или отказать.
+            Пиши простым текстом без разметки.
+            """.trimIndent()
 
         /** The rules of the model. The question is the person's text and never overrides them. */
         val SYSTEM =

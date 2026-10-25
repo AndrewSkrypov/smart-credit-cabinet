@@ -1,6 +1,6 @@
 import { Alert, Box, Button, Chip, Collapse, Paper, Stack, Typography } from '@mui/material';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { assistantApi, underwritingApi } from '../../../api/client';
 import { useApi } from '../../../hooks/useApi';
 import { AdviceItem, AdviceKind, AssistantAnswer } from '../../../types';
@@ -46,20 +46,41 @@ function Item({ item }: { item: AdviceItem }) {
  * policy, each with the chain of rules behind it. It advises; the decision stays with the person.
  */
 export function AdviceBlock({ applicationId, version }: { applicationId: string; version: string }) {
+  // Reset results, errors and busy state before rendering a different recommendation snapshot.
+  return <AdviceSnapshot key={JSON.stringify([applicationId, version])} applicationId={applicationId} version={version} />;
+}
+
+function AdviceSnapshot({ applicationId, version }: { applicationId: string; version: string }) {
   const advice = useApi(() => underwritingApi.advice(applicationId), [applicationId, version]);
   const [summary, setSummary] = useState<AssistantAnswer | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const mounted = useRef(false);
+  const requestSequence = useRef(0);
+  const inFlight = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; requestSequence.current += 1; };
+  }, []);
 
   const summarize = async () => {
+    if (!mounted.current || inFlight.current) return;
+    inFlight.current = true;
+    const request = ++requestSequence.current;
+    const current = () => mounted.current && request === requestSequence.current;
     setSummarizing(true);
     setSummaryError(null);
     try {
-      setSummary(await assistantApi.underwritingSummary(applicationId));
+      const answer = await assistantApi.underwritingSummary(applicationId);
+      if (current()) setSummary(answer);
     } catch (error) {
-      setSummaryError(error instanceof Error ? error.message : 'Не удалось подготовить сводку');
+      if (current()) setSummaryError(error instanceof Error ? error.message : 'Не удалось подготовить сводку');
     } finally {
-      setSummarizing(false);
+      if (current()) {
+        inFlight.current = false;
+        setSummarizing(false);
+      }
     }
   };
 

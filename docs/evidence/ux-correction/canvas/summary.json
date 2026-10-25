@@ -1,0 +1,654 @@
+{
+  "passed": true,
+  "device": "Headless Edge, synthetic wheel and emulated touch; original native IAB gesture remains unverified",
+  "records": [
+    {
+      "name": "main-landing-1440-top",
+      "y": 0,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "main-landing-1440-bottom",
+      "y": 4402,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "main-landing-390-top",
+      "y": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "main-landing-390-bottom",
+      "y": 7834,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "main-auth-1440-top",
+      "y": 0,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "main-auth-1440-bottom",
+      "y": 0,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "main-auth-390-top",
+      "y": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "main-auth-390-bottom",
+      "y": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "before-landing-1440-top",
+      "y": 0,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "before-landing-1440-bottom",
+      "y": 4422,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "before-landing-390-top",
+      "y": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "before-landing-390-bottom",
+      "y": 7854,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "before-auth-1440-top",
+      "y": 0,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) linear-gradient(to right, rgb(18, 18, 19) 0%, rgb(18, 18, 19) 41.6667%, rgb(243, 244, 245) 41.6667%, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "before-auth-1440-bottom",
+      "y": 0,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) linear-gradient(to right, rgb(18, 18, 19) 0%, rgb(18, 18, 19) 41.6667%, rgb(243, 244, 245) 41.6667%, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "before-auth-390-top",
+      "y": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "before-auth-390-bottom",
+      "y": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "candidate-landing-1440-top",
+      "y": 0,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "candidate-landing-1440-bottom",
+      "y": 4422,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "candidate-landing-390-top",
+      "y": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "candidate-landing-390-bottom",
+      "y": 7854,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(18, 18, 19) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "candidate-auth-1440-top",
+      "y": 0,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) linear-gradient(to right, rgb(18, 18, 19) 0%, rgb(18, 18, 19) 41.6667%, rgb(243, 244, 245) 41.6667%, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "candidate-auth-1440-bottom",
+      "y": 0,
+      "width": 1440,
+      "documentWidth": 1440,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgba(0, 0, 0, 0) linear-gradient(to right, rgb(18, 18, 19) 0%, rgb(18, 18, 19) 41.6667%, rgb(243, 244, 245) 41.6667%, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "candidate-auth-390-top",
+      "y": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    },
+    {
+      "name": "candidate-auth-390-bottom",
+      "y": 0,
+      "width": 390,
+      "documentWidth": 390,
+      "scroller": "HTML",
+      "layers": [
+        {
+          "tag": "HTML",
+          "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "BODY",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        },
+        {
+          "tag": "DIV",
+          "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+          "transform": "none",
+          "overflow": "visible"
+        }
+      ]
+    }
+  ]
+}

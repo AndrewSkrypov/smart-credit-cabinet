@@ -1,0 +1,2226 @@
+{
+  "passed": true,
+  "fixtures": "Explicit same UI rows/companies, no database writes",
+  "nativeGesture": "Unverified: headless browser wheel/touch is not the original IAB device gesture",
+  "records": [
+    {
+      "variant": "main",
+      "label": "client-mixed",
+      "file": "main-client-mixed-1440.png",
+      "sha256": "d0d8f8b7314c9be1c62f0c00d5f70d97761fad41431ebddd388f2911cdcbeb95",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 1261,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 144,
+          "y": 152,
+          "width": 552.75
+        },
+        {
+          "text": "В работе",
+          "x": 144,
+          "y": 252,
+          "width": 760
+        },
+        {
+          "text": "Завершённые",
+          "x": 144,
+          "y": 748.640625,
+          "width": 760
+        },
+        {
+          "text": "Представители компании",
+          "x": 953,
+          "y": 277,
+          "width": 318
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 952,
+          "y": 541.515625,
+          "width": 224
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 928,
+          "width": 368,
+          "height": 241.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 928,
+          "width": 368,
+          "height": 231
+        }
+      ],
+      "cards": [
+        {
+          "x": 144,
+          "y": 292.59375,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 440.609375,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 588.625,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 789.234375,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 937.25,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 1085.265625,
+          "width": 760,
+          "height": 136.015625
+        }
+      ],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "main",
+      "label": "client-only-done",
+      "file": "main-client-only-done-1440.png",
+      "sha256": "94ff19985f95a8bfea1e2ca75e5616a63e4abbf4645fba9e43561845bd757416",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 144,
+          "y": 152,
+          "width": 552.75
+        },
+        {
+          "text": "Завершённые",
+          "x": 144,
+          "y": 252,
+          "width": 760
+        },
+        {
+          "text": "Представители компании",
+          "x": 953,
+          "y": 277,
+          "width": 318
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 952,
+          "y": 541.515625,
+          "width": 224
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 928,
+          "width": 368,
+          "height": 241.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 928,
+          "width": 368,
+          "height": 231
+        }
+      ],
+      "cards": [
+        {
+          "x": 144,
+          "y": 292.59375,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 440.609375,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 588.625,
+          "width": 760,
+          "height": 136.015625
+        }
+      ],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "main",
+      "label": "client-empty",
+      "file": "main-client-empty-1440.png",
+      "sha256": "7289effc8349e44fcafdd30092cea77528ce421c6ebbf7bf50cbe3a619989acf",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 144,
+          "y": 152,
+          "width": 552.75
+        },
+        {
+          "text": "Представители компании",
+          "x": 953,
+          "y": 277,
+          "width": 318
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 952,
+          "y": 541.515625,
+          "width": 224
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 928,
+          "width": 368,
+          "height": 241.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 928,
+          "width": 368,
+          "height": 231
+        }
+      ],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "main",
+      "label": "bank-review",
+      "file": "main-bank-review-1440.png",
+      "sha256": "20622837d6340a4cde0be682dcad07dc82be34c065ba6b2af01bb61ea18101ed",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 144,
+          "y": 152,
+          "width": 612.078125
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        }
+      ],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "main",
+      "label": "bank-done",
+      "file": "main-bank-done-1440.png",
+      "sha256": "c505257ee9b49a846067fd98800ceee0f4365d395eb2459f35be2a5bba8ecdae",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 144,
+          "y": 152,
+          "width": 612.078125
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        }
+      ],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "main",
+      "label": "bank-empty",
+      "file": "main-bank-empty-1440.png",
+      "sha256": "df180071923c9a2d8c26a98ed3fe9c13964698d76c68acec6cd9c71d5b01a343",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 144,
+          "y": 152,
+          "width": 612.078125
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "main",
+      "label": "client-mixed",
+      "file": "main-client-mixed-390.png",
+      "sha256": "67a0f0c7ce07496d0c3a20c88d2826be0abd58f822e403c7e56e04e2f5f06551",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1990,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        },
+        {
+          "text": "В работе",
+          "x": 16,
+          "y": 367.1875,
+          "width": 358
+        },
+        {
+          "text": "Завершённые",
+          "x": 16,
+          "y": 934.328125,
+          "width": 358
+        },
+        {
+          "text": "Представители компании",
+          "x": 33,
+          "y": 1518.46875,
+          "width": 324
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 32,
+          "y": 1766.984375,
+          "width": 228.1875
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 16,
+          "width": 358,
+          "height": 225.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 16,
+          "width": 358,
+          "height": 215
+        }
+      ],
+      "cards": [
+        {
+          "x": 16,
+          "y": 407.78125,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 579.296875,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 750.8125,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 974.921875,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 1146.4375,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 1317.953125,
+          "width": 358,
+          "height": 159.515625
+        }
+      ],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "main",
+      "label": "client-only-done",
+      "file": "main-client-only-done-390.png",
+      "sha256": "5eb2f127961c3c3e52587417c07686eac4563214335034a1cbbe4d1d59d37c81",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1423,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        },
+        {
+          "text": "Завершённые",
+          "x": 16,
+          "y": 367.1875,
+          "width": 358
+        },
+        {
+          "text": "Представители компании",
+          "x": 33,
+          "y": 951.328125,
+          "width": 324
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 32,
+          "y": 1199.84375,
+          "width": 228.1875
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 16,
+          "width": 358,
+          "height": 225.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 16,
+          "width": 358,
+          "height": 215
+        }
+      ],
+      "cards": [
+        {
+          "x": 16,
+          "y": 407.78125,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 579.296875,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 750.8125,
+          "width": 358,
+          "height": 159.515625
+        }
+      ],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "main",
+      "label": "client-empty",
+      "file": "main-client-empty-390.png",
+      "sha256": "ed4ca4dc672dea29812e9b874d730cf6cd796281def4c57f1554c8340ed6722f",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1171,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        },
+        {
+          "text": "Представители компании",
+          "x": 33,
+          "y": 699.78125,
+          "width": 324
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 32,
+          "y": 948.296875,
+          "width": 228.1875
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 16,
+          "width": 358,
+          "height": 225.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 16,
+          "width": 358,
+          "height": 215
+        }
+      ],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "main",
+      "label": "bank-review",
+      "file": "main-bank-review-390.png",
+      "sha256": "854f2108be60d47b066b7aa6951fbcbf86f962891c4b42e2a1fcd6d662f9ad2f",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "main",
+      "label": "bank-done",
+      "file": "main-bank-done-390.png",
+      "sha256": "e58b8d618d43122e2b218a6d5affe113562a0b981742e4fd54e7a64bb6723f5c",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "main",
+      "label": "bank-empty",
+      "file": "main-bank-empty-390.png",
+      "sha256": "f143860406e6d0a8d7dad7e455b1477eebee7b40ebf661293827a3014c66ef88",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "client-mixed",
+      "file": "before-client-mixed-1440.png",
+      "sha256": "09b4470813e4f425f777f5a0d386e4c34d5be02a4e6fc64d97630b0abe19351b",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 949,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 144,
+          "y": 184,
+          "width": 552.75
+        },
+        {
+          "text": "Представители компании",
+          "x": 953,
+          "y": 309,
+          "width": 318
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 952,
+          "y": 645.515625,
+          "width": 224
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 928,
+          "width": 368,
+          "height": 241.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 928,
+          "width": 368,
+          "height": 231
+        }
+      ],
+      "cards": [
+        {
+          "x": 144,
+          "y": 397,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 545.015625,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 693.03125,
+          "width": 760,
+          "height": 136.015625
+        }
+      ],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "client-only-done",
+      "file": "before-client-only-done-1440.png",
+      "sha256": "cfa81bf787a1c19641c02c9a5191e85d96234d1ac06cc68e8f126bdd9e5796c5",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 144,
+          "y": 184,
+          "width": 552.75
+        },
+        {
+          "text": "Представители компании",
+          "x": 953,
+          "y": 309,
+          "width": 318
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 952,
+          "y": 645.515625,
+          "width": 224
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 928,
+          "width": 368,
+          "height": 241.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 928,
+          "width": 368,
+          "height": 231
+        }
+      ],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "client-empty",
+      "file": "before-client-empty-1440.png",
+      "sha256": "9b9741c686c89f269ff24e3b1f49517a482e31efb076b51667bec3da90f04822",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 144,
+          "y": 184,
+          "width": 552.75
+        },
+        {
+          "text": "Представители компании",
+          "x": 953,
+          "y": 309,
+          "width": 318
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 952,
+          "y": 645.515625,
+          "width": 224
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 928,
+          "width": 368,
+          "height": 241.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 928,
+          "width": 368,
+          "height": 231
+        }
+      ],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "bank-review",
+      "file": "before-bank-review-1440.png",
+      "sha256": "d7ab97b8afad3bf6d6d93e4e76493fe533d155332a49894f7fc02255b7936c2e",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 144,
+          "y": 152,
+          "width": 612.078125
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        }
+      ],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "bank-done",
+      "file": "before-bank-done-1440.png",
+      "sha256": "bcaf467a7a2f54169ad4e285acef86a31f21fb3088e57318d3ddf91089c6f725",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 144,
+          "y": 152,
+          "width": 428.75
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        }
+      ],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "bank-empty",
+      "file": "before-bank-empty-1440.png",
+      "sha256": "7edcbf5bdc0702e266315d89a74a12e9acf50eff253527eb1e226670ecb3d4f9",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 144,
+          "y": 152,
+          "width": 612.078125
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "client-mixed",
+      "file": "before-client-mixed-390.png",
+      "sha256": "7c75300aa8e1f9dc1a8c8fd7c9f974961cf3bc789454cfdce4ed46eaba3e1cf2",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1758,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 16,
+          "y": 192,
+          "width": 358
+        },
+        {
+          "text": "Представители компании",
+          "x": 33,
+          "y": 1214.734375,
+          "width": 324
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 32,
+          "y": 1535.25,
+          "width": 228.1875
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 16,
+          "width": 358,
+          "height": 225.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 16,
+          "width": 358,
+          "height": 215
+        }
+      ],
+      "cards": [
+        {
+          "x": 16,
+          "y": 591.1875,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 762.703125,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 934.21875,
+          "width": 358,
+          "height": 159.515625
+        }
+      ],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "client-only-done",
+      "file": "before-client-only-done-390.png",
+      "sha256": "c49d320af571024bb347db4158d3d1f0cf3aa9313b1a6e9af1e185b39bef16e6",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1443,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 16,
+          "y": 192,
+          "width": 358
+        },
+        {
+          "text": "Представители компании",
+          "x": 33,
+          "y": 899.78125,
+          "width": 324
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 32,
+          "y": 1220.296875,
+          "width": 228.1875
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 16,
+          "width": 358,
+          "height": 225.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 16,
+          "width": 358,
+          "height": 215
+        }
+      ],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "client-empty",
+      "file": "before-client-empty-390.png",
+      "sha256": "3d02374e703458af3a668dee70e2a534c9bad6e38857309f362b6f9440e5bd59",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1443,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 16,
+          "y": 192,
+          "width": 358
+        },
+        {
+          "text": "Представители компании",
+          "x": 33,
+          "y": 899.78125,
+          "width": 324
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 32,
+          "y": 1220.296875,
+          "width": 228.1875
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 16,
+          "width": 358,
+          "height": 225.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 16,
+          "width": 358,
+          "height": 215
+        }
+      ],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "bank-review",
+      "file": "before-bank-review-390.png",
+      "sha256": "e121198c318816e941269aea3ad620ac0b6657a878c4370dc8bc8fd3ce3b8edb",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1167,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "bank-done",
+      "file": "before-bank-done-390.png",
+      "sha256": "921f7624aed37dc605385c7d963ed19239c395ceec6857093f132d6e5a42f1a2",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1059,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "before",
+      "label": "bank-empty",
+      "file": "before-bank-empty-390.png",
+      "sha256": "3375c8a9c9d640669bd23d6e4f3f4c5a825ec1648747c0c7f9d5f9ed03339d7d",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "client-mixed",
+      "file": "candidate-client-mixed-1440.png",
+      "sha256": "8218b9a1ae176994859b433625832fb739f895c8fb6170e0aac772a5781a3cf4",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 1334,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 144,
+          "y": 152,
+          "width": 552.75
+        },
+        {
+          "text": "В работе",
+          "x": 144,
+          "y": 325,
+          "width": 760
+        },
+        {
+          "text": "Завершённые",
+          "x": 144,
+          "y": 821.640625,
+          "width": 760
+        },
+        {
+          "text": "Представители компании",
+          "x": 953,
+          "y": 277,
+          "width": 318
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 952,
+          "y": 541.515625,
+          "width": 224
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 928,
+          "width": 368,
+          "height": 241.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 928,
+          "width": 368,
+          "height": 231
+        }
+      ],
+      "cards": [
+        {
+          "x": 144,
+          "y": 365.59375,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 513.609375,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 661.625,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 862.234375,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 1010.25,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 1158.265625,
+          "width": 760,
+          "height": 136.015625
+        }
+      ],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "client-only-done",
+      "file": "candidate-client-only-done-1440.png",
+      "sha256": "147612f6d55c04c7d6c5ee01612811af9c4520071ee0236ae2542935238e8f37",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 144,
+          "y": 152,
+          "width": 552.75
+        },
+        {
+          "text": "Завершённые",
+          "x": 144,
+          "y": 325,
+          "width": 760
+        },
+        {
+          "text": "Представители компании",
+          "x": 953,
+          "y": 277,
+          "width": 318
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 952,
+          "y": 541.515625,
+          "width": 224
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 928,
+          "width": 368,
+          "height": 241.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 928,
+          "width": 368,
+          "height": 231
+        }
+      ],
+      "cards": [
+        {
+          "x": 144,
+          "y": 365.59375,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 513.609375,
+          "width": 760,
+          "height": 136.015625
+        },
+        {
+          "x": 144,
+          "y": 661.625,
+          "width": 760,
+          "height": 136.015625
+        }
+      ],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "client-empty",
+      "file": "candidate-client-empty-1440.png",
+      "sha256": "b353a7e4fe5aacaa374098da911e69a1a6ea6b47c242401e2b05f5adaa6170dc",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 144,
+          "y": 152,
+          "width": 552.75
+        },
+        {
+          "text": "Представители компании",
+          "x": 953,
+          "y": 277,
+          "width": 318
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 952,
+          "y": 541.515625,
+          "width": 224
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 928,
+          "width": 368,
+          "height": 241.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 928,
+          "width": 368,
+          "height": 231
+        }
+      ],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "bank-review",
+      "file": "candidate-bank-review-1440.png",
+      "sha256": "cae67ec52cc3ad3a7247781942866030313fae5cdf6691170b21ef2ed4aa4041",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 144,
+          "y": 152,
+          "width": 612.078125
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        }
+      ],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "bank-done",
+      "file": "candidate-bank-done-1440.png",
+      "sha256": "1d1287fd7acf980a19a9821b52c3e34e094be3fed4f2ab458cce9928c67f7b10",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 144,
+          "y": 152,
+          "width": 428.75
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        },
+        {
+          "height": 77.015625,
+          "width": 1150
+        }
+      ],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "bank-empty",
+      "file": "candidate-bank-empty-1440.png",
+      "sha256": "2f5d3975b0b0206c7f53fa2fbb4eea2ed9568692bfc8094c82bd56880ed3c9b4",
+      "width": 1440,
+      "documentWidth": 1440,
+      "height": 900,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 80,
+        "top": 0,
+        "right": 1440,
+        "bottom": 80,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 144,
+          "y": 152,
+          "width": 612.078125
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "client-mixed",
+      "file": "candidate-client-mixed-390.png",
+      "sha256": "ca6ae61bd65fdea04743fce3b2a0596affb134e53981ae962bd485fed93e754f",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 2162,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        },
+        {
+          "text": "В работе",
+          "x": 16,
+          "y": 539.1875,
+          "width": 358
+        },
+        {
+          "text": "Завершённые",
+          "x": 16,
+          "y": 1106.328125,
+          "width": 358
+        },
+        {
+          "text": "Представители компании",
+          "x": 33,
+          "y": 1690.46875,
+          "width": 324
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 32,
+          "y": 1938.984375,
+          "width": 228.1875
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 16,
+          "width": 358,
+          "height": 225.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 16,
+          "width": 358,
+          "height": 215
+        }
+      ],
+      "cards": [
+        {
+          "x": 16,
+          "y": 579.78125,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 751.296875,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 922.8125,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 1146.921875,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 1318.4375,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 1489.953125,
+          "width": 358,
+          "height": 159.515625
+        }
+      ],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "client-only-done",
+      "file": "candidate-client-only-done-390.png",
+      "sha256": "17eda0ff9435bdcda014abe71535886a1be969311b93f4faed28cf30d2588f32",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1595,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        },
+        {
+          "text": "Завершённые",
+          "x": 16,
+          "y": 539.1875,
+          "width": 358
+        },
+        {
+          "text": "Представители компании",
+          "x": 33,
+          "y": 1123.328125,
+          "width": 324
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 32,
+          "y": 1371.84375,
+          "width": 228.1875
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 16,
+          "width": 358,
+          "height": 225.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 16,
+          "width": 358,
+          "height": 215
+        }
+      ],
+      "cards": [
+        {
+          "x": 16,
+          "y": 579.78125,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 751.296875,
+          "width": 358,
+          "height": 159.515625
+        },
+        {
+          "x": 16,
+          "y": 922.8125,
+          "width": 358,
+          "height": 159.515625
+        }
+      ],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "client-empty",
+      "file": "candidate-client-empty-390.png",
+      "sha256": "3c486a3d8b08db7975a3c684936567121e82a39b3f4bc7ec8da6f5adc0768fba",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1343,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "ИП Котова Ирина Сергеевна",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        },
+        {
+          "text": "Представители компании",
+          "x": 33,
+          "y": 871.78125,
+          "width": 324
+        },
+        {
+          "text": "Нужны деньги на бизнес?",
+          "x": 32,
+          "y": 1120.296875,
+          "width": 228.1875
+        }
+      ],
+      "sidebarCards": [
+        {
+          "title": "Представители компании",
+          "x": 16,
+          "width": 358,
+          "height": 225.515625
+        },
+        {
+          "title": "Нужны деньги на бизнес?",
+          "x": 16,
+          "width": 358,
+          "height": 215
+        }
+      ],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "bank-review",
+      "file": "candidate-bank-review-390.png",
+      "sha256": "a570dacaba402531ea19a1d7b7cbec7c184a51603b6feb2e8c546629f9f88f1a",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1135,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "bank-done",
+      "file": "candidate-bank-done-390.png",
+      "sha256": "207e0f0c406e6a8fb60b5c19f381b95f6417483ba85a689a96fea09ae3e540b4",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 1027,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    },
+    {
+      "variant": "candidate",
+      "label": "bank-empty",
+      "file": "candidate-bank-empty-390.png",
+      "sha256": "7c966ac7cde83b3230092f786b508f301962465bfde59953e3a3f2ebe6d01f1a",
+      "width": 390,
+      "documentWidth": 390,
+      "height": 901,
+      "scroller": "HTML",
+      "background": "rgb(243, 244, 245) none repeat scroll 0% 0% / auto padding-box border-box",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 64,
+        "top": 0,
+        "right": 390,
+        "bottom": 64,
+        "left": 0
+      },
+      "headings": [
+        {
+          "text": "Заявки",
+          "x": 16,
+          "y": 160,
+          "width": 358
+        }
+      ],
+      "sidebarCards": [],
+      "cards": [],
+      "rows": [],
+      "nestedVerticalScrollers": 0
+    }
+  ],
+  "comparison": [
+    {
+      "width": 1440,
+      "label": "client-mixed",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    },
+    {
+      "width": 1440,
+      "label": "client-only-done",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    },
+    {
+      "width": 1440,
+      "label": "client-empty",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    },
+    {
+      "width": 1440,
+      "label": "bank-review",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    },
+    {
+      "width": 1440,
+      "label": "bank-done",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    },
+    {
+      "width": 1440,
+      "label": "bank-empty",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    },
+    {
+      "width": 390,
+      "label": "client-mixed",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    },
+    {
+      "width": 390,
+      "label": "client-only-done",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    },
+    {
+      "width": 390,
+      "label": "client-empty",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    },
+    {
+      "width": 390,
+      "label": "bank-review",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    },
+    {
+      "width": 390,
+      "label": "bank-done",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    },
+    {
+      "width": 390,
+      "label": "bank-empty",
+      "sameCardsAndRowDensity": true,
+      "intentional": "Bounded section pages/search/status line; bank controls inside existing panel; employee link inside card; no canSign stripe"
+    }
+  ],
+  "fixtureInputs": {
+    "rows": [
+      {
+        "id": "a0000000-0000-4000-8000-000000000001",
+        "number": 71001,
+        "productName": "Оборотный кредит",
+        "companyName": "ООО «Пример»",
+        "companyInn": "000100000004",
+        "status": "MANUAL_REVIEW",
+        "amount": 1000000,
+        "termMonths": 12,
+        "createdAt": "2026-10-25T00:00:00Z",
+        "statusChangedAt": "2026-10-25T00:00:00Z"
+      },
+      {
+        "id": "a0000000-0000-4000-8000-000000000002",
+        "number": 71002,
+        "productName": "Оборотный кредит",
+        "companyName": "ООО «Пример»",
+        "companyInn": "000100000004",
+        "status": "MANUAL_REVIEW",
+        "amount": 1000000,
+        "termMonths": 12,
+        "createdAt": "2026-10-25T00:00:00Z",
+        "statusChangedAt": "2026-10-25T00:00:00Z"
+      },
+      {
+        "id": "a0000000-0000-4000-8000-000000000003",
+        "number": 71003,
+        "productName": "Оборотный кредит",
+        "companyName": "ООО «Пример»",
+        "companyInn": "000100000004",
+        "status": "MANUAL_REVIEW",
+        "amount": 1000000,
+        "termMonths": 12,
+        "createdAt": "2026-10-25T00:00:00Z",
+        "statusChangedAt": "2026-10-25T00:00:00Z"
+      },
+      {
+        "id": "a0000000-0000-4000-8000-000000000004",
+        "number": 71004,
+        "productName": "Оборотный кредит",
+        "companyName": "ООО «Пример»",
+        "companyInn": "000100000004",
+        "status": "REJECTED",
+        "amount": 1000000,
+        "termMonths": 12,
+        "createdAt": "2026-10-25T00:00:00Z",
+        "statusChangedAt": "2026-10-25T00:00:00Z"
+      },
+      {
+        "id": "a0000000-0000-4000-8000-000000000005",
+        "number": 71005,
+        "productName": "Оборотный кредит",
+        "companyName": "ООО «Пример»",
+        "companyInn": "000100000004",
+        "status": "REJECTED",
+        "amount": 1000000,
+        "termMonths": 12,
+        "createdAt": "2026-10-25T00:00:00Z",
+        "statusChangedAt": "2026-10-25T00:00:00Z"
+      },
+      {
+        "id": "a0000000-0000-4000-8000-000000000006",
+        "number": 71006,
+        "productName": "Оборотный кредит",
+        "companyName": "ООО «Пример»",
+        "companyInn": "000100000004",
+        "status": "REJECTED",
+        "amount": 1000000,
+        "termMonths": 12,
+        "createdAt": "2026-10-25T00:00:00Z",
+        "statusChangedAt": "2026-10-25T00:00:00Z"
+      }
+    ],
+    "company": {
+      "name": "ИП Котова Ирина Сергеевна",
+      "inn": "000100000004",
+      "legalForm": "ENTREPRENEUR",
+      "members": [
+        {
+          "fullName": "Ирина Котова",
+          "canSign": true
+        },
+        {
+          "fullName": "Сотрудник без подписи",
+          "canSign": false
+        },
+        {
+          "fullName": "Сотрудник без подписи",
+          "canSign": false
+        }
+      ]
+    }
+  }
+}

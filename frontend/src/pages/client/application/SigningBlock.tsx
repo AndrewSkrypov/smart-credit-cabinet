@@ -25,7 +25,7 @@ export function SigningBlock({ application, onChanged }: { application: Applicat
     return (
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
         <Typography variant="h6" component="h2">Подписание договора</Typography>
-        <Typography color="text.secondary">Подписать договор может только представитель компании с правом подписи.</Typography>
+        <Typography color="text.secondary">Договор должен подписать представитель компании с правом подписи.</Typography>
       </Paper>
     );
   }

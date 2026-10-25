@@ -1,4 +1,4 @@
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, Typography } from '@mui/material';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { roleLabels } from '../shared/labels';
@@ -32,46 +32,34 @@ export function VersionMetadata({ item }: { item: RevisionMetadata }) {
 export function VersionHistory({ title, items, currentVersion, onOpen }: {
   title: string; items: RevisionMetadata[]; currentVersion: number; onOpen: (version: number) => void;
 }) {
-  const desktop = useMediaQuery(useTheme().breakpoints.up('lg'));
-  const size = desktop ? 20 : 5;
+  // Compact pages share the document scroller on every viewport.
+  const size = 5;
   const sorted = useMemo(() => [...items].sort((a, b) => Number(b.version === currentVersion) - Number(a.version === currentVersion) || b.version - a.version), [items, currentVersion]);
   const [page, setPage] = useState(0);
-  const list = useRef<HTMLDivElement>(null);
   const heading = useId();
-  const anchor = useRef<{ version: number; offset: number } | null>(null);
+  const anchor = useRef<number | null>(null);
   const signature = sorted.map((item) => item.version).join(',');
   const pages = Math.ceil(sorted.length / size);
   const safePage = Math.min(page, Math.max(0, pages - 1));
   const remember = () => {
-    const container = list.current;
-    if (!container) return;
-    const top = container.getBoundingClientRect().top;
-    const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-revision]'));
-    const row = desktop ? rows.find((element) => element.getBoundingClientRect().bottom > top + 1) : rows[0];
-    if (row) anchor.current = { version: Number(row.dataset.revision), offset: row.getBoundingClientRect().top - top };
+    anchor.current = sorted[safePage * size]?.version ?? null;
   };
   useLayoutEffect(() => {
     const saved = anchor.current;
-    if (!saved) { anchor.current = sorted[0] ? { version: sorted[0].version, offset: 0 } : null; return; }
-    const index = sorted.findIndex((item) => item.version === saved.version);
+    if (saved === null) { anchor.current = sorted[0]?.version ?? null; return; }
+    const index = sorted.findIndex((item) => item.version === saved);
     const nextPage = index < 0 ? Math.min(page, Math.max(0, pages - 1)) : Math.floor(index / size);
     if (nextPage !== page) { setPage(nextPage); return; }
-    if (desktop && list.current) {
-      const row = list.current.querySelector<HTMLElement>(`[data-revision="${saved.version}"]`);
-      if (row) list.current.scrollTop += row.getBoundingClientRect().top - list.current.getBoundingClientRect().top - saved.offset;
-    }
-  }, [signature, size, desktop, sorted, page, pages]);
+  }, [signature, size, sorted, page, pages]);
   const navigate = (next: number) => {
-    anchor.current = { version: sorted[next * size].version, offset: 0 };
+    anchor.current = sorted[next * size].version;
     setPage(next);
-    if (list.current) list.current.scrollTop = 0;
   };
   return <Paper component="section" aria-labelledby={heading} sx={{ p: { xs: 3, md: 4 } }}>
     <Typography id={heading} data-history-heading tabIndex={-1} variant="h6" component="h2">{title}</Typography>
     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Всего: {items.length} · Действует версия {currentVersion}</Typography>
     {!items.length && <Typography color="text.secondary">История пока пуста</Typography>}
-    <Box ref={list} role="region" aria-label={`${title}: список`} tabIndex={desktop && items.length > 1 ? 0 : undefined} onScroll={remember}
-      sx={{ maxHeight: desktop && items.length > 1 ? 'clamp(180px, calc(100dvh - 360px), 520px)' : undefined, overflowY: desktop ? 'auto' : 'visible', pr: desktop ? 1 : 0, '&:focus-visible': { outline: '3px solid', outlineColor: 'info.main', outlineOffset: 3 } }}>
+    <Box role="region" aria-label={`${title}: список`}>
       {sorted.slice(safePage * size, (safePage + 1) * size).map((item) => <Box key={item.version} data-revision={item.version} sx={{ py: 1.5, borderBottom: 1, borderColor: 'divider', overflowWrap: 'anywhere' }}>
         <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap"><Typography fontWeight={700}>Версия {item.version}</Typography>{item.version === currentVersion && <Chip label="Действует" size="small" color="success" />}</Stack>
         <Typography variant="caption" color="text.secondary">{fullTime.format(new Date(item.createdAt))} МСК</Typography>

@@ -25,7 +25,7 @@ export function DocumentCanvas({ children }: { children: ReactNode }) {
       body: { minHeight: '100vh', background: 'transparent' },
       '#root': { minHeight: '100vh', background: 'transparent' },
       'html[data-surface="landing"]': { background: tokens.night },
-      'html[data-surface="workspace"]': { background: `linear-gradient(${tokens.night} 0px, ${tokens.night} 120px, ${tokens.page} 120px, ${tokens.page} 100%)` },
+      'html[data-surface="workspace"]': { background: tokens.page },
       'html[data-surface="auth"]': { background: `linear-gradient(to right, ${tokens.night} 0%, ${tokens.night} 41.666667%, ${tokens.page} 41.666667%, ${tokens.page} 100%)`,
         '@media (max-width: 899.95px)': { background: tokens.page } }
     }} />

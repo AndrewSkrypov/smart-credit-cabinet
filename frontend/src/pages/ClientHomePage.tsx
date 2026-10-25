@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Card, CardActionArea, Chip, Grid, Paper, Stack, Typography, Tabs, Tab } from '@mui/material';
+import { Alert, Box, Button, Card, CardActionArea, Chip, Grid, IconButton, Paper, Stack, Typography } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
@@ -8,7 +8,7 @@ import { ErrorState } from '../components/ErrorState';
 import { LoadingBlock } from '../components/LoadingBlock';
 import { PageHeader } from '../components/PageHeader';
 import { Illustration } from '../components/Illustration';
-import { ApplicationPageFilters, ApplicationPageNavigation } from '../components/ApplicationPageControls';
+import { ApplicationListRegion, ApplicationPageFilters, ApplicationPageNavigation, ApplicationPageStatus } from '../components/ApplicationPageControls';
 import { useApplicationPage } from '../hooks/useApplicationPage';
 import { useApi } from '../hooks/useApi';
 import { statusTitle, statusTone } from '../shared/applicationText';
@@ -17,12 +17,12 @@ import { legalFormLabels } from '../shared/labels';
 import { tokens } from '../theme/theme';
 import { ApplicationSummary } from '../types';
 
-function ApplicationRow({ item }: { item: ApplicationSummary }) {
+function ApplicationRow({ item, onOpen }: { item: ApplicationSummary; onOpen: () => void }) {
   const location = useLocation();
   const tone = statusTone(item.status);
   return (
     <Card>
-      <CardActionArea component={RouterLink} to={`/client/applications/${item.id}`} state={{ listUrl: location.pathname + location.search }} sx={{ p: { xs: 2, md: 3 } }}>
+      <CardActionArea component={RouterLink} onClick={onOpen} to={`/client/applications/${item.id}`} state={{ listUrl: location.pathname + location.search }} sx={{ p: { xs: 2, md: 3 } }}>
         <Stack direction="row" spacing={2} alignItems="center">
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
             <Typography variant="body2" color="text.secondary">№ {item.number} · обновлена {formatDateTime(item.statusChangedAt)}</Typography>
@@ -44,11 +44,14 @@ export function ClientHomePage() {
   const navigate = useNavigate();
   const company = useApi(companyApi.mine);
   const location = useLocation();
-  const applications = useApplicationPage('active', 10, ['active', 'done', 'action'], [10], 5000);
+  const finished = useApplicationPage('done', 10, ['done'], [10], 5000, { fixedGroup: 'done', pageParam: 'donePage', scrollTarget: 'client-done', restoreScroll: false });
+  const applications = useApplicationPage('active', 10, ['active', 'action'], [10], 5000, { pageParam: 'activePage', scrollTarget: 'client-active', ready: !!company.data && (!!finished.data || !!finished.error) });
   if (company.loading && !company.data) return <LoadingBlock />;
   if (!company.data) return <ErrorState message={company.error ?? 'Компания не найдена'} onRetry={company.reload} />;
-  const page = applications.data;
+  const page = applications.data ?? applications.previousData;
   const waitingForClient = page?.actionRequiredPreview ?? [];
+  const counts = applications.counts ?? finished.counts;
+  const rememberPosition = () => { applications.rememberPosition(); finished.rememberPosition(); };
 
   return (
     <>
@@ -71,40 +74,47 @@ export function ClientHomePage() {
             {!!page?.actionRequiredCount && (
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main' }}>
                 <Typography variant="h6" component="h2">Нужно ваше действие · {page?.actionRequiredCount}</Typography>
-                <Typography variant="body2" color="text.secondary">По всей компании, независимо от поиска.</Typography>
                 <Stack spacing={0.5} sx={{ mt: 1 }}>
                   {waitingForClient.map((item) => (
-                    <Typography key={item.id} component={RouterLink} to={`/client/applications/${item.id}`} state={{ listUrl: location.pathname + location.search }} sx={{ color: 'inherit' }}>
+                    <Typography key={item.id} component={RouterLink} onClick={rememberPosition} to={`/client/applications/${item.id}`} state={{ listUrl: location.pathname + location.search }} sx={{ color: 'inherit' }}>
                       № {item.number} — {statusTitle(item.status).toLowerCase()}
                     </Typography>
                   ))}
                 </Stack>
-                <Button onClick={() => applications.update({ group: 'action', q: '', page: 0 })}>Все {page?.actionRequiredCount}</Button>
+                {(page?.actionRequiredCount ?? 0) > waitingForClient.length && <Button onClick={() => applications.update({ group: 'action', q: '', page: 0 })}>Все {page?.actionRequiredCount}</Button>}
               </Paper>
             )}
 
             <Box>
-              <Tabs value={applications.query.group} onChange={(_, group: string) => applications.update({ group, page: 0 })} variant="scrollable" allowScrollButtonsMobile aria-label="Группы заявок">
-                <Tab value="active" label={`В работе · ${page?.countsByGroup.active ?? 0}`} />
-                <Tab value="done" label={`Выданные и закрытые · ${page?.countsByGroup.done ?? 0}`} />
-                <Tab value="action" label={`Нужно действие · ${page?.countsByGroup.action ?? 0}`} />
-              </Tabs>
-              {applications.query.group === 'done' && <Typography variant="body2" color="text.secondary" sx={{ my: 1 }}>Выданные и закрытые заявки</Typography>}
-              <ApplicationPageFilters state={applications} />
-              {applications.loading && !page && <LoadingBlock />}
-              {applications.error && !page && <ErrorState message={applications.error} onRetry={applications.reload} />}
-              {page && (page.items.length ? <Stack spacing={1.5}>{page.items.map((item) => <ApplicationRow key={item.id} item={item} />)}</Stack> :
-                <EmptyState title={applications.query.q ? 'По вашему поиску заявок нет' : page.countsByGroup.active + page.countsByGroup.done === 0 ? 'Заявок пока нет' : 'В этой группе заявок нет'}
-                  description="Измените поиск или группу либо подберите финансирование." actionLabel="Подобрать финансирование" onAction={() => navigate('/client/new')} />)}
-              <ApplicationPageNavigation state={applications} />
+              <ApplicationPageFilters state={applications} status={false} />
+              <ApplicationPageStatus states={[applications, finished]} />
+              <Stack spacing={3}>
+                {([['В работе', applications, 'client-active', 'active'], ['Завершённые', finished, 'client-done', 'done']] as const).map(([title, state, id, countKey]) =>
+                  (!counts || !!counts[countKey] || state.loading || !!state.error) && <Box key={id}>
+                    <Typography variant="h6" component="h2" sx={{ mb: 1.5 }}>{title}</Typography>
+                    {id === 'client-active' && applications.query.group === 'action' && <Button onClick={() => applications.update({ group: 'active', page: 0 })}>Все заявки в работе</Button>}
+                    <ApplicationListRegion state={state} id={id}>
+                      {state.error && !state.data && <ErrorState message={state.error} onRetry={state.reload} />}
+                      {state.data && (state.data.items.length ? <Stack spacing={1.5}>{state.data.items.map(item => <ApplicationRow key={item.id} item={item} onOpen={rememberPosition} />)}</Stack> : null)}
+                    </ApplicationListRegion>
+                    <ApplicationPageNavigation state={state} />
+                  </Box>)
+                }
+                {counts && !counts.active && !counts.done && !applications.loading && !finished.loading && !applications.error && !finished.error &&
+                  <EmptyState title={applications.query.q ? 'По вашему поиску заявок нет' : 'Заявок пока нет'}
+                    description="Расскажите, на что нужны деньги, — подберём продукт, посчитаем платёж и поможем подать заявку."
+                    actionLabel="Подобрать финансирование" onAction={() => navigate('/client/new')} />}
+              </Stack>
             </Box>
           </Stack>
         </Grid>
 
         <Grid item xs={12} md={4}>
           <Stack spacing={3} sx={{ position: { md: 'sticky' }, top: { md: 96 } }}>
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
-              <Typography variant="subtitle1" component="h2" fontWeight={700}>Представители компании</Typography>
+            <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, position: 'relative' }}>
+              <Typography variant="subtitle1" component="h2" fontWeight={700} sx={{ pr: 4 }}>Представители компании</Typography>
+              <IconButton component={RouterLink} to="/client/employees" size="small" aria-label={`Все сотрудники · ${company.data.members.length}`}
+                sx={{ position: 'absolute', top: { xs: 8, md: 24 }, right: { xs: 8, md: 16 } }}><ChevronRightRoundedIcon /></IconButton>
               <Stack spacing={1.5} sx={{ mt: 1.5 }}>
                 {company.data.members.slice(0, 5).map((member) => (
                   <Stack key={member.id} direction="row" spacing={1.5} alignItems="center">
@@ -119,7 +129,6 @@ export function ClientHomePage() {
                 ))}
               </Stack>
             </Paper>
-            <Button component={RouterLink} to="/client/employees">Все сотрудники · {company.data.members.length}</Button>
             <Paper sx={{ p: { xs: 2, md: 3 }, bgcolor: tokens.tilePurple, color: '#fff', position: 'relative', overflow: 'hidden' }}>
               <Illustration name="coin" size={96} sx={{ position: 'absolute', right: -8, top: -8, transform: 'rotate(-10deg)' }} />
               <Typography variant="subtitle1" component="h2" fontWeight={700} sx={{ maxWidth: '70%' }}>Нужны деньги на бизнес?</Typography>

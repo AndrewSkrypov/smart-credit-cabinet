@@ -69,7 +69,6 @@ export function AppShell() {
         </Container>
       </Box>
       <Container maxWidth="lg" sx={{ display: { lg: 'none' }, mt: 1 }}>{tabs({})}</Container>
-      {!bank && <Container maxWidth="lg" sx={{ mt: 1 }}><Typography variant="caption" sx={{ color: '#fff' }}>{user.canSign ? 'С правом подписи' : 'Без права подписи · договор подписывает уполномоченный представитель компании'}</Typography></Container>}
       <Box sx={{ height: { xs: 16, md: 32 } }} />
       <Box sx={{ flexGrow: 1, bgcolor: 'background.default', borderRadius: { xs: '28px 28px 0 0', md: '48px 48px 0 0' } }}>
         <Container component="main" maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>

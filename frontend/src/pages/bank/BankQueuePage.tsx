@@ -1,10 +1,9 @@
 import { Box, ButtonBase, Chip, Paper, Stack, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ApplicationPageFilters, ApplicationPageNavigation } from '../../components/ApplicationPageControls';
+import { ApplicationListRegion, ApplicationPageFilters, ApplicationPageNavigation } from '../../components/ApplicationPageControls';
 import { useApplicationPage } from '../../hooks/useApplicationPage';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
-import { LoadingBlock } from '../../components/LoadingBlock';
 import { PageHeader } from '../../components/PageHeader';
 import { statusTitle, statusTone } from '../../shared/applicationText';
 import { hoursSince, waitingFor } from '../../shared/duration';
@@ -25,26 +24,29 @@ export function BankQueuePage() {
   const navigate = useNavigate();
   const narrow = useMediaQuery(useTheme().breakpoints.down('md'));
   const location = useLocation();
-  const state = useApplicationPage('review', 20, groups.map((item) => item.key), [20, 50, 100]);
-  const { data, loading, error, reload } = state;
+  const state = useApplicationPage('review', 20, groups.map((item) => item.key), [20, 50, 100], 10000, { scrollTarget: 'bank-list' });
+  const { data, error, reload } = state;
   const tab = state.query.group;
   const group = groups.find((item) => item.key === tab)!;
   const rows = data?.items ?? [];
-  const open = (id: string) => navigate(`/bank/applications/${id}`, { state: { listUrl: location.pathname + location.search } });
+  const open = (id: string) => {
+    state.rememberPosition();
+    navigate(`/bank/applications/${id}`, { state: { listUrl: location.pathname + location.search } });
+  };
 
   return (
     <>
       <PageHeader title="Заявки" subtitle={state.query.sort === 'default' && tab !== 'done' ? 'Очередь заявок малого и микробизнеса. Сверху — те, что ждут дольше всех.' : 'Заявки малого и микробизнеса в выбранном порядке.'} />
-      <ApplicationPageFilters state={state} bank />
-      {loading && !data && <LoadingBlock />}
-      {error && !data && <ErrorState message={error} onRetry={reload} />}
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
         <Tabs value={tab} onChange={(_, value: string) => state.update({ group: value, page: 0 })} variant="scrollable" allowScrollButtonsMobile sx={{ px: { xs: 1, md: 2 }, borderBottom: 1, borderColor: 'divider' }}>
           {groups.map((item) => {
-            const count = data?.countsByGroup[item.key] ?? 0;
+            const count = state.counts?.[item.key] ?? '…';
             return <Tab key={item.key} value={item.key} label={`${item.title} · ${count}`} sx={{ minHeight: 56 }} />;
           })}
         </Tabs>
+        <Box sx={{ px: { xs: 2, md: 3 }, pt: 2 }}><ApplicationPageFilters state={state} bank /></Box>
+        <ApplicationListRegion state={state} id="bank-list">
+        {error && !data && <ErrorState message={error} onRetry={reload} />}
         {!data ? null : rows.length === 0 ? (
           <Box sx={{ p: 3 }}>
             <EmptyState title={state.query.q ? 'По вашему поиску заявок нет' : Object.values(data.countsByGroup).every((n) => n === 0) ? 'Заявок пока нет' : 'В этой группе заявок нет'} description={!state.query.q && tab === 'review' ? 'Заявок на ручном рассмотрении сейчас нет.' : 'Измените группу или условия поиска.'} />
@@ -71,8 +73,9 @@ export function BankQueuePage() {
             </Table>
           </Box>
         )}
+        </ApplicationListRegion>
+        <Box sx={{ px: { xs: 2, md: 3 } }}><ApplicationPageNavigation state={state} /></Box>
       </Paper>
-      <ApplicationPageNavigation state={state} />
     </>
   );
 }

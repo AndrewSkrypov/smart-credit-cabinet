@@ -400,10 +400,10 @@ export function LandingPage() {
           </Typography>
         </Container>
       </Box>
-      {showTop && <Fab variant="extended" color="secondary" aria-label="Наверх" onClick={() => {
+      {showTop && <Fab size="small" color="secondary" aria-label="Наверх" onClick={() => {
         window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
         document.getElementById('landing-title')?.focus({ preventScroll: true });
-      }} sx={{ position: 'fixed', left: { xs: 16, md: 32 }, bottom: 'max(16px, env(safe-area-inset-bottom))', minHeight: 44, zIndex: 1100 }}><KeyboardArrowUpIcon />Наверх</Fab>}
+      }} sx={{ position: 'fixed', right: { xs: 16, md: 32 }, bottom: 'max(16px, env(safe-area-inset-bottom))', width: 44, height: 44, zIndex: 1100 }}><KeyboardArrowUpIcon /></Fab>}
     </Box></DocumentSurface>
   );
 }

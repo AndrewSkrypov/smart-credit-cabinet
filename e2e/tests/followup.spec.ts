@@ -18,6 +18,7 @@ if (process.env.MAIL_TESTS !== '1') {
       companyName: 'Синтетическая компания', companyInn: '000100000004', status: 'DRAFT',
       amount: 1000000, termMonths: 12, createdAt: '2026-10-25T00:00:00Z', statusChangedAt: '2026-10-25T00:00:00Z' };
     await page.route('**/api/v1/applications/page?*', route => {
+      if (new URL(route.request().url()).searchParams.get('group') === 'done') return route.fulfill({ json: { items: [], page: 0, size: 10, totalElements: 0, totalPages: 0, hasNext: false, countsByGroup: { active: 1, done: 0, action: 7 }, actionRequiredCount: 7, actionRequiredPreview: [] } });
       const changed = ++reads === 2;
       return route.fulfill({ json: { items: [{ ...row, productName: changed ? 'Новые условия B' : 'Контрольный продукт A' }],
         page: 0, size: 10, totalElements: 1, totalPages: 1, hasNext: false, countsByGroup: { active: 1, done: 0, action: 7 },
@@ -25,7 +26,7 @@ if (process.env.MAIL_TESTS !== '1') {
     });
     await login(page, 'client');
     await expect(page.getByText('Контрольный продукт A', { exact: true })).toBeVisible();
-    await expect(page.getByText(/Без права подписи · договор подписывает/)).toBeVisible();
+    await expect(page.getByText(/Без права подписи · договор подписывает/)).toHaveCount(0);
     await expect(page.getByText('Представитель 4', { exact: true })).toBeVisible();
     await expect(page.getByText('Представитель 5', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Все сотрудники · 7' })).toBeVisible();
@@ -35,6 +36,9 @@ if (process.env.MAIL_TESTS !== '1') {
     await expect(page.getByText('Новые условия B', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Показать обновления' })).toHaveCount(0, { timeout: 12000 });
     await expect(page.getByText('Контрольный продукт A', { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Профиль', exact: true }).click();
+    await expect(page.getByText('Подписание договоров: недоступно', { exact: true })).toBeVisible();
+    await expect(page.getByText('Договор должен подписать представитель компании с правом подписи.', { exact: true })).toBeVisible();
   });
 
   test('Помощник: 12 вопросов, ограниченный контекст и повтор без дублирования', async ({ page }) => {
@@ -86,12 +90,11 @@ if (process.env.MAIL_TESTS !== '1') {
     const history = page.getByRole('region', { name: 'История версий правил: список', exact: true });
     const nav = page.getByRole('navigation', { name: 'История версий правил: страницы', exact: true });
     const desktop = info.project.name === 'desktop';
-    await expect(history.getByRole('button', { name: /^Посмотреть версию/ })).toHaveCount(desktop ? 20 : 5);
+    await expect(history.getByRole('button', { name: /^Посмотреть версию/ })).toHaveCount(5);
     const overflow = await history.evaluate(e => ({ y: getComputedStyle(e).overflowY, height: e.clientHeight }));
-    if (desktop) { expect(overflow.y).toBe('auto'); expect(overflow.height).toBeLessThanOrEqual(560); }
-    else expect(overflow.y).toBe('visible');
+    expect(overflow.y).toBe('visible');
     await nav.getByRole('button', { name: 'Далее', exact: true }).click();
-    const version = desktop ? 80 : 95;
+    const version = 95;
     const opener = page.getByRole('button', { name: `Посмотреть версию ${version}`, exact: true });
     await opener.click();
     await expect(page.getByRole('dialog')).toContainText('Архивная');

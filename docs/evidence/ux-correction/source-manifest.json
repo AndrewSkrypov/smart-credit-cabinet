@@ -1,0 +1,27 @@
+{
+  "base_head": "234986fb6d5fd7ad1303a1df8ada0646727b5739",
+  "main": "a1f1c185c05999dfe2db2023a7f76c92ef90ab55",
+  "input_sha256": "8b33c2cfce27c785c0bddb45e26ebd70dc73cf5856c41d3bdef2fd6ae00b6e0d",
+  "candidate_asset": "/assets/index-BoVNOWyn.js",
+  "candidate_asset_sha256": "334669236096dd8ba768644c9c204f253e860dc47f1d2691957314015fe19eaf",
+  "files": {
+    "e2e/tests/followup.spec.ts": "36911ba1e60940c515b10afbe0462150904e45d5aed81e8444f6bad5eb80ecd9",
+    "e2e/tests/ux-correction.spec.ts": "85f5ff062f8d9d176fe3c8e4c63dd3d6762dcf842fb724195b22117b9352999f",
+    "frontend/src/components/AppShell.tsx": "7762e39660d80f7a7c78014e704d0b173a992dae08b8bacbead4dd7dd8e3d158",
+    "frontend/src/components/ApplicationPageControls.tsx": "9fac6cbe8bcbab6336838b2f89e904bf3ba7cc6a37c40f79c20629e0d76b7757",
+    "frontend/src/components/DocumentSurface.tsx": "6d943bc591e6ca2cb1b0f9ffa4da902223a839c4511bd37fae1e3e434525a394",
+    "frontend/src/components/VersionHistory.test.tsx": "9f53388ceeeca1143b222ff418cfab0803a22f6b983984d08631324642facb24",
+    "frontend/src/components/VersionHistory.tsx": "237af515d71a131833dbb6ea1a13421631ebca50f150aee70d90dfcece9d978f",
+    "frontend/src/hooks/useApplicationPage.test.tsx": "4de3c4414167a0758a3f07dc23df082f2f066b010ae2e60dc8d7b5386cf54a91",
+    "frontend/src/hooks/useApplicationPage.ts": "be051529fcd255e7601eb397298210b418aecf34472521b6ab1037e67e7c2ed9",
+    "frontend/src/pages/ClientHomePage.tsx": "d5cc5040bd19fe267d75cf77c63dfffc336121f7df7d73ed9517ff5361d4a553",
+    "frontend/src/pages/ProfilePage.tsx": "8fcb76a016d0ba0e340904cd6a9ba1dcd9e2b0c4ce9bc8d3ab1c32f9cea4da3c",
+    "frontend/src/pages/bank/BankQueuePage.tsx": "5d4f01a52436e5858e204d72fa65f7728bc43e024d3f757963a7503731eeb05f",
+    "frontend/src/pages/client/application/SigningBlock.tsx": "217ba213f7ef3101d56a54030db4b3a5af381845b5abca0d0b92875efffbb9fd",
+    "frontend/src/pages/landing/LandingPage.tsx": "b72379379a6720c90d43d17b417e368ee8611135b61072e5738439a5f81a8115"
+  },
+  "capture_scripts": {
+    "compare.cjs": "55fba0f4e083392309d5858700f0e4ab7c2300b1a83837e38b10361e406fab48",
+    "canvas.cjs": "b095e0c50b3de75997f0ba58fbf091c2ed3db0ef966646565b3545a378604cb6"
+  }
+}

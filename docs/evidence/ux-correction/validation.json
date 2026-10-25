@@ -1,0 +1,33 @@
+{
+  "candidate": "UX-20261025-r1",
+  "frontend": {
+    "passed": 85,
+    "failed": 0,
+    "stronger_hook_fixture_rerun": 6,
+    "tsc": "passed",
+    "lint": "passed"
+  },
+  "runtime": {
+    "passed": 53,
+    "skipped": 3,
+    "failed": 0
+  },
+  "targeted_final": {
+    "passed": 18,
+    "skipped": 0,
+    "failed": 0
+  },
+  "same_data_visual_comparisons": 12,
+  "layout_screenshots": 36,
+  "canvas_screenshots": 24,
+  "runtime_scope": "All local default browser groups except MAIL-dependent accounts/notification groups; MAIL-off acceptance reserved for CI; no source assertion disabled.",
+  "local_mail_on_candidate": {
+    "passed": 6,
+    "failed": 2,
+    "accepted": false,
+    "reason": "Email links use preserved18150 while candidate baseURL18153: browser sessions are origin-scoped. Same-origin CI MAIL acceptance is required."
+  },
+  "native_IAB_gesture": "unverified; user feedback required",
+  "CI_new_SHA": "pending_publication",
+  "preserved": "No container rebuild/recreate/stop, no main checkout modification, no reset of user data; own followup synthetic E2E data only."
+}

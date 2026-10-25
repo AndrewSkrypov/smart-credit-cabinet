@@ -1,5 +1,5 @@
 import { Alert, Box, Button, Checkbox, FormControlLabel, Link, Paper, Stack, TextField, Typography } from '@mui/material';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, Navigate, useSearchParams, useLocation } from 'react-router-dom';
 import { authApi } from '../api/client';
 import { roleHome, useAuth } from '../auth/AuthProvider';
@@ -11,6 +11,7 @@ import { Illustration } from '../components/Illustration';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { authPath, roleDestination } from '../shared/financingSelection';
 import { generateTestInn, isValidInn } from '../shared/inn';
+import { emailError, nameError, passwordError, passwordHint, requiredError, useFieldFeedback } from '../shared/authValidation';
 
 const DEMO_PASSWORD = 'Demo2026';
 
@@ -75,6 +76,10 @@ export function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [demo, setDemo] = useState(false);
+  const submitting = useRef(false);
+  const errors = { email: emailError(email), password: password ? '' : requiredError };
+  const feedback = useFieldFeedback(errors);
+  const ready = !Object.values(errors).some(Boolean);
 
   useEffect(() => {
     authApi.options().then((options) => setDemo(options.demoAccounts)).catch(() => setDemo(false));
@@ -84,13 +89,18 @@ export function SignInPage() {
 
   const submit = async (event: FormEvent, credentials?: { email: string; password: string }) => {
     event.preventDefault();
+    if (submitting.current) return;
+    if (!credentials && !ready) { feedback.visitAll(); return; }
+    submitting.current = true;
     setBusy(true);
     setError(null);
     try {
-      await signIn(credentials?.email ?? email, credentials?.password ?? password);
+      await signIn(credentials?.email ?? email.trim(), credentials?.password ?? password);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Не удалось войти');
       setBusy(false);
+    } finally {
+      submitting.current = false;
     }
   };
 
@@ -100,9 +110,10 @@ export function SignInPage() {
         {params.get('expired') && <Alert severity="info">Сессия истекла — войдите снова.</Alert>}
         {params.get('security') && <Alert severity="success">Все сессии завершены. Войдите заново.</Alert>}
         {error && <Alert severity="error">{error}</Alert>}
-        <TextField label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-        <TextField label="Пароль" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-        <Button type="submit" variant="contained" size="large" disabled={busy}>Войти</Button>
+        <TextField {...feedback.field('email')} label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+        <TextField {...feedback.field('password')} label="Пароль" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+        <Typography id="signin-readiness" variant="body2" color="text.secondary">{ready ? 'Данные заполнены — можно войти.' : 'Для входа укажите корректный email и пароль.'}</Typography>
+        <Button type="submit" variant="contained" size="large" disabled={busy || !ready} aria-describedby="signin-readiness">Войти</Button>
         <Link component={RouterLink} to="/password-recovery">Забыли пароль?</Link>
         <Typography variant="body2">
           Нет кабинета? <Link component={RouterLink} to={authPath('/sign-up', location.search)}>Подключите компанию</Link>
@@ -137,26 +148,33 @@ export function SignUpPage() {
   const [form, setForm] = useState({ fullName: '', email: '', password: '', inn: '', personalDataConsent: false });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  if (session) return <Navigate to={roleDestination(session.user.role, location.search, roleHome[session.user.role])} replace />;
+  const submitting = useRef(false);
 
   const innDigits = form.inn.replace(/\D/g, '');
   const innComplete = innDigits.length === 10 || innDigits.length === 12;
-  const innHint = innDigits.length === 0
-    ? '10 цифр для организации, 12 — для ИП'
-    : !innComplete
-      ? `Сейчас ${innDigits.length} цифр — нужно 10 или 12`
-      : isValidInn(innDigits) ? 'Название подтянем из ЕГРЮЛ/ЕГРИП' : 'Похоже на опечатку: не сходится контрольная цифра';
+  const errors = {
+    inn: !innDigits ? requiredError : !innComplete ? `Сейчас ${innDigits.length} цифр — нужно 10 или 12` : !isValidInn(innDigits) ? 'Похоже на опечатку: не сходится контрольная цифра' : '',
+    fullName: nameError(form.fullName), email: emailError(form.email), password: passwordError(form.password)
+  };
+  const feedback = useFieldFeedback(errors);
+  const ready = form.personalDataConsent && !Object.values(errors).some(Boolean);
+
+  if (session) return <Navigate to={roleDestination(session.user.role, location.search, roleHome[session.user.role])} replace />;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (submitting.current) return;
+    if (!ready) { feedback.visitAll(); return; }
+    submitting.current = true;
     setBusy(true);
     setError(null);
     try {
-      await signUp({ ...form, inn: innDigits });
+      await signUp({ ...form, fullName: form.fullName.trim(), email: form.email.trim(), inn: innDigits });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Не удалось зарегистрироваться');
       setBusy(false);
+    } finally {
+      submitting.current = false;
     }
   };
 
@@ -164,8 +182,7 @@ export function SignUpPage() {
     <AuthFrame title="Подключение компании">
       <Stack component="form" spacing={2} onSubmit={submit} noValidate>
         {error && <Alert severity="error">{error}</Alert>}
-        <TextField label="ИНН компании или ИП" inputMode="numeric" value={form.inn} helperText={innHint}
-          error={innComplete && !isValidInn(innDigits)}
+        <TextField {...feedback.field('inn', '10 цифр для организации, 12 — для ИП')} label="ИНН компании или ИП" inputProps={{ inputMode: 'numeric' }} autoComplete="off" value={form.inn}
           onChange={(event) => setForm({ ...form, inn: event.target.value })} required />
         {demo && (
           <Typography variant="body2" color="text.secondary">
@@ -176,15 +193,16 @@ export function SignUpPage() {
             {' '}— такого региона нет, данные не совпадут с реальным бизнесом.
           </Typography>
         )}
-        <TextField label="Ваше имя" autoComplete="name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} required />
-        <TextField label="Email" type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required />
-        <TextField label="Пароль" type="password" autoComplete="new-password" value={form.password} helperText="От 8 символов, буквы и цифры"
+        <TextField {...feedback.field('fullName')} label="Ваше имя" autoComplete="name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} required />
+        <TextField {...feedback.field('email')} label="Email" type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required />
+        <TextField {...feedback.field('password', passwordHint)} label="Пароль" type="password" autoComplete="new-password" value={form.password}
           onChange={(event) => setForm({ ...form, password: event.target.value })} required />
         <FormControlLabel
           control={<Checkbox checked={form.personalDataConsent} onChange={(event) => setForm({ ...form, personalDataConsent: event.target.checked })} />}
           label="Согласен на обработку персональных данных"
         />
-        <Button type="submit" variant="contained" size="large" disabled={busy || !form.personalDataConsent}>Подключить</Button>
+        <Typography id="signup-readiness" variant="body2" color="text.secondary">{ready ? 'Все требования выполнены — можно подключить компанию.' : 'Заполните ИНН, имя, email и пароль по требованиям и подтвердите согласие.'}</Typography>
+        <Button type="submit" variant="contained" size="large" disabled={busy || !ready} aria-describedby="signup-readiness">Подключить</Button>
         <Typography variant="body2">
           Уже есть кабинет? <Link component={RouterLink} to={authPath('/sign-in', location.search)}>Войти</Link>
         </Typography>

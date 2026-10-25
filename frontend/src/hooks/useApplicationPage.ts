@@ -6,10 +6,26 @@ import { ApplicationPage, ApplicationPageQuery } from '../types';
 
 // Bounded session-memory cache restores a list and scroll on browser Back, scoped by user.
 const cache = new Map<string, { data: ApplicationPage; scroll: number }>();
-interface PageOptions { fixedGroup?: string; pageParam?: string; scrollTarget?: string; restoreScroll?: boolean; ready?: boolean }
+// React Router search-param callbacks are not queued like React state. A single writer per
+// screen merges sibling corrections synchronously, including two replies in one event turn.
+export function useApplicationPageParams() {
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const latest = useRef({ entry: location.key, params });
+  if (latest.current.entry !== location.key) latest.current = { entry: location.key, params };
+  const write = (change: (next: URLSearchParams) => void, replace: boolean) => {
+    const next = new URLSearchParams(latest.current.params);
+    change(next);
+    latest.current.params = next;
+    setParams(next, { replace });
+  };
+  return { params, write };
+}
+interface PageOptions { fixedGroup?: string; pageParam?: string; scrollTarget?: string; restoreScroll?: boolean; ready?: boolean; params?: ReturnType<typeof useApplicationPageParams> }
 export function useApplicationPage(defaultGroup: string, size: number, groups: string[], sizes: number[], pollMs = 10000, options: PageOptions = {}) {
   const { session } = useAuth();
-  const [params, setParams] = useSearchParams();
+  const localParams = useApplicationPageParams();
+  const { params, write } = options.params ?? localParams;
   const location = useLocation();
   const navigation = useNavigationType();
   const query: ApplicationPageQuery = {
@@ -42,19 +58,20 @@ export function useApplicationPage(defaultGroup: string, size: number, groups: s
   const restoreScroll = options.restoreScroll !== false;
   const ready = options.ready !== false;
   const update = (patch: Partial<ApplicationPageQuery>, replace = false) => {
-    const next = new URLSearchParams(params);
-    const merged = { ...query, ...patch };
-    for (const [name, value] of Object.entries(merged)) {
-      if (name === 'group' && options.fixedGroup) continue;
-      next.set(name === 'page' ? options.pageParam ?? 'page' : name, String(value));
-    }
-    if (options.pageParam) next.delete('page');
-    if (patch.q !== undefined || patch.sort !== undefined) {
-      next.delete('activePage'); next.delete('donePage'); next.set(options.pageParam ?? 'page', '0');
-    }
-    // Only a deliberate list navigation scrolls; polls and server page correction do not.
-    if (!replace) pendingScroll.current = true;
-    setParams(next, { replace });
+    // Search, filters, explicit refresh and server corrections preserve the reader's position.
+    // Only an explicit page action owns one scroll after its result becomes usable.
+    if (!replace) pendingScroll.current = patch.page !== undefined && patch.q === undefined && patch.sort === undefined && patch.group === undefined;
+    write(next => {
+      const merged = { ...query, ...patch };
+      for (const [name, value] of Object.entries(merged)) {
+        if (name === 'group' && options.fixedGroup) continue;
+        next.set(name === 'page' ? options.pageParam ?? 'page' : name, String(value));
+      }
+      if (options.pageParam) next.delete('page');
+      if (patch.q !== undefined || patch.sort !== undefined) {
+        next.delete('activePage'); next.delete('donePage'); next.set(options.pageParam ?? 'page', '0');
+      }
+    }, replace);
   };
   const updateRef = useRef(update); updateRef.current = update;
   useEffect(() => { setSearch(query.q); }, [query.q]);

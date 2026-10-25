@@ -101,6 +101,7 @@ export const cabinetTheme = createTheme({
     },
     MuiIconButton: { styleOverrides: { root: { [touch]: { minWidth: 44, minHeight: 44 } } } },
     MuiTextField: { defaultProps: { variant: 'filled' } },
+    MuiInputLabel: { styleOverrides: { root: { '&.Mui-focused:not(.Mui-error)': { color: tokens.ink } } } },
     MuiFilledInput: {
       defaultProps: { disableUnderline: true },
       styleOverrides: {

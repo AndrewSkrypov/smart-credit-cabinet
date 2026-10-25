@@ -304,6 +304,67 @@ class PipelineScenarioTest {
     }
 
     @Test
+    fun `template upgrade recovers exhausted legacy errors and preserves ready identities and authorized links`() {
+        val id = submitted()
+        worker.runDue()
+        val preview = json(mockMvc.get("/api/v1/applications/$id/artifacts") { header("Authorization", "Bearer $client") }.andReturn().response)
+        val previewId = preview[0]["id"].asText()
+        jdbc.update("update generated_artifacts set template_version=1,status='ERROR',attempts=5 where application_id=?::uuid", id)
+        post("/api/v1/applications/$id/offer/accept", client)
+        post("/api/v1/applications/$id/sign", client, """{"code":"424242"}""")
+        worker.runDue()
+        fun list() = json(mockMvc.get("/api/v1/applications/$id/artifacts") { header("Authorization", "Bearer $client") }.andReturn().response)
+        fun download(
+            file: String,
+        ) = mockMvc.get("/api/v1/applications/$id/artifacts/$file/download") { header("Authorization", "Bearer $client") }.andReturn().response
+        val initial = list()
+        repeat(3) { assertTrue(artifacts.generateOne()) }
+        val preserved = initial[0]["id"].asText()
+        val exhausted = initial[1]["id"].asText()
+        val bytes = download(preserved).contentAsByteArray
+        val checksum = jdbc.queryForObject("select checksum from generated_artifacts where id=?::uuid", String::class.java, preserved)
+        val contract = mockMvc.get("/api/v1/applications/$id/contract") { header("Authorization", "Bearer $client") }.andReturn().response.contentAsString
+        // Isolated DB fixture: records from the previous renderer, including a terminal failure.
+        jdbc.update("update generated_artifacts set template_version=1 where application_id=?::uuid", id)
+        jdbc.update("update generated_artifacts set status='ERROR',attempts=5,error_code='GENERATION_FAILED' where id=?::uuid", exhausted)
+        assertTrue(!artifacts.generateOne(), "The current renderer must not rewrite an old registry version")
+        val retry = json(post("/api/v1/applications/$id/artifacts/$exhausted/retry", client))
+        assertTrue(retry["id"].asText() != exhausted)
+        assertEquals("PENDING", retry["status"].asText())
+        assertEquals(3, list().size(), "The normal UI refresh prepares the complete current template set")
+        repeat(3) { assertTrue(artifacts.generateOne()) }
+        assertTrue(list().all { it["status"].asText() == "READY" })
+        assertContentEquals(bytes, download(preserved).contentAsByteArray)
+        assertEquals(checksum, jdbc.queryForObject("select checksum from generated_artifacts where id=?::uuid", String::class.java, preserved))
+        assertEquals(5, jdbc.queryForObject("select attempts from generated_artifacts where id=?::uuid", Int::class.java, exhausted))
+        assertEquals(
+            404,
+            mockMvc.get("/api/v1/applications/$id/artifacts/$preserved/download") {
+                header("Authorization", "Bearer ${token("CLIENT", UUID.randomUUID())}")
+            }.andReturn().response.status,
+        )
+        assertEquals(
+            contract,
+            mockMvc.get("/api/v1/applications/$id/contract") {
+                header("Authorization", "Bearer $client")
+            }.andReturn().response.contentAsString,
+        )
+        repeat(2) { artifacts.notifyReadyGroups() }
+        assertEquals(1, jdbc.queryForObject("select count(*) from generated_artifact_notices where application_id=?::uuid", Int::class.java, id))
+        val oldPreviewInput = jdbc.queryForObject("select input_json::text from generated_artifacts where id=?::uuid", String::class.java, previewId)
+        val recoveredPreview = json(post("/api/v1/applications/$id/artifacts/$previewId/retry", client))
+        assertEquals("PREVIEW", recoveredPreview["phase"].asText(), "Retry after disbursement preserves the historical preview phase")
+        assertEquals(
+            oldPreviewInput,
+            jdbc.queryForObject("select input_json::text from generated_artifacts where id=?::uuid", String::class.java, recoveredPreview["id"].asText()),
+        )
+        assertTrue(artifacts.generateOne())
+        assertEquals(200, download(recoveredPreview["id"].asText()).status)
+        assertTrue(list().all { it["phase"].asText() == "FINAL" && it["status"].asText() == "READY" })
+        assertEquals("DISBURSED", status(id))
+    }
+
+    @Test
     fun `a corrupted stored file is never downloaded and recovery keeps the issued loan and object key`() {
         val id = submitted()
         worker.runDue()

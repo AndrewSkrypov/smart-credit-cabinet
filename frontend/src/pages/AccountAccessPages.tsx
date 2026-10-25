@@ -43,7 +43,7 @@ export function PasswordRecoveryPage() {
               <Stack component="form" spacing={2} onSubmit={submit}>
                 <Typography color="text.secondary">Укажите адрес из вашего профиля. Ссылка для нового пароля действует 30 минут.</Typography>
                 {error && <Alert severity="error">{error}</Alert>}
-                <TextField label="Email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
+                <TextField id="recovery-email" name="email" label="Email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
                 <Button type="submit" variant="contained" disabled={busy}>Отправить ссылку</Button>
               </Stack>
             )
@@ -85,7 +85,7 @@ export function PasswordResetPage() {
           <Stack component="form" spacing={2} onSubmit={submit}>
             <Typography color="text.secondary">После смены пароля все прежние сессии завершатся.</Typography>
             {error && <Alert severity="error">{error}</Alert>}
-            <TextField label="Новый пароль" type="password" autoComplete="new-password" required helperText="От 8 до 72 символов, буквы и цифры"
+            <TextField id="reset-password" name="newPassword" label="Новый пароль" type="password" autoComplete="new-password" required helperText="От 8 до 72 символов, буквы и цифры; максимум 72 байта UTF-8"
               value={password} onChange={(event) => setPassword(event.target.value)} />
             <Button type="submit" variant="contained" disabled={busy}>Установить пароль</Button>
           </Stack>
@@ -130,8 +130,8 @@ export function AcceptInvitationPage() {
             <Typography sx={{ overflowWrap: 'anywhere' }}>{preview.data.email}</Typography>
             <Alert severity="info">{preview.data.canSign ? 'С правом подписи от компании.' : 'Без права подписи от компании.'} После принятия вы войдёте как этот сотрудник.</Alert>
             {error && <Alert severity="error">{error}</Alert>}
-            <TextField label="Ваше имя" autoComplete="name" required value={fullName} onChange={(event) => setFullName(event.target.value)} />
-            <TextField label="Пароль" type="password" autoComplete="new-password" required helperText="От 8 до 72 символов, буквы и цифры"
+            <TextField id="invitation-name" name="fullName" label="Ваше имя" autoComplete="name" required value={fullName} onChange={(event) => setFullName(event.target.value)} />
+            <TextField id="invitation-password" name="newPassword" label="Пароль" type="password" autoComplete="new-password" required helperText="От 8 до 72 символов, буквы и цифры; максимум 72 байта UTF-8"
               value={password} onChange={(event) => setPassword(event.target.value)} />
             <FormControlLabel control={<Checkbox checked={consent} onChange={(_, checked) => setConsent(checked)} />} label="Согласен на обработку персональных данных" />
             <Button type="submit" variant="contained" disabled={busy || !consent}>Принять приглашение</Button>

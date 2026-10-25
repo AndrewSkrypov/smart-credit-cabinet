@@ -102,7 +102,7 @@ class AdviceService(
         val (items, inference) = UnderwritingAdviceModel.advise(facts)
         return AdviceView(
             applicationId = application.id,
-            engine = "МИВАР: сеть правил андеррайтинга",
+            engine = "Сеть правил андеррайтинга",
             modelVersion = UnderwritingAdviceModel.VERSION,
             verdict = verdict(items.map { it.first.kind }),
             items = items.map { (item, because) -> AdviceItemView(item.code, item.kind, item.title, item.text, because) },
@@ -131,7 +131,7 @@ class AdviceService(
 @RestController
 @RequestMapping("/api/v1/underwriting/applications")
 class AdviceController(private val service: AdviceService) {
-    @Operation(summary = "Рекомендации экспертной системы (МИВАР): что проверить, что запросить, какие условия проходят — с цепочкой «почему»")
+    @Operation(summary = "Рекомендации экспертной системы: что проверить, что запросить, какие условия проходят — с цепочкой «почему»")
     @GetMapping("/{id}/advice")
     fun advice(@PathVariable id: UUID): AdviceView = service.advice(id)
 }

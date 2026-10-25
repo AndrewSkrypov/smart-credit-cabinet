@@ -1,11 +1,11 @@
 package ru.creditcabinet.advice.domain
 
 /**
- * A rule of a MIVAR network: it reads its input parameters and, when they are all known, gives
+ * A rule of a parameter–rule network: it reads its input parameters and, when they are all known, gives
  * its outputs — or nothing, when its condition does not hold. Parameters and rules form a
  * bipartite graph; the engine finds the order of rules from what is known to what is asked.
  */
-class MivarRule(
+class NetworkRule(
     val id: String,
     /** What the rule establishes, in the underwriter's words; shown in the chain «почему». */
     val title: String,
@@ -44,7 +44,7 @@ class Inference(val known: Map<String, Any>, val firings: List<Firing>) {
  * as all its inputs are known; a value once known is never overwritten, so the result does not
  * depend on the order the rules are written in.
  */
-class MivarModel(val version: Int, val rules: List<MivarRule>) {
+class RuleNetwork(val version: Int, val rules: List<NetworkRule>) {
     init {
         val ids = rules.map { it.id }
         require(ids.size == ids.toSet().size) { "Rule ids repeat: $ids" }

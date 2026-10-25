@@ -1,9 +1,9 @@
 package ru.creditcabinet.advice
 
 import ru.creditcabinet.advice.domain.AdviceKind
-import ru.creditcabinet.advice.domain.MivarModel
-import ru.creditcabinet.advice.domain.MivarRule
+import ru.creditcabinet.advice.domain.NetworkRule
 import ru.creditcabinet.advice.domain.P
+import ru.creditcabinet.advice.domain.RuleNetwork
 import ru.creditcabinet.advice.domain.UnderwritingAdviceModel
 import java.math.BigDecimal
 import kotlin.test.Test
@@ -12,20 +12,20 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class UnderwritingAdviceTest {
-    private val sum = MivarRule("SUM", "Сумма", listOf("a", "b"), listOf("c")) { mapOf("c" to (it["a"] as Int) + (it["b"] as Int)) }
-    private val double = MivarRule("DOUBLE", "Удвоение", listOf("c"), listOf("d")) { mapOf("d" to (it["c"] as Int) * 2) }
+    private val sum = NetworkRule("SUM", "Сумма", listOf("a", "b"), listOf("c")) { mapOf("c" to (it["a"] as Int) + (it["b"] as Int)) }
+    private val double = NetworkRule("DOUBLE", "Удвоение", listOf("c"), listOf("d")) { mapOf("d" to (it["c"] as Int) * 2) }
 
     @Test
     fun `rules fire in the order the data allows, not the order they are written`() {
-        val inference = MivarModel(1, listOf(double, sum)).infer(mapOf("a" to 1, "b" to 2))
+        val inference = RuleNetwork(1, listOf(double, sum)).infer(mapOf("a" to 1, "b" to 2))
         assertEquals(6, inference.known["d"])
         assertEquals(listOf("SUM", "DOUBLE"), inference.chain("d").map { it.ruleId })
     }
 
     @Test
     fun `a rule without all its inputs does not fire, and a parameter has one producer`() {
-        assertEquals(null, MivarModel(1, listOf(sum, double)).infer(mapOf("a" to 1)).known["d"])
-        assertFailsWith<IllegalArgumentException> { MivarModel(1, listOf(sum, MivarRule("SUM2", "Ещё", listOf("a"), listOf("c")) { mapOf("c" to 0) })) }
+        assertEquals(null, RuleNetwork(1, listOf(sum, double)).infer(mapOf("a" to 1)).known["d"])
+        assertFailsWith<IllegalArgumentException> { RuleNetwork(1, listOf(sum, NetworkRule("SUM2", "Ещё", listOf("a"), listOf("c")) { mapOf("c" to 0) })) }
     }
 
     private fun facts(vararg overrides: Pair<String, Any?>): Map<String, Any?> =

@@ -75,7 +75,7 @@ private fun Map<String, Any>.list(name: String) = getValue(name) as List<String>
 private fun advice(code: String, kind: AdviceKind, title: String, text: String) = mapOf(P.ADVICE + code to AdviceItem(code, kind, title, text))
 
 /**
- * The knowledge base of manual review, built as a MIVAR network: from the facts of the application,
+ * The knowledge base of manual review, built as a network of parameters and rules: from the facts of the application,
  * its sources and the credit policy to what the underwriter should check, ask and may offer.
  * It never decides: the decision stays with the scorecard's recommendation and the underwriter.
  */
@@ -87,11 +87,11 @@ object UnderwritingAdviceModel {
     private const val MANY_INQUIRIES = 5
     private const val YOUNG_MONTHS = 12
 
-    val model = MivarModel(
+    val model = RuleNetwork(
         VERSION,
         listOf(
             // Derived facts.
-            MivarRule(
+            NetworkRule(
                 "R_PAYMENT",
                 "Платёж по запрошенным условиям",
                 listOf(P.AMOUNT, P.BASE_RATE, P.TERM),
@@ -100,7 +100,7 @@ object UnderwritingAdviceModel {
             ) {
                 mapOf(P.NEW_PAYMENT to LoanMath.annuityPayment(it.long(P.AMOUNT), it.getValue(P.BASE_RATE) as BigDecimal, it.int(P.TERM)).toLong())
             },
-            MivarRule(
+            NetworkRule(
                 "R_LOAD",
                 "Долговая нагрузка с новым платежом",
                 listOf(P.NEW_PAYMENT, P.EXISTING_PAYMENTS, P.ANNUAL_REVENUE),
@@ -110,7 +110,7 @@ object UnderwritingAdviceModel {
                 val monthly = it.long(P.ANNUAL_REVENUE) / 12.0
                 if (monthly <= 0) null else mapOf(P.LOAD to (it.long(P.NEW_PAYMENT) + it.long(P.EXISTING_PAYMENTS)) / monthly)
             },
-            MivarRule(
+            NetworkRule(
                 "R_LOAD_LIMIT",
                 "Нагрузка против порога политики",
                 listOf(P.LOAD, P.MAX_LOAD),
@@ -119,7 +119,7 @@ object UnderwritingAdviceModel {
             ) {
                 mapOf(P.LOAD_EXCEEDS to (it.double(P.LOAD) > it.double(P.MAX_LOAD)))
             },
-            MivarRule(
+            NetworkRule(
                 "R_PAYMENT_MAX_TERM",
                 "Платёж на максимальный срок продукта",
                 listOf(P.AMOUNT, P.BASE_RATE, P.MAX_TERM),
@@ -128,7 +128,7 @@ object UnderwritingAdviceModel {
             ) {
                 mapOf(P.PAYMENT_MAX_TERM to LoanMath.annuityPayment(it.long(P.AMOUNT), it.getValue(P.BASE_RATE) as BigDecimal, it.int(P.MAX_TERM)).toLong())
             },
-            MivarRule(
+            NetworkRule(
                 "R_LOAD_MAX_TERM",
                 "Нагрузка на максимальный срок",
                 listOf(P.PAYMENT_MAX_TERM, P.EXISTING_PAYMENTS, P.ANNUAL_REVENUE),
@@ -138,7 +138,7 @@ object UnderwritingAdviceModel {
                 val monthly = it.long(P.ANNUAL_REVENUE) / 12.0
                 if (monthly <= 0) null else mapOf(P.LOAD_MAX_TERM to (it.long(P.PAYMENT_MAX_TERM) + it.long(P.EXISTING_PAYMENTS)) / monthly)
             },
-            MivarRule(
+            NetworkRule(
                 "R_AFFORDABLE",
                 "Сумма в пределах порога нагрузки",
                 listOf(P.MAX_LOAD, P.ANNUAL_REVENUE, P.EXISTING_PAYMENTS, P.BASE_RATE, P.MAX_TERM),
@@ -150,7 +150,7 @@ object UnderwritingAdviceModel {
                 val amount = if (budget <= 0) 0L else (budget / perMillion * 1_000_000 / 10_000).toLong() * 10_000
                 mapOf(P.AFFORDABLE to amount)
             },
-            MivarRule(
+            NetworkRule(
                 "R_REVENUE_GAP",
                 "Расхождение выручки с ФНС",
                 listOf(P.DECLARED_REVENUE, P.TAX_REVENUE),
@@ -164,7 +164,7 @@ object UnderwritingAdviceModel {
                 val tax = it.long(P.TAX_REVENUE)
                 if (tax <= 0) null else mapOf(P.REVENUE_GAP to kotlin.math.abs(it.long(P.DECLARED_REVENUE) - tax).toDouble() / tax)
             },
-            MivarRule(
+            NetworkRule(
                 "R_REVENUE_GAP_BIG",
                 "Расхождение против допустимого",
                 listOf(P.REVENUE_GAP, P.REVENUE_MISMATCH),
@@ -173,7 +173,7 @@ object UnderwritingAdviceModel {
             ) {
                 mapOf(P.REVENUE_GAP_BIG to (it.double(P.REVENUE_GAP) > it.double(P.REVENUE_MISMATCH)))
             },
-            MivarRule(
+            NetworkRule(
                 "R_TURNOVER",
                 "Стабильность оборотов",
                 listOf(P.TURNOVER_VARIATION),
@@ -182,7 +182,7 @@ object UnderwritingAdviceModel {
             ) {
                 mapOf(P.TURNOVER_UNSTABLE to (it.double(P.TURNOVER_VARIATION) >= UNSTABLE_TURNOVER))
             },
-            MivarRule(
+            NetworkRule(
                 "R_SEARCH",
                 "Активный поиск кредита",
                 listOf(P.INQUIRIES),
@@ -191,7 +191,7 @@ object UnderwritingAdviceModel {
             ) {
                 mapOf(P.CREDIT_SEARCH to (it.int(P.INQUIRIES) > MANY_INQUIRIES))
             },
-            MivarRule(
+            NetworkRule(
                 "R_PAST_DELAY",
                 "Погашенная просрочка в прошлом",
                 listOf(P.WORST_OVERDUE, P.OVERDUE_NOW),
@@ -200,7 +200,7 @@ object UnderwritingAdviceModel {
             ) {
                 mapOf(P.PAST_DELAY to (it.int(P.WORST_OVERDUE) > 0 && it.int(P.OVERDUE_NOW) == 0))
             },
-            MivarRule(
+            NetworkRule(
                 "R_YOUNG",
                 "Короткая история бизнеса",
                 listOf(P.AGE_MONTHS),
@@ -211,7 +211,7 @@ object UnderwritingAdviceModel {
             },
 
             // Advice.
-            MivarRule("A_STOP", "Стоп-фактор", listOf(P.STOP_FACTORS), listOf(P.ADVICE + "STOP")) {
+            NetworkRule("A_STOP", "Стоп-фактор", listOf(P.STOP_FACTORS), listOf(P.ADVICE + "STOP")) {
                 val factors = it.list(P.STOP_FACTORS)
                 if (factors.isEmpty()) {
                     null
@@ -224,7 +224,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_SOURCES", "Нет данных источника", listOf(P.SILENT_SOURCES), listOf(P.ADVICE + "SOURCES")) {
+            NetworkRule("A_SOURCES", "Нет данных источника", listOf(P.SILENT_SOURCES), listOf(P.ADVICE + "SOURCES")) {
                 val silent = it.list(P.SILENT_SOURCES)
                 if (silent.isEmpty()) {
                     null
@@ -237,7 +237,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_LOAD", "Нагрузка выше порога", listOf(P.LOAD_EXCEEDS, P.LOAD, P.MAX_LOAD), listOf(P.ADVICE + "LOAD")) {
+            NetworkRule("A_LOAD", "Нагрузка выше порога", listOf(P.LOAD_EXCEEDS, P.LOAD, P.MAX_LOAD), listOf(P.ADVICE + "LOAD")) {
                 if (!it.flag(P.LOAD_EXCEEDS)) {
                     null
                 } else {
@@ -249,7 +249,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule(
+            NetworkRule(
                 "A_TERM",
                 "Увеличение срока",
                 listOf(P.LOAD_EXCEEDS, P.LOAD_MAX_TERM, P.MAX_LOAD, P.MAX_TERM, P.TERM, P.PAYMENT_MAX_TERM),
@@ -270,7 +270,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule(
+            NetworkRule(
                 "A_AMOUNT",
                 "Уменьшение суммы",
                 listOf(P.LOAD_EXCEEDS, P.LOAD_MAX_TERM, P.MAX_LOAD, P.AFFORDABLE, P.MIN_AMOUNT, P.MAX_TERM),
@@ -294,7 +294,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_REVENUE", "Уточнить выручку", listOf(P.REVENUE_GAP_BIG, P.REVENUE_GAP), listOf(P.ADVICE + "REVENUE")) {
+            NetworkRule("A_REVENUE", "Уточнить выручку", listOf(P.REVENUE_GAP_BIG, P.REVENUE_GAP), listOf(P.ADVICE + "REVENUE")) {
                 if (!it.flag(P.REVENUE_GAP_BIG)) {
                     null
                 } else {
@@ -306,7 +306,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_NO_ACCOUNT", "Нет счёта в банке", listOf(P.BANK_CLIENT), listOf(P.ADVICE + "NO_ACCOUNT")) {
+            NetworkRule("A_NO_ACCOUNT", "Нет счёта в банке", listOf(P.BANK_CLIENT), listOf(P.ADVICE + "NO_ACCOUNT")) {
                 if (it.flag(P.BANK_CLIENT)) {
                     null
                 } else {
@@ -318,7 +318,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_TURNOVER", "Нестабильные обороты", listOf(P.TURNOVER_UNSTABLE, P.TURNOVER_VARIATION), listOf(P.ADVICE + "TURNOVER")) {
+            NetworkRule("A_TURNOVER", "Нестабильные обороты", listOf(P.TURNOVER_UNSTABLE, P.TURNOVER_VARIATION), listOf(P.ADVICE + "TURNOVER")) {
                 if (!it.flag(P.TURNOVER_UNSTABLE)) {
                     null
                 } else {
@@ -330,7 +330,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_SEARCH", "Много запросов кредитной истории", listOf(P.CREDIT_SEARCH, P.INQUIRIES), listOf(P.ADVICE + "SEARCH")) {
+            NetworkRule("A_SEARCH", "Много запросов кредитной истории", listOf(P.CREDIT_SEARCH, P.INQUIRIES), listOf(P.ADVICE + "SEARCH")) {
                 if (!it.flag(P.CREDIT_SEARCH)) {
                     null
                 } else {
@@ -342,7 +342,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_PAST", "Просрочка в прошлом", listOf(P.PAST_DELAY, P.WORST_OVERDUE), listOf(P.ADVICE + "PAST")) {
+            NetworkRule("A_PAST", "Просрочка в прошлом", listOf(P.PAST_DELAY, P.WORST_OVERDUE), listOf(P.ADVICE + "PAST")) {
                 if (!it.flag(P.PAST_DELAY)) {
                     null
                 } else {
@@ -354,7 +354,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_TAX", "Налоговая задолженность", listOf(P.TAX_DEBT), listOf(P.ADVICE + "TAX")) {
+            NetworkRule("A_TAX", "Налоговая задолженность", listOf(P.TAX_DEBT), listOf(P.ADVICE + "TAX")) {
                 if (it.long(P.TAX_DEBT) <= 0) {
                     null
                 } else {
@@ -366,7 +366,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_YOUNG", "Молодой бизнес", listOf(P.YOUNG, P.AGE_MONTHS), listOf(P.ADVICE + "YOUNG")) {
+            NetworkRule("A_YOUNG", "Молодой бизнес", listOf(P.YOUNG, P.AGE_MONTHS), listOf(P.ADVICE + "YOUNG")) {
                 if (!it.flag(P.YOUNG)) {
                     null
                 } else {
@@ -378,7 +378,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_INDUSTRY", "Отрасль высокого риска", listOf(P.INDUSTRY_RISK), listOf(P.ADVICE + "INDUSTRY")) {
+            NetworkRule("A_INDUSTRY", "Отрасль высокого риска", listOf(P.INDUSTRY_RISK), listOf(P.ADVICE + "INDUSTRY")) {
                 if (it.getValue(P.INDUSTRY_RISK) != "HIGH") {
                     null
                 } else {
@@ -390,7 +390,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_AUTO_LIMIT", "Выше порога автоодобрения", listOf(P.AMOUNT, P.AUTO_LIMIT), listOf(P.ADVICE + "AUTO_LIMIT")) {
+            NetworkRule("A_AUTO_LIMIT", "Выше порога автоодобрения", listOf(P.AMOUNT, P.AUTO_LIMIT), listOf(P.ADVICE + "AUTO_LIMIT")) {
                 if (it.long(P.AMOUNT) <=
                     it.long(P.AUTO_LIMIT)
                 ) {
@@ -404,7 +404,7 @@ object UnderwritingAdviceModel {
                     )
                 }
             },
-            MivarRule("A_RATING", "Рейтинг", listOf(P.RATING, P.SCORE), listOf(P.ADVICE + "RATING")) {
+            NetworkRule("A_RATING", "Рейтинг", listOf(P.RATING, P.SCORE), listOf(P.ADVICE + "RATING")) {
                 when (it.getValue(P.RATING)) {
                     "C" -> advice(
                         "RATING",

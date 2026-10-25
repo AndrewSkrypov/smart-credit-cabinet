@@ -97,7 +97,7 @@ class AssistantService(
             ?: return Answer("Рекомендации сейчас недоступны — данные заявки видны в карточке.", AnswerMode.RULES, emptyList())
         val verdict = advice["verdict"].asText()
         val items = advice["items"].map { "${it["title"].asText()}. ${it["text"].asText()}" }
-        val sources = listOf("Экспертная система МИВАР, модель v${advice["modelVersion"].asInt()}")
+        val sources = listOf("Экспертная система, модель v${advice["modelVersion"].asInt()}")
         val byRules = (listOf(verdict) + items.take(3).map { "— $it" }).joinToString("\n")
         if (items.isEmpty()) return Answer(verdict, AnswerMode.RULES, sources)
         val context = "Вывод: $verdict\nПункты:\n" + items.joinToString("\n") { "— $it" }

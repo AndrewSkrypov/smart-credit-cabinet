@@ -75,7 +75,8 @@ export function AssistantPanel() {
         <ChatBubbleOutlineRoundedIcon sx={{ mr: 1 }} />
         Помощник
       </Fab>
-      <Drawer anchor="right" open={open} onClose={() => setOpen(false)} PaperProps={{ sx: { width: { xs: '100%', sm: 420 }, display: 'flex', flexDirection: 'column' } }}>
+      {/* No scroll lock: removing the page's scrollbar would shift the whole page sideways. */}
+      <Drawer anchor="right" open={open} onClose={() => setOpen(false)} disableScrollLock PaperProps={{ sx: { width: { xs: '100%', sm: 420 }, display: 'flex', flexDirection: 'column' } }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
           <Box>
             <Typography variant="subtitle1" component="h2" fontWeight={700}>Помощник</Typography>

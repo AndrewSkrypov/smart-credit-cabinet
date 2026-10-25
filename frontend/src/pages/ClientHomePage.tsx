@@ -48,9 +48,10 @@ export function ClientHomePage() {
     return () => window.clearInterval(timer);
   }, [reloadApplications]);
 
-  if (company.loading || applications.loading) return <LoadingBlock />;
-  if (company.error || !company.data) return <ErrorState message={company.error ?? 'Компания не найдена'} onRetry={company.reload} />;
-  if (applications.error || !applications.data) return <ErrorState message={applications.error ?? 'Нет данных'} onRetry={applications.reload} />;
+  // The list refreshes every 5 seconds: only the first load shows the spinner, a refresh keeps the page in place.
+  if ((company.loading && !company.data) || (applications.loading && !applications.data)) return <LoadingBlock />;
+  if (!company.data) return <ErrorState message={company.error ?? 'Компания не найдена'} onRetry={company.reload} />;
+  if (!applications.data) return <ErrorState message={applications.error ?? 'Нет данных'} onRetry={applications.reload} />;
 
   const active = applications.data.filter((item) => !FINISHED_STATUSES.includes(item.status));
   const finished = applications.data.filter((item) => FINISHED_STATUSES.includes(item.status));

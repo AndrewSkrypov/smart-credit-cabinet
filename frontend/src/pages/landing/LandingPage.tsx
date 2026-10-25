@@ -379,7 +379,7 @@ export function LandingPage() {
                       <Button href="#calculator" size="large" sx={{ ...heroButton, minHeight: { xs: 44, sm: 60 }, bgcolor: { xs: 'transparent', sm: 'rgba(255,255,255,0.6)' }, '&:hover': { bgcolor: 'rgba(255,255,255,0.85)' } }}>Рассчитать платёж</Button>
                     </Stack>
                   </Box>
-                  <Box aria-hidden sx={{ position: 'relative', flexShrink: 0, display: { xs: 'none', md: 'block' }, zIndex: 1 }}>
+                  <Box aria-hidden sx={{ position: 'relative', flexShrink: 0, display: { xs: 'none', lg: 'block' }, zIndex: 1 }}>
                     <Illustration name="coin" size={150} sx={{ position: 'absolute', right: -40, top: -36, transform: 'rotate(-12deg)', zIndex: -1 }} />
                     <CabinetPreview />
                   </Box>

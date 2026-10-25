@@ -63,7 +63,15 @@ export function AdviceBlock({ applicationId, version }: { applicationId: string;
     }
   };
 
-  if (!advice.data) return null;
+  if (advice.loading || advice.error || !advice.data) return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+      <Typography variant="h6" component="h2">Рекомендации экспертной системы</Typography>
+      {advice.loading ? <Typography role="status" sx={{ mt: 2 }}>Загружаем рекомендации…</Typography>
+        : <Alert severity="warning" sx={{ mt: 2 }} action={<Button onClick={() => void advice.reload()}>Повторить</Button>}>
+          {advice.error ?? 'Рекомендации пока недоступны'}. Основное досье доступно.
+        </Alert>}
+    </Paper>
+  );
   const data = advice.data;
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>

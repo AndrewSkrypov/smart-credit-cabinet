@@ -77,7 +77,7 @@ export function RulesPage() {
   };
 
   const percentField = (label: string, value: number, onChange: (fraction: number) => void, helper: string) => (
-    <TextField label={label} value={toPercent(value)} disabled={!canEdit} helperText={helper} fullWidth
+    <TextField label={label} value={toPercent(value)} disabled={!canEdit} helperText={helper} fullWidth inputProps={{ inputMode: 'decimal' }}
       InputProps={{ endAdornment: <Typography color="text.secondary">%</Typography> }}
       onChange={(event) => onChange(toFraction(event.target.value.replace(/[^\d.,]/g, '')))} />
   );
@@ -104,9 +104,9 @@ export function RulesPage() {
                 {RATINGS.map((rating) => (
                   <Grid item xs={6} md={3} key={rating}>
                     <Stack spacing={2}>
-                      <TextField label={`${rating}: от баллов`} value={draft.ratingCutoffs[rating]} disabled={!canEdit} inputMode="numeric"
+                      <TextField label={`${rating}: от баллов`} value={draft.ratingCutoffs[rating]} disabled={!canEdit} inputProps={{ inputMode: 'numeric' }}
                         onChange={(event) => setDraft({ ...draft, ratingCutoffs: { ...draft.ratingCutoffs, [rating]: Number(event.target.value.replace(/\D/g, '')) || 0 } })} />
-                      <TextField label={`${rating}: надбавка, п.п.`} value={draft.ratingMargins[rating]} disabled={!canEdit}
+                      <TextField label={`${rating}: надбавка, п.п.`} value={draft.ratingMargins[rating]} disabled={!canEdit} inputProps={{ inputMode: 'decimal' }}
                         onChange={(event) => setDraft({ ...draft, ratingMargins: { ...draft.ratingMargins, [rating]: Number(event.target.value.replace(',', '.').replace(/[^\d.]/g, '')) || 0 } })} />
                     </Stack>
                   </Grid>

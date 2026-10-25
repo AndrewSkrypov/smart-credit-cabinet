@@ -149,7 +149,7 @@ function ActionDialog({ action, application, recommendationOutcome, recommended,
                 {(products.data ?? []).map((item) => <MenuItem key={item.code} value={item.code}>{item.name}</MenuItem>)}
               </TextField>
               <MoneyField label="Сумма" value={amount} onChange={setAmount} helperText={product ? `от ${rub(product.minAmount)} до ${rub(product.maxAmount)}` : ' '} />
-              <TextField label="Срок, месяцев" inputMode="numeric" value={termMonths || ''} onChange={(event) => setTermMonths(Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0)}
+              <TextField label="Срок, месяцев" inputProps={{ inputMode: 'numeric' }} value={termMonths || ''} onChange={(event) => setTermMonths(Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0)}
                 helperText={product ? `от ${product.minTermMonths} до ${product.maxTermMonths}` : ' '} />
             </>
           )}

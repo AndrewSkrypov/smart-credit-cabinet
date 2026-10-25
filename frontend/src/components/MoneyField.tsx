@@ -8,11 +8,11 @@ type MoneyFieldProps = Omit<TextFieldProps, 'value' | 'onChange' | 'type'> & {
 };
 
 /** Rubles typed as digits and shown with thousand separators: «1 500 000 ₽». */
-export function MoneyField({ value, onChange, ...props }: MoneyFieldProps) {
+export function MoneyField({ value, onChange, inputProps, ...props }: MoneyFieldProps) {
   return (
     <TextField
       {...props}
-      inputMode="numeric"
+      inputProps={{ ...inputProps, inputMode: 'numeric' }}
       value={value == null ? '' : grouping.format(value)}
       onChange={(event) => {
         const digits = event.target.value.replace(/\D/g, '').slice(0, 12);

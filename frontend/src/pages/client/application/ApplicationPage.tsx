@@ -1,6 +1,6 @@
 import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useParams, useLocation } from 'react-router-dom';
 import { applicationsApi } from '../../../api/client';
 import { ErrorState } from '../../../components/ErrorState';
@@ -34,24 +34,49 @@ const FAST_REFRESH_MS = 2000;
 const SLOW_REFRESH_MS = 15000;
 
 export function ApplicationPage() {
-  const location = useLocation();
   const { id = '' } = useParams();
+  return <ApplicationCard key={id} id={id} />;
+}
+
+function ApplicationCard({ id }: { id: string }) {
+  const location = useLocation();
   const [application, setApplication] = useState<Application | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawComment, setWithdrawComment] = useState('');
+  const mounted = useRef(false);
+  const requestSequence = useRef(0);
+  const inFlight = useRef(false);
+
+  const apply = useCallback((next: Application) => {
+    if (!mounted.current || next.id !== id) return;
+    // An action response is newer than a poll that started before the action completed.
+    requestSequence.current += 1;
+    setApplication(next);
+    setError(null);
+  }, [id]);
 
   const load = useCallback(async () => {
+    if (!mounted.current || inFlight.current) return;
+    inFlight.current = true;
+    const sequence = ++requestSequence.current;
     try {
-      setApplication(await applicationsApi.get(id));
+      const next = await applicationsApi.get(id);
+      if (!mounted.current || sequence !== requestSequence.current || next.id !== id) return;
+      setApplication(next);
       setError(null);
     } catch (nextError) {
+      if (!mounted.current || sequence !== requestSequence.current) return;
       setError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить заявку');
+    } finally {
+      inFlight.current = false;
     }
   }, [id]);
 
   useEffect(() => {
+    mounted.current = true;
     void load();
+    return () => { mounted.current = false; };
   }, [load]);
 
   const status = application?.status;
@@ -97,18 +122,18 @@ export function ApplicationPage() {
             {error && <Alert severity="warning">{error}</Alert>}
 
             {application.status === 'DRAFT' && application.editable && (
-              <DraftForm application={application} onSaved={setApplication} onSubmitted={setApplication} />
+              <DraftForm application={application} onSaved={apply} onSubmitted={apply} />
             )}
             {application.status === 'INFO_REQUESTED' && application.process.infoRequest && (
-              <InfoRequestBlock application={application} onChanged={load} onSent={setApplication} />
+              <InfoRequestBlock application={application} onChanged={load} onSent={apply} />
             )}
             {application.process.offer && ['OFFER_ISSUED', 'SIGNING', 'DISBURSING'].includes(application.status) && (
-              <OfferBlock application={application} onChanged={setApplication} />
+              <OfferBlock application={application} onChanged={apply} />
             )}
-            {application.status === 'SIGNING' && <SigningBlock application={application} onChanged={setApplication} />}
+            {application.status === 'SIGNING' && <SigningBlock application={application} onChanged={apply} />}
             {application.status === 'DISBURSED' && application.process.loan && <LoanBlock application={application} />}
             {application.status === 'DISBURSED' && application.process.loan && <GeneratedFilesBlock applicationId={application.id} final />}
-            {application.status === 'DISBURSED' && application.process.offer && <Box component="details"><Typography component="summary" sx={{ cursor: 'pointer', py: 1 }}>Согласованные условия</Typography><OfferBlock historical application={application} onChanged={setApplication} /></Box>}
+            {application.status === 'DISBURSED' && application.process.offer && <Box component="details"><Typography component="summary" sx={{ cursor: 'pointer', py: 1 }}>Согласованные условия</Typography><OfferBlock historical application={application} onChanged={apply} /></Box>}
             {outcome && (
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'error.main' }}>
                 <Typography variant="h6" component="h2">{outcome.reasonTitle ?? 'Банк не может выдать кредит'}</Typography>
@@ -162,9 +187,11 @@ export function ApplicationPage() {
             color="error"
             onClick={async () => {
               try {
-                setApplication(await applicationsApi.withdraw(application.id, withdrawComment.trim() || undefined));
+                apply(await applicationsApi.withdraw(application.id, withdrawComment.trim() || undefined));
+                if (!mounted.current) return;
                 setWithdrawing(false);
               } catch (nextError) {
+                if (!mounted.current) return;
                 setError(nextError instanceof Error ? nextError.message : 'Не удалось отозвать заявку');
                 setWithdrawing(false);
               }

@@ -68,7 +68,7 @@ export function SigningBlock({ application, onChanged }: { application: Applicat
         <Alert severity="info" sx={{ mb: 2 }}>Получите код подтверждения, чтобы подписать договор.</Alert>
       )}
       <Stack component="form" onSubmit={submit} direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'flex-start' }}>
-        <TextField label="Код из 6 цифр" disabled={busy || !contract.data?.signable || !!contract.error} inputMode="numeric" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputProps={{ autoComplete: 'one-time-code' }} />
+        <TextField id="signing-code-input" name="signingCode" label="Код из 6 цифр" disabled={busy || !contract.data?.signable || !!contract.error} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputProps={{ inputMode: 'numeric', autoComplete: 'one-time-code' }} />
         <Button type="submit" variant="contained" size="large" disabled={busy || code.length !== 6 || !contract.data?.signable || !!contract.error} sx={{ minHeight: 56 }}>Подписать</Button>
         <Button variant="text" size="large" disabled={busy} onClick={() => act(() => applicationsApi.requestCode(application.id))} sx={{ minHeight: 56 }}>
           {signing?.code && !expired ? 'Новый код' : 'Получить код'}

@@ -3,6 +3,7 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import { Fragment, useState } from 'react';
 import { applicationsApi } from '../../../api/client';
 import { HBar } from '../../../components/HBar';
+import { TableScrollRegion } from '../../../components/TableScrollRegion';
 import { useApi } from '../../../hooks/useApi';
 import { eventText } from '../../../shared/applicationText';
 import { formatDate, formatDateTime, rub } from '../../../shared/format';
@@ -73,7 +74,7 @@ function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
     <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'minmax(96px, 2fr) 3fr', columnGap: 2, rowGap: 1 }}>
       {rows.map(([label, value]) => (
         <Fragment key={label}>
-          <Typography component="dt" variant="body2" color="text.secondary">{label}</Typography>
+          <Typography component="dt" variant="body2" color="text.secondary" sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>{label}</Typography>
           <Typography component="dd" variant="body2" sx={{ m: 0, minWidth: 0, overflowWrap: 'anywhere' }}>{value}</Typography>
         </Fragment>
       ))}
@@ -100,7 +101,8 @@ export function SourcesBlock({ assessment }: { assessment: AssessmentView }) {
           {registry ? (
             <Facts rows={[
               ['Наименование', registry.fullName || registry.shortName],
-              ['Статус', <Chip key="s" size="small" label={registry.statusTitle} color={registry.status === 'ACTIVE' ? 'success' : 'error'} />],
+              ['Статус', <Chip key="s" size="small" label={registry.statusTitle} color={registry.status === 'ACTIVE' ? 'success' : 'error'}
+                sx={{ height: 'auto', minHeight: 24, '& .MuiChip-label': { whiteSpace: 'normal', overflowWrap: 'anywhere', py: '1px' } }} />],
               ['ОГРН', registry.ogrn],
               ['Регистрация', formatDate(registry.registrationDate)],
               ['ОКВЭД', `${registry.okvedCode} ${registry.okvedName}`],
@@ -138,7 +140,7 @@ export function SourcesBlock({ assessment }: { assessment: AssessmentView }) {
                 ['Запросов за 30 дней', String(bureau.inquiries30d)]
               ]} />
               {bureau.obligations.length > 0 && (
-                <Box sx={{ overflowX: 'auto', mt: 1 }}>
+                <TableScrollRegion label="Все столбцы кредитных обязательств">
                   <Table size="small" aria-label="Обязательства">
                     <TableHead>
                       <TableRow>
@@ -161,7 +163,7 @@ export function SourcesBlock({ assessment }: { assessment: AssessmentView }) {
                       ))}
                     </TableBody>
                   </Table>
-                </Box>
+                </TableScrollRegion>
               )}
             </>
           ) : <Typography color="text.secondary">Ещё не получены (или источник не отвечает)</Typography>}

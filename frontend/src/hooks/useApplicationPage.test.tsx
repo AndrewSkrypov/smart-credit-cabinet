@@ -1,9 +1,9 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { applicationsApi } from '../api/client';
 import { ApplicationPage, ApplicationSummary } from '../types';
-import { useApplicationPage } from './useApplicationPage';
+import { useApplicationPage, useApplicationPageParams } from './useApplicationPage';
 
 let userId = 0;
 vi.mock('../api/client', () => ({ applicationsApi: { page: vi.fn() } }));
@@ -17,10 +17,117 @@ function Fixture({ ready = true }: { ready?: boolean }) {
     <input aria-label="Поиск" value={state.search} onChange={(e) => state.setSearch(e.target.value)} />
     <button onClick={() => state.update({ group: 'done', page: 0 })}>Готовые</button>
     <button onClick={() => state.update({ page: 1 })}>Вторая</button>
+    <button onClick={() => state.update({ sort: 'oldest', page: 0 })}>Сортировка</button>
     {state.hasUpdates && <button onClick={state.apply}>Обновления</button>}{state.error && <span>{state.error}</span>}</>;
 }
 beforeEach(() => { userId++; vi.useFakeTimers(); vi.resetAllMocks(); vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined); });
 afterEach(() => vi.useRealTimers());
+
+it('preserves search focus and never scrolls for debounced typing, clearing, sorting or grouping', async () => {
+  vi.mocked(applicationsApi.page).mockResolvedValue(page('first'));
+  await act(async () => { render(<MemoryRouter><Fixture /></MemoryRouter>); });
+  await act(async () => { vi.advanceTimersByTime(20); });
+  vi.mocked(window.scrollTo).mockClear();
+  const search = screen.getByLabelText('Поиск');
+  search.focus();
+  for (const value of ['12', '123', '']) {
+    await act(async () => { fireEvent.change(search, { target: { value } }); });
+    await act(async () => { vi.advanceTimersByTime(350); });
+    await act(async () => { vi.advanceTimersByTime(20); });
+    expect(search).toHaveFocus();
+    expect(window.scrollTo).not.toHaveBeenCalled();
+  }
+  for (const label of ['Сортировка', 'Готовые']) {
+    await act(async () => { fireEvent.click(screen.getByText(label)); });
+    await act(async () => { vi.advanceTimersByTime(20); });
+    expect(window.scrollTo).not.toHaveBeenCalled();
+  }
+});
+
+function DualFixture() {
+  const params = useApplicationPageParams();
+  const active = useApplicationPage('active', 20, ['active'], [20], 10000, { params, pageParam: 'activePage', restoreScroll: false });
+  const done = useApplicationPage('done', 20, ['done'], [20], 10000, { params, fixedGroup: 'done', pageParam: 'donePage', restoreScroll: false });
+  const location = useLocation();
+  const navigate = useNavigate();
+  return <><output aria-label="URL">{location.search}</output>
+    <output aria-label="active">{active.loading ? 'loading' : active.data?.items[0]?.id ?? active.error}</output>
+    <output aria-label="done">{done.loading ? 'loading' : done.data?.items[0]?.id ?? done.error}</output>
+    <button onClick={() => { active.apply(); done.apply(); }}>Применить оба</button>
+    <button onClick={() => navigate('/client?activePage=1&donePage=1&q=keep')}>Обе вторые</button>
+    <button onClick={() => navigate(-1)}>Назад</button><button onClick={() => navigate(1)}>Вперёд</button>
+  </>;
+}
+
+it.each(['active-first', 'done-first', 'same-turn'])('merges both initial server clamps without another poll: %s', async order => {
+  const resolve: Record<string, (value: ApplicationPage) => void> = {};
+  vi.mocked(applicationsApi.page).mockImplementation(query => query.page === 0 ? Promise.resolve(page(`${query.group}-fresh`)) : new Promise(r => { resolve[query.group] = r; }));
+  await act(async () => { render(<MemoryRouter initialEntries={['/client?activePage=1&donePage=1&q=keep']}><DualFixture /></MemoryRouter>); });
+  const groups = order === 'done-first' ? ['done', 'active'] : ['active', 'done'];
+  if (order === 'same-turn') {
+    await act(async () => { groups.forEach(group => resolve[group](page(`${group}-fresh`))); });
+  } else {
+    for (const group of groups) await act(async () => { resolve[group](page(`${group}-fresh`)); });
+  }
+  expect(screen.getByLabelText('URL')).toHaveTextContent('activePage=0');
+  expect(screen.getByLabelText('URL')).toHaveTextContent('donePage=0');
+  expect(screen.getByLabelText('URL')).toHaveTextContent('q=keep');
+  expect(screen.getByLabelText('active')).toHaveTextContent('active-fresh');
+  expect(screen.getByLabelText('done')).toHaveTextContent('done-fresh');
+});
+
+it('merges two buffered clamps in one apply', async () => {
+  let shrink = false;
+  vi.mocked(applicationsApi.page).mockImplementation(async query => ({ ...page(`${query.group}-${shrink ? 'fresh' : 'second'}`), page: shrink ? 0 : query.page, totalPages: shrink ? 1 : 2 }));
+  await act(async () => { render(<MemoryRouter initialEntries={['/client?activePage=1&donePage=1']}><DualFixture /></MemoryRouter>); });
+  shrink = true;
+  await act(async () => { vi.advanceTimersByTime(10000); });
+  await act(async () => { fireEvent.click(screen.getByText('Применить оба')); });
+  expect(screen.getByLabelText('URL')).toHaveTextContent('activePage=0');
+  expect(screen.getByLabelText('URL')).toHaveTextContent('donePage=0');
+  expect(screen.getByLabelText('active')).toHaveTextContent('active-fresh');
+  expect(screen.getByLabelText('done')).toHaveTextContent('done-fresh');
+});
+
+it('keeps one clamped list usable while the other fails, then restores both on retry', async () => {
+  let fail = true;
+  vi.mocked(applicationsApi.page).mockImplementation(async query => {
+    if (query.group === 'done' && fail) throw new Error('Недоступно');
+    return page(`${query.group}-fresh`);
+  });
+  await act(async () => { render(<MemoryRouter initialEntries={['/client?activePage=1&donePage=1']}><DualFixture /></MemoryRouter>); });
+  expect(screen.getByLabelText('URL')).toHaveTextContent('activePage=0');
+  expect(screen.getByLabelText('URL')).toHaveTextContent('donePage=1');
+  expect(screen.getByLabelText('active')).toHaveTextContent('active-fresh');
+  expect(screen.getByLabelText('done')).toHaveTextContent('Недоступно');
+  fail = false;
+  await act(async () => { vi.advanceTimersByTime(10000); });
+  expect(screen.getByLabelText('URL')).toHaveTextContent('donePage=0');
+  expect(screen.getByLabelText('active')).toHaveTextContent('active-fresh');
+  expect(screen.getByLabelText('done')).toHaveTextContent('done-fresh');
+});
+
+it('corrects only one page and keeps both independent pages coherent on Back and Forward', async () => {
+  let clamp = true;
+  vi.mocked(applicationsApi.page).mockImplementation(async query => ({
+    ...page(`${query.group}-${clamp && query.group === 'active' ? 0 : query.page}`), page: clamp && query.group === 'active' ? 0 : query.page, totalPages: 2
+  }));
+  await act(async () => { render(<MemoryRouter initialEntries={['/client?activePage=1&donePage=1&q=keep']}><DualFixture /></MemoryRouter>); });
+  expect(screen.getByLabelText('URL')).toHaveTextContent('activePage=0');
+  expect(screen.getByLabelText('URL')).toHaveTextContent('donePage=1');
+  expect(screen.getByLabelText('active')).toHaveTextContent('active-0');
+  expect(screen.getByLabelText('done')).toHaveTextContent('done-1');
+  clamp = false;
+  await act(async () => { fireEvent.click(screen.getByText('Обе вторые')); });
+  expect(screen.getByLabelText('active')).toHaveTextContent('active-1');
+  await act(async () => { fireEvent.click(screen.getByText('Назад')); });
+  expect(screen.getByLabelText('active')).toHaveTextContent('active-0');
+  expect(screen.getByLabelText('done')).toHaveTextContent('done-1');
+  await act(async () => { fireEvent.click(screen.getByText('Вперёд')); });
+  expect(screen.getByLabelText('active')).toHaveTextContent('active-1');
+  expect(screen.getByLabelText('done')).toHaveTextContent('done-1');
+  expect(screen.getByLabelText('URL')).toHaveTextContent('q=keep');
+});
 
 it('waits for the surrounding page composition before restoring scroll', async () => {
   vi.mocked(applicationsApi.page).mockResolvedValue(page('first'));

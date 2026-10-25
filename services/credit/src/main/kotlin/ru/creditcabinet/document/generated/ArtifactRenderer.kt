@@ -63,6 +63,16 @@ class ArtifactRenderer {
             9f,
         )
         layout.space(12f)
+        if (layout.needsUnicodeNotation(listOf(input.companyName, input.productName, input.contractText))) {
+            layout.notice(
+                "Часть символов не представлена встроенным шрифтом и показана как [U+XXXX] - код Unicode. " +
+                    "Это печатное представление, а не подписанный оригинал. Сохранённый текст условий и его SHA-256 не изменены; исходный текст доступен в кабинете.",
+            )
+            document.documentInformation.setCustomMetadataValue(
+                "CabinetUnicodeRepresentation",
+                "Unsupported glyphs use explicit [U+XXXX] notation; source text unchanged",
+            )
+        }
         layout.fields(
             listOf(
                 "Договор" to (input.contractNumber ?: "До выдачи кредита"),
@@ -287,6 +297,7 @@ class ArtifactRenderer {
         private val border = Color(209, 215, 222)
         private val accent = Color(168, 42, 48)
         private val pale = Color(244, 246, 248)
+        private val glyphs = mutableMapOf<Pair<Boolean, Int>, String>()
         init {
             page()
         }
@@ -313,7 +324,7 @@ class ArtifactRenderer {
             stream!!.beginText()
             stream!!.setFont(if (strong) bold else regular, size)
             stream!!.newLineAtOffset(x, y)
-            stream!!.showText(value)
+            stream!!.showText(printable(value, strong))
             stream!!.endText()
         }
         private fun right(value: String, size: Float, color: Color = ink) {
@@ -336,10 +347,12 @@ class ArtifactRenderer {
         }
         private fun wrap(value: String, size: Float, strong: Boolean, width: Float): List<String> {
             val font = if (strong) bold else regular
-            return value.split('\n').flatMap { source ->
+            return printable(value, strong).split('\n').flatMap { source ->
                 val result = mutableListOf<String>()
                 var buffer = ""
-                for (character in source) {
+                // Never measure half a surrogate pair, even when a glyph is covered by the font.
+                for (codePoint in source.codePoints().toArray()) {
+                    val character = String(Character.toChars(codePoint))
                     if (font.getStringWidth(buffer + character) / 1000 * size > width && buffer.isNotEmpty()) {
                         val split = buffer.indexOfLast { it.isWhitespace() }.takeIf { it > 0 } ?: buffer.length
                         result += buffer.substring(0, split)
@@ -349,6 +362,28 @@ class ArtifactRenderer {
                 }
                 result + buffer
             }
+        }
+        private fun printable(value: String, strong: Boolean): String = buildString {
+            value.codePoints().forEach { codePoint ->
+                if (codePoint == 10) {
+                    append('\n')
+                } else {
+                    append(
+                        glyphs.getOrPut(strong to codePoint) {
+                            val character = String(Character.toChars(codePoint))
+                            try {
+                                (if (strong) bold else regular).getStringWidth(character)
+                                character
+                            } catch (_: IllegalArgumentException) {
+                                "[U+${codePoint.toString(16).uppercase(Locale.ROOT).padStart(4, '0')}]"
+                            }
+                        },
+                    )
+                }
+            }
+        }
+        fun needsUnicodeNotation(values: List<String>): Boolean = values.any { value ->
+            printable(value, false) != value || printable(value, true) != value
         }
         fun space(height: Float) {
             y -= height
@@ -447,7 +482,7 @@ class ArtifactRenderer {
     }
 
     companion object {
-        const val TEMPLATE_VERSION = 1
+        const val TEMPLATE_VERSION = 2
         private val DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm").withZone(java.time.ZoneId.of("Europe/Moscow"))
     }
 }

@@ -2,6 +2,7 @@ import { Box, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typograph
 import { applicationsApi } from '../../../api/client';
 import { ErrorState } from '../../../components/ErrorState';
 import { LoadingBlock } from '../../../components/LoadingBlock';
+import { TableScrollRegion } from '../../../components/TableScrollRegion';
 import { useApi } from '../../../hooks/useApi';
 import { rubExact } from '../../../shared/format';
 
@@ -28,19 +29,19 @@ export function PaymentSchedule({ applicationId, revision, preliminary }: { appl
           {calculation.revolving ? 'Для возобновляемого лимита показано полное использование: платежи меняются, остаток погашается в последний месяц.' : 'Последний платёж учитывает округление и закрывает остаток долга.'}
         </Typography>
         <Stack spacing={0.5} sx={{ my: 1.5 }}>
-          {facts.map(([title, value]) => <Stack key={title} direction="row" justifyContent="space-between" spacing={2}>
-            <Typography color="text.secondary">{title}</Typography><Typography sx={{ textAlign: 'right' }}>{rubExact(value)}</Typography>
+          {facts.map(([title, value]) => <Stack key={title} direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={{ xs: 0, sm: 2 }}>
+            <Typography color="text.secondary">{title}</Typography><Typography sx={{ textAlign: { xs: 'left', sm: 'right' }, overflowWrap: 'anywhere' }}>{rubExact(value)}</Typography>
           </Stack>)}
         </Stack>
         <Box component="details">
           <Box component="summary" sx={{ cursor: 'pointer', minHeight: 44, py: 1, fontWeight: 600, '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' } }}>Показать все платежи по месяцам</Box>
           <Typography variant="caption" color="text.secondary">Номер месяца расчёта; календарные даты платежей здесь не определены.</Typography>
-          <Box sx={{ overflowX: 'auto', mt: 1 }}>
+          <TableScrollRegion label="Все столбцы графика платежей">
             <Table size="small" aria-label="График платежей">
               <TableHead><TableRow><TableCell>Месяц</TableCell><TableCell align="right">Платёж</TableCell><TableCell align="right">Основной долг</TableCell><TableCell align="right">Проценты</TableCell><TableCell align="right">Остаток</TableCell></TableRow></TableHead>
               <TableBody>{rows.map((row) => <TableRow key={row.month}><TableCell>{row.month}</TableCell><TableCell align="right">{rubExact(row.payment)}</TableCell><TableCell align="right">{rubExact(row.principal)}</TableCell><TableCell align="right">{rubExact(row.interest)}</TableCell><TableCell align="right">{rubExact(row.balance)}</TableCell></TableRow>)}</TableBody>
             </Table>
-          </Box>
+          </TableScrollRegion>
         </Box>
       </>}
     </Box>

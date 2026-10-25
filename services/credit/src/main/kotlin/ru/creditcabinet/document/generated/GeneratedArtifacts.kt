@@ -197,7 +197,8 @@ class GeneratedArtifacts(
     /** Row lock spans the bounded write; competing workers skip it, retries keep the same object name. */
     fun generateOne(): Boolean = tx.execute {
         val row = jdbc.queryForList(
-            "select * from generated_artifacts where status <> 'READY' and attempts < 5 and next_attempt_at <= ? order by next_attempt_at limit 1 for update skip locked",
+            "select * from generated_artifacts where template_version=? and status <> 'READY' and attempts < 5 and next_attempt_at <= ? order by next_attempt_at limit 1 for update skip locked",
+            ArtifactRenderer.TEMPLATE_VERSION,
             Timestamp.from(clock.instant()),
         ).firstOrNull() ?: return@execute false
         val id = row["id"] as UUID
@@ -237,6 +238,42 @@ class GeneratedArtifacts(
             }, applicationId, artifactId).firstOrNull()
                 ?: throw NotFoundException("Файл не найден")
         if (record.status == ArtifactStatus.READY) return record
+        val version = jdbc.queryForObject("select template_version from generated_artifacts where id=?", Int::class.java, artifactId)
+        if (version != ArtifactRenderer.TEMPLATE_VERSION) {
+            // Recover exhausted legacy errors through a new registry version. Old READY objects
+            // and links stay immutable; the response identifies the current replacement file.
+            val replacementId = UUID.randomUUID()
+            val now = Timestamp.from(clock.instant())
+            // Copy the old frozen input, including PREVIEW files after disbursement. Preparing
+            // today's application would choose another phase and could lose its historic terms.
+            jdbc.update(
+                """
+                insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,next_attempt_at,created_at,updated_at)
+                select ?,application_id,offer_id,kind,phase,?,input_hash,input_json,title,file_name,content_type,?,storage_backend,?,?,?
+                from generated_artifacts where id=?
+                on conflict(application_id,offer_id,kind,phase,template_version,input_hash) do nothing
+                """.trimIndent(),
+                replacementId,
+                ArtifactRenderer.TEMPLATE_VERSION,
+                "generated-$replacementId.${record.kind.extension}",
+                now,
+                now,
+                now,
+                artifactId,
+            )
+            val target = jdbc.queryForObject(
+                """
+                select current.id from generated_artifacts current join generated_artifacts old
+                on current.application_id=old.application_id and current.offer_id=old.offer_id and current.kind=old.kind
+                and current.phase=old.phase and current.input_hash=old.input_hash
+                where old.id=? and current.template_version=?
+                """.trimIndent(),
+                UUID::class.java,
+                artifactId,
+                ArtifactRenderer.TEMPLATE_VERSION,
+            )!!
+            return retry(applicationId, target)
+        }
         jdbc.update(
             "update generated_artifacts set status='PENDING',attempts=0,error_code=null,next_attempt_at=?,updated_at=? where id=?",
             Timestamp.from(clock.instant()),

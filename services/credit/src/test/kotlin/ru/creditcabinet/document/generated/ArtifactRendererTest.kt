@@ -27,6 +27,30 @@ class ArtifactRendererTest {
     )
 
     @Test
+    fun `Unicode is measured as code points with explicit unsupported notation and unchanged source`() {
+        val original = "Кредит для бизнеса 😀 中 / Business\n" + "Длинная строка 😀 中 ".repeat(180)
+        val hash = ContractTexts.sha256(original)
+        val source = input().copy(companyName = "ООО 😀 中 Business", productName = "Продукт 😀 中", contractText = original, contractTextHash = hash)
+        for (kind in listOf(ArtifactKind.CONTRACT_PDF, ArtifactKind.SCHEDULE_PDF)) {
+            val bytes = renderer.render(kind, source)
+            Loader.loadPDF(bytes).use { pdf ->
+                val visible = PDFTextStripper().getText(pdf)
+                assertTrue(visible.contains("[U+4E2D]"), visible)
+                assertTrue(visible.contains("😀") || visible.contains("[U+1F600]"), visible)
+                assertTrue(visible.contains("код Unicode"))
+                assertTrue(visible.contains("Сохранённый текст условий и его SHA-256 не изменены"))
+                assertEquals(hash, pdf.documentInformation.getCustomMetadataValue("CabinetContractTextSHA256"))
+                assertEquals(original, source.contractText)
+                assertEquals(hash, ContractTexts.sha256(source.contractText))
+            }
+            sample("unicode-${kind.name.lowercase()}.pdf", bytes)
+        }
+        XSSFWorkbook(renderer.render(ArtifactKind.SCHEDULE_XLSX, source).inputStream()).use { workbook ->
+            assertTrue(workbook.getSheetAt(0).getRow(2).getCell(0).stringCellValue.contains("😀 中"))
+        }
+    }
+
+    @Test
     fun `contract PDF contains the exact visible text its hash embedded Cyrillic and separate signing fact`() {
         val source = input()
         val bytes = renderer.render(ArtifactKind.CONTRACT_PDF, source)

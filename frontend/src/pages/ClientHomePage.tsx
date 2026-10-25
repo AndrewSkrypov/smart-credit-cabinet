@@ -9,7 +9,7 @@ import { LoadingBlock } from '../components/LoadingBlock';
 import { PageHeader } from '../components/PageHeader';
 import { Illustration } from '../components/Illustration';
 import { ApplicationListRegion, ApplicationPageFilters, ApplicationPageNavigation, ApplicationPageStatus } from '../components/ApplicationPageControls';
-import { useApplicationPage } from '../hooks/useApplicationPage';
+import { useApplicationPage, useApplicationPageParams } from '../hooks/useApplicationPage';
 import { useApi } from '../hooks/useApi';
 import { statusTitle, statusTone } from '../shared/applicationText';
 import { formatDateTime, months, rub } from '../shared/format';
@@ -24,7 +24,7 @@ function ApplicationRow({ item, onOpen }: { item: ApplicationSummary; onOpen: ()
     <Card>
       <CardActionArea component={RouterLink} onClick={onOpen} to={`/client/applications/${item.id}`} state={{ listUrl: location.pathname + location.search }} sx={{ p: { xs: 2, md: 3 } }}>
         <Stack direction="row" spacing={2} alignItems="center">
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Box sx={{ flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
             <Typography variant="body2" color="text.secondary">№ {item.number} · обновлена {formatDateTime(item.statusChangedAt)}</Typography>
             <Typography fontWeight={700} sx={{ mt: 0.5 }}>{item.productName}</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 2 }} alignItems={{ sm: 'center' }} sx={{ mt: 1 }}>
@@ -44,8 +44,9 @@ export function ClientHomePage() {
   const navigate = useNavigate();
   const company = useApi(companyApi.mine);
   const location = useLocation();
-  const finished = useApplicationPage('done', 10, ['done'], [10], 5000, { fixedGroup: 'done', pageParam: 'donePage', scrollTarget: 'client-done', restoreScroll: false });
-  const applications = useApplicationPage('active', 10, ['active', 'action'], [10], 5000, { pageParam: 'activePage', scrollTarget: 'client-active', ready: !!company.data && (!!finished.data || !!finished.error) });
+  const pageParams = useApplicationPageParams();
+  const finished = useApplicationPage('done', 10, ['done'], [10], 5000, { params: pageParams, fixedGroup: 'done', pageParam: 'donePage', scrollTarget: 'client-done', restoreScroll: false });
+  const applications = useApplicationPage('active', 10, ['active', 'action'], [10], 5000, { params: pageParams, pageParam: 'activePage', scrollTarget: 'client-active', ready: !!company.data && (!!finished.data || !!finished.error) });
   if (company.loading && !company.data) return <LoadingBlock />;
   if (!company.data) return <ErrorState message={company.error ?? 'Компания не найдена'} onRetry={company.reload} />;
   const page = applications.data ?? applications.previousData;

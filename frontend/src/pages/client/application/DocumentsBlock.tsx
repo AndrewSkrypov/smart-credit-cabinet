@@ -1,4 +1,5 @@
-import { Alert, Box, Button, IconButton, List, ListItem, ListItemText, Paper, Stack, Typography } from '@mui/material';
+import { Alert, Box, IconButton, List, ListItem, ListItemText, Paper, Stack, Typography } from '@mui/material';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import RadioButtonUncheckedRoundedIcon from '@mui/icons-material/RadioButtonUncheckedRounded';
@@ -8,6 +9,7 @@ import { fileSize, formatDateTime } from '../../../shared/format';
 import { Application } from '../../../types';
 import { UploadButton } from './UploadButton';
 import { SensitiveDataNotice } from '../../../components/SensitiveDataNotice';
+import { SecondaryActionButton } from '../../../components/SecondaryActionButton';
 
 /**
  * In a draft: the documents the application needs, with uploads. Once sent: what was uploaded
@@ -64,11 +66,12 @@ export function DocumentsBlock({ application, onChanged }: { application: Applic
                 )}
               >
                 <ListItemText
+                  sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
                   primary={
-                    <Button variant="text" sx={{ p: 0, minHeight: 0, textAlign: 'left' }}
+                    <SecondaryActionButton size="small" startIcon={<DownloadOutlinedIcon />} sx={{ minHeight: 44, textAlign: 'left', overflowWrap: 'anywhere' }}
                       onClick={() => applicationsApi.downloadDocument(application.id, document.id, document.fileName).catch((e: Error) => setError(e.message))}>
                       {document.fileName}
-                    </Button>
+                    </SecondaryActionButton>
                   }
                   secondary={`${document.title} · ${fileSize(document.sizeBytes)} · ${formatDateTime(document.uploadedAt)}`}
                 />

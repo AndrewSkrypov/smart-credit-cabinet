@@ -1,11 +1,12 @@
 import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { Application, AssessmentView } from '../../../types';
 import { BankApplicationPage } from './BankApplicationPage';
 
-const { get, assessment } = vi.hoisted(() => ({ get: vi.fn(), assessment: vi.fn() }));
-vi.mock('../../../api/client', () => ({ applicationsApi: { get }, underwritingApi: { assessment } }));
+const { get, assessment, downloadDocument } = vi.hoisted(() => ({ get: vi.fn(), assessment: vi.fn(), downloadDocument: vi.fn() }));
+vi.mock('../../../api/client', () => ({ applicationsApi: { get, downloadDocument }, underwritingApi: { assessment } }));
 vi.mock('../../../components/MessagesBlock', () => ({ MessagesBlock: () => null }));
 vi.mock('../../../components/GeneratedFilesBlock', () => ({ GeneratedFilesBlock: () => null }));
 vi.mock('./AssessmentBlocks', () => ({ AuditBlock: () => null, ScoreBlock: () => null, SourcesBlock: () => null, DiscrepanciesBlock: () => null }));
@@ -34,6 +35,21 @@ function mount() {
 }
 
 describe('bank application route isolation', () => {
+  it('reports a failed file download without replacing the loaded dossier with a stale-data error', async () => {
+    get.mockResolvedValue({ ...app('a', 101), documents: [{ id: 'file', fileName: 'Сведения.pdf', title: 'Сведения', sizeBytes: 1234, uploadedAt: '2026-10-25T10:00:00Z' }] });
+    assessment.mockResolvedValue(view('a'));
+    downloadDocument.mockRejectedValueOnce(new Error('Доступ к файлу запрещён'));
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Сведения.pdf' }));
+    expect(await screen.findByText('Доступ к файлу запрещён')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Заявка № 101' })).toBeInTheDocument();
+    expect(screen.queryByText(/Показаны последние полученные данные/)).not.toBeInTheDocument();
+    expect(downloadDocument).toHaveBeenCalledWith('a', 'file', 'Сведения.pdf');
+    downloadDocument.mockResolvedValueOnce(undefined);
+    await userEvent.click(screen.getByRole('button', { name: 'Сведения.pdf' }));
+    expect(screen.queryByText('Доступ к файлу запрещён')).not.toBeInTheDocument();
+  });
+
   it('finishes a slow card load instead of superseding it on every poll', async () => {
     vi.useFakeTimers();
     const pending = deferred<Application>();

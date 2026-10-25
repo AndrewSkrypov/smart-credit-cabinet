@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { noHorizontalOverflow } from '../helpers/cabinet.js';
 
 // Isolated UI responses: no company/account changes, no user conversations or read cursors.
-const company = { id: 'a0000000-0000-4000-8000-000000000001', name: 'ООО «Пример»', inn: '000100000004', legalForm: 'COMPANY', members: [] };
+const company = { id: 'a0000000-0000-4000-8000-000000000001', name: 'ООО «Пример»', inn: '000100000004', legalForm: 'LEGAL_ENTITY', members: [] };
 const row = (n: number, done: boolean) => ({ id: `a0000000-0000-4000-8000-${String(n).padStart(12, '0')}`, number: 78000 + n,
   productName: 'Кредит для бизнеса', companyName: company.name, companyInn: company.inn, status: done ? 'REJECTED' : 'MANUAL_REVIEW',
   amount: 1000000, termMonths: 12, createdAt: '2026-10-25T00:00:00Z', statusChangedAt: '2026-10-25T00:00:00Z' });
@@ -24,6 +24,36 @@ function result(group: string, index: number, small: boolean, bank = false) {
 }
 
 if (process.env.MAIL_TESTS !== '1') {
+  test('Лендинг: все продукты и цели доступны, выбор сохранён, банковский вход достижим', async ({ page }, info) => {
+    const productNames = ['Овердрафт', 'Оборотный кредит', 'Инвестиционный кредит', 'Бизнес-карта', 'Кредит по госпрограмме'];
+    const codes = ['OVERDRAFT', 'WORKING_CAPITAL', 'INVESTMENT', 'BUSINESS_CARD', 'GOV_PROGRAM'];
+    const products = productNames.map((name, index) => ({ name, code: codes[index], purposes: ['WORKING_CAPITAL'], active: true, minAmount: 300000, maxAmount: 10000000, minTermMonths: 6, maxTermMonths: 36, baseRate: 19.5 }));
+    const purposes = ['CASH_GAP', 'CURRENT_EXPENSES', 'WORKING_CAPITAL', 'EQUIPMENT', 'VEHICLE', 'RENOVATION', 'BUSINESS_DEVELOPMENT'].map((code, i) => ({ code, title: `Цель ${i + 1}` }));
+    await page.route('**/api/v1/**', route => {
+      const path = new URL(route.request().url()).pathname;
+      return route.fulfill({ json: path.endsWith('/products/match') ? [{ product: products[1], fits: true, termMonths: 24, monthlyPayment: 101234.5, adjustments: [] }] : path.endsWith('/products/purposes') ? purposes : path.endsWith('/products') ? products : { demoAccounts: false } });
+    });
+    await page.goto('/');
+    await expect(page.locator('#products a')).toHaveCount(5);
+    await expect(page.locator('#purposes a[href*="purpose"]')).toHaveCount(7);
+    await expect(page.locator('#calculator a')).toBeEnabled();
+    const selected = new URL(await page.locator('#calculator a').getAttribute('href') ?? '', page.url()).searchParams.get('next');
+    expect(selected).toContain('/client/new?purpose=WORKING_CAPITAL');
+    expect(selected).toContain('amount=2000000');
+    expect(selected).toContain('termMonths=24');
+    expect(selected).toContain('product=WORKING_CAPITAL');
+    if (info.project.name === 'mobile') {
+      await expect(page.getByRole('heading', { name: 'Рассчитайте кредит', exact: true })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Банку', exact: true }).click();
+    }
+    await expect(page.getByRole('link', { name: 'Рабочее место банка', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Рабочее место банка', exact: true })).toHaveAttribute('href', '/sign-in');
+    await page.locator('#products a').first().click();
+    await expect(page).toHaveURL(/\/sign-up\?next=/);
+    expect(new URL(page.url()).searchParams.get('next')).toContain('product=OVERDRAFT');
+    await noHorizontalOverflow(page);
+  });
+
   test('Формы: готовность, ошибки после blur, inputmode и повтор после сетевого отказа', async ({ page }) => {
     let posts = 0;
     await page.route('**/api/v1/auth/options', route => route.fulfill({ json: { demoAccounts: false } }));

@@ -7,6 +7,7 @@ import { fileSize } from '../shared/format';
 import { GeneratedArtifact } from '../types';
 import { ErrorState } from './ErrorState';
 import { LoadingBlock } from './LoadingBlock';
+import { SecondaryActionButton } from './SecondaryActionButton';
 
 export function GeneratedFilesBlock({ applicationId, final }: { applicationId: string; final: boolean }) {
   const artifacts = useApi(() => artifactsApi.list(applicationId), [applicationId, final]);
@@ -46,7 +47,7 @@ export function GeneratedFilesBlock({ applicationId, final }: { applicationId: s
               <Typography variant="body2" color="text.secondary">{format}{item.sizeBytes != null && item.status === 'READY' ? ` · ${fileSize(item.sizeBytes)}` : ''}</Typography>
               {item.errorMessage && <Typography variant="body2" color="error.main">{item.errorMessage}</Typography>}
             </Stack>
-            {item.status === 'READY' ? <Button variant="text" startIcon={<DownloadOutlinedIcon />} sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', sm: 'center' }, minHeight: 44 }} disabled={busy !== null} aria-label={`Скачать ${item.title}, ${format}`} onClick={() => void act(item, true)}>{busy === item.id ? 'Скачиваем…' : `Скачать ${format}`}</Button>
+            {item.status === 'READY' ? <SecondaryActionButton startIcon={<DownloadOutlinedIcon />} sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', sm: 'center' }, minHeight: 44 }} disabled={busy !== null} aria-label={`Скачать ${item.title}, ${format}`} onClick={() => void act(item, true)}>{busy === item.id ? 'Скачиваем…' : `Скачать ${format}`}</SecondaryActionButton>
               : item.status === 'ERROR' ? <Button variant="outlined" disabled={busy !== null} onClick={() => void act(item, false)}>Повторить создание</Button>
                 : <Chip label="Готовим файл…" size="small" />}
           </Stack>;

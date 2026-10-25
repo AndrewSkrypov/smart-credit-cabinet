@@ -65,7 +65,7 @@ export const cabinetTheme = createTheme({
     allVariants: { fontFeatureSettings: '"tnum"' },
     h4: { fontFamily: fontDisplay, fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.2 },
     h5: { fontFamily: fontDisplay, fontSize: '1.875rem', fontWeight: 700, lineHeight: 1.25 },
-    h6: { fontFamily: fontDisplay, fontSize: '1.375rem', fontWeight: 700, lineHeight: 1.3 },
+    h6: { fontFamily: fontDisplay, fontSize: '1.375rem', fontWeight: 700, lineHeight: 1.3, overflowWrap: 'anywhere' },
     subtitle1: { fontSize: '1.125rem', fontWeight: 500 },
     body1: { fontSize: '1rem' },
     body2: { fontSize: '0.875rem' },
@@ -134,8 +134,11 @@ export const cabinetTheme = createTheme({
           borderRadius: 99,
           fontWeight: 500,
           fontSize: '0.875rem',
+          [touch]: { maxWidth: '100%', height: 'auto', minHeight: 32 },
           '&.MuiChip-colorDefault': { backgroundColor: tokens.secondaryFill, color: tokens.ink }
-        }
+        },
+        sizeSmall: { [touch]: { minHeight: 24 } },
+        label: { [touch]: { whiteSpace: 'normal', overflowWrap: 'anywhere', paddingBlock: '1px' } }
       }
     },
     MuiAlert: { styleOverrides: { root: { borderRadius: 16 } } },

@@ -24,7 +24,7 @@ function ApplicationRow({ item, onOpen }: { item: ApplicationSummary; onOpen: ()
     <Card>
       <CardActionArea component={RouterLink} onClick={onOpen} to={`/client/applications/${item.id}`} state={{ listUrl: location.pathname + location.search }} sx={{ p: { xs: 2, md: 3 } }}>
         <Stack direction="row" spacing={2} alignItems="center">
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Box sx={{ flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
             <Typography variant="body2" color="text.secondary">№ {item.number} · обновлена {formatDateTime(item.statusChangedAt)}</Typography>
             <Typography fontWeight={700} sx={{ mt: 0.5 }}>{item.productName}</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 2 }} alignItems={{ sm: 'center' }} sx={{ mt: 1 }}>

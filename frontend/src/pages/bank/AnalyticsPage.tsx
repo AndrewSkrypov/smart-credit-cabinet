@@ -6,6 +6,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { HBar } from '../../components/HBar';
 import { LoadingBlock } from '../../components/LoadingBlock';
 import { PageHeader } from '../../components/PageHeader';
+import { TableScrollRegion } from '../../components/TableScrollRegion';
 import { useApi } from '../../hooks/useApi';
 import { statusTitle } from '../../shared/applicationText';
 import { formatMinutes } from '../../shared/duration';
@@ -17,9 +18,9 @@ const PERIODS = [7, 30, 90];
 
 function Tile({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, height: '100%' }}>
+    <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, height: '100%', overflowWrap: 'anywhere' }}>
       <Typography variant="body2" color="text.secondary">{label}</Typography>
-      <Typography variant="h5" component="p" sx={{ mt: 0.5, fontSize: { xs: '1.375rem', md: '1.625rem' }, whiteSpace: 'nowrap' }}>{value}</Typography>
+      <Typography variant="h5" component="p" sx={{ mt: 0.5, fontSize: { xs: '1.375rem', md: '1.625rem' }, overflowWrap: 'anywhere' }}>{value.replace(/\u00a0/g, ' ')}</Typography>
       {note && <Typography variant="body2" color="text.secondary">{note}</Typography>}
     </Paper>
   );
@@ -42,7 +43,7 @@ export function AnalyticsPage() {
       subtitle="Считается по журналу заявок: сколько дошло до каждого этапа и сколько времени заняло"
       actions={
         <ToggleButtonGroup exclusive size="small" value={days} onChange={(_, value: number | null) => value && setDays(value)} aria-label="Период">
-          {PERIODS.map((period) => <ToggleButton key={period} value={period} sx={{ px: 2, minHeight: 44, whiteSpace: 'nowrap' }}>{period} дней</ToggleButton>)}
+          {PERIODS.map((period) => <ToggleButton key={period} value={period} sx={{ px: { xs: 1, md: 2 }, minHeight: 44, minWidth: 0, flex: { xs: 1, md: '0 1 auto' } }}>{period} дней</ToggleButton>)}
         </ToggleButtonGroup>
       }
     />
@@ -64,12 +65,12 @@ export function AnalyticsPage() {
         <EmptyState title="За период заявок не было" description="Выберите период побольше или дождитесь заявок." />
       ) : (
         <Stack spacing={3}>
-          <Grid container spacing={2}>
+          <Box><Grid container spacing={2}>
             <Grid item xs={6} md={3}><Tile label="Отправлено заявок" value={String(sent)} /></Grid>
             <Grid item xs={6} md={3}><Tile label="Выдано" value={rub(data.disbursedAmount)} note={`${data.funnel.at(-1)?.applications ?? 0} кредитов`} /></Grid>
             <Grid item xs={6} md={3}><Tile label="Решено автоматически" value={share(automaticFinal, automatic)} note={`${automaticFinal} из ${automatic} оценок`} /></Grid>
             <Grid item xs={6} md={3}><Tile label="Решения вопреки рекомендации" value={String(data.manualOverrides)} note={`из ${manual} ручных решений`} /></Grid>
-          </Grid>
+          </Grid></Box>
 
           <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
             <Typography variant="h6" component="h2" gutterBottom>Воронка</Typography>
@@ -79,7 +80,7 @@ export function AnalyticsPage() {
             ))}
           </Paper>
 
-          <Grid container spacing={3}>
+          <Box><Grid container spacing={3}>
             <Grid item xs={12} lg={7}>
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, height: '100%' }}>
                 <Typography variant="h6" component="h2">Время на этапах</Typography>
@@ -90,7 +91,7 @@ export function AnalyticsPage() {
                       <HBar key={stage.status} label={stage.title} value={stage.medianMinutes ?? 0} max={longestMedian}
                         valueText={formatMinutes(stage.medianMinutes)} detail={`Медиана ${formatMinutes(stage.medianMinutes)}, среднее ${formatMinutes(stage.averageMinutes)}, переходов ${stage.transitions}`} />
                     ))}
-                    <Box sx={{ overflowX: 'auto', mt: 2 }}>
+                    <TableScrollRegion label="Все столбцы времени на этапах">
                       <Table size="small" aria-label="Время на этапах, таблица">
                         <TableHead>
                           <TableRow>
@@ -111,7 +112,7 @@ export function AnalyticsPage() {
                           ))}
                         </TableBody>
                       </Table>
-                    </Box>
+                    </TableScrollRegion>
                   </>
                 )}
               </Paper>
@@ -135,7 +136,7 @@ export function AnalyticsPage() {
                 </Paper>
               </Stack>
             </Grid>
-          </Grid>
+          </Grid></Box>
         </Stack>
       )}
     </>

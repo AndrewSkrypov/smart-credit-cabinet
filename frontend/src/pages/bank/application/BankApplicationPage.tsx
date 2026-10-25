@@ -1,5 +1,6 @@
 import { Alert, Box, Button, Chip, Grid, List, ListItem, ListItemText, Paper, Stack, Typography } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useParams, useLocation } from 'react-router-dom';
 import { applicationsApi, underwritingApi } from '../../../api/client';
@@ -8,6 +9,7 @@ import { LoadingBlock } from '../../../components/LoadingBlock';
 import { PageHeader } from '../../../components/PageHeader';
 import { MessagesBlock } from '../../../components/MessagesBlock';
 import { GeneratedFilesBlock } from '../../../components/GeneratedFilesBlock';
+import { SecondaryActionButton } from '../../../components/SecondaryActionButton';
 import { statusTitle, statusTone } from '../../../shared/applicationText';
 import { fileSize, formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
 import { Application, AssessmentView } from '../../../types';
@@ -37,6 +39,7 @@ function BankApplicationCard({ id }: { id: string }) {
   const [assessment, setAssessment] = useState<AssessmentView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const mounted = useRef(false);
   const requestSequence = useRef(0);
   const inFlight = useRef(false);
@@ -134,12 +137,13 @@ function BankApplicationCard({ id }: { id: string }) {
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
                 <Typography variant="h6" component="h2" gutterBottom>Кредит</Typography>
                 <Typography>Договор {application.process.loan.contractNumber}</Typography>
-                <Typography color="text.secondary">Ссудный счёт {application.process.loan.loanAccount}</Typography>
+                <Typography color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>Ссудный счёт {application.process.loan.loanAccount}</Typography>
               </Paper>
             )}
             {(offer || application.process.loan) && <GeneratedFilesBlock key={application.id} applicationId={application.id} final={Boolean(application.process.loan)} />}
             <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
               <Typography variant="h6" component="h2">Документы</Typography>
+              {downloadError && <Alert severity="error" sx={{ my: 1 }} onClose={() => setDownloadError(null)}>{downloadError}</Alert>}
               {application.documents.length === 0 ? (
                 <Typography color="text.secondary">Клиент документов не загружал</Typography>
               ) : (
@@ -147,10 +151,15 @@ function BankApplicationCard({ id }: { id: string }) {
                   {application.documents.map((document) => (
                     <ListItem key={document.id} disableGutters>
                       <ListItemText
+                        sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
                         primary={
-                          <Button variant="text" sx={{ p: 0, minHeight: 0 }} onClick={() => applicationsApi.downloadDocument(application.id, document.id, document.fileName)}>
+                          <SecondaryActionButton size="small" startIcon={<DownloadOutlinedIcon />} sx={{ minHeight: 44, textAlign: 'left', overflowWrap: 'anywhere' }}
+                            onClick={() => {
+                              setDownloadError(null);
+                              void applicationsApi.downloadDocument(application.id, document.id, document.fileName).catch((reason: Error) => setDownloadError(reason.message));
+                            }}>
                             {document.fileName}
-                          </Button>
+                          </SecondaryActionButton>
                         }
                         secondary={`${document.title} · ${fileSize(document.sizeBytes)} · ${formatDateTime(document.uploadedAt)}`}
                       />

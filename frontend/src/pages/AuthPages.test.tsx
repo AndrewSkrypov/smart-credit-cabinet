@@ -5,7 +5,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { cabinetTheme } from '../theme/theme';
 import { SignInPage, SignUpPage } from './AuthPages';
 import { generateTestInn } from '../shared/inn';
-import { passwordError } from '../shared/authValidation';
+import { emailError, passwordError } from '../shared/authValidation';
 
 const auth = vi.hoisted(() => ({ signIn: vi.fn(), signUp: vi.fn() }));
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ ...auth, session: null }), roleHome: {} }));
@@ -86,4 +86,9 @@ it('matches UTF-16 length and UTF-8 byte limits without requiring Cyrillic names
   expect(passwordError('1' + 'A'.repeat(72))).toMatch(/72 символов/);
   expect(passwordError('abcdefgh')).toMatch(/буквы и цифры/);
   expect(passwordError('12345678')).toMatch(/буквы и цифры/);
+});
+
+it('rejects malformed mailbox dots and domain labels while retaining aliases and single-label domains', () => {
+  for (const value of ['a@.', 'a..b@example.test', '.a@example.test', 'a@example..test', 'a@-example.test']) expect(emailError(value)).toBe('Укажите корректный email');
+  for (const value of ['a@b', 'alice+team@example.test', ' first.last@example.test ']) expect(emailError(value)).toBe('');
 });

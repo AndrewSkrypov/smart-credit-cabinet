@@ -9,6 +9,7 @@ import { roleLabels } from '../shared/labels';
 import { ApplicationStatus, ChatAudit, ChatFile, ChatMessage, ChatPage, Role } from '../types';
 import { LoadingBlock } from './LoadingBlock';
 import { SensitiveDataNotice } from './SensitiveDataNotice';
+import { SecondaryActionButton } from './SecondaryActionButton';
 
 const POLL_MS = 5000;
 const actionTitles = { MESSAGE_SENT: 'Отправлено сообщение', ATTACHMENT_UPLOADED: 'Загружено вложение', READ_CURSOR_ADVANCED: 'Прочитаны сообщения' };
@@ -148,7 +149,7 @@ export function MessagesBlock({ applicationId, status }: { applicationId: string
                 <Typography variant="body2" fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>{message.side === 'COMPANY' ? 'Компания' : 'Банк'} · {message.authorName}</Typography>
                 <Typography variant="caption" color="text.secondary">{formatDateTime(message.createdAt)}</Typography>
                 {message.text && <Typography sx={{ mt: 1, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{message.text}</Typography>}
-                {message.attachments.map((file) => <Button key={file.id} startIcon={<AttachFileOutlinedIcon />} onClick={() => void download(file)} sx={{ textAlign: 'left', overflowWrap: 'anywhere' }}>{file.fileName} · {fileSize(file.sizeBytes)}</Button>)}
+                {message.attachments.map((file) => <SecondaryActionButton key={file.id} size="small" startIcon={<AttachFileOutlinedIcon />} onClick={() => void download(file)} sx={{ minHeight: 44, textAlign: 'left', overflowWrap: 'anywhere' }}>{file.fileName} · {fileSize(file.sizeBytes)}</SecondaryActionButton>)}
               </Box>)}
             </Stack>
           )}

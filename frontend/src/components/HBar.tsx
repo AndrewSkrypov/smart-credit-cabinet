@@ -20,9 +20,9 @@ export function HBar({ label, value, max, valueText, detail }: HBarProps) {
   return (
     <Tooltip title={detail ?? `${label}: ${valueText}`} placement="top-start" disableInteractive>
       <Box role="img" aria-label={`${label}: ${valueText}${detail ? `. ${detail}` : ''}`} sx={{ py: 0.75, cursor: 'default' }}>
-        <Stack direction="row" justifyContent="space-between" spacing={2} sx={{ mb: 0.5 }}>
-          <Typography variant="body2">{label}</Typography>
-          <Typography variant="body2" fontWeight={500} sx={{ whiteSpace: 'nowrap' }}>{valueText}</Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="baseline" flexWrap="wrap" useFlexGap spacing={2} sx={{ mb: 0.5 }}>
+          <Typography variant="body2" sx={{ minWidth: 0, flex: '1 1 140px', overflowWrap: 'anywhere' }}>{label}</Typography>
+          <Typography variant="body2" fontWeight={500} sx={{ maxWidth: '100%', overflowWrap: 'anywhere' }}>{valueText}</Typography>
         </Stack>
         <Box sx={{ height: 8, borderRadius: '4px', bgcolor: tokens.secondaryFill }}>
           <Box sx={{ width: `${share * 100}%`, minWidth: value > 0 ? 4 : 0, height: '100%', borderRadius: '4px', bgcolor: tokens.dark }} />

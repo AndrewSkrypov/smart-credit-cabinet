@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Checkbox, FormControlLabel, Link, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Checkbox, FormControlLabel, Link, Paper, Stack, TextField, Typography, useMediaQuery } from '@mui/material';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, Navigate, useSearchParams, useLocation } from 'react-router-dom';
 import { authApi } from '../api/client';
@@ -53,12 +53,12 @@ export function AuthFrame({ title, children }: { title: string; children: React.
         <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.56)' }}>Прототип: все данные синтетические.</Typography>
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', px: 2, py: { xs: 2, md: 4 } }}>
-        <Box sx={{ display: { xs: 'block', md: 'none' }, mb: 3 }}>
+        <Box sx={{ display: { xs: 'block', md: 'none' }, mb: { xs: 2, sm: 3 } }}>
           <BrandMark />
         </Box>
-        <Box sx={{ flexGrow: 1, display: 'grid', placeItems: 'center' }}>
-          <Paper sx={{ width: '100%', maxWidth: 440, p: { xs: 3, sm: 5 }, borderRadius: '24px' }}>
-            <Typography variant="h5" component="h1" fontWeight={700} sx={{ mb: 3 }}>{title}</Typography>
+        <Box sx={{ flexGrow: 1, display: 'grid', alignItems: { xs: 'start', sm: 'center' }, justifyItems: 'center' }}>
+          <Paper sx={{ width: '100%', maxWidth: 440, p: { xs: 2, sm: 5 }, borderRadius: '24px' }}>
+            <Typography variant="h5" component="h1" fontWeight={700} sx={{ mb: { xs: 2, sm: 3 }, fontSize: { xs: '1.75rem', sm: '1.875rem' }, overflowWrap: 'anywhere' }}>{title}</Typography>
             {children}
           </Paper>
         </Box>
@@ -80,6 +80,7 @@ export function SignInPage() {
   const errors = { email: emailError(email), password: password ? '' : requiredError };
   const feedback = useFieldFeedback(errors);
   const ready = !Object.values(errors).some(Boolean);
+  const mobile = useMediaQuery('(max-width: 599.95px)');
 
   useEffect(() => {
     authApi.options().then((options) => setDemo(options.demoAccounts)).catch(() => setDemo(false));
@@ -120,8 +121,8 @@ export function SignInPage() {
         </Typography>
       </Stack>
       {demo && (
-        <Box sx={{ mt: 3, pt: 3, borderTop: 1, borderColor: 'divider' }}>
-          <Typography variant="subtitle2" gutterBottom>Демо-доступ</Typography>
+        <Box component={mobile ? 'details' : 'div'} sx={{ mt: 3, pt: { xs: 1, sm: 3 }, borderTop: 1, borderColor: 'divider' }}>
+          <Typography component={mobile ? 'summary' : 'p'} variant="subtitle2" gutterBottom sx={mobile ? { cursor: 'pointer', minHeight: 44, py: 1.5 } : {}}>Демо-доступ</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>Синтетические учётные записи для проверки сценария.</Typography>
           <Stack direction="row" flexWrap="wrap" gap={1}>
             {demoAccounts.map((account) => (

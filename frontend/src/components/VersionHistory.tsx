@@ -3,6 +3,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { roleLabels } from '../shared/labels';
 import { Role } from '../types';
+import { SecondaryActionButton } from './SecondaryActionButton';
 
 export interface RevisionMetadata {
   version: number;
@@ -65,7 +66,7 @@ export function VersionHistory({ title, items, currentVersion, onOpen }: {
         <Typography variant="caption" color="text.secondary">{fullTime.format(new Date(item.createdAt))} МСК</Typography>
         <Typography variant="body2" noWrap title={author(item)}>{author(item)}</Typography>
         {item.reason && <Typography variant="body2" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.reason}</Typography>}
-        <Button variant="text" size="small" startIcon={<VisibilityOutlinedIcon />} sx={{ mt: 0.5, minHeight: 44 }} aria-label={`Посмотреть версию ${item.version}`} onClick={() => { remember(); onOpen(item.version); }}>Посмотреть</Button>
+        <SecondaryActionButton size="small" startIcon={<VisibilityOutlinedIcon />} sx={{ mt: 0.5, minHeight: 44 }} aria-label={`Посмотреть версию ${item.version}`} onClick={() => { remember(); onOpen(item.version); }}>Посмотреть</SecondaryActionButton>
       </Box>)}
     </Box>
     {pages > 1 && <Stack component="nav" aria-label={`${title}: страницы`} gap={1} sx={{ pt: 2 }}>

@@ -41,8 +41,8 @@ export function LandingCalculator({ startPath, actionLabel = 'Оформить �
   }, [purpose, amount, termMonths]);
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2.5, md: 4 }, borderRadius: '32px', boxShadow: '0 24px 64px rgba(15, 25, 55, 0.12)', border: 0 }}>
-      <Typography variant="h6" component="h2" gutterBottom>Рассчитайте кредит</Typography>
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5, md: 4 }, minWidth: 0, borderRadius: { xs: '16px', sm: '32px' }, boxShadow: { xs: 'none', sm: '0 24px 64px rgba(15, 25, 55, 0.12)' }, border: 0 }}>
+      <Typography variant="h6" component="h2" gutterBottom sx={{ display: { xs: 'none', sm: 'block' } }}>Рассчитайте кредит</Typography>
       <Stack spacing={2}>
         <TextField select label="На что нужны деньги" value={purpose} onChange={(event) => setPurpose(event.target.value as FinancingPurpose)}>
           {(purposes.data ?? []).map((item) => <MenuItem key={item.code} value={item.code}>{item.title}</MenuItem>)}
@@ -59,7 +59,7 @@ export function LandingCalculator({ startPath, actionLabel = 'Оформить �
         {!error && best && (
           <>
             <Typography variant="body2" color="text.secondary">{best.product.name} · ставка от {percent(best.product.baseRate)}</Typography>
-            <Typography variant="h4" component="p" sx={{ mt: 0.5 }}>
+            <Typography variant="h4" component="p" sx={{ mt: 0.5, fontSize: { xs: '1.75rem', sm: '2.5rem' } }}>
               {best.monthlyPayment != null ? rubExact(best.monthlyPayment) : '—'}
               <Typography component="span" color="text.secondary"> в месяц</Typography>
             </Typography>

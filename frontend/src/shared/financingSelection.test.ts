@@ -16,6 +16,15 @@ describe('financing selection through authentication', () => {
     }
     expect(roleDestination('MANAGER', '?next=%2Fclient%2Fnew', '/bank')).toBe('/bank');
   });
+  it.each([['CLIENT', '/client'], ['MANAGER', '/bank'], ['UNDERWRITER', '/bank'], ['RISK_ADMIN', '/bank']] as const)('preserves the exact root and query of the own %s area through repeat sign-in', (role, area) => {
+    const next = `${area}?group=done&q=123&sort=oldest&page=2&size=20#list`;
+    const signIn = authPath('/sign-in', `?${new URLSearchParams({ next })}`);
+    expect(roleDestination(role, signIn.slice(signIn.indexOf('?')), area)).toBe(next);
+    const other = area === '/bank' ? '/client' : '/bank';
+    for (const denied of [`${other}?page=2`, `${area}-fake?page=2`, `//evil.test${area}?page=2`, `/\\evil.test${area}?page=2`]) {
+      expect(roleDestination(role, `?${new URLSearchParams({ next: denied })}`, area)).toBe(area);
+    }
+  });
   it('ignores malformed prefill values and never interprets them as an application', () => {
     expect(readFinancingSelection('?purpose=HACK&product=../oops&amount=-4&termMonths=999')).toEqual({ purpose: undefined, product: undefined, amount: undefined, termMonths: undefined });
   });

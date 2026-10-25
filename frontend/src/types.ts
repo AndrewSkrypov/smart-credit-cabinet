@@ -282,6 +282,26 @@ export interface ApplicationSummary {
   unreadChatCount?: number;
 }
 
+export interface ApplicationPage {
+  items: ApplicationSummary[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+  countsByGroup: Record<string, number>;
+  actionRequiredCount: number;
+  actionRequiredPreview: ApplicationSummary[];
+}
+
+export interface ApplicationPageQuery {
+  page: number;
+  size: number;
+  group: string;
+  q: string;
+  sort: string;
+}
+
 export interface JournalEntry {
   id: string;
   event: string;

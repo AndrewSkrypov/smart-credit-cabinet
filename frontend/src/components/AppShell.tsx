@@ -4,6 +4,7 @@ import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { roleLabels } from '../shared/labels';
 import { nightGlow, tokens } from '../theme/theme';
+import { DocumentSurface } from './DocumentSurface';
 import { BrandMark } from './BrandMark';
 import { AssistantPanel } from './AssistantPanel';
 import { NotificationBell } from './NotificationBell';
@@ -47,7 +48,7 @@ export function AppShell() {
     </Tabs>
   );
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: nightGlow }}>
+    <DocumentSurface kind="workspace"><Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: nightGlow }}>
       <Box component="header" sx={{ position: 'sticky', top: 0, zIndex: 10, pt: { xs: 1, md: 2 } }}>
         <Container maxWidth="lg">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 3 }, minHeight: { xs: 56, md: 64 }, pl: { xs: 1.5, md: 2.5 }, pr: { xs: 1, md: 1.5 },
@@ -68,6 +69,7 @@ export function AppShell() {
         </Container>
       </Box>
       <Container maxWidth="lg" sx={{ display: { lg: 'none' }, mt: 1 }}>{tabs({})}</Container>
+      {!bank && <Container maxWidth="lg" sx={{ mt: 1 }}><Typography variant="caption" sx={{ color: '#fff' }}>{user.canSign ? 'С правом подписи' : 'Без права подписи · договор подписывает уполномоченный представитель компании'}</Typography></Container>}
       <Box sx={{ height: { xs: 16, md: 32 } }} />
       <Box sx={{ flexGrow: 1, bgcolor: 'background.default', borderRadius: { xs: '28px 28px 0 0', md: '48px 48px 0 0' } }}>
         <Container component="main" maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -75,6 +77,6 @@ export function AppShell() {
         </Container>
       </Box>
       {!bank && <AssistantPanel />}
-    </Box>
+    </Box></DocumentSurface>
   );
 }

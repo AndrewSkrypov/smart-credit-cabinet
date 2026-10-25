@@ -6,3 +6,4 @@ gradlew text eol=lf
 # Immutable task inputs must retain their byte-level SHA256 on Windows checkouts.
 docs/plans/cabinet-polish-plan-2026-10-24.md -text
 docs/plans/pci-boundary-mini-spec-2026-10-24.md -text
+docs/plans/pr1-followup-spec-2026-10-25.md -text

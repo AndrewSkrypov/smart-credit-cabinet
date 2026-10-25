@@ -9,6 +9,7 @@ import '@fontsource/manrope/800.css';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import App from './App';
+import { DocumentCanvas } from './components/DocumentSurface';
 import { AuthProvider } from './auth/AuthProvider';
 import { cabinetTheme } from './theme/theme';
 
@@ -20,7 +21,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <ThemeProvider theme={cabinetTheme}>
       <CssBaseline />
-      <RouterProvider router={router} />
+      <DocumentCanvas><RouterProvider router={router} /></DocumentCanvas>
     </ThemeProvider>
   </React.StrictMode>
 );

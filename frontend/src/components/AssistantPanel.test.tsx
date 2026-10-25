@@ -22,6 +22,38 @@ describe('AssistantPanel', () => {
     ask.mockReset().mockResolvedValue({ text: 'Банк просит <b>декларацию</b>.', mode: 'RULES', sources: ['Заявка № 1042'] });
     vi.mocked(assistantApi.status).mockResolvedValue({ mode: 'RULES', model: null });
   });
+  it('keeps twelve questions visible but sends only four previous completed turns, bounded to MAX_TEXT', async () => {
+    const user = userEvent.setup();
+    ask.mockImplementation((question: string) => Promise.resolve({ text: `Ответ ${question}` + 'а'.repeat(1050), mode: 'RULES', sources: [] }));
+    render(<MemoryRouter><AssistantPanel /></MemoryRouter>);
+    await user.click(screen.getByRole('button', { name: 'Открыть помощника' }));
+    for (let i = 1; i <= 12; i++) {
+      await user.click(screen.getByLabelText('Ваш вопрос'));
+      await user.paste(`Вопрос ${i}`);
+      await user.click(screen.getByRole('button', { name: 'Спросить' }));
+      await screen.findByText(`Ответ Вопрос ${i}` + 'а'.repeat(1050));
+      const [question, appId, history] = ask.mock.calls[i - 1];
+      expect(question).toBe(`Вопрос ${i}`); expect(appId).toBeNull();
+      expect(history).toHaveLength(Math.min((i - 1) * 2, 4));
+      expect(history.every((turn: { text: string }) => turn.text.length <= 1000 && turn.text !== question)).toBe(true);
+      if (i > 2) expect(history.map((turn: { role: string }) => turn.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
+    }
+    expect(screen.getByText('Вопрос 1', { exact: true })).toBeInTheDocument();
+    expect(ask).toHaveBeenCalledTimes(12);
+  }, 20000);
+
+  it('retries a failed question without duplicating it or inventing a completed turn', async () => {
+    const user = userEvent.setup();
+    ask.mockRejectedValueOnce(new Error('Сеть недоступна'));
+    render(<MemoryRouter><AssistantPanel /></MemoryRouter>);
+    await user.click(screen.getByRole('button', { name: 'Открыть помощника' }));
+    await user.click(screen.getByText('Как считается платёж?'));
+    await screen.findByText('Сеть недоступна');
+    await user.click(screen.getByRole('button', { name: 'Повторить вопрос' }));
+    await screen.findByText('Банк просит <b>декларацию</b>.');
+    expect(ask).toHaveBeenLastCalledWith('Как считается платёж?', null, []);
+    expect(screen.getAllByText('Как считается платёж?', { exact: true })).toHaveLength(1);
+  });
   it('asks about the application on screen and shows the answer as plain text', async () => {
     render(
       <MemoryRouter initialEntries={[`/client/applications/${APPLICATION}`]}>

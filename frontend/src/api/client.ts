@@ -163,6 +163,8 @@ export const chatApi = {
 };
 
 export const applicationsApi = {
+  page: (params: import('../types').ApplicationPageQuery, signal?: AbortSignal) =>
+    api.get<import('../types').ApplicationPage>('/applications/page', { params, signal }).then((response) => response.data),
   list: () => get<ApplicationSummary[]>('/applications'),
   get: (id: string) => get<Application>(`/applications/${id}`),
   create: (input: ApplicationInput) => post<Application>('/applications', input),

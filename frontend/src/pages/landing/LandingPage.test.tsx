@@ -18,10 +18,18 @@ vi.mock('../../api/client', () => ({
 let session: unknown = null;
 vi.mock('../../auth/AuthProvider', () => ({
   useAuth: () => ({ session }),
-  roleHome: { CLIENT: '/client', CREDIT_MANAGER: '/bank', UNDERWRITER: '/bank', RISK_ADMIN: '/bank' }
+  roleHome: { CLIENT: '/client', MANAGER: '/bank', UNDERWRITER: '/bank', RISK_ADMIN: '/bank' }
 }));
 
 describe('LandingPage', () => {
+  it.each(['MANAGER', 'UNDERWRITER', 'RISK_ADMIN'])('labels every application CTA honestly for %s', async (role) => {
+    session = { user: { role } };
+    render(<MemoryRouter><LandingPage /></MemoryRouter>);
+    await screen.findByRole('heading', { name: 'Кредит на пополнение оборота' });
+    expect(screen.queryByRole('link', { name: /Оформить заявку/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Войти как предприниматель' })).not.toBeInTheDocument();
+    for (const link of screen.getAllByRole('link', { name: 'В кабинет банка' })) expect(link).toHaveAttribute('href', '/bank');
+  });
   it('does not advertise unavailable products when the catalogue is empty', async () => {
     session = null;
     vi.mocked(productsApi.list).mockResolvedValueOnce([]);

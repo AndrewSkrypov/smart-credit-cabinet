@@ -1,0 +1,497 @@
+{
+  "phase": "before",
+  "passed": true,
+  "base": "http://localhost:18150",
+  "same_fixture": "a077a22b-3c8b-4b5d-bee6-d7952d96c8bd",
+  "records": [
+    {
+      "label": "auth-1440",
+      "url": "http://localhost:18150/sign-in",
+      "file": "auth-1440.png",
+      "sha256": "a4b1cdc7b2fcda8e6d8224230127d78909cb1bd767a5543b08c529dfd686aa25",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 900,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "auth-1280",
+      "url": "http://localhost:18150/sign-in",
+      "file": "auth-1280.png",
+      "sha256": "1dc72244e2e0936e882b207686926cab51d9c9589a9f63dc4542836e2fbebe09",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "documentWidth": 1280,
+      "documentHeight": 720,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "auth-390",
+      "url": "http://localhost:18150/sign-in",
+      "file": "auth-390.png",
+      "sha256": "9e1ebced6c3f0a9b919709144a00c41031977a5baaf4f2b92d01ba5e081a9b30",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "documentWidth": 390,
+      "documentHeight": 844,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "signup-1440",
+      "url": "http://localhost:18150/sign-up",
+      "file": "signup-1440.png",
+      "sha256": "4c5d8e24998932d8e30d86ac38182a08c0ae70cbffdbdd4e59ed8a539d20fb27",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 900,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [
+        {
+          "x": 849,
+          "y": 641,
+          "width": 24,
+          "height": 24
+        }
+      ],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "landing-1440",
+      "url": "http://localhost:18150/",
+      "file": "landing-1440.png",
+      "sha256": "e149b8ef4931237a2261c0ab0f958a7fde4f4702cf91f97ad030c61c26daa5ce",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 5302,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "rules-history-1440",
+      "url": "http://localhost:18150/bank/rules",
+      "file": "rules-history-1440.png",
+      "sha256": "23af5b78dadfeb0ecc750995521057df607ef049dc8436f45bb9606a44ee2447",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 3524,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "rules-archive-1440",
+      "url": "http://localhost:18150/bank/rules",
+      "file": "rules-archive-1440.png",
+      "sha256": "159939d71af89c8936253ac81367c3aeef90544eac0696fc5280e46bd1bb89ea",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 3524,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "rules-history-1280",
+      "url": "http://localhost:18150/bank/rules",
+      "file": "rules-history-1280.png",
+      "sha256": "c3cd960d5bb8bc6fee6c892d3530bc6a6e24e1f5ed245dd6b6308e8367ec3740",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "documentWidth": 1280,
+      "documentHeight": 3524,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "rules-history-390",
+      "url": "http://localhost:18150/bank/rules",
+      "file": "rules-history-390.png",
+      "sha256": "1c405bd9feb044240a22c57462102bb4db9fb2e00f62942c24e7570a39584eb5",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "documentWidth": 390,
+      "documentHeight": 5017,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "product-checkboxes-1440",
+      "url": "http://localhost:18150/bank/products",
+      "file": "product-checkboxes-1440.png",
+      "sha256": "be01d5a0f931937d2213ac276543e35d71952ec74f31dfbbe4559e839e121772",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 1655,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [
+        {
+          "x": 174,
+          "y": 250.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 292.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 334.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 376.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 418.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 460.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 502.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 564.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 626.59375,
+          "width": 24,
+          "height": 24
+        }
+      ],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "product-snapshot-1440",
+      "url": "http://localhost:18150/bank/products",
+      "file": "product-snapshot-1440.png",
+      "sha256": "dc891515bef337cef354fc631e27b628c56cd8965ad36a80ad09e45e594f1ad9",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 1655,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [
+        {
+          "x": 174,
+          "y": 849.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 891.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 933.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 975.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 1017.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 1059.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 174,
+          "y": 1101.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 1163.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 1225.59375,
+          "width": 24,
+          "height": 24
+        }
+      ],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "bank-done-1440",
+      "url": "http://localhost:18150/bank?group=done&page=0&size=20",
+      "file": "bank-done-1440.png",
+      "sha256": "7d07180282dfa45efd21ab71c73d683a5cb9deab7ff2c83689a814e27a1eb7ab",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 84157,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [
+        {
+          "name": "Завершённые",
+          "rows": 1084
+        }
+      ],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "client-list-1440",
+      "url": "http://localhost:18150/client?group=done&page=0&size=10",
+      "file": "client-list-1440.png",
+      "sha256": "db0eaccfca4da2663aa72c06ddac5939d997718c76b5187c69526ce93976984d",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 151445,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "notifications-1440",
+      "url": "http://localhost:18150/client?group=done&page=0&size=10",
+      "file": "notifications-1440.png",
+      "sha256": "053f8b21cf900b192a0cee6b23ad0dd2619a4288414c88ceffffbd00b6c35a90",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 151445,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "issued-1440",
+      "url": "http://localhost:18150/client/applications/a077a22b-3c8b-4b5d-bee6-d7952d96c8bd",
+      "file": "issued-1440.png",
+      "sha256": "3f99e4eb25f7ba508728e1986ddf02df8ac1e2434d254151d59a996224ef87e2",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 2858,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [
+        {
+          "name": "Сравнение условий",
+          "rows": 5
+        },
+        {
+          "name": "График платежей",
+          "rows": 12
+        }
+      ],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "files-1440",
+      "url": "http://localhost:18150/client/applications/a077a22b-3c8b-4b5d-bee6-d7952d96c8bd",
+      "file": "files-1440.png",
+      "sha256": "b786f332471b5af2150f223f4b72bdd650256a277376a5a82da79e60c40f8f2b",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 2858,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [
+        {
+          "name": "Сравнение условий",
+          "rows": 5
+        },
+        {
+          "name": "График платежей",
+          "rows": 12
+        }
+      ],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    },
+    {
+      "label": "issued-390",
+      "url": "http://localhost:18150/client/applications/a077a22b-3c8b-4b5d-bee6-d7952d96c8bd",
+      "file": "issued-390.png",
+      "sha256": "55bc2972d79feeba6a7283729d924659011172378411146fc0c32a1025112413",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "documentWidth": 390,
+      "documentHeight": 3675,
+      "surface": null,
+      "htmlBackground": "none / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgb(243, 244, 245)",
+      "tables": [
+        {
+          "name": "Сравнение условий",
+          "rows": 5
+        },
+        {
+          "name": "График платежей",
+          "rows": 12
+        }
+      ],
+      "checks": [],
+      "asset": [
+        "/assets/index-DeQO9NrC.js"
+      ]
+    }
+  ]
+}

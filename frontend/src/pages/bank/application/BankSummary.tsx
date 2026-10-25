@@ -20,8 +20,10 @@ export function BankSummary({ application, assessment, stale }: { application: A
     assessment.tax && (!assessment.tax.hasReports || assessment.tax.revenue == null) ? 'Выручка ФНС неизвестна.' : '',
     assessment.bank && !assessment.bank.client ? 'Обороты по счёту в банке неизвестны: у компании нет счёта в этом банке.' : '']
     .filter(Boolean).join(' ');
+  const terminal = ({ DISBURSED: 'Кредит выдан.', REJECTED: 'Отказано.', WITHDRAWN: 'Заявка отозвана.', CLOSED: 'Заявка закрыта.' } as Record<string, string>)[application.status];
   const next = stale ? 'Дождитесь обновления данных или нажмите «Повторить».'
-    : assessment.actions.length ? assessment.actions.map((action) => outcomeTitles[action]).join(' · ')
+    : terminal ? terminal
+    : assessment.actions.length ? `${assessment.actions.map((action) => outcomeTitles[action]).join(' · ')}${application.status === 'MANUAL_REVIEW' && !assessment.actions.includes('APPROVE') ? '. Кредитное решение принимает андеррайтер.' : ''}`
       : application.status === 'INFO_REQUESTED' ? 'Ожидаются данные клиента.'
         : ['OFFER_ISSUED', 'SIGNING'].includes(application.status) ? 'Ожидается ответ или подпись клиента.'
           : ['ENRICHMENT', 'SCORING', 'DISBURSING', 'SUBMITTED'].includes(application.status) ? 'Идёт автоматическая обработка.'

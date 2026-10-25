@@ -17,7 +17,14 @@ const suggestionsFor = (onApplication: boolean) =>
 
 interface Message extends AssistantTurn {
   answer?: AssistantAnswer;
+  completed?: boolean;
 }
+
+// The transcript stays visible; only successful, bounded turns enter the model context.
+const contextFor = (messages: Message[]): AssistantTurn[] => messages
+  .filter((message) => message.completed)
+  .slice(-4)
+  .map(({ role, text }) => ({ role, text: text.slice(0, 1000) }));
 
 /**
  * The assistant: explains products, statuses and the bank's decisions in plain words. On an
@@ -61,14 +68,20 @@ export function AssistantPanel() {
     if (!trimmed || busy) return;
     const request = ++requestId.current;
     const isCurrent = () => request === requestId.current && applicationId === currentApplication.current;
-    const history = messages.map(({ role, text: content }) => ({ role, text: content }));
-    setMessages((current) => [...current, { role: 'user', text: trimmed }]);
+    const history = contextFor(messages);
+    const last = messages.at(-1);
+    const retry = last?.role === 'user' && !last.completed && last.text === trimmed;
+    const questionIndex = retry ? messages.length - 1 : messages.length;
+    if (!retry) setMessages((current) => [...current, { role: 'user', text: trimmed }]);
     setQuestion('');
     setBusy(true);
     setError(null);
     try {
       const answer = await assistantApi.ask(trimmed, applicationId, history);
-      if (isCurrent()) setMessages((current) => [...current, { role: 'assistant', text: answer.text, answer }]);
+      if (isCurrent()) setMessages((current) => [
+        ...current.map((message, index) => index === questionIndex ? { ...message, completed: true } : message),
+        { role: 'assistant', text: answer.text, answer, completed: true }
+      ]);
     } catch (nextError) {
       if (isCurrent()) setError(nextError instanceof Error ? nextError.message : 'Помощник сейчас недоступен');
     } finally {
@@ -133,7 +146,7 @@ export function AssistantPanel() {
         </Box>
 
         <Box sx={{ px: 2, pt: 1 }}><SensitiveDataNotice compact /></Box>
-        {error && <Alert severity="error" sx={{ mx: 2 }}>{error}</Alert>}
+        {error && <Alert severity="error" sx={{ mx: 2 }} action={<Button disabled={busy} onClick={() => void ask(messages.at(-1)?.text ?? '')}>Повторить вопрос</Button>}>{error}</Alert>}
         <Stack component="form" onSubmit={submit} direction="row" spacing={1} sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
           <TextField label="Ваш вопрос" value={question} onChange={(event) => setQuestion(event.target.value)} fullWidth size="small" inputProps={{ maxLength: 500 }} />
           <Button type="submit" variant="contained" disabled={busy || !question.trim()}>Спросить</Button>

@@ -8,7 +8,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { SaveVersionDialog, VersionHistory, VersionPreviewDialog } from '../../components/VersionHistory';
 import { useApi } from '../../hooks/useApi';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
-import { rub } from '../../shared/format';
+import { ProductSnapshot } from '../../components/VersionSnapshots';
 import { sameVersionParams } from '../../shared/versionParams';
 import { FinancingPurpose, Product } from '../../types';
 
@@ -106,11 +106,14 @@ function ProductCard({ code, purposes, onSaved, onDirty, onBusy, requestDiscard 
               {numberField('maxTermMonths', 'Максимальный срок, месяцев')}
             </Grid></Box>
             <Typography fontWeight={600}>Цели финансирования</Typography>
-            <Stack>
+            <Stack sx={{ '& .MuiFormControlLabel-root': { m: 0, minHeight: 44, alignItems: 'flex-start' }, '& .MuiFormControlLabel-label': { py: '10px', overflowWrap: 'anywhere' } }}>
               {purposes.map((purpose) => <FormControlLabel key={purpose.code} label={purpose.title} control={<Checkbox disabled={!canEdit || busy} checked={value.purposes.includes(purpose.code)} onChange={(_, checked) => change({ purposes: checked ? [...value.purposes, purpose.code] : value.purposes.filter((item) => item !== purpose.code) })} />} />)}
             </Stack>
+            <Typography fontWeight={600}>Параметры продукта</Typography>
+            <Stack sx={{ '& .MuiFormControlLabel-root': { m: 0, minHeight: 44, alignItems: 'flex-start' }, '& .MuiFormControlLabel-label': { py: '10px', overflowWrap: 'anywhere' } }}>
             <FormControlLabel label="Возобновляемый лимит" control={<Checkbox disabled={!canEdit || busy} checked={value.revolving} onChange={(_, checked) => change({ revolving: checked })} />} />
             <FormControlLabel label="Показывать в каталоге и принимать новые заявки" control={<Checkbox disabled={!canEdit || busy} checked={value.active !== false} onChange={(_, checked) => change({ active: checked })} />} />
+            </Stack>
             {canEdit && <>
               <TextField label="Причина изменения продукта" required multiline minRows={2} inputProps={{ maxLength: 1000 }} value={reason} onChange={(event) => setReason(event.target.value)} disabled={busy} />
               <Button variant="contained" disabled={busy || !reason.trim() || !changed} onClick={() => setConfirm(true)}>Сохранить новую версию продукта</Button>
@@ -123,16 +126,8 @@ function ProductCard({ code, purposes, onSaved, onDirty, onBusy, requestDiscard 
           items={(history.data ?? []).map((item) => ({ ...item, version: item.product.version }))} onOpen={setViewedVersion} />
       </Grid>
       <SaveVersionDialog open={confirm} busy={busy} onCancel={() => setConfirm(false)} onConfirm={() => void save()} />
-      {viewed && <VersionPreviewDialog title={`Версия ${viewed.product.version} · ${viewed.product.name}`} onClose={() => setViewedVersion(null)} metadata={{ ...viewed, version: viewed.product.version }}>
-        <Stack spacing={1.5}>
-          <Typography>{viewed.product.description}</Typography>
-          <Typography>Ставка: {viewed.product.baseRate}%</Typography>
-          <Typography>Сумма: {rub(viewed.product.minAmount)} — {rub(viewed.product.maxAmount)}</Typography>
-          <Typography>Срок: {viewed.product.minTermMonths} — {viewed.product.maxTermMonths} месяцев</Typography>
-          <Typography>Лимит автоодобрения: {rub(viewed.product.autoApprovalLimit)}</Typography>
-          <Typography>{viewed.product.revolving ? 'Возобновляемый лимит' : 'Разовая выдача'} · {viewed.product.active ? 'В каталоге' : 'Выключен'}</Typography>
-          <Typography>Цели: {viewed.product.purposes.map((item) => purposes.find((purpose) => purpose.code === item)?.title ?? item).join('; ')}</Typography>
-        </Stack>
+      {viewed && <VersionPreviewDialog title={`Версия ${viewed.product.version} · ${viewed.product.name}`} currentVersion={current?.version} onClose={() => setViewedVersion(null)} metadata={{ ...viewed, version: viewed.product.version }}>
+        <ProductSnapshot product={viewed.product} purposes={purposes} />
       </VersionPreviewDialog>}
     </Grid>
   );

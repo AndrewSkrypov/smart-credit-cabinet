@@ -6,7 +6,7 @@ import { Application } from '../../../types';
 import { PaymentSchedule } from './PaymentSchedule';
 
 /** The bank's terms next to the requested ones, so a counter offer is visible at a glance. */
-export function OfferBlock({ application, onChanged }: { application: Application; onChanged: (next: Application) => void }) {
+export function OfferBlock({ application, onChanged, historical = false }: { application: Application; onChanged: (next: Application) => void; historical?: boolean }) {
   const offer = application.process.offer!;
   const [declining, setDeclining] = useState(false);
   const [comment, setComment] = useState('');
@@ -38,7 +38,7 @@ export function OfferBlock({ application, onChanged }: { application: Applicatio
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: actionable ? 'success.main' : undefined }}>
-      <Typography variant="h6" component="h2">{counter ? 'Банк предлагает другие условия' : 'Заявка одобрена'}</Typography>
+      <Typography variant="h6" component="h2">{historical ? 'Принятое предложение' : counter ? 'Банк предлагает другие условия' : 'Заявка одобрена'}</Typography>
       {actionable && <Typography color="text.secondary">Предложение действует до {formatDateTime(offer.validUntil)}.</Typography>}
       {offer.changes.length > 0 && (
         <Alert severity="info" sx={{ mt: 2 }}>
@@ -51,7 +51,7 @@ export function OfferBlock({ application, onChanged }: { application: Applicatio
             <TableRow>
               <TableCell />
               <TableCell>Вы запросили</TableCell>
-              <TableCell>Предлагает банк</TableCell>
+              <TableCell>{historical ? 'Согласовано с банком' : 'Предлагает банк'}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

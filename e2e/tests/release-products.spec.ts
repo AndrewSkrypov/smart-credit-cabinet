@@ -61,7 +61,10 @@ if (process.env.MAIL_TESTS !== '1') {
       const prior = await (await request.get(`/api/v1/applications/${old.id}`, { headers: headers(client) })).json();
       expect(prior.process.offer.rate).toBe(original.baseRate);
       expect(prior.process.loan.rate).toBe(original.baseRate);
-      await expect(page.getByRole('heading', { name: 'Заявка одобрена', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Кредит выдан', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Принятое предложение', exact: true })).not.toBeVisible();
+      await page.getByText('Согласованные условия', { exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Принятое предложение', exact: true })).toBeVisible();
       await noHorizontalOverflow(page);
     } finally {
       const current = (await (await request.get('/api/v1/bank/products/WORKING_CAPITAL', { headers: headers(risk) })).json())[0].product;
@@ -87,8 +90,8 @@ if (process.env.MAIL_TESTS !== '1') {
       await page.getByRole('button', { name: 'ОК', exact: true }).click();
       await expect(page.getByText('Условия только что изменил другой администратор — обновите карточку и проверьте изменения', { exact: false })).toBeVisible();
       await expect(page.getByLabel('Базовая ставка, %', { exact: true })).toHaveValue(String(original.baseRate + 2));
-      await page.getByRole('button', { name: `Открыть версию ${original.version + 1}`, exact: true }).click();
-      await expect(page.getByRole('dialog')).toContainText(`Ставка: ${original.baseRate + 1}%`);
+      await page.getByRole('button', { name: `Посмотреть версию ${original.version + 1}`, exact: true }).click();
+      await expect(page.getByRole('dialog').locator('dt').filter({ hasText: /^Базовая ставка$/ }).locator('xpath=following-sibling::dd[1]')).toHaveText(`${String(original.baseRate + 1).replace('.', ',')}%`);
       await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
       await page.getByRole('button', { name: 'Загрузить текущие условия', exact: true }).click();
       await page.getByRole('button', { name: 'Вернуться к форме', exact: true }).click();

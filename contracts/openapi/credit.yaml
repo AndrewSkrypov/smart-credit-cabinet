@@ -71,6 +71,49 @@ components:
       - stageTimes
       - to
       type: object
+    ApplicationPageResponse:
+      properties:
+        actionRequiredCount:
+          format: int64
+          type: integer
+        actionRequiredPreview:
+          items:
+            $ref: '#/components/schemas/ApplicationSummary'
+          type: array
+        countsByGroup:
+          additionalProperties:
+            format: int64
+            type: integer
+          type: object
+        hasNext:
+          type: boolean
+        items:
+          items:
+            $ref: '#/components/schemas/ApplicationSummary'
+          type: array
+        page:
+          format: int32
+          type: integer
+        size:
+          format: int32
+          type: integer
+        totalElements:
+          format: int64
+          type: integer
+        totalPages:
+          format: int32
+          type: integer
+      required:
+      - actionRequiredCount
+      - actionRequiredPreview
+      - countsByGroup
+      - hasNext
+      - items
+      - page
+      - size
+      - totalElements
+      - totalPages
+      type: object
     ApplicationRequest:
       properties:
         amount:
@@ -2087,6 +2130,92 @@ paths:
       security:
       - bearerAuth: []
       summary: Создать черновик заявки
+      tags:
+      - Заявки, документы и выдача
+  /api/v1/applications/page:
+    get:
+      operationId: page
+      parameters:
+      - in: query
+        name: page
+        required: false
+        schema:
+          default: 0
+          format: int64
+          type: integer
+      - in: query
+        name: size
+        required: false
+        schema:
+          default: 20
+          format: int32
+          type: integer
+      - in: query
+        name: group
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: q
+        required: false
+        schema:
+          default: ''
+          type: string
+      - in: query
+        name: sort
+        required: false
+        schema:
+          default: default
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ApplicationPageResponse'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/page
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/page
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/page
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Ограниченная SQL-страница заявок; счётчики по поиску, клиентское превью действий глобально
       tags:
       - Заявки, документы и выдача
   /api/v1/applications/{id}:

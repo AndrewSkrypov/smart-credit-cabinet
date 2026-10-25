@@ -32,6 +32,7 @@
     ["identity", "PUT", "/api/v1/users/me", "profile_update", [401,200,200,200,200,200]],
     ["credit", "GET", "/api/v1/analytics/funnel", "analytics", [401,403,403,200,200,200]],
     ["credit", "GET", "/api/v1/applications", "submitted", [401,200,200,200,200,200]],
+    ["credit", "GET", "/api/v1/applications/page", "none", [401,200,200,200,200,200]],
     ["credit", "POST", "/api/v1/applications", "create", [401,201,201,403,403,403]],
     ["credit", "GET", "/api/v1/applications/{id}", "submitted", [401,200,404,200,200,200]],
     ["credit", "PUT", "/api/v1/applications/{id}", "draft", [401,200,404,403,403,403]],

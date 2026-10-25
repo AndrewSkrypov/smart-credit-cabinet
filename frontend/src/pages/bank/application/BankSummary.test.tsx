@@ -16,6 +16,13 @@ describe('bank summary and source receipt dates', () => {
     expect(screen.getByText(/Не получены ответы:/)).toHaveTextContent('БКИ');
     expect(screen.getByText(/Доступно вам/).parentElement).toHaveTextContent('Запросить данные');
     expect(screen.queryByText(/Одобрить/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Кредитное решение принимает андеррайтер/)).toBeInTheDocument();
+  });
+
+  it.each([['DISBURSED', 'Кредит выдан.'], ['WITHDRAWN', 'Заявка отозвана.'], ['CLOSED', 'Заявка закрыта.']])('explains the terminal result %s without inventing a role action', (status, expected) => {
+    render(<BankSummary application={{ ...application, status } as Application} assessment={{ ...assessment, actions: [] }} stale={false} />);
+    expect(screen.getByText(expected, { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText(/Для вашей роли действий/)).not.toBeInTheDocument();
   });
 
   it('uses the latest manual decision rather than the previous automatic recommendation', () => {

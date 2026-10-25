@@ -49,6 +49,8 @@ if (process.env.MAIL_TESTS !== '1') {
       await noHorizontalOverflow(page);
       await page.goto('/client');
       const marker = new RegExp(`№ ${app.number}\\b`);
+      await expect(bankPage.getByRole('button', { name: 'Показать обновления', exact: true })).toBeVisible({ timeout: 25000 });
+      await bankPage.getByRole('button', { name: 'Показать обновления', exact: true }).click();
       const bankRow = info.project.name === 'mobile'
         ? bankPage.getByRole('button', { name: new RegExp(`^№ ${app.number} `) })
         : bankPage.getByRole('row').filter({ hasText: marker });
@@ -67,6 +69,8 @@ if (process.env.MAIL_TESTS !== '1') {
       await expect(bankChat.getByText(reply, { exact: true })).toBeVisible();
       await noHorizontalOverflow(bankPage);
       await bankPage.screenshot({ path: info.outputPath('bank-conversation.png'), animations: 'disabled' });
+      await expect(page.getByRole('button', { name: 'Показать обновления', exact: true })).toBeVisible({ timeout: 20000 });
+      await page.getByRole('button', { name: 'Показать обновления', exact: true }).click();
       const clientRow = page.getByRole('link').filter({ hasText: marker });
       await expect(clientRow.getByText('Сообщений: 1', { exact: true })).toBeVisible({ timeout: 20000 });
       await expect.poll(async () => {

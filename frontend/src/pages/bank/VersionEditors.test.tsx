@@ -87,7 +87,7 @@ describe('version editors', () => {
     show(<RulesPage />);
     expect(await screen.findByLabelText(/Предельная долговая нагрузка/)).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Сохранить новую версию' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Открыть версию 1' }));
+    await user.click(screen.getByRole('button', { name: 'Посмотреть версию 1' }));
     const dialog = screen.getByRole('dialog');
     expect(await within(dialog).findByText(/Сохранённые условия/)).toBeInTheDocument();
     expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();

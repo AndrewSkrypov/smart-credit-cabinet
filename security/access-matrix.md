@@ -33,6 +33,7 @@
 | identity | `PUT /api/v1/users/me` | 401 | 200 | 200 | 200 | 200 | 200 |
 | credit | `GET /api/v1/analytics/funnel` | 401 | 403 | 403 | 200 | 200 | 200 |
 | credit | `GET /api/v1/applications` | 401 | 200 | 200 | 200 | 200 | 200 |
+| credit | `GET /api/v1/applications/page` | 401 | 200 | 200 | 200 | 200 | 200 |
 | credit | `POST /api/v1/applications` | 401 | 201 | 201 | 403 | 403 | 403 |
 | credit | `GET /api/v1/applications/{id}` | 401 | 200 | 404 | 200 | 200 | 200 |
 | credit | `PUT /api/v1/applications/{id}` | 401 | 200 | 404 | 403 | 403 | 403 |

@@ -239,6 +239,14 @@ def invoke(method, template, kind, role, fixture):
         created.append((response["body"]["id"], token))
     if template == "/api/v1/applications" and method == "GET" and role == "other_client":
         assert all(app["id"] != fixture["id"] for app in response["body"]), "Список другого клиента содержит чужую заявку"
+    if template == "/api/v1/applications/page" and response["status"] == 200:
+        page = response["body"]
+        assert len(page["items"]) <= page["size"] <= 100
+        assert len(page["actionRequiredPreview"]) <= 5
+        if role == "other_client":
+            assert all(app["companyInn"] == other["inn"] for app in page["items"] + page["actionRequiredPreview"])
+        if role in {"manager", "underwriter", "risk_admin"}:
+            assert all(app["status"] != "DRAFT" for app in page["items"])
     return response
 
 

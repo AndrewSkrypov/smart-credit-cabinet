@@ -1,0 +1,138 @@
+{
+  "passed": true,
+  "containers_preserved": 32,
+  "protected_files_unchanged": 23,
+  "spec_sha256": "2efeb1effeb45512a5e053d27aea6c8b44fbf7879aeece100a878c4013e62ea1",
+  "source_head": "c9cb5343463be92cd823ad230a7be5857257b700",
+  "containers": [
+    {
+      "name": "/cabinet-polish-credit-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-polish-external-sim-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-polish-engagement-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-polish-identity-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-polish-frontend-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-polish-ollama-1",
+      "status": "exited"
+    },
+    {
+      "name": "/cabinet-polish-seaweedfs-1",
+      "status": "exited"
+    },
+    {
+      "name": "/cabinet-polish-credit-migrate-1",
+      "status": "exited"
+    },
+    {
+      "name": "/cabinet-polish-engagement-migrate-1",
+      "status": "exited"
+    },
+    {
+      "name": "/cabinet-polish-gateway-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-polish-identity-migrate-1",
+      "status": "exited"
+    },
+    {
+      "name": "/cabinet-polish-db-init-1",
+      "status": "exited"
+    },
+    {
+      "name": "/cabinet-polish-swagger-ui-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-polish-valkey-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-polish-mailpit-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-polish-postgres-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-polish-clamav-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-main-preview-credit-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-main-preview-identity-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-main-preview-engagement-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-main-preview-identity-migrate-1",
+      "status": "exited"
+    },
+    {
+      "name": "/cabinet-main-preview-credit-migrate-1",
+      "status": "exited"
+    },
+    {
+      "name": "/cabinet-main-preview-engagement-migrate-1",
+      "status": "exited"
+    },
+    {
+      "name": "/cabinet-main-preview-db-init-1",
+      "status": "exited"
+    },
+    {
+      "name": "/cabinet-main-preview-external-sim-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-main-preview-frontend-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-main-preview-postgres-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-main-preview-gateway-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-main-preview-swagger-ui-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-main-preview-valkey-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-main-preview-mailpit-1",
+      "status": "running"
+    },
+    {
+      "name": "/cabinet-main-preview-clamav-1",
+      "status": "running"
+    }
+  ],
+  "limits": "Identity/image/mount preservation; no claims about naturally changing service data. Own followup project is excluded."
+}

@@ -8,6 +8,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { SaveVersionDialog, VersionHistory, VersionPreviewDialog } from '../../components/VersionHistory';
 import { useApi } from '../../hooks/useApi';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
+import { RuleSnapshot } from '../../components/VersionSnapshots';
 import { sameVersionParams } from '../../shared/versionParams';
 import { RuleParams, RulesResponse } from '../../types';
 
@@ -138,7 +139,7 @@ export function RulesPage() {
         </Grid>
       </Grid>
       <SaveVersionDialog open={confirm} busy={busy} onCancel={() => setConfirm(false)} onConfirm={() => void save()} />
-      {viewedVersion !== null && <RuleSnapshotDialog version={viewedVersion} onClose={() => setViewedVersion(null)} />}
+      {viewedVersion !== null && <RuleSnapshotDialog currentVersion={rules.data.version} version={viewedVersion} onClose={() => setViewedVersion(null)} />}
       {guard.dialog}
     </>
   );
@@ -149,19 +150,12 @@ const ruleMetadata = (item: RulesResponse['versions'][number]) => ({
   authorName: item.authorName, authorRole: item.authorRole, reason: item.comment
 });
 
-function RuleSnapshotDialog({ version, onClose }: { version: number; onClose: () => void }) {
+function RuleSnapshotDialog({ version, currentVersion, onClose }: { version: number; currentVersion: number; onClose: () => void }) {
   const loaded = useApi(() => rulesApi.version(version), [version]);
   const p = loaded.data?.params;
-  return <VersionPreviewDialog title={`Правила · версия ${version}`} onClose={onClose} metadata={loaded.data ? ruleMetadata(loaded.data.metadata) : undefined}>
+  return <VersionPreviewDialog currentVersion={currentVersion} title={`Правила · версия ${version}`} onClose={onClose} metadata={loaded.data ? ruleMetadata(loaded.data.metadata) : undefined}>
     {loaded.loading && <LoadingBlock />}
     {loaded.error && <ErrorState message={loaded.error} onRetry={loaded.reload} />}
-    {p && <Stack spacing={1.5}>
-      <Typography>Предельная долговая нагрузка: {toPercent(p.maxLoad)}%</Typography>
-      <Typography>Допустимое расхождение выручки: {toPercent(p.revenueMismatch)}%</Typography>
-      <Typography>Рейтинг D: до {toPercent(p.weakAmountShare)}% запроса и {toPercent(p.weakRevenueShare)}% годовой выручки</Typography>
-      {RATINGS.map((rating) => <Typography key={rating}>Рейтинг {rating}: от {p.ratingCutoffs[rating]} баллов · надбавка {p.ratingMargins[rating]} п.п.</Typography>)}
-      <Typography>Низкий отраслевой риск: {p.lowRiskOkved.join(', ') || 'Не задан'}</Typography>
-      <Typography>Высокий отраслевой риск: {p.highRiskOkved.join(', ') || 'Не задан'}</Typography>
-    </Stack>}
+    {p && <RuleSnapshot params={p} />}
   </VersionPreviewDialog>;
 }

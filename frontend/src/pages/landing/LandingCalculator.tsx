@@ -14,7 +14,7 @@ const TERMS = [6, 12, 18, 24, 36, 48, 60];
  * The first thing a visitor can do: say what the money is for and see the fitting product and
  * the payment, counted by the same rules as in the cabinet.
  */
-export function LandingCalculator({ startPath }: { startPath: string }) {
+export function LandingCalculator({ startPath, actionLabel = 'Оформить заявку онлайн' }: { startPath: string; actionLabel?: string }) {
   const purposes = useApi(productsApi.purposes);
   const [purpose, setPurpose] = useState<FinancingPurpose>('WORKING_CAPITAL');
   const [amount, setAmount] = useState<number | null>(2_000_000);
@@ -67,7 +67,7 @@ export function LandingCalculator({ startPath }: { startPath: string }) {
           </>
         )}
       </Box>
-      <Button component={RouterLink} to={financingPath(startPath, { purpose, amount: amount ?? undefined, termMonths: best?.termMonths ?? termMonths, product: best?.product.code })} disabled={!amount || !best || !!error} variant="contained" size="large" fullWidth sx={{ mt: 1 }}>Оформить заявку онлайн</Button>
+      <Button component={RouterLink} to={financingPath(startPath, { purpose, amount: amount ?? undefined, termMonths: best?.termMonths ?? termMonths, product: best?.product.code })} disabled={!amount || !best || !!error} variant="contained" size="large" fullWidth sx={{ mt: 1 }}>{actionLabel}</Button>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
         Платёж по базовой ставке. Итоговые условия — в предложении банка после оценки заявки.
       </Typography>

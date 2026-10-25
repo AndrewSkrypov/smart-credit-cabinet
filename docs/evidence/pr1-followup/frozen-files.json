@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "contract_sha256": "51f1a5e6c8c5375359c26e30d9aaef91ca465dae5f373f6c98d27b5af40e16c8",
+  "files": [
+    {
+      "kind": "CONTRACT_PDF",
+      "bytes": 25696,
+      "sha256": "909706e93e75a19e680b3cfb742ae5cca26a0aa9a132bc1bb0b3f3bf50ea6e44",
+      "anonymous_foreign": [
+        401,
+        404
+      ]
+    },
+    {
+      "kind": "SCHEDULE_PDF",
+      "bytes": 25270,
+      "sha256": "70a6a9f28aa56890277abb973f16c6d0711e9c3f4d658af840862c7d02911df6",
+      "anonymous_foreign": [
+        401,
+        404
+      ]
+    },
+    {
+      "kind": "SCHEDULE_XLSX",
+      "bytes": 5256,
+      "sha256": "843748c731213059ed870216a4ad3bbcd2445d6bff4aa1835b371ddd2be373fc",
+      "anonymous_foreign": [
+        401,
+        404
+      ]
+    }
+  ]
+}

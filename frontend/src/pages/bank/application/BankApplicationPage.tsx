@@ -1,7 +1,7 @@
 import { Alert, Box, Button, Chip, Grid, List, ListItem, ListItemText, Paper, Stack, Typography } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Link as RouterLink, useParams, useLocation } from 'react-router-dom';
 import { applicationsApi, underwritingApi } from '../../../api/client';
 import { ErrorState } from '../../../components/ErrorState';
 import { LoadingBlock } from '../../../components/LoadingBlock';
@@ -31,6 +31,7 @@ export function BankApplicationPage() {
 }
 
 function BankApplicationCard({ id }: { id: string }) {
+  const location = useLocation();
   const [application, setApplication] = useState<Application | null>(null);
   const [assessment, setAssessment] = useState<AssessmentView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +81,7 @@ function BankApplicationCard({ id }: { id: string }) {
 
   return (
     <>
-      <Button component={RouterLink} to="/bank" startIcon={<ArrowBackRoundedIcon />} sx={{ mb: 1 }}>Очередь</Button>
+      <Button component={RouterLink} to={typeof location.state?.listUrl === 'string' && /^\/bank(?:\?|$)/.test(location.state.listUrl) ? location.state.listUrl : '/bank'} state={{ restoreList: true }} startIcon={<ArrowBackRoundedIcon />} sx={{ mb: 1 }}>Очередь</Button>
       <PageHeader
         title={`Заявка № ${application.number}`}
         subtitle={`${application.company.name ?? 'Компания'} · ИНН ${application.company.inn}`}

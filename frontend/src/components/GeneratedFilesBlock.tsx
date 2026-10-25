@@ -1,3 +1,4 @@
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import { Alert, Button, Chip, Paper, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { artifactsApi } from '../api/client';
@@ -40,12 +41,12 @@ export function GeneratedFilesBlock({ applicationId, final }: { applicationId: s
         {artifacts.data?.map((item) => {
           const format = item.kind === 'SCHEDULE_XLSX' ? 'XLSX' : 'PDF';
           return <Stack key={item.id} direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: 'center' }}>
-            <Stack spacing={0.5}>
+            <Stack spacing={0.5} sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>
               <Typography fontWeight={600}>{item.title}</Typography>
               <Typography variant="body2" color="text.secondary">{format}{item.sizeBytes != null && item.status === 'READY' ? ` · ${fileSize(item.sizeBytes)}` : ''}</Typography>
               {item.errorMessage && <Typography variant="body2" color="error.main">{item.errorMessage}</Typography>}
             </Stack>
-            {item.status === 'READY' ? <Button variant="outlined" disabled={busy !== null} aria-label={`Скачать ${item.title}, ${format}`} onClick={() => void act(item, true)}>{busy === item.id ? 'Скачиваем…' : `Скачать ${format}`}</Button>
+            {item.status === 'READY' ? <Button variant="text" startIcon={<DownloadOutlinedIcon />} sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', sm: 'center' }, minHeight: 44 }} disabled={busy !== null} aria-label={`Скачать ${item.title}, ${format}`} onClick={() => void act(item, true)}>{busy === item.id ? 'Скачиваем…' : `Скачать ${format}`}</Button>
               : item.status === 'ERROR' ? <Button variant="outlined" disabled={busy !== null} onClick={() => void act(item, false)}>Повторить создание</Button>
                 : <Chip label="Готовим файл…" size="small" />}
           </Stack>;

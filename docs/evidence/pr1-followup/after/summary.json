@@ -1,0 +1,522 @@
+{
+  "phase": "after",
+  "passed": true,
+  "base": "http://localhost:18150",
+  "same_fixture": "a077a22b-3c8b-4b5d-bee6-d7952d96c8bd",
+  "records": [
+    {
+      "label": "auth-1440",
+      "url": "http://localhost:18150/sign-in",
+      "file": "auth-1440.png",
+      "sha256": "6309c310a8f8a5b51c1ebff73aca20b24eb324a52be83355d6989107e599c577",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 900,
+      "surface": "auth",
+      "htmlBackground": "linear-gradient(to right, rgb(18, 18, 19) 0%, rgb(18, 18, 19) 41.6667%, rgb(243, 244, 245) 41.6667%, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "auth-1280",
+      "url": "http://localhost:18150/sign-in",
+      "file": "auth-1280.png",
+      "sha256": "ce02355ce9e0a1fbae6a1865c9d53c60c8c4ece0724950a51aac345207133b6c",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "documentWidth": 1280,
+      "documentHeight": 720,
+      "surface": "auth",
+      "htmlBackground": "linear-gradient(to right, rgb(18, 18, 19) 0%, rgb(18, 18, 19) 41.6667%, rgb(243, 244, 245) 41.6667%, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "auth-390",
+      "url": "http://localhost:18150/sign-in",
+      "file": "auth-390.png",
+      "sha256": "9e1ebced6c3f0a9b919709144a00c41031977a5baaf4f2b92d01ba5e081a9b30",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "documentWidth": 390,
+      "documentHeight": 844,
+      "surface": "auth",
+      "htmlBackground": "none / rgb(243, 244, 245)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "signup-1440",
+      "url": "http://localhost:18150/sign-up",
+      "file": "signup-1440.png",
+      "sha256": "ea4aa3242a2d3e78c6254eaa20d5e3de6c67389f2c0e7a3c65e4209d832ff093",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 900,
+      "surface": "auth",
+      "htmlBackground": "linear-gradient(to right, rgb(18, 18, 19) 0%, rgb(18, 18, 19) 41.6667%, rgb(243, 244, 245) 41.6667%, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [
+        {
+          "x": 849,
+          "y": 641,
+          "width": 24,
+          "height": 24
+        }
+      ],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "landing-1440",
+      "url": "http://localhost:18150/",
+      "file": "landing-1440.png",
+      "sha256": "858ef0c954adbdbb9fd23f1cbfd4483f1343ad0817d2bbcdfb5f403648165875",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 5322,
+      "surface": "landing",
+      "htmlBackground": "none / rgb(18, 18, 19)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "rules-history-1440",
+      "url": "http://localhost:18150/bank/rules",
+      "file": "rules-history-1440.png",
+      "sha256": "932d651e37dee8baf484957674b9f14c4bba56cc8e3f404140d97144d4a3f2bd",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 1400,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "rules-archive-1440",
+      "url": "http://localhost:18150/bank/rules",
+      "file": "rules-archive-1440.png",
+      "sha256": "4e325e25d40012ecffaf2a5a8cde161ebef09c8cb8c117fd4921a3371701e9eb",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 1400,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [
+        {
+          "name": "Пороги и надбавки рейтингов",
+          "rows": 4
+        }
+      ],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "rules-history-1280",
+      "url": "http://localhost:18150/bank/rules",
+      "file": "rules-history-1280.png",
+      "sha256": "a65bb20757ed3291f827ae9d2fe252060399f65849d988a52a0d83898672da91",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "documentWidth": 1280,
+      "documentHeight": 1400,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "rules-history-390",
+      "url": "http://localhost:18150/bank/rules",
+      "file": "rules-history-390.png",
+      "sha256": "b0a21f7c9064ef4d10a6e102eaac868cc2877016532128adb6f90aed2f1065aa",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "documentWidth": 390,
+      "documentHeight": 2931,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "product-checkboxes-1440",
+      "url": "http://localhost:18150/bank/products",
+      "file": "product-checkboxes-1440.png",
+      "sha256": "e1a9f7cce0359db740079cfd7129f5b8c6bc77a962915ef2f845b6b0c715aa64",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 1697,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [
+        {
+          "x": 185,
+          "y": 208.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 252.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 296.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 340.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 384.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 428.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 472.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 580.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 624.59375,
+          "width": 24,
+          "height": 24
+        }
+      ],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "product-snapshot-1440",
+      "url": "http://localhost:18150/bank/products",
+      "file": "product-snapshot-1440.png",
+      "sha256": "bfdccc5c34a0f6daa7e1751234b698286d85f36a6cb29953582e201210958a96",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 1697,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [
+        {
+          "x": 185,
+          "y": 835.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 879.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 923.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 967.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 1011.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 1055.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 1099.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 1207.59375,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "x": 185,
+          "y": 1251.59375,
+          "width": 24,
+          "height": 24
+        }
+      ],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "bank-done-1440",
+      "url": "http://localhost:18150/bank?group=done&page=0&size=20",
+      "file": "bank-done-1440.png",
+      "sha256": "64061a73627711262d5d57aa576509e060a33932e20896b6d3d98a7ab40f19a8",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 2213,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [
+        {
+          "name": "Выданные и закрытые",
+          "rows": 20
+        }
+      ],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "client-list-1440",
+      "url": "http://localhost:18150/client?group=done&page=0&size=10",
+      "file": "client-list-1440.png",
+      "sha256": "bff83aef183083992298c26c843ff67bc66f7518872e9ed769ca9fb1bd788ebb",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 2021,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "notifications-1440",
+      "url": "http://localhost:18150/client?group=done&page=0&size=10",
+      "file": "notifications-1440.png",
+      "sha256": "1123150159dfc5a976da9a9ebde1bb4975fd6dd7ab48912654c833d732981628",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 2021,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "notifications-older-1440",
+      "url": "http://localhost:18150/client?group=done&page=0&size=10",
+      "file": "notifications-older-1440.png",
+      "sha256": "4e7fbcd51b02e40e85cfff930dce793d654aee4ccda11e1e9b13ece499939ae0",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 2021,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "issued-1440",
+      "url": "http://localhost:18150/client/applications/a077a22b-3c8b-4b5d-bee6-d7952d96c8bd",
+      "file": "issued-1440.png",
+      "sha256": "9e24546fc0ca752c4650803e7627c8df09060bb604a79404407782404e4bc845",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 2566,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [
+        {
+          "name": "График платежей",
+          "rows": 12
+        },
+        {
+          "name": "Сравнение условий",
+          "rows": 5
+        }
+      ],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "files-1440",
+      "url": "http://localhost:18150/client/applications/a077a22b-3c8b-4b5d-bee6-d7952d96c8bd",
+      "file": "files-1440.png",
+      "sha256": "5800287da2aeb2d20872e32d3aef08814d0376e8b85991602e5bb014b0fa2afb",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "documentWidth": 1440,
+      "documentHeight": 2566,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [
+        {
+          "name": "График платежей",
+          "rows": 12
+        },
+        {
+          "name": "Сравнение условий",
+          "rows": 5
+        }
+      ],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    },
+    {
+      "label": "issued-390",
+      "url": "http://localhost:18150/client/applications/a077a22b-3c8b-4b5d-bee6-d7952d96c8bd",
+      "file": "issued-390.png",
+      "sha256": "78c93f87464bb83c22cd27dc0f1c4a21958f3ed859d7c2e9b28e8d12de892e4a",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "documentWidth": 390,
+      "documentHeight": 3294,
+      "surface": "workspace",
+      "htmlBackground": "linear-gradient(rgb(18, 18, 19) 0px, rgb(18, 18, 19) 120px, rgb(243, 244, 245) 120px, rgb(243, 244, 245) 100%) / rgba(0, 0, 0, 0)",
+      "bodyBackground": "rgba(0, 0, 0, 0)",
+      "tables": [
+        {
+          "name": "График платежей",
+          "rows": 12
+        },
+        {
+          "name": "Сравнение условий",
+          "rows": 5
+        }
+      ],
+      "checks": [],
+      "asset": [
+        "/assets/index-D7Oy9Df4.js"
+      ]
+    }
+  ]
+}

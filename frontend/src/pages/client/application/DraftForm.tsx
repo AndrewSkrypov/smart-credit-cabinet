@@ -22,8 +22,8 @@ const toInput = (application: Application): ApplicationInput => ({
 const SAVE_DELAY_MS = 700;
 
 /**
- * The draft is saved on its own a moment after each change, so nothing typed is lost when the
- * tab closes. Sending saves what is pending first.
+ * Debounced writes are serialized and coalesced to the latest revision. Submission freezes
+ * input and waits for that revision; an older response cannot confirm newer edits.
  */
 export function DraftForm({ application, onSaved, onSubmitted }: { application: Application; onSaved: (next: Application) => void; onSubmitted: (next: Application) => void }) {
   const products = useApi(productsApi.list);
@@ -36,27 +36,62 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
   const [sending, setSending] = useState(false);
   const timer = useRef<number>();
   const latest = useRef(form);
-  latest.current = form;
+  const revision = useRef(0);
+  const confirmed = useRef({ revision: 0, application });
+  const inFlight = useRef<Promise<Application | null> | null>(null);
+  const mounted = useRef(true);
+  const submitting = useRef(false);
+  const callbacks = useRef({ onSaved, onSubmitted });
+  callbacks.current = { onSaved, onSubmitted };
+  // Document uploads can refresh validation/estimate without editing the form revision.
+  if (confirmed.current.revision === revision.current && JSON.stringify(toInput(application)) === JSON.stringify(latest.current)) {
+    confirmed.current.application = application;
+  }
 
-  const save = useCallback(async () => {
+  const save = useCallback((): Promise<Application | null> => {
     window.clearTimeout(timer.current);
-    setSaveState('saving');
-    try {
-      const saved = await applicationsApi.update(application.id, latest.current);
-      setSaveState('saved');
-      onSaved(saved);
-      return saved;
-    } catch (nextError) {
-      setSaveState('error');
-      setError(nextError instanceof Error ? nextError.message : 'Не удалось сохранить');
-      return null;
-    }
-  }, [application.id, onSaved]);
+    if (inFlight.current) return inFlight.current;
+    const drain = async () => {
+      while (mounted.current && confirmed.current.revision !== revision.current) {
+        const snapshotRevision = revision.current;
+        const snapshot = { ...latest.current };
+        setSaveState('saving');
+        try {
+          const saved = await applicationsApi.update(application.id, snapshot);
+          if (!mounted.current) return null;
+          confirmed.current = { revision: snapshotRevision, application: saved };
+          if (snapshotRevision === revision.current) {
+            setSaveState('saved');
+            setError(null);
+            callbacks.current.onSaved(saved);
+          }
+        } catch (nextError) {
+          if (!mounted.current) return null;
+          // A failed older write must not discard newer edits waiting behind it.
+          if (snapshotRevision !== revision.current) continue;
+          setSaveState('error');
+          setError(nextError instanceof Error ? nextError.message : 'Не удалось сохранить');
+          return null;
+        }
+      }
+      return mounted.current ? confirmed.current.application : null;
+    };
+    const pending = drain();
+    inFlight.current = pending;
+    void pending.finally(() => { if (inFlight.current === pending) inFlight.current = null; });
+    return pending;
+  }, [application.id]);
 
-  useEffect(() => () => window.clearTimeout(timer.current), []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; window.clearTimeout(timer.current); };
+  }, []);
 
   const change = (patch: Partial<ApplicationInput>) => {
-    setForm((current) => ({ ...current, ...patch }));
+    if (submitting.current) return;
+    latest.current = { ...latest.current, ...patch };
+    revision.current += 1;
+    setForm(latest.current);
     setSaveState('dirty');
     setError(null);
     window.clearTimeout(timer.current);
@@ -64,25 +99,26 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
   };
 
   const submit = async () => {
-    if (sending || (changed && acceptedVersion !== product?.version) || product?.active === false) return;
+    if (submitting.current || (changed && acceptedVersion !== product?.version) || product?.active === false) return;
+    submitting.current = true;
     setSending(true);
     setError(null);
-    const saved = saveState === 'saved' ? application : await save();
-    if (!saved) {
-      setSending(false);
-      return;
-    }
-    if (saved.submissionProblems.length > 0) {
-      setSending(false);
-      return;
-    }
     try {
+      const saved = await save();
+      if (!saved || !mounted.current || saved.submissionProblems.length > 0) return;
       // One key per application: a repeated click or a retry returns the first result.
-      onSubmitted(await applicationsApi.submit(application.id, `submit-${application.id}`, changed ? acceptedVersion ?? undefined : undefined));
+      const submitted = await applicationsApi.submit(application.id, `submit-${application.id}`, changed ? acceptedVersion ?? undefined : undefined);
+      if (mounted.current) callbacks.current.onSubmitted(submitted);
     } catch (nextError) {
+      if (!mounted.current) return;
       setError(nextError instanceof Error ? nextError.message : 'Не удалось отправить заявку');
-      try { onSaved(await applicationsApi.get(application.id)); } catch { /* Keep the actionable submission error when refresh is unavailable. */ }
-      setSending(false);
+      try {
+        const refreshed = await applicationsApi.get(application.id);
+        if (mounted.current) callbacks.current.onSaved(refreshed);
+      } catch { /* Keep the actionable submission error when refresh is unavailable. */ }
+    } finally {
+      submitting.current = false;
+      if (mounted.current) setSending(false);
     }
   };
 
@@ -103,17 +139,18 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
           <Typography fontWeight={600}>Условия продукта изменились</Typography>
           <Typography>Новая версия {product.version}: {product.name}. Ставка {product.baseRate}%, сумма от {rub(product.minAmount)} до {rub(product.maxAmount)}, срок от {product.minTermMonths} до {product.maxTermMonths} месяцев. {product.revolving ? 'Возобновляемый лимит.' : 'Разовая выдача.'}</Typography>
           <Typography>{product.description}</Typography>
-          <FormControlLabel control={<Checkbox checked={acceptedVersion === product.version} onChange={(_, checked) => setAcceptedVersion(checked ? product.version ?? null : null)} />} label="Проверил новые условия продукта и согласен отправить заявку по ним" />
+          <FormControlLabel control={<Checkbox disabled={sending} checked={acceptedVersion === product.version} onChange={(_, checked) => setAcceptedVersion(checked ? product.version ?? null : null)} />} label="Проверил новые условия продукта и согласен отправить заявку по ним" />
         </Alert>
       )}
 
+      <Box component="fieldset" disabled={sending} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6}>
           <MoneyField label="Сумма" fullWidth value={form.amount} onChange={(value) => change({ amount: value ?? 0 })}
             error={!!amountOutside} helperText={product ? `от ${rub(product.minAmount)} до ${rub(product.maxAmount)}` : ' '} />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField label="Срок, месяцев" fullWidth inputMode="numeric" value={form.termMonths || ''}
+          <TextField label="Срок, месяцев" fullWidth inputProps={{ inputMode: 'numeric' }} value={form.termMonths || ''}
             onChange={(event) => change({ termMonths: Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0 })}
             error={!!termOutside}
             helperText={product ? (product.minTermMonths === product.maxTermMonths ? `лимит на ${months(product.maxTermMonths)}` : `от ${product.minTermMonths} до ${product.maxTermMonths}`) : ' '} />
@@ -138,6 +175,7 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
           />
         </Grid>
       </Grid>
+      </Box>
 
       {application.estimate && (
         <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
@@ -157,7 +195,7 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
-        <Button variant="contained" size="large" onClick={submit} disabled={sending || saveState === 'saving' || (changed && acceptedVersion !== product?.version) || product?.active === false || (saveState === 'saved' && application.submissionProblems.length > 0)}>
+        <Button variant="contained" size="large" onClick={submit} disabled={sending || (changed && acceptedVersion !== product?.version) || product?.active === false || (saveState === 'saved' && application.submissionProblems.length > 0)}>
           {sending ? 'Отправляем…' : 'Отправить в банк'}
         </Button>
       </Stack>

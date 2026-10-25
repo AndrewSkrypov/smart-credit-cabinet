@@ -2,8 +2,8 @@ package ru.creditcabinet.advice.domain
 
 import ru.creditcabinet.product.domain.LoanMath
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.util.Locale
-import kotlin.math.roundToInt
 
 /**
  * What an advice is for the underwriter: a stop factor ends the case, a risk weighs against,
@@ -21,6 +21,8 @@ object P {
     const val BASE_RATE = "baseRate"
     const val MAX_TERM = "maxTermMonths"
     const val MIN_AMOUNT = "minAmount"
+    const val MAX_AMOUNT = "maxAmount"
+    const val REVOLVING = "revolving"
     const val AUTO_LIMIT = "autoApprovalLimit"
     const val ANNUAL_REVENUE = "annualRevenue"
     const val EXISTING_PAYMENTS = "existingPayments"
@@ -40,12 +42,14 @@ object P {
     const val INDUSTRY_RISK = "industryRisk"
     const val RATING = "rating"
     const val SCORE = "score"
+    const val RATING_REJECTED = "ratingRejected"
 
     const val NEW_PAYMENT = "newPayment"
     const val LOAD = "load"
     const val LOAD_EXCEEDS = "loadExceeds"
     const val PAYMENT_MAX_TERM = "paymentAtMaxTerm"
     const val LOAD_MAX_TERM = "loadAtMaxTerm"
+    const val FITS_MAX_TERM = "fitsAtMaxTerm"
     const val AFFORDABLE = "affordableAmount"
     const val REVENUE_GAP = "revenueGap"
     const val REVENUE_GAP_BIG = "revenueGapTooBig"
@@ -59,7 +63,10 @@ object P {
 
 private fun rub(amount: Long) = "%,d ₽".format(Locale.ROOT, amount).replace(',', ' ')
 
-private fun share(value: Double) = "${(value * 100).roundToInt()}%"
+private fun rubExact(amount: BigDecimal) = "%,.2f ₽".format(Locale.ROOT, amount).replace(',', ' ').replace('.', ',')
+
+private fun share(value: Double) =
+    BigDecimal.valueOf(value * 100).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString().replace('.', ',') + "%"
 
 private fun Map<String, Any>.long(name: String) = (getValue(name) as Number).toLong()
 
@@ -74,6 +81,24 @@ private fun Map<String, Any>.list(name: String) = getValue(name) as List<String>
 
 private fun advice(code: String, kind: AdviceKind, title: String, text: String) = mapOf(P.ADVICE + code to AdviceItem(code, kind, title, text))
 
+private fun Map<String, Any>.budget() = double(P.MAX_LOAD) * (long(P.ANNUAL_REVENUE) / 12.0) - long(P.EXISTING_PAYMENTS)
+
+private fun Map<String, Any>.payment(amount: Long, term: Int) =
+    LoanMath.calculate(amount, getValue(P.BASE_RATE) as BigDecimal, term, flag(P.REVOLVING)).monthlyPayment
+
+/** Search actual rounded payments, not an inverse annuity approximation. Amount steps match the policy. */
+private fun Map<String, Any>.affordableAmount(): Long {
+    val budget = budget()
+    if (budget <= 0) return 0L
+    var low = 0L
+    var high = long(P.MAX_AMOUNT) / 10_000
+    while (low < high) {
+        val middle = low + (high - low + 1) / 2
+        if (payment(middle * 10_000, int(P.MAX_TERM)).toDouble() <= budget) low = middle else high = middle - 1
+    }
+    return low * 10_000
+}
+
 /**
  * The knowledge base of manual review, built as a network of parameters and rules: from the facts of the application,
  * its sources and the credit policy to what the underwriter should check, ask and may offer.
@@ -81,7 +106,7 @@ private fun advice(code: String, kind: AdviceKind, title: String, text: String) 
  */
 object UnderwritingAdviceModel {
     /** Raised when a rule changes, so a stored explanation names the knowledge it came from. */
-    const val VERSION = 1
+    const val VERSION = 2
 
     private const val UNSTABLE_TURNOVER = 0.4
     private const val MANY_INQUIRIES = 5
@@ -94,11 +119,11 @@ object UnderwritingAdviceModel {
             NetworkRule(
                 "R_PAYMENT",
                 "Платёж по запрошенным условиям",
-                listOf(P.AMOUNT, P.BASE_RATE, P.TERM),
+                listOf(P.AMOUNT, P.BASE_RATE, P.TERM, P.REVOLVING),
                 listOf(P.NEW_PAYMENT),
-                explain = { "Платёж по запрошенным условиям по ставке с учётом рейтинга — ${rub(it.long(P.NEW_PAYMENT))} в месяц" },
+                explain = { "Платёж по запрошенным условиям по ставке с учётом рейтинга — ${rubExact(it.getValue(P.NEW_PAYMENT) as BigDecimal)} в месяц" },
             ) {
-                mapOf(P.NEW_PAYMENT to LoanMath.annuityPayment(it.long(P.AMOUNT), it.getValue(P.BASE_RATE) as BigDecimal, it.int(P.TERM)).toLong())
+                mapOf(P.NEW_PAYMENT to it.payment(it.long(P.AMOUNT), it.int(P.TERM)))
             },
             NetworkRule(
                 "R_LOAD",
@@ -108,47 +133,51 @@ object UnderwritingAdviceModel {
                 explain = { "Нагрузка: платежи по кредитам с новым — ${share(it.double(P.LOAD))} месячной выручки" },
             ) {
                 val monthly = it.long(P.ANNUAL_REVENUE) / 12.0
-                if (monthly <= 0) null else mapOf(P.LOAD to (it.long(P.NEW_PAYMENT) + it.long(P.EXISTING_PAYMENTS)) / monthly)
+                if (monthly <= 0) null else mapOf(P.LOAD to (it.double(P.NEW_PAYMENT) + it.long(P.EXISTING_PAYMENTS)) / monthly)
             },
             NetworkRule(
                 "R_LOAD_LIMIT",
                 "Нагрузка против порога политики",
-                listOf(P.LOAD, P.MAX_LOAD),
+                listOf(P.LOAD, P.MAX_LOAD, P.NEW_PAYMENT, P.ANNUAL_REVENUE, P.EXISTING_PAYMENTS),
                 listOf(P.LOAD_EXCEEDS),
                 explain = { "Порог политики — ${share(it.double(P.MAX_LOAD))}: " + if (it.flag(P.LOAD_EXCEEDS)) "превышен" else "соблюдён" },
             ) {
-                mapOf(P.LOAD_EXCEEDS to (it.double(P.LOAD) > it.double(P.MAX_LOAD)))
+                mapOf(P.LOAD_EXCEEDS to (it.budget() <= 0 || it.double(P.NEW_PAYMENT) > it.budget()))
             },
             NetworkRule(
                 "R_PAYMENT_MAX_TERM",
                 "Платёж на максимальный срок продукта",
-                listOf(P.AMOUNT, P.BASE_RATE, P.MAX_TERM),
+                listOf(P.AMOUNT, P.BASE_RATE, P.MAX_TERM, P.REVOLVING),
                 listOf(P.PAYMENT_MAX_TERM),
-                explain = { "На максимальный срок ${it.int(P.MAX_TERM)} мес. платёж — ${rub(it.long(P.PAYMENT_MAX_TERM))}" },
+                explain = { "На максимальный срок ${it.int(P.MAX_TERM)} мес. платёж — ${rubExact(it.getValue(P.PAYMENT_MAX_TERM) as BigDecimal)}" },
             ) {
-                mapOf(P.PAYMENT_MAX_TERM to LoanMath.annuityPayment(it.long(P.AMOUNT), it.getValue(P.BASE_RATE) as BigDecimal, it.int(P.MAX_TERM)).toLong())
+                mapOf(P.PAYMENT_MAX_TERM to it.payment(it.long(P.AMOUNT), it.int(P.MAX_TERM)))
             },
             NetworkRule(
                 "R_LOAD_MAX_TERM",
                 "Нагрузка на максимальный срок",
-                listOf(P.PAYMENT_MAX_TERM, P.EXISTING_PAYMENTS, P.ANNUAL_REVENUE),
-                listOf(P.LOAD_MAX_TERM),
+                listOf(P.PAYMENT_MAX_TERM, P.EXISTING_PAYMENTS, P.ANNUAL_REVENUE, P.MAX_LOAD),
+                listOf(P.LOAD_MAX_TERM, P.FITS_MAX_TERM),
                 explain = { "Нагрузка на максимальный срок — ${share(it.double(P.LOAD_MAX_TERM))}" },
             ) {
                 val monthly = it.long(P.ANNUAL_REVENUE) / 12.0
-                if (monthly <= 0) null else mapOf(P.LOAD_MAX_TERM to (it.long(P.PAYMENT_MAX_TERM) + it.long(P.EXISTING_PAYMENTS)) / monthly)
+                if (monthly <= 0) {
+                    null
+                } else {
+                    mapOf(
+                        P.LOAD_MAX_TERM to (it.double(P.PAYMENT_MAX_TERM) + it.long(P.EXISTING_PAYMENTS)) / monthly,
+                        P.FITS_MAX_TERM to (it.budget() > 0 && it.double(P.PAYMENT_MAX_TERM) <= it.budget()),
+                    )
+                }
             },
             NetworkRule(
                 "R_AFFORDABLE",
                 "Сумма в пределах порога нагрузки",
-                listOf(P.MAX_LOAD, P.ANNUAL_REVENUE, P.EXISTING_PAYMENTS, P.BASE_RATE, P.MAX_TERM),
+                listOf(P.MAX_LOAD, P.ANNUAL_REVENUE, P.EXISTING_PAYMENTS, P.BASE_RATE, P.MAX_TERM, P.REVOLVING, P.MAX_AMOUNT),
                 listOf(P.AFFORDABLE),
                 explain = { "В пределах порога на ${it.int(P.MAX_TERM)} мес. проходит до ${rub(it.long(P.AFFORDABLE))}" },
             ) {
-                val budget = it.double(P.MAX_LOAD) * it.long(P.ANNUAL_REVENUE) / 12.0 - it.long(P.EXISTING_PAYMENTS)
-                val perMillion = LoanMath.annuityPayment(1_000_000, it.getValue(P.BASE_RATE) as BigDecimal, it.int(P.MAX_TERM)).toDouble()
-                val amount = if (budget <= 0) 0L else (budget / perMillion * 1_000_000 / 10_000).toLong() * 10_000
-                mapOf(P.AFFORDABLE to amount)
+                mapOf(P.AFFORDABLE to it.affordableAmount())
             },
             NetworkRule(
                 "R_REVENUE_GAP",
@@ -210,7 +239,29 @@ object UnderwritingAdviceModel {
                 mapOf(P.YOUNG to (it.long(P.AGE_MONTHS) < YOUNG_MONTHS))
             },
 
+            NetworkRule(
+                "R_RATING_E",
+                "Отказной рейтинг по политике",
+                listOf(P.RATING),
+                listOf(P.RATING_REJECTED),
+                explain = { "Сохранённый рейтинг ${it.getValue(P.RATING)}: для рейтинга E кредитная политика предусматривает отказ до расчёта ставки." },
+            ) {
+                mapOf(P.RATING_REJECTED to (it.getValue(P.RATING) == "E"))
+            },
+
             // Advice.
+            NetworkRule("A_RATING_E", "Отказной рейтинг", listOf(P.RATING_REJECTED), listOf(P.ADVICE + "RATING_E")) {
+                if (!it.flag(P.RATING_REJECTED)) {
+                    null
+                } else {
+                    advice(
+                        "RATING_E",
+                        AdviceKind.STOP,
+                        "Рейтинг E — отказ по кредитной политике",
+                        "Ставка выдачи и варианты новых условий для отказного рейтинга не рассчитываются.",
+                    )
+                }
+            },
             NetworkRule("A_STOP", "Стоп-фактор", listOf(P.STOP_FACTORS), listOf(P.ADVICE + "STOP")) {
                 val factors = it.list(P.STOP_FACTORS)
                 if (factors.isEmpty()) {
@@ -252,20 +303,24 @@ object UnderwritingAdviceModel {
             NetworkRule(
                 "A_TERM",
                 "Увеличение срока",
-                listOf(P.LOAD_EXCEEDS, P.LOAD_MAX_TERM, P.MAX_LOAD, P.MAX_TERM, P.TERM, P.PAYMENT_MAX_TERM),
+                listOf(P.LOAD_EXCEEDS, P.LOAD_MAX_TERM, P.FITS_MAX_TERM, P.MAX_TERM, P.TERM, P.PAYMENT_MAX_TERM, P.AMOUNT, P.MIN_AMOUNT, P.MAX_AMOUNT),
                 listOf(
                     P.ADVICE + "TERM",
                 ),
             ) {
-                if (!it.flag(P.LOAD_EXCEEDS) || it.int(P.TERM) >= it.int(P.MAX_TERM) || it.double(P.LOAD_MAX_TERM) > it.double(P.MAX_LOAD)) {
+                if (!it.flag(P.LOAD_EXCEEDS) ||
+                    it.int(P.TERM) >= it.int(P.MAX_TERM) ||
+                    !it.flag(P.FITS_MAX_TERM) ||
+                    it.long(P.AMOUNT) !in it.long(P.MIN_AMOUNT)..it.long(P.MAX_AMOUNT)
+                ) {
                     null
                 } else {
                     advice(
                         "TERM",
                         AdviceKind.OPTION,
                         "Предложить срок ${it.int(P.MAX_TERM)} мес.",
-                        "Платёж снизится до ${rub(
-                            it.long(P.PAYMENT_MAX_TERM),
+                        "Платёж снизится до ${rubExact(
+                            it.getValue(P.PAYMENT_MAX_TERM) as BigDecimal,
                         )}, нагрузка — до ${share(it.double(P.LOAD_MAX_TERM))}: в пределах порога при той же сумме.",
                     )
                 }
@@ -273,13 +328,13 @@ object UnderwritingAdviceModel {
             NetworkRule(
                 "A_AMOUNT",
                 "Уменьшение суммы",
-                listOf(P.LOAD_EXCEEDS, P.LOAD_MAX_TERM, P.MAX_LOAD, P.AFFORDABLE, P.MIN_AMOUNT, P.MAX_TERM),
+                listOf(P.LOAD_EXCEEDS, P.FITS_MAX_TERM, P.AFFORDABLE, P.MIN_AMOUNT, P.MAX_TERM),
                 listOf(
                     P.ADVICE + "AMOUNT",
                 ),
             ) {
                 when {
-                    !it.flag(P.LOAD_EXCEEDS) || it.double(P.LOAD_MAX_TERM) <= it.double(P.MAX_LOAD) -> null
+                    !it.flag(P.LOAD_EXCEEDS) || it.flag(P.FITS_MAX_TERM) -> null
                     it.long(P.AFFORDABLE) >= it.long(P.MIN_AMOUNT) -> advice(
                         "AMOUNT",
                         AdviceKind.OPTION,

@@ -11,12 +11,14 @@ import ru.creditcabinet.advice.domain.AdviceKind
 import ru.creditcabinet.advice.domain.P
 import ru.creditcabinet.advice.domain.UnderwritingAdviceModel
 import ru.creditcabinet.application.domain.ApplicationRepository
+import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.service.notFound
 import ru.creditcabinet.assessment.domain.BankInfo
 import ru.creditcabinet.assessment.domain.BureauInfo
 import ru.creditcabinet.assessment.domain.CreditPolicy
 import ru.creditcabinet.assessment.domain.DecisionRepository
 import ru.creditcabinet.assessment.domain.EnrichmentStore
+import ru.creditcabinet.assessment.domain.Rating
 import ru.creditcabinet.assessment.domain.RegistryInfo
 import ru.creditcabinet.assessment.domain.RuleSets
 import ru.creditcabinet.assessment.domain.Scorecard
@@ -59,6 +61,26 @@ class AdviceService(
     fun advice(id: UUID): AdviceView {
         CurrentCaller.requireBankStaff()
         val application = applications.find(id)?.takeIf { it.visibleToBank } ?: throw notFound()
+        if (application.status.terminal) {
+            val text = when (application.status) {
+                ApplicationStatus.DISBURSED -> "Кредит уже выдан. Согласованные условия находятся в досье; новые варианты не рассчитываются."
+                ApplicationStatus.REJECTED ->
+                    "По заявке принято решение об отказе. Причины находятся в досье; " +
+                        "ставка выдачи и новые варианты не рассчитываются."
+                ApplicationStatus.WITHDRAWN -> "Заявка отозвана. Новые варианты условий не рассчитываются."
+                else -> "Заявка закрыта. Новые варианты условий не рассчитываются."
+            }
+            val kind = if (application.status == ApplicationStatus.REJECTED) AdviceKind.STOP else AdviceKind.INFO
+            return AdviceView(
+                application.id,
+                "Сеть правил андеррайтинга",
+                UnderwritingAdviceModel.VERSION,
+                text,
+                listOf(AdviceItemView("TERMINAL", kind, "Рассмотрение завершено", text, listOf("Сохранённый статус заявки: ${application.status}"))),
+                0,
+                UnderwritingAdviceModel.model.rules.size,
+            )
+        }
         val sources = enrichment.load(application.id)
         val registry = sources[SourceKind.REGISTRY] as RegistryInfo?
         val tax = sources[SourceKind.TAX] as TaxInfo?
@@ -75,9 +97,12 @@ class AdviceService(
             P.AMOUNT to terms.amount,
             P.TERM to terms.termMonths,
             // The rate the policy offers at this rating, so the advised amount matches the system's counter offer.
-            P.BASE_RATE to CreditPolicy.rate(product, decision?.rating, policy),
+            P.BASE_RATE to
+                if (decision?.rating == Rating.E || !decision?.stopFactors.isNullOrEmpty()) null else CreditPolicy.rate(product, decision?.rating, policy),
+            P.REVOLVING to product.revolving,
             P.MAX_TERM to product.maxTermMonths,
             P.MIN_AMOUNT to product.minAmount,
+            P.MAX_AMOUNT to product.maxAmount,
             P.AUTO_LIMIT to product.autoApprovalLimit,
             P.ANNUAL_REVENUE to ((inputs["annualRevenue"] as? Number)?.toLong() ?: tax?.revenue ?: terms.declaredRevenue12m),
             P.EXISTING_PAYMENTS to
@@ -122,7 +147,7 @@ class AdviceService(
             checks.takeIf { it > 0 }?.let { "проверок — $it" },
             asks.takeIf { it > 0 }?.let { "вопросов клиенту — $it" },
         )
-        val options = if (AdviceKind.OPTION in kinds) " Есть условия, которые проходят по политике." else ""
+        val options = if (AdviceKind.OPTION in kinds) " Есть варианты в пределах порога нагрузки; остальные условия политики проверяются отдельно." else ""
         return "Перед решением: ${parts.joinToString(", ")}.$options"
     }
 }

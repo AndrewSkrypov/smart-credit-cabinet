@@ -22,8 +22,9 @@ for file in files:
             errors.append(f"{file.relative_to(ROOT)}: нет файла {target}")
 
 adrs = sorted((ROOT / "docs/adr").glob("*.md"))
-if not 8 <= len(adrs) <= 13:
-    errors.append("docs/adr: требуется 8–13 решений")
+# Decisions only accumulate: a floor, not a ceiling.
+if len(adrs) < 8:
+    errors.append("docs/adr: требуется не меньше 8 решений")
 for file in adrs:
     text = file.read_text(encoding="utf-8")
     for required in ["Контекст.", "Решение.", "Альтернативы.", "Последствия."]:

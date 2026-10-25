@@ -82,7 +82,7 @@ if (!mailEnabled) {
       expect(session.user.canSign).toBe(false);
       await expect(page).toHaveURL(/\/client$/);
       await page.goto(`/client/applications/${app.id}`);
-      await expect(page.getByText('Подписать договор может только представитель компании с правом подписи.')).toBeVisible();
+      await expect(page.getByText('Договор должен подписать представитель компании с правом подписи.', { exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Подписать', exact: true })).toHaveCount(0);
       await noHorizontalOverflow(page);
       expect((await request.post(`/api/v1/applications/${app.id}/signing/code`, { headers: headers(employee) })).status()).toBe(403);

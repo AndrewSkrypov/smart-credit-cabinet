@@ -1,11 +1,12 @@
 {
   "candidate": "UX-20261025-r1",
   "frontend": {
-    "passed": 85,
+    "passed": 86,
     "failed": 0,
     "stronger_hook_fixture_rerun": 6,
     "tsc": "passed",
-    "lint": "passed"
+    "lint": "passed",
+    "signing_readonly_regression": 2
   },
   "runtime": {
     "passed": 53,
@@ -28,6 +29,19 @@
     "reason": "Email links use preserved18150 while candidate baseURL18153: browser sessions are origin-scoped. Same-origin CI MAIL acceptance is required."
   },
   "native_IAB_gesture": "unverified; user feedback required",
-  "CI_new_SHA": "pending_publication",
-  "preserved": "No container rebuild/recreate/stop, no main checkout modification, no reset of user data; own followup synthetic E2E data only."
+  "CI_new_SHA": "pending_test_correction_commit",
+  "preserved": "No container rebuild/recreate/stop, no main checkout modification, no reset of user data; own followup synthetic E2E data only.",
+  "superseded_ci": {
+    "head": "952c6bbc37e06c2759dfa8da3ef9f30ef5181d20",
+    "run": 40164278620,
+    "success_jobs": 25,
+    "failed_jobs": 1,
+    "default_browser": {
+      "passed": 61,
+      "failed": 2,
+      "skipped": 3
+    },
+    "reason": "One E2E expected old SigningBlock text in desktop/mobile; exact C02 expectation corrected, 403/revocation assertions retained",
+    "application_code_changed": false
+  }
 }

@@ -6,7 +6,7 @@ C04,verified,same-data visual comparisons1440/390 + runtime,Main columns/cards/C
 C05,verified,same-data table row dimensions + runtime,Main panel and row density retained; no backend/scoring change
 CACHE-ACTUAL-PAGE,verified,useApplicationPage.test.tsx,"21 to1 records, cached first page, explicit apply and canonical key"
 SCROLL-PAGE-BACK,verified,hook and browser desktop/mobile tests,"One scroll after deliberate result; Back waits for composition, actual sticky header inset"
-QA-FRONTEND,verified,85 full tests +6 stronger hook cases; tsc/lint/build,
+QA-FRONTEND,verified,86 full tests +6 stronger hook cases +2 signing permission cases; tsc/lint/build,
 QA-RUNTIME,verified,53 PASS +3 documented responsive skips; final targeted18 PASS,MAIL-dependent default groups are CI-only locally
 QA-MAIL,pending_ci,Local cross-origin mismatch6/8; same-origin CI required,Not marked accepted from local partial run
-QA-CI,pending_publication,New SHA workflow must finish,No green-CI claim before publication
+QA-CI,pending_corrected_SHA,First CI25/26; old C02 text assertion aligned without weakening authorization checks; fresh full CI required,No green-CI claim before publication

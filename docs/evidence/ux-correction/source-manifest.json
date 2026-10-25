@@ -18,10 +18,14 @@
     "frontend/src/pages/ProfilePage.tsx": "8fcb76a016d0ba0e340904cd6a9ba1dcd9e2b0c4ce9bc8d3ab1c32f9cea4da3c",
     "frontend/src/pages/bank/BankQueuePage.tsx": "5d4f01a52436e5858e204d72fa65f7728bc43e024d3f757963a7503731eeb05f",
     "frontend/src/pages/client/application/SigningBlock.tsx": "217ba213f7ef3101d56a54030db4b3a5af381845b5abca0d0b92875efffbb9fd",
-    "frontend/src/pages/landing/LandingPage.tsx": "b72379379a6720c90d43d17b417e368ee8611135b61072e5738439a5f81a8115"
+    "frontend/src/pages/landing/LandingPage.tsx": "b72379379a6720c90d43d17b417e368ee8611135b61072e5738439a5f81a8115",
+    "e2e/tests/release-accounts.spec.ts": "7b5d94b5c767b6899cc2971725e562c3d37700023c1d10572f801f048d305827",
+    "frontend/src/pages/client/application/SigningBlock.test.tsx": "af683dfa1cdc389f4e83b7298859bf4474c5bbc0bf116bcfced99ed724c6fe41"
   },
   "capture_scripts": {
     "compare.cjs": "55fba0f4e083392309d5858700f0e4ab7c2300b1a83837e38b10361e406fab48",
     "canvas.cjs": "b095e0c50b3de75997f0ba58fbf091c2ed3db0ef966646565b3545a378604cb6"
-  }
+  },
+  "test_correction_parent": "952c6bbc37e06c2759dfa8da3ef9f30ef5181d20",
+  "application_code_and_visual_artifact_unchanged": true
 }

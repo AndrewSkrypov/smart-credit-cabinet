@@ -1,12 +1,24 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { applicationsApi } from '../../../api/client';
 import { Application, ContractTextView } from '../../../types';
 import { SigningBlock } from './SigningBlock';
 
-vi.mock('../../../auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { canSign: true } } }) }));
+let canSign = true;
+vi.mock('../../../auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { canSign } } }) }));
 vi.mock('../../../api/client', () => ({ applicationsApi: { contract: vi.fn(), sign: vi.fn() } }));
+beforeEach(() => { canSign = true; vi.resetAllMocks(); });
+
+it('explains who must sign before showing any unavailable action to a representative without permission', async () => {
+  canSign = false;
+  vi.mocked(applicationsApi.contract).mockResolvedValue({} as ContractTextView);
+  render(<SigningBlock application={{ id: 'readonly', process: {} } as Application} onChanged={vi.fn()} />);
+  expect(await screen.findByText('Договор должен подписать представитель компании с правом подписи.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Подписать' })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Код из 6 цифр')).not.toBeInTheDocument();
+  expect(applicationsApi.sign).not.toHaveBeenCalled();
+});
 
 it('blocks the code when text cannot be loaded and enables signing only after a successful retry', async () => {
   const application = { id: 'synthetic', process: { signing: { code: '123456', expiresAt: '2099-01-01T00:00:00Z', signedAt: null } } } as Application;

@@ -537,7 +537,15 @@ jobs:
       - name: Verify live OpenAPI snapshots
         run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" scripts/export-openapi.py --check'
       - name: Verify the final access matrix through the gateway
-        run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" security/matrix.py --final-only'
+        id: early_access
+        continue-on-error: true
+        run: |
+          status=0
+          "$RUNNER_TEMP/cabinet-contracts/bin/python" security/matrix.py --final-only || status=$?
+          if test -f security/reports/final-access-matrix.json; then
+            cp security/reports/final-access-matrix.json security/reports/early-final-access-matrix.json
+          fi
+          exit "$status"
       - name: Desktop and mobile scenarios
         id: browser
         continue-on-error: true
@@ -585,6 +593,8 @@ jobs:
           docker compose exec -T -w /etc/prometheus prometheus promtool test rules rules.test.yml
           python3 monitoring/verify.py --replicas 2 --require-activity --require-source-errors --require-source-timeouts
       - name: Verify every endpoint against the explicit access matrix
+        id: full_access
+        continue-on-error: true
         run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" security/matrix.py --project "$COMPOSE_PROJECT_NAME"'
       - name: Reject forged tokens, foreign objects and unsafe inputs
         run: python3 security/negative.py --project "$COMPOSE_PROJECT_NAME"
@@ -605,6 +615,11 @@ jobs:
         if: ${{ !cancelled() && steps.browser.outcome == 'failure' }}
         run: |
           echo 'Desktop or mobile scenarios failed. See the Playwright report.'
+          exit 1
+      - name: Require both access matrix checks
+        if: ${{ !cancelled() && (steps.early_access.outcome == 'failure' || steps.full_access.outcome == 'failure') }}
+        run: |
+          echo 'An access matrix failed. See the early and final access reports.'
           exit 1
       - name: Capture service diagnostics
         if: failure()
@@ -661,6 +676,7 @@ jobs:
           name: access-security-reports
           path: |
             security/reports/access-matrix.json
+            security/reports/early-final-access-matrix.json
             security/reports/final-access-matrix.json
             security/reports/negative.json
           retention-days: 14

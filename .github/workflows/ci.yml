@@ -494,6 +494,7 @@ jobs:
       COMPOSE_ANSI: never
       COMPOSE_PROGRESS: plain
       OLLAMA_URL: ""
+      CABINET_AGENT_ROUTE_BOUNDARY: "1"
       CABINET_OTLP_ENABLED: "true"
       CABINET_TRACE_SAMPLE_RATE: "1.0"
       CABINET_LOG_FILE: '/var/log/cabinet/${HOSTNAME}/${spring.application.name}.jsonl'

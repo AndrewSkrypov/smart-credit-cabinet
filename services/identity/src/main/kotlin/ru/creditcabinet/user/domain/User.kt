@@ -7,6 +7,9 @@ enum class UserRole {
     /** A person acting for a company: owner, director, accountant or another employee. */
     CLIENT,
 
+    /** Partner sales agent acting for assigned client companies without signing rights. */
+    AGENT,
+
     /** Bank: checks completeness, requests missing documents. */
     MANAGER,
 

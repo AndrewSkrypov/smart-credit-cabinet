@@ -173,7 +173,8 @@ class AgentApplicationService(
     }
 
     fun openDocument(id: UUID, documentId: UUID): Pair<ApplicationDocument, StoredFile> {
-        ownAgentApplication(id)
+        CurrentCaller.requireRole(Roles.AGENT)
+        // DocumentService.open delegates to ApplicationService.get(id), which enforces agentId + mandate check once.
         return documentService.open(id, documentId)
     }
 

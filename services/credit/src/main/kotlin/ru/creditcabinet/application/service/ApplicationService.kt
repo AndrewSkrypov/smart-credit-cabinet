@@ -65,6 +65,9 @@ class ApplicationService(
     @Transactional
     fun updateDraft(id: UUID, terms: ApplicationTerms): LoanApplication {
         val (_, application) = own(id)
+        if (application.agentId != null) {
+            throw ConflictException("Черновик агентской заявки может редактировать только агент")
+        }
         val product = product(application.terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
         val updated = preApprovedOffers.detachIfOutOfBounds(application.updateDraft(terms, clock.instant()), terms)
@@ -195,10 +198,10 @@ class ApplicationService(
 
     fun currentProduct(code: String): Product? = products.latest(code)
 
-    /** The application of the caller's company, for changing it: clients only. */
+    /** The application of the caller's company, for changing it: clients only (hiding private agent drafts). */
     fun own(id: UUID): Pair<TokenClaims, LoanApplication> {
         val (claims, companyId) = CurrentCaller.requireClient()
-        val application = applications.find(id)?.takeIf { it.company.id == companyId } ?: throw notFound()
+        val application = applications.find(id)?.takeIf { it.company.id == companyId && it.visibleToClient } ?: throw notFound()
         return claims to application
     }
 

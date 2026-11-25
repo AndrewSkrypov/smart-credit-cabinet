@@ -39,6 +39,8 @@ import ru.creditcabinet.chat.domain.ChatFile
 import ru.creditcabinet.chat.domain.ChatState
 import ru.creditcabinet.chat.domain.ChatUpload
 import ru.creditcabinet.common.exception.BadRequestException
+import ru.creditcabinet.common.security.CurrentCaller
+import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.preapproved.controller.PreApprovedOfferView
 import ru.creditcabinet.product.domain.ProductCatalog
@@ -163,7 +165,8 @@ class AgentController(
         @RequestParam(required = false) before: Long?,
         @RequestParam(defaultValue = "50") limit: Int,
     ): ChatView {
-        service.ownAgentApplication(id)
+        CurrentCaller.requireRole(Roles.AGENT)
+        // ChatService calls ApplicationService.get(id), enforcing agentId + live mandate check once.
         return ChatView.of(chat.page(id, after, before, limit))
     }
 
@@ -174,14 +177,14 @@ class AgentController(
         @RequestHeader("Idempotency-Key") key: String,
         @RequestBody request: MessageRequest,
     ): MessageView {
-        service.ownAgentApplication(id)
+        CurrentCaller.requireRole(Roles.AGENT)
         return MessageView.of(chat.send(id, parseKey(key), request.text, request.documentIds))
     }
 
     @Operation(summary = "Отметить сообщения прочитанными по агентской заявке")
     @PostMapping("/applications/{id}/messages/read")
     fun readMessages(@PathVariable id: UUID, @RequestBody request: ReadRequest): ChatState {
-        service.ownAgentApplication(id)
+        CurrentCaller.requireRole(Roles.AGENT)
         return chat.read(id, request.lastReadSeq)
     }
 
@@ -192,7 +195,7 @@ class AgentController(
         @RequestHeader("Idempotency-Key") key: String,
         @RequestPart file: MultipartFile,
     ): ChatFile {
-        service.ownAgentApplication(id)
+        CurrentCaller.requireRole(Roles.AGENT)
         return chat.upload(id, parseKey(key), ChatUpload(file.originalFilename ?: "document", file.bytes))
     }
 

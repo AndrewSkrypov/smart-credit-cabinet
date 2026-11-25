@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.jsonwebtoken.Jwts
 import org.mockito.kotlin.any
+import org.mockito.kotlin.clearInvocations
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -215,12 +218,14 @@ class AgentWorkflowIntegrationTest {
         assertEquals(201, uploadResp.status, uploadResp.getContentAsString(Charsets.UTF_8))
         val docId = UUID.fromString(json(uploadResp)["id"].asText())
 
-        // Download document as agent
+        // Download document as agent — verifies single checkAccess call (no duplicate identity lookup)
+        clearInvocations(agentAccess)
         val downloadResp = mockMvc.get("/api/v1/agent/applications/$appId/documents/$docId") {
             header("Authorization", "Bearer $agentToken")
         }.andReturn().response
         assertEquals(200, downloadResp.status)
         assertEquals(pdfBytes.size, downloadResp.contentAsByteArray.size)
+        verify(agentAccess, times(1)).checkAccess(agentId, kotovaCompanyId)
 
         // Request client confirmation
         val reqConfResp = mockMvc.post("/api/v1/agent/applications/$appId/request-confirmation") {
@@ -254,7 +259,8 @@ class AgentWorkflowIntegrationTest {
             ),
         )
 
-        // Agent can read and post in chat once submitted
+        // Agent can read and post in chat once submitted — single checkAccess call per request
+        clearInvocations(agentAccess)
         val chatPost = mockMvc.post("/api/v1/agent/applications/$appId/messages") {
             header("Authorization", "Bearer $agentToken")
             header("Idempotency-Key", UUID.randomUUID().toString())
@@ -263,12 +269,15 @@ class AgentWorkflowIntegrationTest {
         }.andReturn().response
         assertEquals(200, chatPost.status, chatPost.getContentAsString(Charsets.UTF_8))
         assertEquals("COMPANY", json(chatPost)["side"].asText())
+        verify(agentAccess, times(1)).checkAccess(agentId, kotovaCompanyId)
 
+        clearInvocations(agentAccess)
         val chatGet = mockMvc.get("/api/v1/agent/applications/$appId/messages") {
             header("Authorization", "Bearer $agentToken")
         }.andReturn().response
         assertEquals(200, chatGet.status)
         assertEquals(1, json(chatGet)["messages"].size())
+        verify(agentAccess, times(1)).checkAccess(agentId, kotovaCompanyId)
     }
 
     @Test
@@ -441,6 +450,33 @@ class AgentWorkflowIntegrationTest {
         }.andReturn().response
         assertEquals(200, returnResp.status, returnResp.getContentAsString(Charsets.UTF_8))
         assertEquals("DRAFT", json(returnResp)["status"].asText())
+
+        // Once returned to agent's private DRAFT, client cannot mutate or withdraw it -> 404
+        assertEquals(
+            404,
+            mockMvc.put("/api/v1/applications/$appId") {
+                header("Authorization", "Bearer $kotovaClientToken")
+                contentType = MediaType.APPLICATION_JSON
+                content =
+                    """{"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":1500000,"termMonths":12,"declaredRevenue12m":24000000,"bureauConsent":true}"""
+            }.andReturn().response.status,
+        )
+        assertEquals(
+            404,
+            mockMvc.post("/api/v1/applications/$appId/withdraw") {
+                header("Authorization", "Bearer $kotovaClientToken")
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"comment":"Попытка отозвать чужой черновик"}"""
+            }.andReturn().response.status,
+        )
+        assertEquals(
+            404,
+            mockMvc.multipart("/api/v1/applications/$appId/documents") {
+                header("Authorization", "Bearer $kotovaClientToken")
+                param("type", "TAX_RETURN")
+                file(MockMultipartFile("file", "tax.pdf", "application/pdf", pdfBytes))
+            }.andReturn().response.status,
+        )
 
         val cancelResp = mockMvc.post("/api/v1/agent/applications/$appId/cancel") {
             header("Authorization", "Bearer $agentToken")

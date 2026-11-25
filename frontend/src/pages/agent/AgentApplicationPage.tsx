@@ -135,19 +135,19 @@ function AgentApplicationCard({ id }: { id: string }) {
   const [purposeComment, setPurposeComment] = useState<string>('');
   const [declaredRevenue12m, setDeclaredRevenue12m] = useState<number | null>(null);
   const [declaredMonthlyDebtPayments, setDeclaredMonthlyDebtPayments] = useState<number | null>(null);
-  const [draftSynced, setDraftSynced] = useState(false);
 
+  const draftSynced = useRef(false);
   const mounted = useRef(false);
   const inFlight = useRef(false);
 
-  const syncDraftFields = (app: Application) => {
+  const syncDraftFields = useCallback((app: Application) => {
     setAmount(app.amount);
     setTermMonths(app.termMonths);
     setPurposeComment(app.purposeComment ?? '');
     setDeclaredRevenue12m(app.declaredRevenue12m);
     setDeclaredMonthlyDebtPayments(app.declaredMonthlyDebtPayments);
-    setDraftSynced(true);
-  };
+    draftSynced.current = true;
+  }, []);
 
   const apply = useCallback((next: Application) => {
     if (!mounted.current || next.id !== id) return;
@@ -163,20 +163,21 @@ function AgentApplicationCard({ id }: { id: string }) {
       if (!mounted.current || next.id !== id) return;
       setApplication(next);
       setError(null);
-      if (!draftSynced) syncDraftFields(next);
+      if (!draftSynced.current) syncDraftFields(next);
     } catch (nextError) {
       if (!mounted.current) return;
       setError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить заявку');
     } finally {
       inFlight.current = false;
     }
-  }, [id, draftSynced]);
+  }, [id, syncDraftFields]);
 
   useEffect(() => {
+    draftSynced.current = false;
     mounted.current = true;
     void load();
     return () => { mounted.current = false; };
-  }, [load]);
+  }, [id, load]);
 
   const status = application?.status;
   useEffect(() => {
@@ -197,24 +198,28 @@ function AgentApplicationCard({ id }: { id: string }) {
   const canProvideInfo = application.status === 'INFO_REQUESTED' && application.allowedActions.includes('INFO_PROVIDED') && !!application.process.infoRequest;
   const isDraft = application.status === 'DRAFT';
 
+  const persistDraft = async (): Promise<Application | null> => {
+    const input: ApplicationInput = {
+      productCode: application.product.code,
+      purpose: application.purpose,
+      purposeComment: purposeComment.trim() || null,
+      amount,
+      termMonths,
+      declaredRevenue12m,
+      declaredMonthlyDebtPayments,
+      bureauConsent: false
+    };
+    const saved = await agentApi.updateApplication(application.id, input);
+    apply(saved);
+    syncDraftFields(saved);
+    return saved;
+  };
+
   const saveDraft = async (): Promise<Application | null> => {
     setBusyAction('save');
     setError(null);
     try {
-      const input: ApplicationInput = {
-        productCode: application.product.code,
-        purpose: application.purpose,
-        purposeComment: purposeComment.trim() || null,
-        amount,
-        termMonths,
-        declaredRevenue12m,
-        declaredMonthlyDebtPayments,
-        bureauConsent: false
-      };
-      const saved = await agentApi.updateApplication(application.id, input);
-      apply(saved);
-      syncDraftFields(saved);
-      return saved;
+      return await persistDraft();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Не удалось сохранить черновик');
       return null;
@@ -227,7 +232,7 @@ function AgentApplicationCard({ id }: { id: string }) {
     setBusyAction('confirm-request');
     setError(null);
     try {
-      const saved = await saveDraft();
+      const saved = await persistDraft();
       if (!saved || saved.submissionProblems.length > 0) return;
       const next = await agentApi.requestConfirmation(application.id);
       apply(next);

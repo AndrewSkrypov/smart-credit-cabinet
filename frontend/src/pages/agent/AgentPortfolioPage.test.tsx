@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cabinetTheme } from '../../theme/theme';
 import { AgentPortfolioPage } from './AgentPortfolioPage';
+import { AgentApplicationPage } from './AgentApplicationPage';
 import { ApplicationPage } from '../client/application/ApplicationPage';
 import { Application } from '../../types';
 
@@ -13,6 +14,10 @@ const mocks = vi.hoisted(() => ({
   preApprovedOffers: vi.fn(),
   applications: vi.fn(),
   applyPreApprovedOffer: vi.fn(),
+  getAgentApp: vi.fn(),
+  updateAgentApp: vi.fn(),
+  requestConfirmation: vi.fn(),
+  productsList: vi.fn(),
   getApp: vi.fn(),
   confirmApp: vi.fn(),
   returnToAgent: vi.fn(),
@@ -25,7 +30,13 @@ vi.mock('../../api/client', () => ({
     clients: mocks.clients,
     preApprovedOffers: mocks.preApprovedOffers,
     applications: mocks.applications,
-    applyPreApprovedOffer: mocks.applyPreApprovedOffer
+    applyPreApprovedOffer: mocks.applyPreApprovedOffer,
+    getApplication: mocks.getAgentApp,
+    updateApplication: mocks.updateAgentApp,
+    requestConfirmation: mocks.requestConfirmation
+  },
+  productsApi: {
+    list: mocks.productsList
   },
   applicationsApi: {
     get: mocks.getApp,
@@ -256,5 +267,81 @@ describe('Client confirmation flow in PENDING_CLIENT_CONFIRMATION', () => {
     await waitFor(() => {
       expect(mocks.returnToAgent).toHaveBeenCalledWith('app-pending-1', 'Уточните сумму до 2,5 млн');
     });
+  });
+});
+
+describe('AgentApplicationPage draft fetch & confirmation lock', () => {
+  const draftApp = {
+    id: 'app-draft-1',
+    number: 301,
+    status: 'DRAFT',
+    closeReason: null,
+    company: { id: 'comp-1', inn: '7701000001', name: 'ООО «Альфа Логистика»', legalForm: 'LEGAL_ENTITY' },
+    product: { code: 'WORKING_CAPITAL', name: 'Оборотный кредит', revolving: false, version: 1 },
+    currentProduct: null,
+    purpose: 'WORKING_CAPITAL',
+    purposeTitle: 'Пополнение оборотных средств',
+    purposeComment: 'Закупка',
+    amount: 3000000,
+    termMonths: 12,
+    declaredRevenue12m: 25000000,
+    declaredMonthlyDebtPayments: 100000,
+    bureauConsent: false,
+    createdAt: '2026-11-20T10:00:00Z',
+    submittedAt: null,
+    statusChangedAt: '2026-11-20T12:00:00Z',
+    version: 1,
+    allowedActions: ['REQUEST_CLIENT_CONFIRMATION', 'AGENT_CANCEL'],
+    editable: true,
+    canUploadDocuments: true,
+    submissionProblems: [],
+    requiredDocuments: [],
+    documents: [],
+    estimate: { rate: 17.5, monthlyPayment: 274000 },
+    process: { infoRequest: null, offer: null, signing: null, loan: null, outcome: null },
+    agentId: 'agent-1',
+    agentName: 'Соколов Артём',
+    preApprovedOfferId: null,
+    agentCommissionRateBps: 150,
+    agentCommissionAmount: 45000,
+    agentCommissionStatus: 'EXPECTED'
+  } as unknown as Application;
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.productsList.mockResolvedValue([]);
+    mocks.getAgentApp.mockResolvedValue(draftApp);
+    mocks.updateAgentApp.mockResolvedValue(draftApp);
+  });
+
+  it('fetches application once on initial mount and keeps actions locked while requestConfirmation is in flight', async () => {
+    let resolveConfirm!: (value: Application) => void;
+    mocks.requestConfirmation.mockImplementation(
+      () => new Promise<Application>((resolve) => { resolveConfirm = resolve; })
+    );
+
+    render(
+      <ThemeProvider theme={cabinetTheme}>
+        <MemoryRouter initialEntries={['/agent/applications/app-draft-1']}>
+          <Routes>
+            <Route path="/agent/applications/:id" element={<AgentApplicationPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    );
+
+    await screen.findByRole('heading', { name: 'Заявка № 301' });
+    expect(mocks.getAgentApp).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить клиенту на подтверждение' }));
+
+    await waitFor(() => expect(mocks.requestConfirmation).toHaveBeenCalledWith('app-draft-1'));
+    expect(screen.getByRole('button', { name: 'Отправляем…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Сохранить черновик' })).toBeDisabled();
+
+    await act(async () => {
+      resolveConfirm({ ...draftApp, status: 'PENDING_CLIENT_CONFIRMATION', editable: false, allowedActions: ['AGENT_CANCEL'] });
+    });
+    expect(await screen.findByText(/Заявка отправлена клиенту на подтверждение/)).toBeInTheDocument();
   });
 });

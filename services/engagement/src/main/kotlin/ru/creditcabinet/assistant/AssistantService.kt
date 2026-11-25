@@ -16,6 +16,8 @@ data class Turn(val role: String, val text: String)
 
 data class Answer(val text: String, val mode: AnswerMode, val sources: List<String>, val link: AnswerLink? = null)
 
+data class ReferencePreview(val text: String, val source: String)
+
 /**
  * The cabinet's assistant: explains terms, the status and the bank's decision of an application
  * in plain words. It answers from two things only — the reference articles and the facts of the
@@ -35,10 +37,21 @@ class AssistantService(
 
     fun status(): Pair<AnswerMode, String?> = if (model.available()) AnswerMode.MODEL to model.name else AnswerMode.RULES to null
 
-    fun answer(question: String, applicationId: UUID?, history: List<Turn>, authorization: String): Answer =
-        metrics.measure("message") { reply(question, applicationId, history, authorization) }
+    fun answer(
+        question: String,
+        applicationId: UUID?,
+        history: List<Turn>,
+        authorization: String,
+        showReference: ((ReferencePreview) -> Unit)? = null,
+    ): Answer = metrics.measure("message") { reply(question, applicationId, history, authorization, showReference) }
 
-    private fun reply(question: String, applicationId: UUID?, history: List<Turn>, authorization: String): Answer {
+    private fun reply(
+        question: String,
+        applicationId: UUID?,
+        history: List<Turn>,
+        authorization: String,
+        showReference: ((ReferencePreview) -> Unit)?,
+    ): Answer {
         val claims = CurrentCaller.claims()
         throttle(claims.userId)
         val facts = applicationId?.let { applications.facts(it, authorization) }
@@ -95,15 +108,17 @@ class AssistantService(
             return Answer(RuleAnswers.answer(question, facts, reference), AnswerMode.RULES, sources)
         }
         if (articles.isEmpty()) return Answer(RuleAnswers.answer(question, facts, articles), AnswerMode.RULES, sources)
+        val primaryReference = articles.first()
         val trusted = (articles.map { it.text } + listOfNotNull(facts?.asText())).joinToString("\n")
         // Only public, fixed prompts qualify, with no user history or application context.
         val key = if (applicationId == null && history.isEmpty()) cache.key(question, articles, model.name) else null
         if (key != null && model.available()) {
-            cache.read(key)?.takeIf { Grounding.problems(it, trusted, articles.first()).isEmpty() }?.let {
+            cache.read(key)?.takeIf { Grounding.problems(it, trusted, primaryReference).isEmpty() }?.let {
                 metrics.modelEvent("CACHE_HIT")
                 return Answer(it, AnswerMode.MODEL, sources)
             }
         }
+        showReference?.invoke(ReferencePreview(primaryReference.text, primaryReference.title))
         val messages = prompt(question, facts, articles, history)
         val generated = model.chat(messages)
         generated?.let { reply ->
@@ -111,7 +126,7 @@ class AssistantService(
             // A small model can still invent a figure, contradict the reference, slip into another
             // script or ramble; such an answer is not shown, the rules answer is.
             // User questions and earlier turns are not authoritative financial facts.
-            val problems = Grounding.problems(text, trusted, articles.first())
+            val problems = Grounding.problems(text, trusted, primaryReference)
             if (problems.isEmpty()) {
                 metrics.modelEvent("ACCEPTED")
                 if (key != null) cache.save(key, text)

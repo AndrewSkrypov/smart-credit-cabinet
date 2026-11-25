@@ -43,6 +43,7 @@ import ru.creditcabinet.offer.OfferKind
 import ru.creditcabinet.offer.OfferRepository
 import ru.creditcabinet.offer.OfferStatus
 import ru.creditcabinet.offer.SigningSessions
+import ru.creditcabinet.preapproved.domain.PreApprovedOfferStore
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.applicationCatalog
 import ru.creditcabinet.product.domain.forApplication
@@ -74,6 +75,7 @@ class PipelineSteps(
     private val documents: DocumentRepository,
     private val products: ProductCatalog,
     private val ruleSets: RuleSets,
+    private val preApprovedOffers: PreApprovedOfferStore,
     private val settings: PipelineSettings,
     private val tx: TransactionTemplate,
     private val clock: Clock,
@@ -228,7 +230,10 @@ class PipelineSteps(
         val product = products.forApplication(application)
         val now = clock.instant()
         val assessment = Scorecard.assess(application.terms, product, data, rules, now.atZone(ZONE).toLocalDate())
-        val policy = CreditPolicy.decide(application.terms, product, products.applicationCatalog(application), assessment, rules)
+        val preApproved = application.preApprovedOfferId
+            ?.let { preApprovedOffers.find(it) }
+            ?.takeIf { it.isValidForScoring(application.id, application.terms, now) }
+        val policy = CreditPolicy.decide(application.terms, product, products.applicationCatalog(application), assessment, rules, preApproved)
         val decision = Decision(
             applicationId = application.id,
             ruleSetVersion = rules.version,

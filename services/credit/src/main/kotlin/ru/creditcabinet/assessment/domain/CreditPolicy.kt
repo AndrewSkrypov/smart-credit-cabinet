@@ -1,6 +1,7 @@
 package ru.creditcabinet.assessment.domain
 
 import ru.creditcabinet.application.domain.ApplicationTerms
+import ru.creditcabinet.preapproved.domain.PreApprovedOffer
 import ru.creditcabinet.product.domain.LoanMath
 import ru.creditcabinet.product.domain.Product
 import java.math.BigDecimal
@@ -73,9 +74,15 @@ object CreditPolicy {
         products: List<Product>,
         assessment: Assessment,
         rules: RuleSet,
+        preApprovedOffer: PreApprovedOffer? = null,
     ): PolicyDecision {
         assessment.stopFactors.firstOrNull()?.let { stop ->
             return PolicyDecision.Reject(RejectReason.valueOf(stop.name), assessment.stopFactorTexts())
+        }
+        if (preApprovedOffer != null && preApprovedOffer.isWithinBounds(terms)) {
+            return PolicyDecision.Approve(
+                OfferTerms.of(product, terms.amount, terms.termMonths, preApprovedOffer.rate),
+            )
         }
         if (assessment.rating == Rating.E) return rejectByScore(assessment)
         val reasons = buildList {

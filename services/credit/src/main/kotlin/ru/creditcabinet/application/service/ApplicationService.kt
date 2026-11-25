@@ -20,6 +20,7 @@ import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.TokenClaims
+import ru.creditcabinet.preapproved.application.PreApprovedOfferService
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.forApplication
@@ -38,6 +39,7 @@ class ApplicationService(
     private val transitions: Transitions,
     private val infoRequests: ru.creditcabinet.application.domain.InfoRequests,
     private val documents: ru.creditcabinet.document.domain.DocumentRepository,
+    private val preApprovedOffers: PreApprovedOfferService,
 ) {
     /** T1: a draft for the caller's company. One application in progress per company and product. */
     @Transactional
@@ -63,7 +65,8 @@ class ApplicationService(
         val (_, application) = own(id)
         val product = product(application.terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
-        return applications.save(application.updateDraft(terms, clock.instant()))
+        val updated = preApprovedOffers.detachIfOutOfBounds(application.updateDraft(terms, clock.instant()), terms)
+        return applications.save(updated)
     }
 
     /**

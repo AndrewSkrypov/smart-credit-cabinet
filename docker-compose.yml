@@ -417,6 +417,7 @@ services:
       - "${GATEWAY_PORT:-8080}:80"
     volumes:
       - ./docker/gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/gateway/conf.d:/etc/nginx/cabinet-gateway:ro
     depends_on:
       - frontend
       - identity

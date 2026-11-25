@@ -14,6 +14,7 @@ import time
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 from cabinet_api import Cabinet  # noqa: E402
+from gateway_config import running_gateway_source  # noqa: E402
 
 
 def main():
@@ -53,7 +54,7 @@ def main():
     log_path = "/tmp/cabinet-refusal-probe.log"
     # The stack mounts its gateway configuration read-only. The probe runs a separate Nginx
     # from the same image and the same configuration; only the credit upstream addresses differ.
-    original = docker("exec", gateway, "cat", config_path)
+    original = running_gateway_source(docker, gateway)
     fixture, count = re.subn(r"server credit:8080 resolve max_fails=1 fail_timeout=5s;",
                             f"server 127.0.0.1:1 max_fails=0;\n    server {address}:8080 backup;", original)
     assert count == 1
@@ -100,7 +101,7 @@ access_log /tmp/cabinet-refusal-probe.log cabinet_refusal;
                 if created:
                     docker("rm", "-f", probe_name)
                 result["probe_removed"] = not docker("ps", "-aq", "--filter", f"name=^{probe_name}$").strip()
-                result["gateway_unchanged"] = docker("exec", gateway, "cat", config_path) == original
+                result["gateway_unchanged"] = running_gateway_source(docker, gateway) == original
             finally:
                 result["passed"] = result["passed"] and result["probe_removed"] and result["gateway_unchanged"]
                 result["finished_at"] = datetime.now(timezone.utc).isoformat()

@@ -46,6 +46,7 @@ test('Агентский канал API: мандат, подтверждени�
     expect((await request.get(clientPath, { headers: headers(client) })).status()).toBe(404);
     if (process.env.CABINET_AGENT_ROUTE_BOUNDARY === '1') {
       expect((await request.get(clientPath, { headers: headers(agent) })).status()).toBe(403);
+      expect((await request.get(clientPath, { headers: headers(other) })).status()).toBe(404);
     }
     expect((await request.get('/api/v1/agent/clients', { headers: headers(client) })).status()).toBe(403);
     const document = await request.post(`${agentPath}/documents?type=TAX_RETURN`, {

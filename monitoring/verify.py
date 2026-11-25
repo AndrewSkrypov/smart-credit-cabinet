@@ -11,12 +11,14 @@ import subprocess
 import time
 import urllib.parse
 import urllib.request
+from uuid import uuid4
 
 parser = argparse.ArgumentParser(description="Проверка работающих Prometheus/Grafana и метрик конвейера")
 parser.add_argument("--replicas", type=int, choices=[1, 2], default=1)
 parser.add_argument("--require-activity", action="store_true")
 parser.add_argument("--require-source-errors", action="store_true")
 parser.add_argument("--require-source-timeouts", action="store_true")
+parser.add_argument("--require-correlation", action="store_true", help="Проверить OTLP и Loki на синтетическом запросе агента")
 parser.add_argument("--report-name", default="verification")
 parser.add_argument("--wait", type=int, default=180)
 args = parser.parse_args()
@@ -48,8 +50,58 @@ def positive(expression):
     return bool(rows) and float(rows[0]["value"][1]) > 0
 
 
+def make_correlation_request():
+    gateway = f"http://127.0.0.1:{os.environ.get('GATEWAY_PORT', '8080')}"
+    auth_request = urllib.request.Request(
+        gateway + "/api/v1/auth/sign-in",
+        data=json.dumps({"email": "agent@demo.test", "password": "Demo2026"}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(auth_request, timeout=10) as response:
+        token = json.load(response)["token"]
+    trace_id = uuid4().hex
+    request = urllib.request.Request(
+        gateway + "/api/v1/agent/applications",
+        headers={"Authorization": "Bearer " + token, "traceparent": f"00-{trace_id}-{uuid4().hex[:16]}-01"},
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        request_id = response.headers["X-Request-Id"]
+    assert request_id, "Ответ API без X-Request-Id"
+    return trace_id, request_id
+
+
+def verify_correlation(trace_id, request_id):
+    proxy = grafana + "/api/datasources/proxy/uid/"
+    auth = {"Authorization": authorization, "Accept": "application/json"}
+    trace = get(proxy + f"cabinet-tempo/api/traces/{trace_id}", auth)
+    batches = trace.get("batches", trace.get("resourceSpans", []))
+    if not batches and isinstance(trace.get("trace"), dict):
+        batches = trace["trace"].get("batches", trace["trace"].get("resourceSpans", []))
+    traced_services = {
+        attribute["value"]["stringValue"]
+        for batch in batches
+        for attribute in batch.get("resource", {}).get("attributes", [])
+        if attribute.get("key") == "service.name" and "stringValue" in attribute.get("value", {})
+    }
+    assert {"credit", "identity"} <= traced_services, "Tempo пока не содержит связанные спаны credit и identity"
+    now = time.time_ns()
+    query_string = urllib.parse.urlencode({
+        "query": '{service="credit"} | json | traceId="' + trace_id + '"',
+        "start": str(now - 300_000_000_000), "end": str(now), "limit": "10",
+    })
+    streams = get(proxy + "cabinet-loki/loki/api/v1/query_range?" + query_string, auth)["data"]["result"]
+    logs = [json.loads(line) for stream in streams for _, line in stream["values"]]
+    assert any(
+        row.get("requestId") == request_id and row.get("traceId") == trace_id and row.get("spanId")
+        and row.get("role") == "AGENT" and row.get("userId")
+        for row in logs
+    ), "Loki пока не содержит связанный структурированный лог запроса"
+    return {"trace_id": trace_id, "request_id": request_id, "services": sorted(traced_services), "matching_log": True}
+
+
 try:
     deadline = time.monotonic() + args.wait
+    correlation_request = make_correlation_request() if args.require_correlation else None
     while True:
         try:
             targets = get(prometheus + "/api/v1/targets")["data"]["activeTargets"]
@@ -78,6 +130,8 @@ try:
                 queries = json.load(response)["results"]
             assert len(queries) == 14 and all(not value.get("error") for value in queries.values()), "Не все 14 запросов панелей исполняются через Grafana"
             assert queries["0"].get("frames"), "Grafana не получила ряды доступности"
+            if correlation_request:
+                report["correlation"] = verify_correlation(*correlation_request)
             break
         except Exception as error:
             if time.monotonic() >= deadline:

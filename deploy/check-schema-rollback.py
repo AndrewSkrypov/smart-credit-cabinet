@@ -13,7 +13,12 @@ from uuid import uuid4
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSIONS = {"identity": 8, "credit": 17, "engagement": 5}
+COMMENT_MIGRATIONS = {
+    "identity": ((8, "schema_comments"),),
+    "credit": ((17, "schema_comments"), (18, "loan_servicing_schema_comments")),
+    "engagement": ((5, "schema_comments"),),
+}
+SERVICING_TABLES = {"loan_accounts", "loan_tranches", "loan_payments"}
 CATALOG = """
 select coalesce(json_agg(row_to_json(results) order by name), '[]') from (
     select c.relname as name, obj_description(c.oid, 'pg_class') as table_comment,
@@ -59,11 +64,17 @@ def main():
 
     report = {"services": {}, "passed": False}
     try:
-        for service, version in VERSIONS.items():
+        for service, migrations in COMMENT_MIGRATIONS.items():
             source = args.source_prefix + service
             database = f"cabinet_rollback_{service}_{uuid4().hex[:14]}"
-            forward = ROOT / "services" / service / f"src/main/resources/db/migration/V{version}__schema_comments.sql"
-            reverse = ROOT / "db/rollback" / service / f"U{version}__schema_comments.sql"
+            scripts = [
+                (version,
+                 ROOT / "services" / service / f"src/main/resources/db/migration/V{version}__{description}.sql",
+                 ROOT / "db/rollback" / service / f"U{version}__{description}.sql")
+                for version, description in migrations
+            ]
+            versions = [version for version, _, _ in scripts]
+            version_list = ", ".join(f"'{version}'" for version in versions)
             with tempfile.TemporaryDirectory() as temporary:
                 archive = Path(temporary) / "before.dump"
                 run("pg_dump", "-Fc", "-f", archive, database=source)
@@ -71,23 +82,31 @@ def main():
                 try:
                     run("pg_restore", "--exit-on-error", "--no-owner", "--no-privileges", archive, database=database)
                     data_before = data_hash(database)
-                    applied = sql(database, f"select exists (select 1 from flyway_schema_history where version = '{version}' and success)").strip() == "t"
+                    history = sql(database, f"select version from flyway_schema_history where success and version in ({version_list})")
+                    applied = {int(version) for version in history.splitlines()}
+                    assert applied == set(versions[:len(applied)]), f"{service}: нарушен порядок миграций комментариев"
                     original_comments = json.loads(sql(database, CATALOG)) if applied else None
-                    if applied:
+                    for _, _, reverse in reversed(scripts[:len(applied)]):
                         apply(database, reverse)
                     before = json.loads(sql(database, CATALOG))
-                    apply(database, forward)
+                    for version, forward, _ in scripts:
+                        apply(database, forward)
+                        if applied and version == versions[len(applied) - 1]:
+                            assert json.loads(sql(database, CATALOG)) == original_comments, f"{service}: комментарии Flyway отличаются от повторного наката"
                     after = json.loads(sql(database, CATALOG))
                     assert all(row["table_comment"] for row in after), f"{service}: есть таблица без комментария"
+                    if service == "credit":
+                        matched = {row["name"] for row in after if all(row["columns"].values())}
+                        assert SERVICING_TABLES <= matched, "credit: отсутствуют комментарии к столбцам обслуживания"
                     assert after != before and data_hash(database) == data_before, f"{service}: изменились данные или отсутствует результат"
-                    if original_comments is not None:
-                        assert after == original_comments, f"{service}: комментарии из Flyway отличаются от повторного наката"
-                    apply(database, reverse)
+                    for _, _, reverse in reversed(scripts):
+                        apply(database, reverse)
                     assert json.loads(sql(database, CATALOG)) == before, f"{service}: откат комментариев неполный"
                     assert data_hash(database) == data_before, f"{service}: откат изменил данные"
-                    apply(database, forward)
+                    for _, forward, _ in scripts:
+                        apply(database, forward)
                     assert json.loads(sql(database, CATALOG)) == after and data_hash(database) == data_before
-                    report["services"][service] = {"version": version, "tables": len(after), "data_sha256": data_before,
+                    report["services"][service] = {"version": versions[-1], "versions": versions, "tables": len(after), "data_sha256": data_before,
                                                    "commented_columns": sum(bool(value) for row in after for value in row["columns"].values())}
                 finally:
                     sql("postgres", f'drop database "{database}"')

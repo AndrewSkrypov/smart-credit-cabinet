@@ -71,11 +71,17 @@ def main():
                 try:
                     run("pg_restore", "--exit-on-error", "--no-owner", "--no-privileges", archive, database=database)
                     data_before = data_hash(database)
+                    applied = sql(database, f"select exists (select 1 from flyway_schema_history where version = '{version}' and success)").strip() == "t"
+                    original_comments = json.loads(sql(database, CATALOG)) if applied else None
+                    if applied:
+                        apply(database, reverse)
                     before = json.loads(sql(database, CATALOG))
                     apply(database, forward)
                     after = json.loads(sql(database, CATALOG))
                     assert all(row["table_comment"] for row in after), f"{service}: есть таблица без комментария"
                     assert after != before and data_hash(database) == data_before, f"{service}: изменились данные или отсутствует результат"
+                    if original_comments is not None:
+                        assert after == original_comments, f"{service}: комментарии из Flyway отличаются от повторного наката"
                     apply(database, reverse)
                     assert json.loads(sql(database, CATALOG)) == before, f"{service}: откат комментариев неполный"
                     assert data_hash(database) == data_before, f"{service}: откат изменил данные"

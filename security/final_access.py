@@ -19,6 +19,7 @@ PRODUCT_MISSING = (401, 403, 403, 403, 403, 404, 403, 403)
 PRODUCT_DUPLICATE = (401, 403, 403, 403, 403, 409, 403, 403)
 SIGNED_IN = (401, 200, 200, 200, 200, 200, 200, 200)
 HINTS_MISSING = (401, 404, 404, 200, 200, 200, 404, 404)
+LOAN_MISSING = (401, 404, 404, 404, 404, 404, 404, 404)
 
 ROUTES = (
     ("identity", "GET", "/api/v1/agent/clients", AGENT_ONLY),
@@ -42,6 +43,10 @@ ROUTES = (
     ("credit", "POST", "/api/v1/agent/pre-approved-offers/{id}/apply", AGENT_MISSING),
     ("credit", "POST", "/api/v1/applications/{id}/confirm", CLIENT_MISSING),
     ("credit", "POST", "/api/v1/applications/{id}/return-to-agent", CLIENT_MISSING),
+    ("credit", "GET", "/api/v1/applications/{id}/loan", LOAN_MISSING),
+    ("credit", "POST", "/api/v1/loans/{loanId}/tranches", CLIENT_MISSING),
+    ("credit", "POST", "/api/v1/loans/{loanId}/payments/next", CLIENT_MISSING),
+    ("credit", "POST", "/api/v1/loans/{loanId}/repay-early", CLIENT_MISSING),
     ("credit", "POST", "/api/v1/bank/products", PRODUCT_DUPLICATE),
     ("credit", "POST", "/api/v1/bank/products/{code}/archive", PRODUCT_MISSING),
     ("credit", "POST", "/api/v1/bank/products/{code}/publish", PRODUCT_MISSING),
@@ -63,7 +68,7 @@ def check(api):
         tokens[role] = api.sign_in(f"{account}@demo.test")["token"]
 
     missing = str(uuid4())
-    parameters = {"id": missing, "documentId": str(uuid4()), "code": "MISSING_FINAL_MATRIX"}
+    parameters = {"id": missing, "loanId": missing, "documentId": str(uuid4()), "code": "MISSING_FINAL_MATRIX"}
     pdf = (ROOT / "contracts/postman/fixtures/synthetic.pdf").read_bytes()
     checks = []
     try:
@@ -83,6 +88,8 @@ def check(api):
                     body = {"expectedVersion": 1, "reason": "Синтетическая проверка доступа"}
                 elif template.endswith("/confirm"):
                     body = {"bureauConsent": True}
+                elif template.endswith("/tranches"):
+                    body = {"amount": 100_000, "purpose": "Синтетическая проверка доступа"}
                 elif template.endswith("/messages") and method == "POST":
                     body, headers = {"text": "Синтетическая проверка доступа"}, {"Idempotency-Key": str(uuid4())}
                 elif template.endswith("/messages/read"):

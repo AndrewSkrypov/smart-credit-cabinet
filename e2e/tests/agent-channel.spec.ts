@@ -76,6 +76,12 @@ test('Агентский канал API: мандат, подтверждени�
     expect((await request.post(`${clientPath}/sign`, { headers: headers(agent), data: { code } })).status()).toBe(403);
     expect((await request.post(`${clientPath}/sign`, { headers: headers(client), data: { code } })).ok()).toBeTruthy();
     await waitStatus(request, client, id, ['DISBURSED']);
+    const serviced = await request.get(`${clientPath}/loan`, { headers: headers(client) });
+    expect(serviced.status(), await serviced.text()).toBe(200);
+    const loan = await serviced.json();
+    expect(loan).toMatchObject({ applicationId: id, status: 'ACTIVE' });
+    expect(loan.tranches).toHaveLength(1);
+    expect(loan.payments.length).toBeGreaterThan(0);
   } finally {
     await clean(request, id, agent, client);
   }

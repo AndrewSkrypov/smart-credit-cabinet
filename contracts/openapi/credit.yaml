@@ -1080,6 +1080,16 @@ components:
       - type
       - uploadedAt
       type: object
+    DrawTrancheRequest:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        purpose:
+          type: string
+      required:
+      - amount
+      type: object
     ErrorResponse:
       description: Ошибка API
       properties:
@@ -1287,6 +1297,132 @@ components:
       - occurredAt
       - payload
       - toStatus
+      type: object
+    LoanAccountResponse:
+      properties:
+        applicationId:
+          format: uuid
+          type: string
+        approvedLimit:
+          format: int64
+          type: integer
+        availableLimit:
+          format: int64
+          type: integer
+        contractNumber:
+          type: string
+        disbursedAmount:
+          format: int64
+          type: integer
+        disbursedAt:
+          format: date-time
+          type: string
+        id:
+          format: uuid
+          type: string
+        maturityDate:
+          format: date
+          type: string
+        outstandingPrincipal:
+          type: number
+        payments:
+          items:
+            $ref: '#/components/schemas/LoanPaymentResponse'
+          type: array
+        rate:
+          type: number
+        repaidAt:
+          format: date-time
+          type: string
+        revolving:
+          type: boolean
+        status:
+          enum:
+          - ACTIVE
+          - REPAID
+          type: string
+        termMonths:
+          format: int32
+          type: integer
+        tranches:
+          items:
+            $ref: '#/components/schemas/LoanTrancheResponse'
+          type: array
+      required:
+      - applicationId
+      - approvedLimit
+      - availableLimit
+      - contractNumber
+      - disbursedAmount
+      - disbursedAt
+      - id
+      - maturityDate
+      - outstandingPrincipal
+      - payments
+      - rate
+      - revolving
+      - status
+      - termMonths
+      - tranches
+      type: object
+    LoanPaymentResponse:
+      properties:
+        dueDate:
+          format: date
+          type: string
+        id:
+          format: uuid
+          type: string
+        interestAmount:
+          type: number
+        paidAt:
+          format: date-time
+          type: string
+        paymentAmount:
+          type: number
+        paymentNumber:
+          format: int32
+          type: integer
+        principalAmount:
+          type: number
+        remainingBalance:
+          type: number
+        status:
+          enum:
+          - SCHEDULED
+          - PAID
+          type: string
+      required:
+      - dueDate
+      - id
+      - interestAmount
+      - paymentAmount
+      - paymentNumber
+      - principalAmount
+      - remainingBalance
+      - status
+      type: object
+    LoanTrancheResponse:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        disbursedAt:
+          format: date-time
+          type: string
+        id:
+          format: uuid
+          type: string
+        purpose:
+          type: string
+        trancheNumber:
+          format: int32
+          type: integer
+      required:
+      - amount
+      - disbursedAt
+      - id
+      - trancheNumber
       type: object
     LoanView:
       properties:
@@ -5536,6 +5672,80 @@ paths:
       summary: 'Ответить на запрос банка: документы загружены, на вопросы дан ответ (T5)'
       tags:
       - Заявки, документы и выдача
+  /api/v1/applications/{id}/loan:
+    get:
+      operationId: getByApplication
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/LoanAccountResponse'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/applications/{id}/loan
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/applications/{id}/loan
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/applications/{id}/loan
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/applications/{id}/loan
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Кредитный счёт, транши и график платежей по выданной заявке
+      tags:
+      - Обслуживание кредита и транши
   /api/v1/applications/{id}/messages:
     get:
       operationId: list_2
@@ -7550,6 +7760,312 @@ paths:
       summary: Восстановить архивный продукт (ARCHIVED -> ACTIVE)
       tags:
       - Версии кредитных продуктов
+  /api/v1/loans/{loanId}/payments/next:
+    post:
+      operationId: payNext
+      parameters:
+      - in: path
+        name: loanId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/LoanAccountResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/loans/{loanId}/payments/next
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/loans/{loanId}/payments/next
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/loans/{loanId}/payments/next
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/loans/{loanId}/payments/next
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/loans/{loanId}/payments/next
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/loans/{loanId}/payments/next
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Провести очередной плановый платёж по кредиту (только клиент)
+      tags:
+      - Обслуживание кредита и транши
+  /api/v1/loans/{loanId}/repay-early:
+    post:
+      operationId: repayEarly
+      parameters:
+      - in: path
+        name: loanId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/LoanAccountResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/loans/{loanId}/repay-early
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/loans/{loanId}/repay-early
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/loans/{loanId}/repay-early
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/loans/{loanId}/repay-early
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/loans/{loanId}/repay-early
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/loans/{loanId}/repay-early
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Досрочно погасить весь остаток долга по кредиту (только клиент)
+      tags:
+      - Обслуживание кредита и транши
+  /api/v1/loans/{loanId}/tranches:
+    post:
+      operationId: drawTranche
+      parameters:
+      - in: path
+        name: loanId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DrawTrancheRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/LoanAccountResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/loans/{loanId}/tranches
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/loans/{loanId}/tranches
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/loans/{loanId}/tranches
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/loans/{loanId}/tranches
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/loans/{loanId}/tranches
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/loans/{loanId}/tranches
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Выбрать очередной транш по возобновляемому кредиту (только клиент)
+      tags:
+      - Обслуживание кредита и транши
   /api/v1/pre-approved-offers:
     get:
       operationId: list_4

@@ -124,6 +124,10 @@
 | credit | `POST /api/v1/agent/pre-approved-offers/{id}/apply` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `POST /api/v1/applications/{id}/confirm` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
 | credit | `POST /api/v1/applications/{id}/return-to-agent` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
+| credit | `GET /api/v1/applications/{id}/loan` | 401 | 404 | 404 | 404 | 404 | 404 | 404 | 404 |
+| credit | `POST /api/v1/loans/{loanId}/tranches` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
+| credit | `POST /api/v1/loans/{loanId}/payments/next` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
+| credit | `POST /api/v1/loans/{loanId}/repay-early` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
 | credit | `POST /api/v1/bank/products` | 401 | 403 | 403 | 403 | 403 | 409 | 403 | 403 |
 | credit | `POST /api/v1/bank/products/{code}/archive` | 401 | 403 | 403 | 403 | 403 | 404 | 403 | 403 |
 | credit | `POST /api/v1/bank/products/{code}/publish` | 401 | 403 | 403 | 403 | 403 | 404 | 403 | 403 |

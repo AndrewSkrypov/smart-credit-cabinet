@@ -31,6 +31,7 @@ import ru.creditcabinet.assessment.domain.RejectReason
 import ru.creditcabinet.assessment.domain.RevenueSource
 import ru.creditcabinet.assessment.domain.RuleSet
 import ru.creditcabinet.assessment.domain.StopFactor
+import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.preapproved.application.PreApprovedOfferService
@@ -48,6 +49,8 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -414,5 +417,64 @@ class PreApprovedOfferTest {
             val reject = assertIs<PolicyDecision.Reject>(decision)
             assertEquals(RejectReason.valueOf(stopFactor.name), reject.reason)
         }
+    }
+
+    @Test
+    fun `isValidForScoring checks status, applicationId, expiry and bounds`() {
+        val now = Instant.parse("2026-11-25T12:00:00Z")
+        val appId = UUID.randomUUID()
+        val offer = PreApprovedOffer(
+            id = UUID.randomUUID(),
+            companyId = companyId,
+            productCode = "WORKING_CAPITAL",
+            maxAmount = 3_000_000L,
+            minTermMonths = 6,
+            maxTermMonths = 24,
+            rate = BigDecimal("18.50"),
+            validUntil = now.plus(10, ChronoUnit.DAYS),
+            status = PreApprovedOfferStatus.USED,
+            applicationId = appId,
+            createdAt = now.minus(1, ChronoUnit.DAYS),
+        )
+        val validTerms = ApplicationTerms(
+            productCode = "WORKING_CAPITAL",
+            purpose = FinancingPurpose.WORKING_CAPITAL,
+            amount = 2_000_000L,
+            termMonths = 12,
+        )
+
+        assertTrue(offer.isValidForScoring(appId, validTerms, now))
+        assertFalse(offer.copy(status = PreApprovedOfferStatus.ACTIVE).isValidForScoring(appId, validTerms, now))
+        assertFalse(offer.copy(status = PreApprovedOfferStatus.EXPIRED).isValidForScoring(appId, validTerms, now))
+        assertFalse(offer.isValidForScoring(UUID.randomUUID(), validTerms, now))
+        assertFalse(offer.copy(applicationId = null).isValidForScoring(appId, validTerms, now))
+        assertFalse(offer.isValidForScoring(appId, validTerms, offer.validUntil))
+        assertFalse(offer.isValidForScoring(appId, validTerms, offer.validUntil.plusSeconds(1)))
+        assertFalse(offer.isValidForScoring(appId, validTerms.copy(amount = 3_000_001L), now))
+        assertFalse(offer.isValidForScoring(appId, validTerms.copy(amount = 0L), now))
+        assertFalse(offer.isValidForScoring(appId, validTerms.copy(termMonths = 5), now))
+        assertFalse(offer.isValidForScoring(appId, validTerms.copy(termMonths = 25), now))
+        assertFalse(offer.isValidForScoring(appId, validTerms.copy(productCode = "OVERDRAFT"), now))
+    }
+
+    @Test
+    fun `applyForAgent creates agent draft with expected commission and restricts to agent portfolio`() {
+        val agentId = UUID.randomUUID()
+        val offerId = insertOffer(maxAmount = 2_000_000L, minTermMonths = 6, maxTermMonths = 18, rate = BigDecimal("18.00"))
+
+        assertFailsWith<NotFoundException> {
+            preApprovedService.applyForAgent(offerId, agentId, listOf(otherCompanyId), "Агент Смирнов")
+        }
+
+        val app = preApprovedService.applyForAgent(offerId, agentId, listOf(companyId), "Агент Смирнов")
+        assertEquals(agentId, app.agentId)
+        assertEquals("Агент Смирнов", app.agentName)
+        assertEquals(offerId, app.preApprovedOfferId)
+        assertEquals(2_000_000L, app.terms.amount)
+        assertEquals(18, app.terms.termMonths)
+        assertEquals(CommissionStatus.EXPECTED, app.agentCommissionStatus)
+        assertNotNull(app.agentCommissionRateBps)
+        assertEquals(2_000_000L * app.agentCommissionRateBps!! / 10_000L, app.agentCommissionAmount)
+        assertEquals("USED", jdbc.queryForObject("select status from pre_approved_offers where id = ?", String::class.java, offerId))
     }
 }

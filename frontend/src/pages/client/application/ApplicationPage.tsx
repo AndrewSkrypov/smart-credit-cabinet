@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useParams, useLocation } from 'react-router-dom';
@@ -17,6 +17,7 @@ import { InfoRequestBlock } from './InfoRequestBlock';
 import { LoanBlock } from './LoanBlock';
 import { OfferBlock } from './OfferBlock';
 import { GeneratedFilesBlock } from '../../../components/GeneratedFilesBlock';
+import { LoanServicingBlock } from '../../../components/LoanServicingBlock';
 import { SigningBlock } from './SigningBlock';
 import { StageStepper } from './StageStepper';
 
@@ -44,6 +45,10 @@ function ApplicationCard({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawComment, setWithdrawComment] = useState('');
+  const [confirmConsent, setConfirmConsent] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [returning, setReturning] = useState(false);
+  const [returnComment, setReturnComment] = useState('');
   const mounted = useRef(false);
   const requestSequence = useRef(0);
   const inFlight = useRef(false);
@@ -124,6 +129,86 @@ function ApplicationCard({ id }: { id: string }) {
             {application.status === 'DRAFT' && application.editable && (
               <DraftForm application={application} onSaved={apply} onSubmitted={apply} />
             )}
+            {application.status === 'PENDING_CLIENT_CONFIRMATION' && (
+              <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main' }}>
+                <Typography variant="h6" component="h2" gutterBottom>Подтверждение агентской заявки</Typography>
+                <Typography color="text.secondary" sx={{ mb: 2 }}>
+                  {application.agentName
+                    ? `Агент ${application.agentName} подготовил заявку для вашей компании. Проверьте условия и приложенные документы перед отправкой в банк.`
+                    : 'Агент подготовил заявку для вашей компании. Проверьте условия и приложенные документы перед отправкой в банк.'}
+                </Typography>
+
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  <Grid item xs={6} sm={4}><Fact label="Продукт" value={application.product.name} /></Grid>
+                  <Grid item xs={6} sm={4}><Fact label="Сумма" value={rub(application.amount)} /></Grid>
+                  <Grid item xs={6} sm={4}><Fact label="Срок" value={months(application.termMonths)} /></Grid>
+                  <Grid item xs={12} sm={6}><Fact label="Цель" value={application.purposeTitle} /></Grid>
+                  {application.declaredRevenue12m != null && (
+                    <Grid item xs={6} sm={3}><Fact label="Выручка за 12 мес." value={rub(application.declaredRevenue12m)} /></Grid>
+                  )}
+                  <Grid item xs={6} sm={3}><Fact label="Документов приложено" value={String(application.documents.length)} /></Grid>
+                </Grid>
+
+                {application.documents.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">Приложенные файлы:</Typography>
+                    <Typography variant="body2">{application.documents.map((doc) => doc.fileName).join(', ')}</Typography>
+                  </Box>
+                )}
+
+                {application.currentProduct && application.currentProduct.version !== application.product.version && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Условия продукта «{application.currentProduct.name}» обновились (версия {application.currentProduct.version}, базовая ставка {percent(application.currentProduct.baseRate)}). Подтверждая заявку, вы соглашаетесь с актуальными условиями продукта.
+                  </Alert>
+                )}
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={confirmConsent}
+                      disabled={confirmBusy}
+                      onChange={(event) => setConfirmConsent(event.target.checked)}
+                    />
+                  }
+                  label="Согласен на запрос кредитной истории компании в бюро кредитных историй (БКИ) и подтверждаю параметры заявки"
+                />
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
+                  {application.allowedActions.includes('CONFIRM_AND_SUBMIT') && (
+                    <Button
+                      variant="contained"
+                      size="large"
+                      disabled={!confirmConsent || confirmBusy}
+                      onClick={async () => {
+                        setConfirmBusy(true);
+                        setError(null);
+                        try {
+                          apply(await applicationsApi.confirm(application.id, true, (application.currentProduct ?? application.product).version));
+                        } catch (nextError) {
+                          if (!mounted.current) return;
+                          setError(nextError instanceof Error ? nextError.message : 'Не удалось подтвердить заявку');
+                        } finally {
+                          if (mounted.current) setConfirmBusy(false);
+                        }
+                      }}
+                    >
+                      {confirmBusy ? 'Отправляем…' : 'Подтвердить и отправить в банк'}
+                    </Button>
+                  )}
+                  {application.allowedActions.includes('RETURN_TO_AGENT') && (
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      size="large"
+                      disabled={confirmBusy}
+                      onClick={() => setReturning(true)}
+                    >
+                      Вернуть агенту
+                    </Button>
+                  )}
+                </Stack>
+              </Paper>
+            )}
             {application.status === 'INFO_REQUESTED' && application.process.infoRequest && (
               <InfoRequestBlock application={application} onChanged={load} onSent={apply} />
             )}
@@ -132,6 +217,7 @@ function ApplicationCard({ id }: { id: string }) {
             )}
             {application.status === 'SIGNING' && <SigningBlock application={application} onChanged={apply} />}
             {application.status === 'DISBURSED' && application.process.loan && <LoanBlock application={application} />}
+            {application.status === 'DISBURSED' && <LoanServicingBlock applicationId={application.id} />}
             {application.status === 'DISBURSED' && application.process.loan && <GeneratedFilesBlock applicationId={application.id} final />}
             {application.status === 'DISBURSED' && application.process.offer && <Box component="details"><Typography component="summary" sx={{ cursor: 'pointer', py: 1 }}>Согласованные условия</Typography><OfferBlock historical application={application} onChanged={apply} /></Box>}
             {outcome && (
@@ -174,6 +260,48 @@ function ApplicationCard({ id }: { id: string }) {
           </Paper>
         </Grid>
       </Grid>
+
+      <Dialog open={returning} onClose={() => setReturning(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Вернуть заявку агенту на доработку?</DialogTitle>
+        <DialogContent>
+          <Typography gutterBottom>Заявка вернётся в статус «Черновик», и агент сможет скорректировать параметры или документы.</Typography>
+          <TextField
+            label="Комментарий для агента"
+            fullWidth
+            multiline
+            minRows={2}
+            value={returnComment}
+            onChange={(event) => setReturnComment(event.target.value)}
+            inputProps={{ maxLength: 2000 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReturning(false)}>Отмена</Button>
+          <Button
+            color="warning"
+            variant="contained"
+            disabled={confirmBusy}
+            onClick={async () => {
+              setConfirmBusy(true);
+              try {
+                apply(await applicationsApi.returnToAgent(application.id, returnComment.trim() || undefined));
+                if (!mounted.current) return;
+                setReturning(false);
+                setReturnComment('');
+                setConfirmConsent(false);
+              } catch (nextError) {
+                if (!mounted.current) return;
+                setError(nextError instanceof Error ? nextError.message : 'Не удалось вернуть заявку агенту');
+                setReturning(false);
+              } finally {
+                if (mounted.current) setConfirmBusy(false);
+              }
+            }}
+          >
+            Отправить на доработку
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={withdrawing} onClose={() => setWithdrawing(false)} fullWidth maxWidth="sm">
         <DialogTitle>Отозвать заявку?</DialogTitle>

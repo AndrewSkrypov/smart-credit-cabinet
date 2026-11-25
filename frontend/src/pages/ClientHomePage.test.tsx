@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { applicationsApi, companyApi } from '../api/client';
 import { ClientHomePage } from './ClientHomePage';
 
-vi.mock('../api/client', () => ({ applicationsApi: { page: vi.fn() }, companyApi: { mine: vi.fn() } }));
+vi.mock('../api/client', () => ({ applicationsApi: { page: vi.fn() }, companyApi: { mine: vi.fn() }, preApprovedApi: { list: vi.fn(async () => []) } }));
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'poll-client', role: 'CLIENT', canSign: true, companyId: 'company' } } }) }));
 
 beforeEach(() => {

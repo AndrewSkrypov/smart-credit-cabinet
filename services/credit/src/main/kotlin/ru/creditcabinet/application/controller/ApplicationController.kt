@@ -245,7 +245,11 @@ class ApplicationController(
             closeReason = application.closeReason,
             company = with(application.company) { CompanyView(id, inn, name, legalForm) },
             product = ProductView(product.code, product.name, product.revolving, product.version),
-            currentProduct = if (application.status == ApplicationStatus.DRAFT) service.currentProduct(product.code) else null,
+            currentProduct = if (application.status in setOf(ApplicationStatus.DRAFT, ApplicationStatus.PENDING_CLIENT_CONFIRMATION)) {
+                service.currentProduct(product.code)
+            } else {
+                null
+            },
             purpose = terms.purpose,
             purposeTitle = terms.purpose.title,
             purposeComment = terms.purposeComment,
@@ -263,7 +267,11 @@ class ApplicationController(
             canUploadDocuments = (isOwnClient || isOwnAgent) && application.status in setOf(ApplicationStatus.DRAFT, ApplicationStatus.INFO_REQUESTED),
             submissionProblems = if (application.status == ApplicationStatus.DRAFT) {
                 val current = service.currentProduct(product.code)
-                if (current?.active != true) listOf("Продукт выключен из каталога — выберите другой продукт") else application.submissionProblems(current)
+                when {
+                    current?.active != true -> listOf("Продукт выключен из каталога — выберите другой продукт")
+                    application.agentId != null -> application.agentSubmissionProblems(current)
+                    else -> application.submissionProblems(current)
+                }
             } else {
                 emptyList()
             },

@@ -74,7 +74,7 @@ class JdbcAnalyticsQueries(private val jdbc: NamedParameterJdbcTemplate) : Analy
                    avg(extract(epoch from left_at - occurred_at)) / 60 as avg_min,
                    percentile_cont(0.5) within group (order by extract(epoch from left_at - occurred_at)) / 60 as median_min
             from moves
-            where left_at is not null and to_status <> 'PENDING_CLIENT_CONFIRMATION' and occurred_at >= :from and occurred_at < :to
+            where left_at is not null and to_status not in ('DRAFT', 'PENDING_CLIENT_CONFIRMATION') and occurred_at >= :from and occurred_at < :to
             group by to_status
             """.trimIndent(),
             period,

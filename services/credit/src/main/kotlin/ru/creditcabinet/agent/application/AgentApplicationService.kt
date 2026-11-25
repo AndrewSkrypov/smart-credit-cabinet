@@ -117,7 +117,11 @@ class AgentApplicationService(
         val product = applicationService.product(application.terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
         val sanitizedTerms = terms.copy(bureauConsent = false)
-        val updated = preApprovedOffers.detachIfOutOfBounds(application.updateDraft(sanitizedTerms, clock.instant()), sanitizedTerms)
+        val refreshed = application.copy(
+            productVersion = product.version,
+            agentCommissionRateBps = product.agentCommissionRateBps,
+        )
+        val updated = preApprovedOffers.detachIfOutOfBounds(refreshed.updateDraft(sanitizedTerms, clock.instant()), sanitizedTerms)
         return applications.save(updated)
     }
 
@@ -125,8 +129,14 @@ class AgentApplicationService(
     fun requestClientConfirmation(id: UUID): LoanApplication {
         val (caller, application) = ownAgentApplication(id)
         val product = applicationService.product(application.terms.productCode)
+        val commissionRateBps = product.agentCommissionRateBps
+        val refreshed = application.copy(
+            productVersion = product.version,
+            agentCommissionRateBps = commissionRateBps,
+            agentCommissionAmount = application.terms.amount * commissionRateBps / 10_000L,
+        )
         return applicationService.commit(
-            application.requestClientConfirmation(product, Actor(ActorType.AGENT, caller.userId), clock.instant()),
+            refreshed.requestClientConfirmation(product, Actor(ActorType.AGENT, caller.userId), clock.instant()),
         )
     }
 
@@ -134,6 +144,9 @@ class AgentApplicationService(
     fun cancel(id: UUID): LoanApplication {
         val (caller, application) = ownAgentApplication(id)
         val saved = applicationService.commit(application.agentCancel(Actor(ActorType.AGENT, caller.userId), clock.instant()))
+        if (application.status in setOf(ApplicationStatus.DRAFT, ApplicationStatus.PENDING_CLIENT_CONFIRMATION)) {
+            application.preApprovedOfferId?.let { preApprovedOffers.release(it, saved.id) }
+        }
         jobs.cancelPending(saved.id)
         return saved
     }

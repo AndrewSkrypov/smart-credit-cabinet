@@ -80,7 +80,8 @@ function BankApplicationCard({ id }: { id: string }) {
     ['Сумма и срок', `${rub(application.amount)} · ${months(application.termMonths)}`],
     ['Выручка за 12 мес. (со слов клиента)', application.declaredRevenue12m != null ? rub(application.declaredRevenue12m) : '—'],
     ['Платежи по кредитам (со слов клиента)', application.declaredMonthlyDebtPayments != null ? rub(application.declaredMonthlyDebtPayments) : '—'],
-    ['Отправлена', application.submittedAt ? formatDateTime(application.submittedAt) : '—']
+    ['Отправлена', application.submittedAt ? formatDateTime(application.submittedAt) : '—'],
+    ...(application.agentId ? [['Агентский канал', application.agentName ?? 'Партнёрский агент'] as [string, string]] : [])
   ];
 
   return (
@@ -89,7 +90,14 @@ function BankApplicationCard({ id }: { id: string }) {
       <PageHeader
         title={`Заявка № ${application.number}`}
         subtitle={`${application.company.name ?? 'Компания'} · ИНН ${application.company.inn}`}
-        actions={<Chip label={statusTitle(application.status)} color={tone === 'default' ? 'default' : tone} sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }} />}
+        actions={
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}>
+            {application.agentId && (
+              <Chip color="secondary" variant="outlined" label={`Агентский канал: ${application.agentName ?? 'агент'}`} />
+            )}
+            <Chip label={statusTitle(application.status)} color={tone === 'default' ? 'default' : tone} />
+          </Stack>
+        }
       />
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
       {error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => void load()}>Повторить</Button>}>{error}. Показаны последние полученные данные; действия появятся после обновления.</Alert>}

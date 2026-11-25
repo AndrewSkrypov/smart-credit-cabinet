@@ -1,5 +1,5 @@
 import { Box, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
-import { months, percent, rub } from '../shared/format';
+import { formatDate, months, percent, rub } from '../shared/format';
 import { FinancingPurpose, Product, RuleParams } from '../types';
 
 const number = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 4 });
@@ -18,7 +18,10 @@ export function ProductSnapshot({ product: p, purposes }: { product: Product; pu
       ['Срок', p.minTermMonths === p.maxTermMonths ? months(p.minTermMonths) : `${months(p.minTermMonths)} — ${months(p.maxTermMonths)}`],
       ['Лимит автоодобрения', rub(p.autoApprovalLimit)],
       ['Тип лимита', p.revolving ? 'Возобновляемый лимит' : 'Разовая выдача'],
-      ['Доступность', p.active ? 'В каталоге' : 'Выключен']
+      ['Статус', p.lifecycleStatus === 'DRAFT' ? 'Черновик' : p.lifecycleStatus === 'ARCHIVED' || p.active === false ? 'В архиве' : 'Активен'],
+      ['Комиссия агента', `${((p.agentCommissionRateBps ?? 150) / 100).toFixed(2).replace('.', ',')}%`],
+      ...(p.effectiveFrom ? [['Действует с', formatDate(p.effectiveFrom)] as [string, string]] : []),
+      ...(p.effectiveTo ? [['Действует по', formatDate(p.effectiveTo)] as [string, string]] : [])
     ]} />
     <Typography variant="h6" component="h3">Цели финансирования</Typography>
     <Typography>{p.purposes.map((code) => purposes.find((item) => item.code === code)?.title ?? code).join('; ') || 'Не заданы'}</Typography>

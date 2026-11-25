@@ -99,6 +99,9 @@ data class LoanApplication(
     /** What still prevents sending the application (guard of T2/T23), in words the client can act on. */
     fun submissionProblems(product: Product): List<String> = parameterProblems(product, requireBureauConsent = true)
 
+    /** What still prevents sending an agent draft to the client (guard of T22); client grants bureau consent later. */
+    fun agentSubmissionProblems(product: Product): List<String> = parameterProblems(product, requireBureauConsent = false)
+
     private fun parameterProblems(product: Product, requireBureauConsent: Boolean): List<String> =
         buildList {
             if (terms.purpose !in product.purposes) add("Продукт «${product.name}» не подходит для этой цели")
@@ -128,7 +131,7 @@ data class LoanApplication(
         if (agentId == null || agentId != actor.id) {
             throw ConflictException("Отправить заявку на подтверждение может только агент, создавший её")
         }
-        val problems = parameterProblems(product, requireBureauConsent = false)
+        val problems = agentSubmissionProblems(product)
         require(problems.isEmpty()) { problems.joinToString("; ") }
         return move(ApplicationEvent.REQUEST_CLIENT_CONFIRMATION, actor, now)
     }

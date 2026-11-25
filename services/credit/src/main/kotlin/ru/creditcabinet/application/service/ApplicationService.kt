@@ -118,7 +118,18 @@ class ApplicationService(
         ) {
             throw ConflictException("Условия продукта изменились — обновите заявку, проверьте новые условия и подтвердите их перед отправкой")
         }
-        val pinned = application.copy(productVersion = selected.version, productCatalogSnapshot = catalog.associate { it.code to it.version })
+        val commissionRateBps = if (application.agentId != null) selected.agentCommissionRateBps else application.agentCommissionRateBps
+        val commissionAmount = if (application.agentId != null && commissionRateBps != null) {
+            application.terms.amount * commissionRateBps / 10_000L
+        } else {
+            application.agentCommissionAmount
+        }
+        val pinned = application.copy(
+            productVersion = selected.version,
+            productCatalogSnapshot = catalog.associate { it.code to it.version },
+            agentCommissionRateBps = commissionRateBps,
+            agentCommissionAmount = commissionAmount,
+        )
         val now = clock.instant()
         val saved = commit(pinned.confirmAndSubmit(selected, bureauConsent, actorOf(claims), now))
         jobs.enqueue(saved.id, PipelineStep.DATA_CHECK, now)
@@ -143,6 +154,9 @@ class ApplicationService(
     fun withdraw(id: UUID, comment: String?): LoanApplication {
         val (claims, application) = own(id)
         val saved = commit(application.move(ApplicationEvent.WITHDRAW, actorOf(claims), clock.instant(), comment = comment?.take(MAX_COMMENT)))
+        if (application.status in setOf(ApplicationStatus.DRAFT, ApplicationStatus.PENDING_CLIENT_CONFIRMATION)) {
+            application.preApprovedOfferId?.let { preApprovedOffers.release(it, saved.id) }
+        }
         jobs.cancelPending(saved.id)
         return saved
     }

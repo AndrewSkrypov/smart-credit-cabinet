@@ -100,6 +100,7 @@ function QueueCard({ item, onOpen }: { item: ApplicationSummary; onOpen: () => v
         <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
           <Typography fontWeight={600}>{rub(item.amount)} · {months(item.termMonths)}</Typography>
           <Chip size="small" label={statusTitle(item.status)} color={tone === 'default' ? 'default' : tone} />
+          {item.agentId && <Chip size="small" color="secondary" variant="outlined" label={`Агентский канал: ${item.agentName ?? 'агент'}`} />}
           {(item.unreadChatCount ?? 0) > 0 && <Chip size="small" color="info" label={`Сообщений: ${item.unreadChatCount}`} />}
         </Stack>
       </ButtonBase>
@@ -115,7 +116,10 @@ function QueueRow({ item, onOpen }: { item: ApplicationSummary; onOpen: () => vo
       <TableCell>
         <Typography fontWeight={700}>№ {item.number}</Typography>
         <Typography variant="body2" color="text.secondary">{item.productName}</Typography>
-        {(item.unreadChatCount ?? 0) > 0 && <Chip size="small" color="info" label={`Сообщений: ${item.unreadChatCount}`} />}
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+          {item.agentId && <Chip size="small" color="secondary" variant="outlined" label={`Агентский канал: ${item.agentName ?? 'агент'}`} />}
+          {(item.unreadChatCount ?? 0) > 0 && <Chip size="small" color="info" label={`Сообщений: ${item.unreadChatCount}`} />}
+        </Stack>
       </TableCell>
       <TableCell>
         <Typography>{item.companyName ?? '—'}</Typography>

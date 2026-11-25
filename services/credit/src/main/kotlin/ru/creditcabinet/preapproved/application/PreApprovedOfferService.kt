@@ -85,6 +85,12 @@ class PreApprovedOfferService(
         return application
     }
 
+    /** Releases a pre-approved offer back to ACTIVE when an unsubmitted draft is cancelled or withdrawn. */
+    @Transactional
+    fun release(offerId: UUID, applicationId: UUID) {
+        store.release(offerId, applicationId, clock.instant())
+    }
+
     private fun createFromOffer(
         offer: PreApprovedOffer,
         createdBy: UUID,

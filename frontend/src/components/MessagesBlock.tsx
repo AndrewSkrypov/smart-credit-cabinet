@@ -1,11 +1,11 @@
 import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined';
 import { Alert, Box, Button, Chip, Dialog, DialogContent, DialogTitle, Paper, Stack, TextField, Typography } from '@mui/material';
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { applicationsApi, chatApi } from '../api/client';
+import { agentApi, applicationsApi, chatApi } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
 import { FINISHED_STATUSES } from '../shared/applicationText';
 import { fileSize, formatDateTime } from '../shared/format';
-import { roleLabels } from '../shared/labels';
+import { bankRoles, roleLabels } from '../shared/labels';
 import { ApplicationStatus, ChatAudit, ChatFile, ChatMessage, ChatPage, Role } from '../types';
 import { LoadingBlock } from './LoadingBlock';
 import { SensitiveDataNotice } from './SensitiveDataNotice';
@@ -18,7 +18,8 @@ const merge = (current: ChatMessage[], incoming: ChatMessage[]) => [...new Map([
 /** Conversation and read receipts are independent from the application's process journal. */
 export function MessagesBlock({ applicationId, status }: { applicationId: string; status: ApplicationStatus }) {
   const { session } = useAuth();
-  const bank = session?.user.role !== 'CLIENT';
+  const isAgent = session?.user.role === 'AGENT';
+  const bank = !!session && bankRoles.includes(session.user.role);
   const [page, setPage] = useState<ChatPage | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
@@ -51,12 +52,13 @@ export function MessagesBlock({ applicationId, status }: { applicationId: string
   const load = useCallback(async () => {
     const request = ++ticket.current;
     try {
-      const result = await chatApi.page(applicationId, currentSeq.current ? { after: currentSeq.current } : {});
+      const params = currentSeq.current ? { after: currentSeq.current } : {};
+      const result = isAgent ? await agentApi.chatPage(applicationId, params) : await chatApi.page(applicationId, params);
       if (request === ticket.current) accept(result);
     } catch (next) {
       if (request === ticket.current) setError(next instanceof Error ? next.message : 'Не удалось загрузить переписку');
     }
-  }, [applicationId, accept]);
+  }, [applicationId, accept, isAgent]);
   const cancelPending = useCallback(() => { ticket.current += 1; }, []);
   useEffect(() => {
     void load();
@@ -82,17 +84,18 @@ export function MessagesBlock({ applicationId, status }: { applicationId: string
   useEffect(() => {
     if (!page || page.hasNewer || !active || !endVisible || lastDisplayed <= page.readSeq || reading.current) return;
     reading.current = true;
-    void chatApi.read(applicationId, lastDisplayed).then((read) => {
+    const markRead = isAgent ? agentApi.chatRead(applicationId, lastDisplayed) : chatApi.read(applicationId, lastDisplayed);
+    void markRead.then((read) => {
       setPage((current) => current && { ...current, readSeq: Math.max(current.readSeq, read.readSeq), unreadCount: read.unreadCount });
     }).catch((next) => setError(next instanceof Error ? next.message : 'Не удалось отметить сообщения прочитанными'))
       .finally(() => { reading.current = false; });
-  }, [applicationId, page, active, endVisible, lastDisplayed]);
+  }, [applicationId, page, active, endVisible, lastDisplayed, isAgent]);
 
   const older = async () => {
     if (loadingOlder || !messages[0]) return;
     setLoadingOlder(true);
     try {
-      const result = await chatApi.page(applicationId, { before: messages[0].seq });
+      const result = isAgent ? await agentApi.chatPage(applicationId, { before: messages[0].seq }) : await chatApi.page(applicationId, { before: messages[0].seq });
       if (historyBox.current) prepend.current = { height: historyBox.current.scrollHeight, top: historyBox.current.scrollTop };
       setMessages((current) => merge(current, result.messages));
     } catch (next) { setError(next instanceof Error ? next.message : 'Не удалось загрузить историю'); }
@@ -103,7 +106,9 @@ export function MessagesBlock({ applicationId, status }: { applicationId: string
     if (!writable || sending || uploading || failedUpload || (!text.trim() && files.length === 0)) return;
     setSending(true); setError(null);
     try {
-      const sent = await chatApi.send(applicationId, messageKey.current, text, files.map((file) => file.id));
+      const sent = isAgent
+        ? await agentApi.chatSend(applicationId, messageKey.current, text, files.map((file) => file.id))
+        : await chatApi.send(applicationId, messageKey.current, text, files.map((file) => file.id));
       atBottom.current = true;
       setMessages((current) => merge(current, [sent]));
       setText(''); setFiles([]); messageKey.current = crypto.randomUUID();
@@ -114,14 +119,17 @@ export function MessagesBlock({ applicationId, status }: { applicationId: string
   const upload = async (file: File, key: string = crypto.randomUUID()) => {
     setUploading(true); setError(null);
     try {
-      const stored = await chatApi.upload(applicationId, key, file);
+      const stored = isAgent ? await agentApi.chatUpload(applicationId, key, file) : await chatApi.upload(applicationId, key, file);
       setFiles((current) => current.some((entry) => entry.id === stored.id) ? current : [...current, stored]);
       messageKey.current = crypto.randomUUID(); setFailedUpload(null);
     } catch (next) { setFailedUpload({ file, key }); setError(next instanceof Error ? next.message : 'Не удалось загрузить вложение'); }
     finally { setUploading(false); }
   };
   const download = async (file: ChatFile) => {
-    try { await applicationsApi.downloadDocument(applicationId, file.id, file.fileName); }
+    try {
+      if (isAgent) await agentApi.downloadDocument(applicationId, file.id, file.fileName);
+      else await applicationsApi.downloadDocument(applicationId, file.id, file.fileName);
+    }
     catch (next) { setError(next instanceof Error ? next.message : 'Не удалось скачать вложение'); }
   };
   const openAudit = async () => {

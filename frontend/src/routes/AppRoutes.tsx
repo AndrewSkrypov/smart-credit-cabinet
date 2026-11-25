@@ -14,6 +14,9 @@ import { LandingPage } from '../pages/landing/LandingPage';
 import { ClientHomePage } from '../pages/ClientHomePage';
 import { ApplicationPage } from '../pages/client/application/ApplicationPage';
 import { NeedsWizardPage } from '../pages/client/NeedsWizardPage';
+import { AgentPortfolioPage } from '../pages/agent/AgentPortfolioPage';
+import { AgentClientPage } from '../pages/agent/AgentClientPage';
+import { AgentApplicationPage } from '../pages/agent/AgentApplicationPage';
 import { AccessDeniedPage, NotFoundPage } from '../pages/SystemPages';
 import { bankRoles } from '../shared/labels';
 
@@ -26,7 +29,7 @@ export function AppRoutes() {
       <Route path="/password-recovery" element={<PasswordRecoveryPage />} />
       <Route path="/reset-password" element={<PasswordResetPage />} />
       <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
-      <Route element={<RoleGuard roles={['CLIENT', ...bankRoles]} />}>
+      <Route element={<RoleGuard roles={['CLIENT', 'AGENT', ...bankRoles]} />}>
         <Route element={<AppShell />}>
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
@@ -37,6 +40,13 @@ export function AppRoutes() {
           <Route path="/client/new" element={<NeedsWizardPage />} />
           <Route path="/client/employees" element={<EmployeesPage />} />
           <Route path="/client/applications/:id" element={<ApplicationPage />} />
+        </Route>
+      </Route>
+      <Route element={<RoleGuard roles={['AGENT']} />}>
+        <Route element={<AppShell />}>
+          <Route path="/agent" element={<AgentPortfolioPage />} />
+          <Route path="/agent/clients/:companyId" element={<AgentClientPage />} />
+          <Route path="/agent/applications/:id" element={<AgentApplicationPage />} />
         </Route>
       </Route>
       <Route element={<RoleGuard roles={bankRoles} />}>

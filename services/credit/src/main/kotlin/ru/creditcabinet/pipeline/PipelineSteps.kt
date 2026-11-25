@@ -7,6 +7,7 @@ import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
+import ru.creditcabinet.application.domain.CommissionStatus
 import ru.creditcabinet.application.domain.InfoItem
 import ru.creditcabinet.application.domain.InfoRequest
 import ru.creditcabinet.application.domain.InfoRequests
@@ -350,7 +351,19 @@ class PipelineSteps(
                     maturityDate = booked.maturityDate,
                 ),
             )
-            transitions.commit(application.move(ApplicationEvent.DISBURSED, Actor.SYSTEM, now, payload = mapOf("contractNumber" to booked.contractNumber)))
+            val disbursed = application.move(ApplicationEvent.DISBURSED, Actor.SYSTEM, now, payload = mapOf("contractNumber" to booked.contractNumber))
+            val withCommission = if (application.agentId != null) {
+                val actualCommission = application.agentCommissionRateBps?.let { offer.amount * it / 10_000L } ?: application.agentCommissionAmount
+                disbursed.copy(
+                    application = disbursed.application.copy(
+                        agentCommissionStatus = CommissionStatus.ACCRUED,
+                        agentCommissionAmount = actualCommission,
+                    ),
+                )
+            } else {
+                disbursed
+            }
+            transitions.commit(withCommission)
             jobs.complete(job.id)
         }
     }

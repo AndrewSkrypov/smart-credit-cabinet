@@ -11,6 +11,7 @@ import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CloseReason
+import ru.creditcabinet.application.domain.CommissionStatus
 import ru.creditcabinet.application.domain.JournalEntry
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.document.domain.ApplicationDocument
@@ -59,6 +60,16 @@ data class CompanyView(val id: UUID, val inn: String, val name: String?, val leg
 
 data class SubmitRequest(val acceptedProductVersion: Long? = null)
 
+data class ConfirmApplicationRequest(
+    val bureauConsent: Boolean = false,
+    val acceptedProductVersion: Long? = null,
+)
+
+data class ReturnToAgentRequest(
+    @field:Size(max = 2000)
+    val comment: String? = null,
+)
+
 data class ProductView(val code: String, val name: String, val revolving: Boolean, val version: Long)
 
 data class RequiredDocumentView(val type: DocumentType, val title: String, val reason: String, val uploaded: Boolean)
@@ -103,6 +114,12 @@ data class ApplicationResponse(
     val documents: List<DocumentView>,
     val estimate: EstimateView?,
     val process: ProcessView,
+    val agentId: UUID? = null,
+    val agentName: String? = null,
+    val preApprovedOfferId: UUID? = null,
+    val agentCommissionRateBps: Int? = null,
+    val agentCommissionAmount: Long? = null,
+    val agentCommissionStatus: CommissionStatus = CommissionStatus.NONE,
 )
 
 data class ApplicationSummary(
@@ -119,6 +136,10 @@ data class ApplicationSummary(
     val submittedAt: Instant?,
     val statusChangedAt: Instant,
     val unreadChatCount: Long = 0,
+    val agentId: UUID? = null,
+    val agentName: String? = null,
+    val agentCommissionAmount: Long? = null,
+    val agentCommissionStatus: CommissionStatus = CommissionStatus.NONE,
 )
 
 data class JournalEntryView(

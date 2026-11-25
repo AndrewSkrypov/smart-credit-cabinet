@@ -9,7 +9,8 @@ import java.util.UUID
 
 interface ApplicationJpaRepository : JpaRepository<ApplicationEntity, UUID> {
     fun findByCompanyIdOrderByCreatedAtDesc(companyId: UUID): List<ApplicationEntity>
-    fun findByStatusNotOrderByStatusChangedAtDesc(status: ApplicationStatus): List<ApplicationEntity>
+    fun findByAgentIdOrderByCreatedAtDesc(agentId: UUID): List<ApplicationEntity>
+    fun findByStatusNotInOrderByStatusChangedAtDesc(statuses: Collection<ApplicationStatus>): List<ApplicationEntity>
     fun findByStatusInOrderByStatusChangedAtDesc(statuses: Collection<ApplicationStatus>): List<ApplicationEntity>
     fun existsByCompanyIdAndProductCodeAndStatusNotIn(companyId: UUID, productCode: String, statuses: Collection<ApplicationStatus>): Boolean
 }
@@ -24,15 +25,22 @@ class ApplicationJpaAdapter(private val repository: ApplicationJpaRepository) : 
 
     override fun listByCompany(companyId: UUID): List<LoanApplication> = repository.findByCompanyIdOrderByCreatedAtDesc(companyId).map { it.toDomain() }
 
+    override fun listByAgent(agentId: UUID): List<LoanApplication> = repository.findByAgentIdOrderByCreatedAtDesc(agentId).map { it.toDomain() }
+
     override fun listForBank(statuses: Set<ApplicationStatus>?): List<LoanApplication> {
         val found = if (statuses.isNullOrEmpty()) {
-            repository.findByStatusNotOrderByStatusChangedAtDesc(ApplicationStatus.DRAFT)
+            repository.findByStatusNotInOrderByStatusChangedAtDesc(HIDDEN_FROM_BANK)
         } else {
-            repository.findByStatusInOrderByStatusChangedAtDesc(statuses - ApplicationStatus.DRAFT)
+            val visible = statuses - HIDDEN_FROM_BANK
+            if (visible.isEmpty()) emptyList() else repository.findByStatusInOrderByStatusChangedAtDesc(visible)
         }
         return found.map { it.toDomain() }
     }
 
     override fun hasActive(companyId: UUID, productCode: String): Boolean =
         repository.existsByCompanyIdAndProductCodeAndStatusNotIn(companyId, productCode, ApplicationStatus.entries.filter { it.terminal })
+
+    private companion object {
+        val HIDDEN_FROM_BANK = setOf(ApplicationStatus.DRAFT, ApplicationStatus.PENDING_CLIENT_CONFIRMATION)
+    }
 }

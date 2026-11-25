@@ -88,7 +88,12 @@ data class LoanApplication(
     fun updateDraft(terms: ApplicationTerms, now: Instant): LoanApplication {
         if (status != ApplicationStatus.DRAFT) throw ConflictException("Заявка уже отправлена — изменить её можно только по запросу банка")
         require(terms.productCode == this.terms.productCode) { "Продукт заявки не меняется — создайте новую заявку" }
-        return copy(terms = terms, updatedAt = now)
+        val updatedCommission = if (agentId != null && agentCommissionRateBps != null) {
+            terms.amount * agentCommissionRateBps / 10_000L
+        } else {
+            agentCommissionAmount
+        }
+        return copy(terms = terms, agentCommissionAmount = updatedCommission, updatedAt = now)
     }
 
     /** What still prevents sending the application (guard of T2/T23), in words the client can act on. */
@@ -170,11 +175,25 @@ data class LoanApplication(
     ): Transition {
         if (actor.type !in event.actors) throw ConflictException("Это действие недоступно для вашей роли")
         val target = ApplicationStateMachine.target(status, event) ?: throw ConflictException(refusal(event))
+        val updatedCommissionStatus = when {
+            agentId == null -> agentCommissionStatus
+            target == ApplicationStatus.DISBURSED -> CommissionStatus.ACCRUED
+            target == ApplicationStatus.REJECTED || target == ApplicationStatus.WITHDRAWN || target == ApplicationStatus.CLOSED ->
+                CommissionStatus.CANCELLED
+            else -> agentCommissionStatus
+        }
+        val updatedCommissionAmount = when {
+            agentId == null -> agentCommissionAmount
+            target == ApplicationStatus.DISBURSED -> agentCommissionRateBps?.let { terms.amount * it / 10_000L } ?: agentCommissionAmount
+            else -> agentCommissionAmount
+        }
         val moved = copy(
             status = target,
             closeReason = closeReasonOf(event) ?: closeReason,
             updatedAt = now,
             statusChangedAt = if (target != status) now else statusChangedAt,
+            agentCommissionStatus = updatedCommissionStatus,
+            agentCommissionAmount = updatedCommissionAmount,
         )
         val entry = JournalEntry(
             applicationId = id,

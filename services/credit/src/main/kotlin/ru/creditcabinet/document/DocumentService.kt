@@ -47,10 +47,20 @@ class DocumentService(
 ) {
     fun list(applicationId: UUID): List<ApplicationDocument> = documents.list(applications.get(applicationId).id)
 
+    /** Lists documents for an already-authorized application aggregate (e.g. right after a transition). */
+    fun list(application: LoanApplication): List<ApplicationDocument> = documents.list(application.id)
+
     /** A client adds documents while preparing the application or when the bank asked for them. */
     @Transactional
     fun upload(applicationId: UUID, type: DocumentType, file: MultipartFile): ApplicationDocument {
         val (claims, application) = applications.own(applicationId)
+        if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
+        return persist(application, claims, type, file.originalFilename, file.size, { file.bytes }, DocumentContext.BUSINESS)
+    }
+
+    /** An agent adds documents to their own mandate-verified application in DRAFT or INFO_REQUESTED. */
+    @Transactional
+    fun uploadForAgent(application: LoanApplication, claims: TokenClaims, type: DocumentType, file: MultipartFile): ApplicationDocument {
         if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
         return persist(application, claims, type, file.originalFilename, file.size, { file.bytes }, DocumentContext.BUSINESS)
     }
@@ -122,6 +132,16 @@ class DocumentService(
     @Transactional
     fun delete(applicationId: UUID, documentId: UUID) {
         val (claims, application) = applications.own(applicationId)
+        deleteInternal(application, claims, documentId)
+    }
+
+    /** An agent deletes a document from their own mandate-verified draft. */
+    @Transactional
+    fun deleteForAgent(application: LoanApplication, claims: TokenClaims, documentId: UUID) {
+        deleteInternal(application, claims, documentId)
+    }
+
+    private fun deleteInternal(application: LoanApplication, claims: TokenClaims, documentId: UUID) {
         if (application.status != ApplicationStatus.DRAFT) throw ConflictException("Отправленные документы удалить нельзя — загрузите новую версию")
         val document = documents.find(application.id, documentId) ?: throw NotFoundException("Документ не найден")
         if (documents.isChatAttached(documentId)) throw ConflictException("Вложение отправленного сообщения изменить или удалить нельзя")

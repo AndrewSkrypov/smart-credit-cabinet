@@ -44,7 +44,11 @@ class ApplicationPages(private val jdbc: NamedParameterJdbcTemplate, private val
         }
         val selected = group ?: if (client) "active" else "review"
         require(selected in groups) { "Неизвестная группа заявок для этой роли" }
-        val rights = if (client) "a.company_id = :company" else "a.status <> 'DRAFT'"
+        val rights = if (client) {
+            "a.company_id = :company and (a.agent_id is null or a.status <> 'DRAFT')"
+        } else {
+            "a.status not in ('DRAFT', 'PENDING_CLIENT_CONFIRMATION')"
+        }
         val columns = if (client) {
             "lower(p.name) like :q escape '!'"
         } else {
@@ -87,14 +91,18 @@ class ApplicationPages(private val jdbc: NamedParameterJdbcTemplate, private val
         }
         val actionParams = mapOf("company" to companyId, "action" to groups["action"].orEmpty())
         val actionCount = if (client) {
-            jdbc.queryForObject("select count(*) from applications where company_id = :company and status in (:action)", actionParams, Long::class.java)
+            jdbc.queryForObject(
+                "select count(*) from applications where company_id = :company and (agent_id is null or status <> 'DRAFT') and status in (:action)",
+                actionParams,
+                Long::class.java,
+            )
                 ?: 0
         } else {
             0
         }
         val previewIds = if (client) {
             jdbc.query(
-                "select id from applications where company_id = :company and status in (:action) order by status_changed_at asc, id asc limit 5",
+                "select id from applications where company_id = :company and (agent_id is null or status <> 'DRAFT') and status in (:action) order by status_changed_at asc, id asc limit 5",
                 actionParams,
             ) {
                     row,
@@ -117,7 +125,7 @@ class ApplicationPages(private val jdbc: NamedParameterJdbcTemplate, private val
     companion object {
         private val DONE = listOf("DISBURSED", "REJECTED", "WITHDRAWN", "CLOSED")
         private val SYSTEM = listOf("SUBMITTED", "ENRICHMENT", "SCORING", "DISBURSING")
-        private val ACTIVE = listOf("DRAFT", "INFO_REQUESTED", "OFFER_ISSUED", "SIGNING", "MANUAL_REVIEW") + SYSTEM
-        private val ACTION = listOf("DRAFT", "INFO_REQUESTED", "OFFER_ISSUED", "SIGNING")
+        private val ACTIVE = listOf("DRAFT", "PENDING_CLIENT_CONFIRMATION", "INFO_REQUESTED", "OFFER_ISSUED", "SIGNING", "MANUAL_REVIEW") + SYSTEM
+        private val ACTION = listOf("DRAFT", "PENDING_CLIENT_CONFIRMATION", "INFO_REQUESTED", "OFFER_ISSUED", "SIGNING")
     }
 }

@@ -111,6 +111,16 @@ class ApplicationController(
         @RequestBody(required = false) request: SubmitRequest?,
     ): ApplicationResponse = detail(service.submit(id, idempotencyKey?.trim()?.takeIf { it.isNotEmpty() }?.take(128), request?.acceptedProductVersion))
 
+    @Operation(summary = "Подтвердить агентскую заявку, дать согласие на БКИ и отправить в банк (T23)")
+    @PostMapping("/{id}/confirm")
+    fun confirm(@PathVariable id: UUID, @RequestBody request: ConfirmApplicationRequest): ApplicationResponse =
+        detail(service.confirmByClient(id, request.bureauConsent, request.acceptedProductVersion))
+
+    @Operation(summary = "Вернуть агентскую заявку агенту на доработку (T24)")
+    @PostMapping("/{id}/return-to-agent")
+    fun returnToAgent(@PathVariable id: UUID, @Valid @RequestBody(required = false) request: ReturnToAgentRequest?): ApplicationResponse =
+        detail(service.returnToAgentByClient(id, request?.comment))
+
     @Operation(summary = "Отозвать заявку (T21)")
     @PostMapping("/{id}/withdraw")
     fun withdraw(@PathVariable id: UUID, @Valid @RequestBody(required = false) request: WithdrawRequest?): ApplicationResponse =
@@ -217,6 +227,10 @@ class ApplicationController(
         )
     }
 
+    internal fun summaryView(application: LoanApplication): ApplicationSummary = summary(application)
+
+    internal fun detailView(application: LoanApplication): ApplicationResponse = detail(application)
+
     private fun summary(application: LoanApplication): ApplicationSummary {
         val product = service.product(application)
         return ApplicationSummary(
@@ -232,6 +246,10 @@ class ApplicationController(
             createdAt = application.createdAt,
             submittedAt = application.submittedAt,
             statusChangedAt = application.statusChangedAt,
+            agentId = application.agentId,
+            agentName = application.agentName,
+            agentCommissionAmount = application.agentCommissionAmount,
+            agentCommissionStatus = application.agentCommissionStatus,
         )
     }
 
@@ -239,12 +257,15 @@ class ApplicationController(
         val claims = CurrentCaller.claims()
         val product = service.product(application)
         val terms = application.terms
-        val uploaded = documents.list(application.id)
+        val uploaded = documents.list(application)
         val isOwnClient = claims.isClient && claims.companyId == application.company.id
+        val isOwnAgent = claims.isAgent && application.agentId == claims.userId
         val actions = claims.toActor()?.let { actor ->
             ApplicationStateMachine.eventsFrom(application.status, actor.type)
                 // Only a person with the right to sign may sign for the company.
                 .filter { it != ApplicationEvent.SIGN || claims.canSign }
+                // Clients confirm agent applications via CONFIRM_AND_SUBMIT, never direct SUBMIT.
+                .filter { !(it == ApplicationEvent.SUBMIT && application.agentId != null) }
         }.orEmpty()
         val estimate = if (product.amountFits(terms.amount) && product.termFits(terms.termMonths)) {
             LoanMath.calculate(terms.amount, product.baseRate, terms.termMonths, product.revolving).let { EstimateView(it.rate, it.monthlyPayment) }
@@ -272,8 +293,8 @@ class ApplicationController(
             statusChangedAt = application.statusChangedAt,
             version = application.version,
             allowedActions = actions,
-            editable = isOwnClient && application.status == ApplicationStatus.DRAFT,
-            canUploadDocuments = isOwnClient && application.status in setOf(ApplicationStatus.DRAFT, ApplicationStatus.INFO_REQUESTED),
+            editable = ((isOwnClient && application.agentId == null) || isOwnAgent) && application.status == ApplicationStatus.DRAFT,
+            canUploadDocuments = (isOwnClient || isOwnAgent) && application.status in setOf(ApplicationStatus.DRAFT, ApplicationStatus.INFO_REQUESTED),
             submissionProblems = if (application.status == ApplicationStatus.DRAFT) {
                 val current = service.currentProduct(product.code)
                 if (current?.active != true) listOf("Продукт выключен из каталога — выберите другой продукт") else application.submissionProblems(current)
@@ -286,6 +307,12 @@ class ApplicationController(
             documents = uploaded.map(DocumentView::of),
             estimate = estimate,
             process = process(application, isOwnClient),
+            agentId = application.agentId,
+            agentName = application.agentName,
+            preApprovedOfferId = application.preApprovedOfferId,
+            agentCommissionRateBps = application.agentCommissionRateBps,
+            agentCommissionAmount = application.agentCommissionAmount,
+            agentCommissionStatus = application.agentCommissionStatus,
         )
     }
 }

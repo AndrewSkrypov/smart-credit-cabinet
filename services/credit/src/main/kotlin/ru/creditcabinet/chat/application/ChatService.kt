@@ -73,7 +73,13 @@ class ChatService(
         val now = clock.instant()
         val message = ChatMessage(
             applicationId = id, seq = seq + 1, authorId = caller.userId,
-            authorName = (caller.fullName ?: if (caller.isClient) "Представитель компании" else "Сотрудник банка").take(255),
+            authorName = (
+                caller.fullName ?: when {
+                    caller.isClient -> "Представитель компании"
+                    caller.isAgent -> "Агент"
+                    else -> "Сотрудник банка"
+                }
+                ).take(255),
             authorRole = role(caller), side = side(caller), text = text, key = key, payloadHash = hash, createdAt = now, attachments = attachments,
         )
         data.append(message)
@@ -170,7 +176,7 @@ class ChatService(
                 )
             }
         } else {
-            listOf(
+            listOfNotNull(
                 PlatformNotification(
                     recipientCompanyId = application.company.id,
                     type = "APPLICATION_MESSAGE",
@@ -179,6 +185,16 @@ class ChatService(
                     link = "/client/applications/${application.id}",
                     dedupKey = "$key:company",
                 ),
+                application.agentId?.let { agentId ->
+                    PlatformNotification(
+                        recipientId = agentId,
+                        type = "APPLICATION_MESSAGE",
+                        title = title,
+                        body = body,
+                        link = "/agent/applications/${application.id}",
+                        dedupKey = "$key:agent",
+                    )
+                },
             )
         }
         notifications.send(notices)
@@ -187,7 +203,7 @@ class ChatService(
     private fun role(caller: TokenClaims): String = caller.role ?: throw ForbiddenException(CurrentCaller.FORBIDDEN)
 
     private fun side(caller: TokenClaims): ChatSide = when {
-        caller.isClient -> ChatSide.COMPANY
+        caller.isClient || caller.isAgent -> ChatSide.COMPANY
         caller.isBankStaff -> ChatSide.BANK
         else -> throw ForbiddenException(CurrentCaller.FORBIDDEN)
     }

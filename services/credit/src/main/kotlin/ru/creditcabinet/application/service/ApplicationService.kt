@@ -3,6 +3,7 @@ package ru.creditcabinet.application.service
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
@@ -40,6 +41,7 @@ class ApplicationService(
     private val infoRequests: ru.creditcabinet.application.domain.InfoRequests,
     private val documents: ru.creditcabinet.document.domain.DocumentRepository,
     private val preApprovedOffers: PreApprovedOfferService,
+    private val agentAccess: AgentAccessPort,
 ) {
     /** T1: a draft for the caller's company. One application in progress per company and product. */
     @Transactional
@@ -76,6 +78,9 @@ class ApplicationService(
     @Transactional
     fun submit(id: UUID, idempotencyKey: String?, acceptedProductVersion: Long? = null): LoanApplication {
         val (claims, application) = own(id)
+        if (application.agentId != null) {
+            throw ConflictException("Агентскую заявку нельзя отправить напрямую — сначала требуется подтверждение клиента")
+        }
         if (idempotencyKey != null) {
             val previous = idempotencyKeys.find(claims.userId, idempotencyKey, SUBMIT)
             if (previous == id) return application
@@ -96,6 +101,38 @@ class ApplicationService(
         jobs.enqueue(saved.id, PipelineStep.DATA_CHECK, now)
         idempotencyKey?.let { idempotencyKeys.record(claims.userId, it, SUBMIT, saved.id) }
         return saved
+    }
+
+    /** T23: client reviews an agent-prepared application, grants bureau consent, and submits to the bank. */
+    @Transactional
+    fun confirmByClient(id: UUID, bureauConsent: Boolean, acceptedProductVersion: Long? = null): LoanApplication {
+        val (claims, application) = own(id)
+        val catalog = products.all()
+        val selected = catalog.firstOrNull { it.code == application.terms.productCode }
+            ?: throw ConflictException("Продукт выключен из каталога — выберите другой продукт и создайте новую заявку")
+        if ((acceptedProductVersion != null && acceptedProductVersion != selected.version) ||
+            (acceptedProductVersion == null && application.productVersion != selected.version)
+        ) {
+            throw ConflictException("Условия продукта изменились — обновите заявку, проверьте новые условия и подтвердите их перед отправкой")
+        }
+        val pinned = application.copy(productVersion = selected.version, productCatalogSnapshot = catalog.associate { it.code to it.version })
+        val now = clock.instant()
+        val saved = commit(pinned.confirmAndSubmit(selected, bureauConsent, actorOf(claims), now))
+        jobs.enqueue(saved.id, PipelineStep.DATA_CHECK, now)
+        return saved
+    }
+
+    /** T24: client returns an agent-prepared application to the agent for corrections. */
+    @Transactional
+    fun returnToAgentByClient(id: UUID, comment: String?): LoanApplication {
+        val (claims, application) = own(id)
+        return commit(
+            application.returnToAgent(
+                actorOf(claims),
+                comment?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_COMMENT),
+                clock.instant(),
+            ),
+        )
     }
 
     /** T21: the client stops the application; pending pipeline steps are cancelled with it. */
@@ -128,7 +165,11 @@ class ApplicationService(
 
     fun get(id: UUID): LoanApplication {
         val claims = CurrentCaller.claims()
-        return applications.find(id)?.takeIf { claims.canSee(it) } ?: throw notFound()
+        val application = applications.find(id)?.takeIf { claims.canSee(it) } ?: throw notFound()
+        if (claims.isAgent && !agentAccess.checkAccess(claims.userId, application.company.id).allowed) {
+            throw notFound()
+        }
+        return application
     }
 
     /** A client sees their company's applications; bank staff the queue without drafts. */
@@ -137,7 +178,7 @@ class ApplicationService(
         return when {
             claims.isClient -> {
                 val (_, companyId) = CurrentCaller.requireClient()
-                applications.listByCompany(companyId).filter { statuses.isNullOrEmpty() || it.status in statuses }
+                applications.listByCompany(companyId).filter { it.visibleToClient && (statuses.isNullOrEmpty() || it.status in statuses) }
             }
             else -> {
                 CurrentCaller.requireBankStaff()

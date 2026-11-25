@@ -20,6 +20,7 @@ object TransitionNotices {
         val number = application.number
         val clientLink = "/client/applications/${application.id}"
         val bankLink = "/bank/applications/${application.id}"
+        val agentLink = "/agent/applications/${application.id}"
         fun client(type: String, title: String, body: String) =
             PlatformNotification(
                 recipientCompanyId = application.company.id,
@@ -29,6 +30,17 @@ object TransitionNotices {
                 link = clientLink,
                 dedupKey = "${entry.id}:client",
             )
+        fun agent(type: String, title: String, body: String) =
+            application.agentId?.let { agentId ->
+                PlatformNotification(
+                    recipientId = agentId,
+                    type = type,
+                    title = title,
+                    body = body,
+                    link = agentLink,
+                    dedupKey = "${entry.id}:agent",
+                )
+            }
         fun underwriters(title: String, body: String) =
             PlatformNotification(
                 recipientRole = Roles.UNDERWRITER,
@@ -41,10 +53,40 @@ object TransitionNotices {
         val summary = "${application.company.name ?: "ИНН ${application.company.inn}"} · $productName · ${rubles(application.terms.amount)}"
 
         val notices = when (entry.event) {
-            ApplicationEvent.DATA_INCOMPLETE.name, ApplicationEvent.REQUEST_INFO.name -> listOf(
-                client(PlatformNotification.ACTION_REQUIRED, "Банк просит дополнить заявку № $number", "Откройте заявку: там список документов и срок ответа."),
+            ApplicationEvent.REQUEST_CLIENT_CONFIRMATION.name -> listOf(
+                client(
+                    PlatformNotification.ACTION_REQUIRED,
+                    "Агент подготовил заявку № $number — требуется подтверждение",
+                    "Проверьте параметры заявки, дайте согласие на запрос в БКИ и отправьте её в банк.",
+                ),
             )
-            ApplicationEvent.AUTO_OFFER.name, ApplicationEvent.APPROVE.name, ApplicationEvent.COUNTER_OFFER.name -> listOf(
+            ApplicationEvent.RETURN_TO_AGENT.name -> listOfNotNull(
+                agent(
+                    PlatformNotification.ACTION_REQUIRED,
+                    "Клиент вернул заявку № $number на доработку",
+                    entry.comment?.takeIf { it.isNotBlank() } ?: "Откройте заявку, чтобы внести правки и повторно отправить на подтверждение.",
+                ),
+            )
+            ApplicationEvent.CONFIRM_AND_SUBMIT.name -> listOfNotNull(
+                agent(
+                    PlatformNotification.APPLICATION_STATUS,
+                    "Клиент подтвердил и отправил заявку № $number",
+                    "Заявка передана в банк на проверку и скоринг.",
+                ),
+            )
+            ApplicationEvent.DATA_INCOMPLETE.name, ApplicationEvent.REQUEST_INFO.name -> listOfNotNull(
+                client(
+                    PlatformNotification.ACTION_REQUIRED,
+                    "Банк просит дополнить заявку № $number",
+                    "Откройте заявку: там список документов и срок ответа.",
+                ),
+                agent(
+                    PlatformNotification.ACTION_REQUIRED,
+                    "Банк запросил документы по заявке № $number",
+                    "Загрузите недостающие документы в карточке заявки.",
+                ),
+            )
+            ApplicationEvent.AUTO_OFFER.name, ApplicationEvent.APPROVE.name, ApplicationEvent.COUNTER_OFFER.name -> listOfNotNull(
                 if (entry.reasonCode == "COUNTER") {
                     client(
                         PlatformNotification.ACTION_REQUIRED,
@@ -54,32 +96,52 @@ object TransitionNotices {
                 } else {
                     client(PlatformNotification.ACTION_REQUIRED, "Заявка № $number одобрена", "Примите предложение банка, чтобы перейти к подписанию.")
                 },
+                agent(
+                    PlatformNotification.APPLICATION_STATUS,
+                    "По заявке № $number сформировано предложение банка",
+                    "Ожидается решение клиента по предложению.",
+                ),
             )
-            ApplicationEvent.AUTO_REJECT.name, ApplicationEvent.REJECT.name -> listOf(
+            ApplicationEvent.AUTO_REJECT.name, ApplicationEvent.REJECT.name -> listOfNotNull(
                 client(
                     PlatformNotification.APPLICATION_STATUS,
                     "Решение по заявке № $number",
                     "Банк не может выдать кредит на этих условиях. Причины и что можно изменить — в заявке.",
                 ),
+                agent(PlatformNotification.APPLICATION_STATUS, "Заявка № $number отклонена", "Комиссия по заявке отменена."),
             )
-            ApplicationEvent.TO_MANUAL_REVIEW.name, ApplicationEvent.SOURCE_TIMED_OUT.name -> listOf(
+            ApplicationEvent.TO_MANUAL_REVIEW.name, ApplicationEvent.SOURCE_TIMED_OUT.name -> listOfNotNull(
                 client(PlatformNotification.APPLICATION_STATUS, "Заявку № $number рассматривает специалист", "Обычно это занимает до одного рабочего дня."),
                 underwriters("Заявка № $number ждёт решения", summary),
+                agent(
+                    PlatformNotification.APPLICATION_STATUS,
+                    "Заявка № $number на ручном рассмотрении",
+                    "Специалист банка рассмотрит заявку в ближайшее время.",
+                ),
             )
-            ApplicationEvent.DISBURSED.name -> listOf(
+            ApplicationEvent.DISBURSED.name -> listOfNotNull(
                 client(PlatformNotification.APPLICATION_STATUS, "Деньги по заявке № $number зачислены", "График платежей — в заявке."),
+                agent(PlatformNotification.APPLICATION_STATUS, "Кредит по заявке № $number выдан", "Комиссия агента начислена."),
             )
-            ApplicationEvent.ACCEPT_OFFER.name -> listOf(
+            ApplicationEvent.ACCEPT_OFFER.name -> listOfNotNull(
                 client(PlatformNotification.ACTION_REQUIRED, "Договор по заявке № $number готов к подписанию", "Откройте заявку, чтобы подписать договор."),
+                agent(PlatformNotification.APPLICATION_STATUS, "Клиент принял предложение по заявке № $number", "Ожидается подписание договора клиентом."),
             )
-            ApplicationEvent.INFO_EXPIRED.name, ApplicationEvent.OFFER_EXPIRED.name -> listOf(
+            ApplicationEvent.INFO_EXPIRED.name, ApplicationEvent.OFFER_EXPIRED.name -> listOfNotNull(
                 client(PlatformNotification.APPLICATION_STATUS, "Заявка № $number закрыта", "Срок ответа истёк. Можно подать новую заявку."),
+                agent(PlatformNotification.APPLICATION_STATUS, "Заявка № $number закрыта", "Срок ответа истёк, комиссия отменена."),
             )
-            ApplicationEvent.WITHDRAW.name ->
-                if (entry.fromStatus == ApplicationStatus.MANUAL_REVIEW) listOf(underwriters("Клиент отозвал заявку № $number", summary)) else emptyList()
+            ApplicationEvent.DECLINE_OFFER.name -> listOfNotNull(
+                agent(PlatformNotification.APPLICATION_STATUS, "Клиент отказался от предложения по заявке № $number", "Заявка закрыта, комиссия отменена."),
+            )
+            ApplicationEvent.WITHDRAW.name -> listOfNotNull(
+                underwriters("Клиент отозвал заявку № $number", summary).takeIf { entry.fromStatus == ApplicationStatus.MANUAL_REVIEW },
+                agent(PlatformNotification.APPLICATION_STATUS, "Клиент отозвал заявку № $number", "Заявка отозвана, комиссия отменена."),
+            )
             else -> emptyList()
         }
         return notices.map { notice ->
+            if (notice.recipientId != null) return@map notice
             val kind = when (entry.event) {
                 ApplicationEvent.DATA_INCOMPLETE.name, ApplicationEvent.REQUEST_INFO.name -> NotificationEmailKind.DOCUMENTS_REQUESTED
                 ApplicationEvent.AUTO_OFFER.name, ApplicationEvent.APPROVE.name, ApplicationEvent.COUNTER_OFFER.name -> NotificationEmailKind.OFFER_READY

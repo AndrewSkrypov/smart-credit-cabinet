@@ -9,6 +9,7 @@ interface ApplicationRepository {
     /** Saves and returns the stored state (number and version filled in). A stale version is a 409. */
     fun save(application: LoanApplication): LoanApplication
     fun listByCompany(companyId: UUID): List<LoanApplication>
+    fun listByAgent(agentId: UUID): List<LoanApplication>
 
     /** Applications the bank works with (no drafts), newest status change first. */
     fun listForBank(statuses: Set<ApplicationStatus>?): List<LoanApplication>

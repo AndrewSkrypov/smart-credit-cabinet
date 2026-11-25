@@ -3,14 +3,18 @@
 import argparse
 import ipaddress
 from pathlib import Path
+import sys
+
+root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(root / "scripts"))
+from gateway_config import gateway_source  # noqa: E402
 
 parser = argparse.ArgumentParser(description="Подготовить конфигурацию gateway для Caddy")
 parser.add_argument("--caddy-ip", default="172.30.40.2")
 parser.add_argument("--output")
 args = parser.parse_args()
 address = str(ipaddress.IPv4Address(args.caddy_ip))
-root = Path(__file__).resolve().parent.parent
-text = (root / "docker/gateway/nginx.conf").read_text(encoding="utf-8")
+text = gateway_source(root)
 assert text.count("proxy_set_header X-Forwarded-Proto $scheme;") == 1
 text = text.replace("proxy_set_header X-Forwarded-Proto $scheme;", "proxy_set_header X-Forwarded-Proto $cabinet_forwarded_proto;")
 text = text.replace("proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;", "proxy_set_header X-Forwarded-For $remote_addr;")

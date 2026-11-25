@@ -36,8 +36,10 @@ export async function login(page: Page, account: string): Promise<Session> {
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
   const response = await responsePromise;
   expect(response.status()).toBe(200);
-  await expect(page).toHaveURL(/\/(client|bank)$/);
-  return response.json();
+  const session: Session = await response.json();
+  const home = session.user.role === 'CLIENT' ? 'client' : session.user.role === 'AGENT' ? 'agent' : 'bank';
+  await expect(page).toHaveURL(new RegExp(`/${home}$`));
+  return session;
 }
 
 export async function scenario(request: APIRequestContext, account: string): Promise<Scenario> {

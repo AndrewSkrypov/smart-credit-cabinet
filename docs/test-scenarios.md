@@ -211,3 +211,5 @@ docker compose -p cabinet-e2e up --build --wait --wait-timeout 240
 Полноту матрицы сверяет `python security/matrix.py --check-only`. Отчёт о фактическом
 HTTP-прогоне — `security/reports/final-access-matrix.json`. Режимы и показатели ИИ
 описаны в [оценке помощника](assistant-eval.md), критерии покрытия — в [качестве](quality.md).
+Новые проверки прав запускаются с темпом до 25 запросов в секунду, ниже лимита
+агентского контура шлюза. Проверки нагрузки выполняются отдельно.

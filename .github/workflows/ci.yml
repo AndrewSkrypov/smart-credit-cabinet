@@ -536,6 +536,8 @@ jobs:
         working-directory: e2e
       - name: Verify live OpenAPI snapshots
         run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" scripts/export-openapi.py --check'
+      - name: Verify the final access matrix through the gateway
+        run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" security/matrix.py --final-only'
       - name: Desktop and mobile scenarios
         id: browser
         continue-on-error: true

@@ -8,6 +8,7 @@ from uuid import uuid4
 
 
 ROOT = Path(__file__).resolve().parents[1]
+MIN_REQUEST_INTERVAL_SECONDS = 1 / 25
 ROLES = ("anonymous", "client", "other_client", "manager", "underwriter", "risk_admin", "agent", "other_agent")
 ROLE_TITLES = ("Без токена", "Клиент", "Другой клиент", "Менеджер", "Андеррайтер", "Риск-администратор", "Агент", "Другой агент")
 AGENT_ONLY = (401, 403, 403, 403, 403, 403, 200, 200)
@@ -68,6 +69,8 @@ def check(api):
     try:
         for service, method, template, statuses in ROUTES:
             for role, expected in zip(ROLES, statuses, strict=True):
+                # Keep this access check under the gateway's 30 requests/second agent budget.
+                time.sleep(MIN_REQUEST_INTERVAL_SECONDS)
                 route = template.format(**parameters)
                 body, headers = None, {}
                 if method in {"POST", "PUT"} and template in {"/api/v1/agent/applications", "/api/v1/agent/applications/{id}"}:

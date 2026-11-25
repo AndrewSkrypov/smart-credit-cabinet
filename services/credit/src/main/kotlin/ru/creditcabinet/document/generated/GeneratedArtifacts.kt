@@ -8,9 +8,9 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
+import ru.creditcabinet.application.application.ApplicationAccess
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.exception.NotFoundException
@@ -57,7 +57,7 @@ data class ArtifactDownload(val metadata: ArtifactView, val bytes: ByteArray)
 class GeneratedArtifacts(
     private val jdbc: JdbcTemplate,
     private val mapper: ObjectMapper,
-    private val applications: ApplicationService,
+    private val applications: ApplicationAccess,
     private val repository: ApplicationRepository,
     private val offers: OfferRepository,
     private val loans: Loans,

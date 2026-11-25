@@ -10,12 +10,12 @@ import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.notification.application.NotificationPreference
 import ru.creditcabinet.notification.application.NotificationSettings
-import ru.creditcabinet.notification.application.NotificationSettingsService
+import ru.creditcabinet.notification.application.NotificationSettingsOperations
 
 @Tag(name = "Настройки уведомлений")
 @RestController
 @RequestMapping("/api/v1/notifications/settings")
-class NotificationSettingsController(private val settings: NotificationSettingsService) {
+class NotificationSettingsController(private val settings: NotificationSettingsOperations) {
     @Operation(summary = "Настройки моих уведомлений и доступность почтового канала")
     @GetMapping
     fun get(): NotificationSettings = settings.get(CurrentCaller.claims().userId)

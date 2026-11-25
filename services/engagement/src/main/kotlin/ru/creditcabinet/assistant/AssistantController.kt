@@ -71,7 +71,9 @@ class AssistantController(
         val output = response.outputStream
         output.event("status", mapOf("text" to "Проверяю справку и данные кабинета…"))
         try {
-            val answer = service.answer(request.question.trim(), request.applicationId, request.history, authorization)
+            val answer = service.answer(request.question.trim(), request.applicationId, request.history, authorization) { reference ->
+                output.event("reference", reference)
+            }
             // Model text crosses the network only after the complete answer has passed grounding.
             output.event("answer", answer)
         } catch (exception: ApiException) {

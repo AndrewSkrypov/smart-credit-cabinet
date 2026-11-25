@@ -171,8 +171,34 @@ class AssistantApiTest {
         val events = complete.getContentAsString(Charsets.UTF_8)
         assertTrue(events.contains("event: status\n"), events)
         assertTrue(events.contains("event: answer\n"), events)
+        assertTrue("event: reference\n" !in events, events)
         assertTrue(events.contains("Юридических советов я не даю"), events)
         verify(model, org.mockito.kotlin.never()).chat(any())
+    }
+
+    @Test
+    fun `the stream supplies a reference before returning a grounded answer`() {
+        whenever(model.available()).thenReturn(true)
+        whenever(model.name).thenReturn("test-model")
+        whenever(model.chat(any())).thenReturn("Овердрафт — бесплатный лимит, проценты не начисляются.")
+        val response = mockMvc.post("/api/v1/assistant/messages/stream") {
+            header("Authorization", "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.TEXT_EVENT_STREAM
+            content = mapper.writeValueAsString(mapOf("question" to "Что такое овердрафт и для чего он нужен?"))
+        }.andReturn().response
+        assertEquals(200, response.status)
+        val body = response.getContentAsString(Charsets.UTF_8)
+        val frames = body.trimEnd().split("\n\n").map { it.split("\n", limit = 2) }
+        assertEquals(listOf("event: status", "event: reference", "event: answer"), frames.map { it.first() })
+        val reference = mapper.readTree(frames[1].last().removePrefix("data: "))
+        val overdraft = Knowledge.articles.single { it.id == "overdraft" }
+        assertEquals(overdraft.text, reference["text"].asText())
+        assertEquals(overdraft.title, reference["source"].asText())
+        val answer = mapper.readTree(frames[2].last().removePrefix("data: "))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue("бесплатный" !in body)
+        verify(model).chat(any())
     }
 
     @Test

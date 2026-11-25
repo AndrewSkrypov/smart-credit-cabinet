@@ -31,8 +31,10 @@ interface DraftPreview {
 
 const deadlineFormat = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Moscow' });
 
+type StreamProgress = { type: 'status'; text: string } | { type: 'reference'; text: string; source: string };
+
 async function readAssistantStream(
-  question: string, applicationId: string | null, history: AssistantTurn[], signal: AbortSignal, showStatus: (text: string) => void
+  question: string, applicationId: string | null, history: AssistantTurn[], signal: AbortSignal, showProgress: (progress: StreamProgress) => void
 ): Promise<AssistantAnswer> {
   const { data } = await api.post<ReadableStream<Uint8Array>>('/assistant/messages/stream', { question, applicationId, history }, {
     adapter: 'fetch', responseType: 'stream', signal, headers: { Accept: 'text/event-stream' }
@@ -53,7 +55,8 @@ async function readAssistantStream(
         const json = lines.find((line) => line.startsWith('data: '))?.slice(6);
         if (json) {
           const event = JSON.parse(json);
-          if (type === 'status') showStatus(event.text);
+          if (type === 'status') showProgress({ type, text: event.text });
+          if (type === 'reference') showProgress({ type, text: event.text, source: event.source });
           if (type === 'answer') return event as AssistantAnswer;
           if (type === 'failure') throw new Error(event.message);
         }
@@ -99,7 +102,7 @@ export function AssistantPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<string | null>(null);
+  const [progress, setProgress] = useState<StreamProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hints, setHints] = useState<Hint[]>([]);
   const [confirmation, setConfirmation] = useState<Hint | null>(null);
@@ -121,7 +124,7 @@ export function AssistantPanel() {
 
   useEffect(() => {
     end.current?.scrollIntoView?.({ block: 'end' });
-  }, [messages, busy]);
+  }, [messages, busy, progress]);
 
   // Another application is another conversation.
   useEffect(() => {
@@ -174,7 +177,7 @@ export function AssistantPanel() {
     setProgress(null);
     try {
       const answer = mode?.mode === 'MODEL' && readSession() && typeof ReadableStream !== 'undefined'
-        ? await readAssistantStream(trimmed, applicationId, history, controller.signal, (text) => { if (isCurrent()) setProgress(text); })
+        ? await readAssistantStream(trimmed, applicationId, history, controller.signal, (update) => { if (isCurrent()) setProgress(update); })
         : await assistantApi.ask(trimmed, applicationId, history);
       if (isCurrent()) setMessages((current) => [
         ...current.map((message, index) => index === questionIndex ? { ...message, completed: true } : message),
@@ -327,7 +330,16 @@ export function AssistantPanel() {
                 </Typography>}
               </Box>
             ))}
-            {busy && <Typography color="text.secondary">{progress ?? 'Помощник печатает…'}</Typography>}
+            {busy && (
+              <Box role="status">
+                {progress?.type === 'reference' && (
+                  <Typography variant="caption" color="text.secondary">Из справки · {progress.source}</Typography>
+                )}
+                <Typography color="text.secondary" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                  {progress?.text ?? 'Помощник печатает…'}
+                </Typography>
+              </Box>
+            )}
           </Stack>
           <div ref={end} />
         </Box>

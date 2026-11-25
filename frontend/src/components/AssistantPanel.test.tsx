@@ -34,6 +34,38 @@ describe('AssistantPanel', () => {
     post.mockReset().mockResolvedValue(undefined);
   });
 
+  it('shows the sourced preview before the model finishes and then replaces it with the answer', async () => {
+    const user = userEvent.setup();
+    let transport!: ReadableStreamDefaultController<Uint8Array>;
+    const incoming = new ReadableStream<Uint8Array>({ start(controller) { transport = controller; } });
+    const encoder = new TextEncoder();
+    const send = (event: string, payload: unknown) =>
+      transport.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`));
+    vi.mocked(assistantApi.status).mockResolvedValue({ mode: 'MODEL', model: 'test-model' });
+    vi.mocked(readSession).mockReturnValue({ token: 'synthetic' } as ReturnType<typeof readSession>);
+    post.mockResolvedValueOnce({ data: incoming });
+
+    render(<MemoryRouter initialEntries={['/client']}><AssistantPanel /></MemoryRouter>);
+    await user.click(screen.getByRole('button', { name: 'Открыть помощника' }));
+    await screen.findByText('Доступна модель с открытыми весами test-model');
+    await user.type(screen.getByRole('textbox', { name: 'Ваш вопрос' }), 'Что такое овердрафт?');
+    await user.click(screen.getByRole('button', { name: 'Спросить' }));
+    await act(async () => {
+      send('status', { text: 'Проверяю справку…' });
+      send('reference', { text: 'Овердрафт — лимит на счёте.', source: 'Овердрафт' });
+    });
+    expect(await screen.findByText('Овердрафт — лимит на счёте.')).toBeVisible();
+    expect(screen.getByText('Из справки · Овердрафт')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Спросить' })).toBeDisabled();
+
+    await act(async () => {
+      send('answer', { text: 'Проценты начисляются на использованную часть лимита.', mode: 'MODEL', sources: ['Овердрафт'] });
+      transport.close();
+    });
+    expect(await screen.findByText('Проценты начисляются на использованную часть лимита.')).toBeVisible();
+    expect(screen.queryByText('Овердрафт — лимит на счёте.')).not.toBeInTheDocument();
+  });
+
   it('shows the proactive agent card and requires explicit confirmation before sending', async () => {
     const user = userEvent.setup();
     const infoRequestId = '6f1d4c1e-0b8e-4c55-9a51-000000000002';

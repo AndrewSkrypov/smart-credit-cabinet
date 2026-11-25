@@ -73,6 +73,24 @@
       "source": "https://github.com/grafana/grafana/blob/v13.2.4/LICENSE"
     },
     {
+      "image": "grafana/tempo:2.9.0@sha256:65a5789759435f1ef696f1953258b9bbdb18eb571d5ce711ff812d2e128288a4",
+      "component": "Grafana Tempo",
+      "license": "AGPL-3.0-only",
+      "source": "https://github.com/grafana/tempo/blob/v2.9.0/LICENSE"
+    },
+    {
+      "image": "grafana/loki:3.6.7@sha256:3c8fd3570dd9219951a60d3f919c7f31923d10baee578b77bc26c4a0b32d092d",
+      "component": "Grafana Loki",
+      "license": "AGPL-3.0-only",
+      "source": "https://github.com/grafana/loki/blob/v3.6.7/LICENSE"
+    },
+    {
+      "image": "grafana/alloy:v1.13.2@sha256:8abcd0d97a97099cabb34be8dcfc448fca6c35931ae9291aaf74056105dedcca",
+      "component": "Grafana Alloy",
+      "license": "Apache-2.0",
+      "source": "https://github.com/grafana/alloy/blob/v1.13.2/LICENSE"
+    },
+    {
       "image": "caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd",
       "component": "Caddy",
       "license": "Apache-2.0",

@@ -1,6 +1,7 @@
 package ru.creditcabinet.common.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.micrometer.core.instrument.MeterRegistry
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.beans.factory.ObjectProvider
@@ -29,6 +30,7 @@ import org.springframework.web.client.RestClient
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import ru.creditcabinet.common.dto.ErrorResponse
+import ru.creditcabinet.common.limits.ValkeyState
 import ru.creditcabinet.common.security.CredentialsCheck
 import ru.creditcabinet.common.security.IdentityCredentialsCheck
 import ru.creditcabinet.common.security.JwtAuthenticationFilter
@@ -86,6 +88,8 @@ class SecurityConfig {
         properties: PlatformSecurityProperties,
         jwtVerifier: JwtVerifier,
         objectMapper: ObjectMapper,
+        state: ValkeyState,
+        metrics: MeterRegistry,
     ): SecurityFilterChain {
         val public = properties.publicEndpoints.map { entry ->
             val (method, pattern) = entry.trim().split(Regex("\\s+"), limit = 2).also {
@@ -104,7 +108,9 @@ class SecurityConfig {
             } else {
                 cors { disable() }
             }
-            addFilterBefore<UsernamePasswordAuthenticationFilter>(JwtAuthenticationFilter(jwtVerifier))
+            addFilterBefore<UsernamePasswordAuthenticationFilter>(
+                JwtAuthenticationFilter(jwtVerifier, metrics) { id -> state.key("log-user", id.toString()).substringAfterLast(':').take(24) },
+            )
             authorizeHttpRequests {
                 // Probes, API docs and error rendering.
                 authorize("/actuator/health/**", permitAll)

@@ -646,6 +646,48 @@
       ]
     },
     {
+      "name": "com.squareup.okhttp3:okhttp",
+      "version": "4.12.0",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://square.github.io/okhttp/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.squareup.okio:okio",
+      "version": "3.6.0",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/square/okio/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.squareup.okio:okio-jvm",
+      "version": "3.6.0",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/square/okio/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "com.sun.istack:istack-commons-runtime",
       "version": "4.1.2",
       "licenses": [
@@ -1043,7 +1085,7 @@
       ]
     },
     {
-      "name": "io.micrometer:micrometer-tracing-bridge-brave",
+      "name": "io.micrometer:micrometer-tracing-bridge-otel",
       "version": "1.5.12",
       "licenses": [
         "Apache License, Version 2.0",
@@ -1053,6 +1095,202 @@
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
         "https://github.com/micrometer-metrics/tracing",
         "https://www.apache.org/licenses/LICENSE-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry.semconv:opentelemetry-semconv",
+      "version": "1.32.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/semantic-conventions-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-api",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-context",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-exporter-common",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-exporter-otlp",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-exporter-otlp-common",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-exporter-sender-okhttp",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-extension-trace-propagators",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk-common",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk-logs",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk-metrics",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk-trace",
+      "version": "1.49.0",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/JCTools"
       ],
       "scopes": [
         "backend"
@@ -1220,85 +1458,6 @@
       "sources": [
         "https://github.com/valkey-io/valkey-java",
         "https://github.com/valkey-io/valkey-java/blob/master/LICENSE"
-      ],
-      "scopes": [
-        "backend"
-      ]
-    },
-    {
-      "name": "io.zipkin.aws:brave-propagation-aws",
-      "version": "1.3.0",
-      "licenses": [
-        "Apache License, Version 2.0",
-        "The Apache Software License, Version 2.0"
-      ],
-      "sources": [
-        "https://www.apache.org/licenses/LICENSE-2.0",
-        "https://www.apache.org/licenses/LICENSE-2.0.txt"
-      ],
-      "scopes": [
-        "backend"
-      ]
-    },
-    {
-      "name": "io.zipkin.brave:brave",
-      "version": "6.1.0",
-      "licenses": [
-        "Apache License, Version 2.0",
-        "The Apache Software License, Version 2.0"
-      ],
-      "sources": [
-        "https://www.apache.org/licenses/LICENSE-2.0",
-        "https://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://zipkin.io/"
-      ],
-      "scopes": [
-        "backend"
-      ]
-    },
-    {
-      "name": "io.zipkin.brave:brave-context-slf4j",
-      "version": "6.1.0",
-      "licenses": [
-        "Apache License, Version 2.0",
-        "The Apache Software License, Version 2.0"
-      ],
-      "sources": [
-        "https://www.apache.org/licenses/LICENSE-2.0",
-        "https://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://zipkin.io/"
-      ],
-      "scopes": [
-        "backend"
-      ]
-    },
-    {
-      "name": "io.zipkin.brave:brave-instrumentation-http",
-      "version": "6.1.0",
-      "licenses": [
-        "Apache License, Version 2.0",
-        "The Apache Software License, Version 2.0"
-      ],
-      "sources": [
-        "https://www.apache.org/licenses/LICENSE-2.0",
-        "https://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://zipkin.io/"
-      ],
-      "scopes": [
-        "backend"
-      ]
-    },
-    {
-      "name": "io.zipkin.contrib.brave-propagation-w3c:brave-propagation-tracecontext",
-      "version": "0.2.0",
-      "licenses": [
-        "Apache License, Version 2.0",
-        "The Apache Software License, Version 2.0"
-      ],
-      "sources": [
-        "https://www.apache.org/licenses/LICENSE-2.0",
-        "https://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://zipkin.io/"
       ],
       "scopes": [
         "backend"
@@ -10639,6 +10798,24 @@
       "component": "Grafana OSS",
       "license": "AGPL-3.0",
       "source": "https://github.com/grafana/grafana/blob/v13.2.4/LICENSE"
+    },
+    {
+      "image": "grafana/tempo:2.9.0@sha256:65a5789759435f1ef696f1953258b9bbdb18eb571d5ce711ff812d2e128288a4",
+      "component": "Grafana Tempo",
+      "license": "AGPL-3.0-only",
+      "source": "https://github.com/grafana/tempo/blob/v2.9.0/LICENSE"
+    },
+    {
+      "image": "grafana/loki:3.6.7@sha256:3c8fd3570dd9219951a60d3f919c7f31923d10baee578b77bc26c4a0b32d092d",
+      "component": "Grafana Loki",
+      "license": "AGPL-3.0-only",
+      "source": "https://github.com/grafana/loki/blob/v3.6.7/LICENSE"
+    },
+    {
+      "image": "grafana/alloy:v1.13.2@sha256:8abcd0d97a97099cabb34be8dcfc448fca6c35931ae9291aaf74056105dedcca",
+      "component": "Grafana Alloy",
+      "license": "Apache-2.0",
+      "source": "https://github.com/grafana/alloy/blob/v1.13.2/LICENSE"
     },
     {
       "image": "caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd",

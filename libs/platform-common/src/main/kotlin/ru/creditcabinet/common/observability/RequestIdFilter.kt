@@ -3,6 +3,7 @@ package ru.creditcabinet.common.observability
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.slf4j.MDC
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
@@ -17,7 +18,8 @@ import org.springframework.web.filter.OncePerRequestFilter
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 class RequestIdFilter : OncePerRequestFilter() {
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain) {
-        RequestIds.current()?.let { response.setHeader(RequestIds.HEADER, it) }
-        chain.doFilter(request, response)
+        val requestId = RequestIds.current()
+        requestId?.let { response.setHeader(RequestIds.HEADER, it) }
+        MDC.putCloseable("requestId", requestId).use { chain.doFilter(request, response) }
     }
 }

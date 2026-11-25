@@ -30,6 +30,7 @@ class OutboxWorker(
     private val settings: OutboxSettings,
     private val clock: Clock = Clock.systemUTC(),
     private val observation: DeliveryObservation = DeliveryObservation { _, _, _ -> },
+    private val tracing: OutboxTracing? = null,
 ) {
     private val handlers = handlers.associateBy { it.channel }
     private val log = LoggerFactory.getLogger(javaClass)
@@ -47,34 +48,38 @@ class OutboxWorker(
         var processed = 0
         repeat(limit) {
             val claim = outbox.claim(clock.instant(), settings.lease, settings.maxAttempts) ?: return processed
-            val started = System.nanoTime()
-            try {
-                val handler = handlers[claim.channel] ?: error("Outbox channel has no handler")
-                handler.deliver(claim.payload)
-                val current = outbox.complete(claim, clock.instant())
-                observe(claim.channel, if (current) "DELIVERED" else "STALE", started)
-            } catch (exception: Exception) {
-                val seconds = (1L shl (claim.attempts - 1).coerceIn(0, 8)).coerceAtMost(300)
-                val pause = Duration.ofSeconds(seconds).plusMillis(ThreadLocalRandom.current().nextLong(250))
-                // Exception messages can contain links or user data; persist and log only a bounded error code.
-                val code = exception.javaClass.simpleName.take(120)
-                val current = outbox.retry(claim, clock.instant(), clock.instant().plus(pause), settings.maxAttempts, code)
-                observe(
-                    claim.channel,
-                    if (!current) {
-                        "STALE"
-                    } else if (claim.attempts >= settings.maxAttempts) {
-                        "FAILED"
-                    } else {
-                        "RETRY"
-                    },
-                    started,
-                )
-                log.warn("Delivery {} on channel {} failed at attempt {} ({})", claim.id, claim.channel, claim.attempts, code)
-            }
+            if (tracing == null) deliver(claim) else tracing.deliver(claim.traceParent, claim.channel) { deliver(claim) }
             processed++
         }
         return processed
+    }
+
+    private fun deliver(claim: DeliveryClaim) {
+        val started = System.nanoTime()
+        try {
+            val handler = handlers[claim.channel] ?: error("Outbox channel has no handler")
+            handler.deliver(claim.payload)
+            val current = outbox.complete(claim, clock.instant())
+            observe(claim.channel, if (current) "DELIVERED" else "STALE", started)
+        } catch (exception: Exception) {
+            val seconds = (1L shl (claim.attempts - 1).coerceIn(0, 8)).coerceAtMost(300)
+            val pause = Duration.ofSeconds(seconds).plusMillis(ThreadLocalRandom.current().nextLong(250))
+            // Exception messages can contain links or user data; persist and log only a bounded error code.
+            val code = exception.javaClass.simpleName.take(120)
+            val current = outbox.retry(claim, clock.instant(), clock.instant().plus(pause), settings.maxAttempts, code)
+            observe(
+                claim.channel,
+                if (!current) {
+                    "STALE"
+                } else if (claim.attempts >= settings.maxAttempts) {
+                    "FAILED"
+                } else {
+                    "RETRY"
+                },
+                started,
+            )
+            log.warn("Delivery {} on channel {} failed at attempt {} ({})", claim.id, claim.channel, claim.attempts, code)
+        }
     }
 
     private fun observe(channel: String, outcome: String, started: Long) {

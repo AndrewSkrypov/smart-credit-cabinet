@@ -1,0 +1,162 @@
+{
+  "uid": "cabinet-agent-final",
+  "title": "Агентский канал и помощник",
+  "schemaVersion": 39,
+  "refresh": "15s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "editable": false,
+  "tags": [
+    "Кабинет",
+    "Агентский канал"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Заявки, дошедшие до этапов",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (stage) (cabinet_agent_applications_reached)",
+          "legendFormat": "{{stage}}",
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Доля от агентских черновиков",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (stage) (cabinet_agent_applications_reached) / scalar(clamp_min(max(cabinet_agent_applications_reached{stage=\"DRAFT\"}), 1))",
+          "legendFormat": "{{stage}}",
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Запреты агентского доступа",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (increase(cabinet_agent_access_denied_total[5m]))",
+          "legendFormat": "HTTP {{status}}",
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Помощник, p95 ответа",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, operation, outcome) (rate(cabinet_assistant_answer_seconds_bucket[5m])))",
+          "legendFormat": "{{operation}} / {{outcome}}",
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Исходы работы с моделью",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (increase(cabinet_assistant_model_total[5m]))",
+          "legendFormat": "{{outcome}}",
+          "exemplar": false
+        }
+      ]
+    }
+  ]
+}

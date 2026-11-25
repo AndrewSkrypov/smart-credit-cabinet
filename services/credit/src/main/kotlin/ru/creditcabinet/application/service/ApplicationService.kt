@@ -4,6 +4,7 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.agent.domain.AgentAccessPort
+import ru.creditcabinet.application.application.ApplicationAccess
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
@@ -42,7 +43,7 @@ class ApplicationService(
     private val documents: ru.creditcabinet.document.domain.DocumentRepository,
     private val preApprovedOffers: PreApprovedOfferService,
     private val agentAccess: AgentAccessPort,
-) {
+) : ApplicationAccess {
     /** T1: a draft for the caller's company. One application in progress per company and product. */
     @Transactional
     fun create(terms: ApplicationTerms): LoanApplication {
@@ -180,7 +181,7 @@ class ApplicationService(
         return saved
     }
 
-    fun get(id: UUID): LoanApplication {
+    override fun get(id: UUID): LoanApplication {
         val claims = CurrentCaller.claims()
         val application = applications.find(id)?.takeIf { claims.canSee(it) } ?: throw notFound()
         if (claims.isAgent && !agentAccess.checkAccess(claims.userId, application.company.id).allowed) {
@@ -213,7 +214,7 @@ class ApplicationService(
     fun currentProduct(code: String): Product? = products.latest(code)
 
     /** The application of the caller's company, for changing it: clients only (hiding private agent drafts). */
-    fun own(id: UUID): Pair<TokenClaims, LoanApplication> {
+    override fun own(id: UUID): Pair<TokenClaims, LoanApplication> {
         val (claims, companyId) = CurrentCaller.requireClient()
         val application = applications.find(id)?.takeIf { it.company.id == companyId && it.visibleToClient } ?: throw notFound()
         return claims to application

@@ -77,6 +77,7 @@ flowchart LR
     AgentUse["AgentApplicationService"]
     AppUse["ApplicationService"]
     AppRead["ApplicationProcesses и ApplicationPages"]
+    DocUse["DocumentApplication"]
     BankUse["UnderwritingService"]
     BankRead["UnderwritingAssessment"]
     Steps["PipelineSteps"]
@@ -96,9 +97,13 @@ flowchart LR
   end
   AgentHttp --> AgentUse
   ClientHttp --> AppUse & AppRead
+  ClientHttp -->|DocumentUpload| DocUse
   BankHttp --> BankUse & BankRead
   Worker --> Steps
   AgentUse --> State & Mandate & Doc
+  AgentUse -->|Адаптер документов| DocUse
+  DocUse -->|ApplicationAccess| AppUse
+  DocUse --> Doc
   AppUse --> State & Product & Store & Notices
   AppRead --> Store & Offers
   BankUse --> State & Risk & Offers

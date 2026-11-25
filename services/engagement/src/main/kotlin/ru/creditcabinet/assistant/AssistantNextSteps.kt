@@ -101,14 +101,15 @@ class AssistantNextSteps(
             "DRAFT" -> {
                 val missing = app.path("requiredDocuments").filter { !it.path("uploaded").asBoolean() }.map { it.path("title").asText() }
                 val problems = app.path("submissionProblems").map(JsonNode::asText).filter(String::isNotBlank)
-                val checklist = missing.ifEmpty { problems }
+                    .filterNot { agent && it.contains("бюро кредитных историй", ignoreCase = true) }
+                val checklist = (missing + problems).distinct()
                 if (checklist.isEmpty()) {
                     emptyList()
                 } else {
                     listOf(
                         AssistantHint(
                             HintType.MISSING_DOCUMENTS,
-                            if (missing.isEmpty()) "Проверьте данные перед отправкой" else "В черновике не хватает документов",
+                            if (missing.isEmpty()) "Проверьте данные перед отправкой" else "Дополните черновик",
                             checklist.joinToString("\n"),
                             id,
                         ),

@@ -26,6 +26,7 @@ values = {"CABINET_DOMAIN": domain, "ACME_EMAIL": email, "CABINET_RELEASE": revi
           "POSTGRES_PASSWORD": secrets.token_urlsafe(32), "JWT_SECRET": secrets.token_urlsafe(48), "SIM_API_KEY": secrets.token_urlsafe(32),
           "IDENTITY_LINK_KEY": secrets.token_urlsafe(48), "IDENTITY_LINK_KEY_VERSION": "1",
           "VALKEY_PASSWORD": secrets.token_urlsafe(32),
+          "GRAFANA_PASSWORD": secrets.token_urlsafe(24),
           "PUBLIC_CABINET_URL": "https://" + domain,
           "DEMO_ACCOUNTS": "false", "SIM_CONTROL_ENABLED": "false", "EDGE_SUBNET": "172.30.40.0/28", "CADDY_EDGE_IP": "172.30.40.2",
           "GATEWAY_EDGE_IP": "172.30.40.3"}

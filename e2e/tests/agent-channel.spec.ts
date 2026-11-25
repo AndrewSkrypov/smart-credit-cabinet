@@ -82,6 +82,12 @@ test('Агентский канал API: мандат, подтверждени�
     expect(loan).toMatchObject({ applicationId: id, status: 'ACTIVE' });
     expect(loan.tranches).toHaveLength(1);
     expect(loan.payments.length).toBeGreaterThan(0);
+    const agentLoan = await request.get(`${agentPath}/loan`, { headers: headers(agent) });
+    expect(agentLoan.status(), await agentLoan.text()).toBe(200);
+    expect(await agentLoan.json()).toEqual(loan);
+    expect((await request.get(`${clientPath}/loan`, { headers: headers(agent) })).status()).toBe(403);
+    expect((await request.get(`${agentPath}/loan`, { headers: headers(other) })).status()).toBe(404);
+    expect((await request.post(`/api/v1/loans/${loan.id}/payments/next`, { headers: headers(agent) })).status()).toBe(403);
   } finally {
     await clean(request, id, agent, client);
   }
@@ -169,6 +175,17 @@ test('Агент и клиент проходят подтверждение и 
     await page.getByRole('button', { name: 'Подписать', exact: true }).click();
     await waitStatus(request, client, id, ['DISBURSED']);
     await expect(page.getByRole('heading', { name: 'Кредит выдан', exact: true })).toBeVisible();
+    await noHorizontalOverflow(page);
+    await logout();
+    await login(page, 'agent');
+    const agentLoan = page.waitForResponse((response) => response.url().endsWith(`/api/v1/agent/applications/${id}/loan`));
+    await page.goto(`/agent/applications/${id}`);
+    expect((await agentLoan).status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'Выданные транши (1)', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'График платежей', exact: true })).toBeVisible();
+    for (const action of ['Запросить транш', 'Внести очередной платёж', 'Досрочно погасить']) {
+      await expect(page.getByRole('button', { name: action, exact: true })).toHaveCount(0);
+    }
     await noHorizontalOverflow(page);
   } finally {
     await clean(request, id, agent, client);

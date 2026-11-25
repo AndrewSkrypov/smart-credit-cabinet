@@ -107,6 +107,7 @@
 | credit | `GET /api/v1/agent/applications` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
 | credit | `POST /api/v1/agent/applications` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `GET /api/v1/agent/applications/{id}` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `GET /api/v1/agent/applications/{id}/loan` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `PUT /api/v1/agent/applications/{id}` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `POST /api/v1/agent/applications/{id}/cancel` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `GET /api/v1/agent/applications/{id}/documents` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |

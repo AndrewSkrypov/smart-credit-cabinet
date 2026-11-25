@@ -26,6 +26,7 @@ ROUTES = (
     ("credit", "GET", "/api/v1/agent/applications", AGENT_ONLY),
     ("credit", "POST", "/api/v1/agent/applications", AGENT_MISSING),
     ("credit", "GET", "/api/v1/agent/applications/{id}", AGENT_MISSING),
+    ("credit", "GET", "/api/v1/agent/applications/{id}/loan", AGENT_MISSING),
     ("credit", "PUT", "/api/v1/agent/applications/{id}", AGENT_MISSING),
     ("credit", "POST", "/api/v1/agent/applications/{id}/cancel", AGENT_MISSING),
     ("credit", "GET", "/api/v1/agent/applications/{id}/documents", AGENT_MISSING),

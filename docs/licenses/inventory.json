@@ -10740,13 +10740,13 @@
       "source": "https://github.com/nginx/nginx/blob/master/LICENSE"
     },
     {
-      "image": "nginxinc/nginx-unprivileged:1.30-alpine",
+      "image": "nginx/nginx-unprivileged:1.30.7-alpine@sha256:0c53a1f2890c3526bfd201440f0fd3970e5b78f80630f58284aad0d34b5ec7bd",
       "component": "nginx / непривилегированный образ",
       "license": "BSD-2-Clause / Apache-2.0 (рецепт образа)",
       "source": "https://github.com/nginx/docker-nginx-unprivileged/blob/main/LICENSE"
     },
     {
-      "image": "swaggerapi/swagger-ui:v5.34.0@sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0",
+      "image": "swaggerapi/swagger-ui:v5.35.0@sha256:3e7305b17cb806a2925ed16145eae469a6084ab50d82fcec7ede600bba91650b",
       "component": "Swagger UI",
       "license": "Apache-2.0",
       "source": "https://github.com/swagger-api/swagger-ui/blob/v5.34.0/LICENSE"
@@ -10794,7 +10794,7 @@
       "source": "https://github.com/prometheus/prometheus/blob/v3.15.1/LICENSE"
     },
     {
-      "image": "grafana/grafana:13.2.4",
+      "image": "grafana/grafana:13.2.5@sha256:9f7aa1e1e3246aade5792d35a738049f7f32f89cd51d1956cf426a4e86268a84",
       "component": "Grafana OSS",
       "license": "AGPL-3.0",
       "source": "https://github.com/grafana/grafana/blob/v13.2.4/LICENSE"
@@ -10818,7 +10818,7 @@
       "source": "https://github.com/grafana/alloy/blob/v1.13.2/LICENSE"
     },
     {
-      "image": "caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd",
+      "image": "caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9",
       "component": "Caddy",
       "license": "Apache-2.0",
       "source": "https://github.com/caddyserver/caddy/blob/v2.11.7/LICENSE"
@@ -10830,13 +10830,13 @@
       "source": "https://github.com/axllent/mailpit/blob/v1.31.6/LICENSE"
     },
     {
-      "image": "chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
+      "image": "chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9",
       "component": "SeaweedFS, отдельное приватное хранилище S3",
       "license": "Apache-2.0",
       "source": "https://github.com/seaweedfs/seaweedfs/blob/4.48/LICENSE"
     },
     {
-      "image": "clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e",
+      "image": "clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614",
       "component": "ClamAV, отдельный антивирусный контейнер; взаимодействие по TCP INSTREAM без связывания с кодом приложения",
       "license": "GPL-2.0",
       "source": "https://github.com/Cisco-Talos/clamav/blob/clamav-1.5.4/COPYING"

@@ -71,7 +71,7 @@ services:
       retries: 20
     networks: [cabinet]
   seaweedfs:
-    image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    image: chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9
     profiles: [storage]
     mem_limit: 512m
     restart: unless-stopped
@@ -93,7 +93,7 @@ services:
       retries: 30
     networks: [cabinet]
   clamav:
-    image: clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e
+    image: clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614
     # The official image is built for x86-64 only; on ARM hosts (Apple Silicon) Docker runs it emulated.
     platform: linux/amd64
     mem_limit: 2g
@@ -147,7 +147,7 @@ services:
     networks: [cabinet]
 
   grafana:
-    image: grafana/grafana:13.2.4
+    image: grafana/grafana:13.2.5@sha256:9f7aa1e1e3246aade5792d35a738049f7f32f89cd51d1956cf426a4e86268a84
     profiles: ["monitoring"]
     mem_limit: 512m
     restart: unless-stopped
@@ -456,7 +456,7 @@ services:
       - cabinet
 
   swagger-ui:
-    image: swaggerapi/swagger-ui:v5.34.0@sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0
+    image: swaggerapi/swagger-ui:v5.35.0@sha256:3e7305b17cb806a2925ed16145eae469a6084ab50d82fcec7ede600bba91650b
     mem_limit: 128m
     environment:
       BASE_URL: /swagger

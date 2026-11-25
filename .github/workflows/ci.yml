@@ -45,7 +45,7 @@ jobs:
             --mount type=bind,source="$PWD/docker/clamav/healthcheck.sh",target=/cabinet/healthcheck.sh,readonly \
             -e TZ=UTC \
             --entrypoint /bin/sh \
-            clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e \
+            clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614 \
             -c 'cp /cabinet/clamd.conf /etc/clamav/clamd.conf && exec /init'
           for attempt in $(seq 1 120); do
             if docker exec cabinet-ci-clamav sh /cabinet/healthcheck.sh; then break; fi
@@ -53,7 +53,7 @@ jobs:
           done
           docker exec cabinet-ci-clamav sh /cabinet/healthcheck.sh
           docker run --rm --network none --mount type=bind,source="$PWD/docker/clamav",target=/cabinet,readonly \
-            --entrypoint /bin/sh clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e \
+            --entrypoint /bin/sh clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614 \
             /cabinet/test-healthcheck.sh
       - name: Start real private S3 for storage integration tests
         run: |
@@ -63,7 +63,7 @@ jobs:
             -e S3_SECRET_KEY=dev-storage-secret-change-me -e S3_ADMIN_ACCESS_KEY=dev-storage-operator \
             -e S3_ADMIN_SECRET_KEY=dev-storage-operator-secret-change-me -e GOMEMLIMIT=384MiB \
             --entrypoint /bin/sh \
-            chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d \
+            chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9 \
             /cabinet/start.sh
           for attempt in $(seq 1 60); do
             if test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18333/cabinet-documents/)" = 403; then break; fi
@@ -258,21 +258,21 @@ jobs:
           - name: gateway
             image: nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
           - name: swagger
-            image: swaggerapi/swagger-ui:v5.34.0@sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0
+            image: swaggerapi/swagger-ui:v5.35.0@sha256:3e7305b17cb806a2925ed16145eae469a6084ab50d82fcec7ede600bba91650b
           - name: prometheus
             image: prom/prometheus:v3.15.1
           - name: grafana
-            image: grafana/grafana:13.2.4
+            image: grafana/grafana:13.2.5@sha256:9f7aa1e1e3246aade5792d35a738049f7f32f89cd51d1956cf426a4e86268a84
           - name: caddy
-            image: caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd
+            image: caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9
           - name: ollama
             image: ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8
           - name: mailpit
             image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
           - name: clamav
-            image: clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e
+            image: clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614
           - name: seaweedfs
-            image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+            image: chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9
           - name: valkey
             image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     steps:

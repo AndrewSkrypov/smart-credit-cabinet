@@ -47,6 +47,26 @@ describe('AssistantPanel', () => {
     expect(post).toHaveBeenCalledWith('/assistant/reminders', { applicationId: APPLICATION });
     expect(await screen.findByText('Клиенту отправлено уведомление')).toBeInTheDocument();
   });
+
+  it('shows the selected draft terms before calling the agent creation endpoint', async () => {
+    const user = userEvent.setup();
+    vi.mocked(readSession).mockReturnValue({ token: 'synthetic' } as ReturnType<typeof readSession>);
+    ask.mockResolvedValue({ text: 'Подходит оборотный кредит', mode: 'RULES', sources: [],
+      link: { label: 'Оформить', path: '/client/new?purpose=WORKING_CAPITAL&amount=1000000&termMonths=12' } });
+    post.mockResolvedValueOnce([{ fits: true, termMonths: 12, product: { code: 'WORKING_CAPITAL', name: 'Оборотный кредит' } }])
+      .mockResolvedValueOnce({ id: APPLICATION });
+    render(<MemoryRouter initialEntries={[`/agent/clients/${APPLICATION}`]}><AssistantPanel /></MemoryRouter>);
+    await user.click(screen.getByRole('button', { name: 'Открыть помощника' }));
+    await user.type(screen.getByLabelText('Ваш вопрос'), 'Подбери кредит на закупку');
+    await user.click(screen.getByRole('button', { name: 'Спросить' }));
+    await user.click(await screen.findByRole('button', { name: 'Подготовить черновик' }));
+    await screen.findByRole('dialog', { name: 'Создать черновик для клиента?' });
+    expect(post.mock.calls.map(([path]) => path)).toEqual(['/products/match']);
+    await user.click(screen.getByRole('button', { name: /^Создать черновик$/ }));
+    expect(post).toHaveBeenLastCalledWith('/agent/applications', {
+      companyId: APPLICATION, productCode: 'WORKING_CAPITAL', purpose: 'WORKING_CAPITAL', amount: 1_000_000, termMonths: 12
+    });
+  });
   it('keeps twelve questions visible but sends only four previous completed turns, bounded to MAX_TEXT', async () => {
     const user = userEvent.setup();
     ask.mockImplementation((question: string) => Promise.resolve({ text: `Ответ ${question}` + 'а'.repeat(1050), mode: 'RULES', sources: [] }));

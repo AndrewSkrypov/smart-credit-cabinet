@@ -16,7 +16,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 
-enum class HintType { MISSING_DOCUMENTS, INFO_DEADLINE, OFFER_DEADLINE, PRE_APPROVED }
+enum class HintType { MISSING_DOCUMENTS, INFO_DEADLINE, OFFER_DEADLINE, PRE_APPROVED, ALTERNATIVE }
 
 data class AssistantHint(
     val type: HintType,
@@ -25,6 +25,7 @@ data class AssistantHint(
     val applicationId: UUID? = null,
     val deadline: Instant? = null,
     val canRemind: Boolean = false,
+    val companyId: UUID? = null,
 )
 
 @Service
@@ -56,7 +57,13 @@ class AssistantNextSteps(
             .mapNotNull { row ->
                 val expiry = row.path("validUntil").instant() ?: return@mapNotNull null
                 if (expiry <= now) return@mapNotNull null
-                AssistantHint(HintType.PRE_APPROVED, "Есть предодобренное предложение", row.path("productName").asText(), deadline = expiry)
+                AssistantHint(
+                    HintType.PRE_APPROVED,
+                    "Есть предодобренное предложение",
+                    row.path("productName").asText(),
+                    deadline = expiry,
+                    companyId = UUID.fromString(row.path("companyId").asText()),
+                )
             }.take(MAX_PRE_APPROVED)
         return applications + offers
     }
@@ -117,24 +124,31 @@ class AssistantNextSteps(
                 val title = if (deadline <= now.plus(REMINDER_WINDOW)) "Скоро истечёт срок ответа банку" else "Банк ждёт ответа по заявке"
                 listOf(AssistantHint(HintType.INFO_DEADLINE, title, checkList.joinToString("\n"), id, deadline, agent && hasDocuments))
             }
-            "OFFER_ISSUED" -> {
-                val deadline = process.path("offer").path("validUntil").instant() ?: return emptyList()
-                if (deadline <= now || deadline > now.plus(REMINDER_WINDOW)) return emptyList()
-                listOf(
-                    AssistantHint(
-                        HintType.OFFER_DEADLINE,
-                        "Скоро истечёт срок предложения",
-                        "Клиент может ответить на предложение в своём кабинете.",
-                        id,
-                        deadline,
-                    ),
-                )
+            "OFFER_ISSUED" -> buildList {
+                val offer = process.path("offer")
+                val deadline = offer.path("validUntil").instant()
+                if (deadline != null && deadline > now && deadline <= now.plus(REMINDER_WINDOW)) {
+                    add(
+                        AssistantHint(
+                            HintType.OFFER_DEADLINE,
+                            "Скоро истечёт срок предложения",
+                            "Клиент может ответить на предложение в своём кабинете.",
+                            id,
+                            deadline,
+                        ),
+                    )
+                }
+                if (offer.path("kind").asText() == "COUNTER") add(alternative(id))
             }
+            "REJECTED" -> listOf(alternative(id))
             else -> emptyList()
         }
     }
 
     private fun JsonNode.instant(): Instant? = if (isTextual) runCatching { Instant.parse(asText()) }.getOrNull() else null
+
+    private fun alternative(id: UUID) =
+        AssistantHint(HintType.ALTERNATIVE, "Можно сравнить другие продукты", "Подбор посчитает ориентировочный платёж по параметрам этой заявки.", id)
 
     private companion object {
         val ACTIONABLE = setOf("DRAFT", "INFO_REQUESTED", "OFFER_ISSUED")

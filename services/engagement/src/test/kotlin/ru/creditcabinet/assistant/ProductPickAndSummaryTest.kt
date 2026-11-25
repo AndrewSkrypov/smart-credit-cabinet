@@ -83,6 +83,27 @@ class ProductPickAndSummaryTest {
     }
 
     @Test
+    fun `an alternative to a counter offer excludes the offered product and uses a verified payment`() {
+        val applicationId = UUID.randomUUID()
+        whenever(applications.application(eq(applicationId), any(), eq(false))).thenReturn(
+            mapper.readTree(
+                """{"status":"OFFER_ISSUED","purpose":"WORKING_CAPITAL","amount":2000000,"termMonths":12,
+                "product":{"code":"WORKING_CAPITAL"},"process":{"offer":{"kind":"COUNTER","productCode":"OVERDRAFT"}}}""",
+            ),
+        )
+        whenever(products.purposes(any())).thenReturn(mapOf("WORKING_CAPITAL" to "Закупка товара или сырья"))
+        whenever(products.match(eq("WORKING_CAPITAL"), eq(2_000_000L), eq(12), any())).thenReturn(matches)
+        val response = post("/api/v1/assistant/messages", client, mapOf("question" to "Подбери альтернативу", "applicationId" to applicationId))
+        assertEquals(200, response.status)
+        val answer = mapper.readTree(response.getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        val text = answer["text"].asText()
+        assertTrue("185 270,37 ₽" in text && "Овердрафт" !in text, text)
+        assertEquals("/client/new?purpose=WORKING_CAPITAL&amount=2000000&termMonths=12&excludeProductCode=OVERDRAFT", answer["link"]["path"].asText())
+        verify(model, never()).chat(any())
+    }
+
+    @Test
     fun `a missing amount is asked for, and the answer to it completes the need from the conversation`() {
         whenever(products.purposes(any())).thenReturn(mapOf("WORKING_CAPITAL" to "Закупка товара или сырья"))
         whenever(

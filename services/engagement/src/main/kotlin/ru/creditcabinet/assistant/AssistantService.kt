@@ -51,6 +51,21 @@ class AssistantService(
         // and a model would make one up.
         // Legal advice and ways around repayment are refused before any model sees the question.
         if (RuleAnswers.asksForLegalAdvice(question)) return Answer(RuleAnswers.NO_LEGAL_ADVICE, AnswerMode.RULES, sources)
+        if (applicationId != null && ALTERNATIVE.containsMatchIn(question) && (claims.isClient || claims.isAgent)) {
+            val application = applications.application(applicationId, authorization, claims.isAgent)
+            val offer = application.path("process").path("offer")
+            if (application.path("status").asText() == "REJECTED" || offer.path("kind").asText() == "COUNTER") {
+                val requested = NeedParser.parse(question)
+                val need = FinancingNeed(
+                    requested.purpose ?: application.path("purpose").asText(),
+                    requested.amount ?: application.path("amount").asLong(),
+                    requested.termMonths ?: application.path("termMonths").asInt(),
+                )
+                val excluded = offer.path("productCode").asText().ifBlank { application.path("product").path("code").asText() }
+                val (text, link) = ProductAdvice.answer(need, products, authorization, excluded)
+                return Answer(text, AnswerMode.RULES, listOf("Подбор продукта", "Данные заявки"), link)
+            }
+        }
         // «Подбери кредит…»: products and payments come from the matcher of the needs wizard, by rules.
         financingNeed(question, history)?.let { need ->
             val (text, link) = ProductAdvice.answer(need, products, authorization)
@@ -217,6 +232,7 @@ class AssistantService(
         private const val MAX_TEXT = 1000
         private val PROMPT_LABELS = listOf("Справка", "Данные заявки", "Вопрос клиента", "Заявка не выбрана")
         private val ANSWER_LABEL = Regex("Ответ(?: на вопрос клиента)?:", RegexOption.IGNORE_CASE)
+        private val ALTERNATIVE = Regex("альтернатив|друг(?:ой|ие|ого)\\s+продукт", RegexOption.IGNORE_CASE)
         private const val MAX_HISTORY = 4
         private const val MAX_QUESTIONS = 20
         private val WINDOW: Duration = Duration.ofMinutes(10)

@@ -2,7 +2,7 @@ import { Alert, Badge, Box, Button, Chip, Dialog, DialogActions, DialogContent, 
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Link as RouterLink, useLocation } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { api, assistantApi, get, post } from '../api/client';
 import { readSession } from '../auth/session';
 import { tokens } from '../theme/theme';
@@ -10,14 +10,22 @@ import { SensitiveDataNotice } from './SensitiveDataNotice';
 import { AssistantAnswer, AssistantTurn } from '../types';
 
 const APPLICATION_PATH = /^\/(?:client|agent)\/applications\/([0-9a-f-]{36})(?:\/|$)/;
+const AGENT_COMPANY_PATH = /^\/agent\/clients\/([0-9a-f-]{36})(?:\/|$)/;
 
 interface Hint {
-  type: 'MISSING_DOCUMENTS' | 'INFO_DEADLINE' | 'OFFER_DEADLINE' | 'PRE_APPROVED';
+  type: 'MISSING_DOCUMENTS' | 'INFO_DEADLINE' | 'OFFER_DEADLINE' | 'PRE_APPROVED' | 'ALTERNATIVE';
   title: string;
   detail: string;
   applicationId: string | null;
   deadline: string | null;
   canRemind: boolean;
+  companyId?: string | null;
+}
+
+interface DraftPreview {
+  companyId: string | null;
+  input: { productCode: string; purpose: string; amount: number; termMonths: number };
+  productName: string;
 }
 
 const deadlineFormat = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Moscow' });
@@ -80,9 +88,11 @@ const contextFor = (messages: Message[]): AssistantTurn[] => messages
  */
 export function AssistantPanel() {
   const location = useLocation();
+  const navigate = useNavigate();
   const applicationId = location.pathname.match(APPLICATION_PATH)?.[1] ?? null;
+  const companyId = location.pathname.match(AGENT_COMPANY_PATH)?.[1] ?? null;
   const agent = location.pathname === '/agent' || location.pathname.startsWith('/agent/');
-  const contextKey = `${agent ? 'agent' : 'client'}:${applicationId ?? ''}`;
+  const contextKey = `${agent ? 'agent' : 'client'}:${applicationId ?? ''}:${companyId ?? ''}`;
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<{ mode: 'MODEL' | 'RULES'; model: string | null } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -94,6 +104,9 @@ export function AssistantPanel() {
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [sendingReminder, setSendingReminder] = useState(false);
   const [reminderFeedback, setReminderFeedback] = useState<{ error: boolean; text: string } | null>(null);
+  const [draftPreview, setDraftPreview] = useState<DraftPreview | null>(null);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
   const requestId = useRef(0);
   const currentContext = useRef(contextKey);
@@ -119,6 +132,9 @@ export function AssistantPanel() {
     setConfirmation(null);
     setSendingReminder(false);
     setReminderFeedback(null);
+    setDraftPreview(null);
+    setDraftBusy(false);
+    setDraftError(null);
     return () => {
       requestId.current += 1;
       inFlight.current?.abort();
@@ -135,7 +151,7 @@ export function AssistantPanel() {
     void refresh();
     const interval = window.setInterval(() => { void refresh(); }, 60_000);
     return () => { active = false; window.clearInterval(interval); };
-  }, [agent, applicationId]);
+  }, [agent, applicationId, companyId]);
 
   const ask = async (text: string) => {
     const trimmed = text.trim();
@@ -186,6 +202,54 @@ export function AssistantPanel() {
     }
   };
 
+  const prepareDraft = async (path: string) => {
+    if (draftBusy) return;
+    setDraftError(null);
+    setDraftBusy(true);
+    try {
+      const query = new URL(path, window.location.origin).searchParams;
+      const purpose = query.get('purpose');
+      const amount = Number(query.get('amount'));
+      const termMonths = Number(query.get('termMonths'));
+      const excluded = query.get('excludeProductCode');
+      if (!purpose || !Number.isSafeInteger(amount) || amount <= 0 || !Number.isInteger(termMonths) || termMonths < 1) {
+        throw new Error('Уточните цель, сумму и срок, чтобы подготовить черновик');
+      }
+      const target = agent
+        ? companyId ?? (applicationId ? (await get<{ company: { id: string } }>(`/agent/applications/${applicationId}`)).company.id : null)
+        : null;
+      if (agent && !target) throw new Error('Сначала откройте клиента в агентском кабинете');
+      const matches = await post<Array<{ fits: boolean; termMonths: number; product: { code: string; name: string } }>>('/products/match', { purpose, amount, termMonths });
+      const match = matches.find(({ fits, product }) => fits && product.code !== excluded);
+      if (!match) throw new Error('Для этих параметров пока нет подходящего продукта');
+      if (contextKey === currentContext.current) setDraftPreview({ companyId: target, productName: match.product.name,
+        input: { productCode: match.product.code, purpose, amount, termMonths: match.termMonths } });
+    } catch (nextError) {
+      if (contextKey === currentContext.current) setDraftError(nextError instanceof Error ? nextError.message : 'Черновик недоступен');
+    } finally {
+      if (contextKey === currentContext.current) setDraftBusy(false);
+    }
+  };
+
+  const createDraft = async () => {
+    if (!draftPreview || draftBusy) return;
+    setDraftBusy(true);
+    setDraftError(null);
+    try {
+      const draft = draftPreview.companyId
+        ? await post<{ id: string }>('/agent/applications', { ...draftPreview.input, companyId: draftPreview.companyId })
+        : await post<{ id: string }>('/applications', { ...draftPreview.input, bureauConsent: false });
+      if (contextKey !== currentContext.current) return;
+      setDraftPreview(null);
+      setOpen(false);
+      navigate(`/${draftPreview.companyId ? 'agent' : 'client'}/applications/${draft.id}`);
+    } catch (nextError) {
+      if (contextKey === currentContext.current) setDraftError(nextError instanceof Error ? nextError.message : 'Черновик не создан');
+    } finally {
+      if (contextKey === currentContext.current) setDraftBusy(false);
+    }
+  };
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
     void ask(question);
@@ -219,11 +283,14 @@ export function AssistantPanel() {
               {hint.deadline && <Typography variant="caption" display="block">До {deadlineFormat.format(new Date(hint.deadline))} МСК</Typography>}
               <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 0.5 }}>
                 {hint.applicationId && hint.applicationId !== applicationId && <Button component={RouterLink} to={`/${agent ? 'agent' : 'client'}/applications/${hint.applicationId}`} size="small" onClick={() => setOpen(false)}>Открыть заявку</Button>}
+                {hint.type === 'PRE_APPROVED' && hint.companyId && <Button component={RouterLink} to={`/agent/clients/${hint.companyId}`} size="small" onClick={() => setOpen(false)}>Открыть клиента</Button>}
+                {hint.type === 'ALTERNATIVE' && applicationId === hint.applicationId && <Button size="small" disabled={busy} onClick={() => void ask('Подбери альтернативный продукт и посчитай платёж')}>Сравнить продукты</Button>}
                 {hint.canRemind && hint.applicationId && <Button size="small" onClick={() => setConfirmation(hint.applicationId)}>Напомнить клиенту</Button>}
               </Stack>
             </Box>)}
           </Stack>}
           {reminderFeedback && <Alert severity={reminderFeedback.error ? 'error' : 'success'} sx={{ mb: 2 }}>{reminderFeedback.text}</Alert>}
+          {draftError && !draftPreview && <Alert severity="error" sx={{ mb: 2 }}>{draftError}</Alert>}
           {messages.length === 0 && (
             <Stack spacing={1.5}>
               <Typography color="text.secondary">
@@ -243,7 +310,9 @@ export function AssistantPanel() {
                   <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{message.text}</Typography>
                 </Box>
                 {message.answer?.link && (
-                  <Button component={RouterLink} to={message.answer.link.path} variant="contained" size="small" sx={{ mt: 1, display: 'flex', width: 'fit-content' }}>{message.answer.link.label}</Button>
+                  agent || new URL(message.answer.link.path, window.location.origin).searchParams.has('excludeProductCode')
+                    ? <Button variant="contained" size="small" disabled={draftBusy} sx={{ mt: 1 }} onClick={() => void prepareDraft(message.answer!.link!.path)}>Подготовить черновик</Button>
+                    : <Button component={RouterLink} to={message.answer.link.path} variant="contained" size="small" sx={{ mt: 1, display: 'flex', width: 'fit-content' }}>{message.answer.link.label}</Button>
                 )}
                 {message.answer && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                   {message.answer.mode === 'MODEL' ? 'Ответ модели' : 'По правилам и данным кабинета'}
@@ -271,6 +340,18 @@ export function AssistantPanel() {
         <DialogActions>
           <Button disabled={sendingReminder} onClick={() => setConfirmation(null)}>Отмена</Button>
           <Button variant="contained" disabled={sendingReminder} onClick={() => void sendReminder()}>Отправить уведомление</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={draftPreview !== null} onClose={() => { if (!draftBusy) setDraftPreview(null); }}>
+        <DialogTitle>{draftPreview?.companyId ? 'Создать черновик для клиента?' : 'Создать черновик заявки?'}</DialogTitle>
+        {draftPreview && <DialogContent>
+          <Typography>{draftPreview.productName}</Typography>
+          <Typography>{draftPreview.input.amount.toLocaleString('ru-RU')} ₽ на {draftPreview.input.termMonths} мес.</Typography>
+          {draftError && <Alert severity="error" sx={{ mt: 1 }}>{draftError}</Alert>}
+        </DialogContent>}
+        <DialogActions>
+          <Button disabled={draftBusy} onClick={() => setDraftPreview(null)}>Отмена</Button>
+          <Button variant="contained" disabled={draftBusy} onClick={() => void createDraft()}>Создать черновик</Button>
         </DialogActions>
       </Dialog>
     </>

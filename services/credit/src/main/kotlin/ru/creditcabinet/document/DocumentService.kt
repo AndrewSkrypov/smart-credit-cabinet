@@ -16,6 +16,9 @@ import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.TokenClaims
+import ru.creditcabinet.document.application.ApplicationDocuments
+import ru.creditcabinet.document.application.DocumentUpload
+import ru.creditcabinet.document.application.DocumentUploadLimit
 import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentContext
 import ru.creditcabinet.document.domain.DocumentRepository
@@ -24,7 +27,6 @@ import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.document.domain.FileContent
 import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.domain.StoredFile
-import ru.creditcabinet.document.infrastructure.UploadThrottle
 import java.security.MessageDigest
 import java.time.Clock
 import java.util.UUID
@@ -40,29 +42,30 @@ class DocumentService(
     private val store: FileStore,
     private val scanner: DocumentScanner,
     private val journal: ApplicationJournal,
-    private val throttle: UploadThrottle,
+    private val throttle: DocumentUploadLimit,
     private val clock: Clock,
     @Value("\${cabinet.storage.max-size-bytes:20971520}") private val maxSizeBytes: Long,
     @Value("\${cabinet.storage.uploads-enabled:true}") private val uploadsEnabled: Boolean,
-) {
-    fun list(applicationId: UUID): List<ApplicationDocument> = documents.list(applications.get(applicationId).id)
+) : ApplicationDocuments {
+    override fun list(applicationId: UUID): List<ApplicationDocument> = documents.list(applications.get(applicationId).id)
 
     /** Lists documents for an already-authorized application aggregate (e.g. right after a transition). */
-    fun list(application: LoanApplication): List<ApplicationDocument> = documents.list(application.id)
+    override fun list(authorizedApplication: LoanApplication): List<ApplicationDocument> = documents.list(authorizedApplication.id)
 
     /** A client adds documents while preparing the application or when the bank asked for them. */
     @Transactional
-    fun upload(applicationId: UUID, type: DocumentType, file: MultipartFile): ApplicationDocument {
+    override fun upload(applicationId: UUID, type: DocumentType, file: DocumentUpload): ApplicationDocument {
         val (claims, application) = applications.own(applicationId)
         if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
-        return persist(application, claims, type, file.originalFilename, file.size, { file.bytes }, DocumentContext.BUSINESS)
+        return persist(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS)
     }
 
     /** An agent adds documents to their own mandate-verified application in DRAFT or INFO_REQUESTED. */
     @Transactional
     fun uploadForAgent(application: LoanApplication, claims: TokenClaims, type: DocumentType, file: MultipartFile): ApplicationDocument {
         if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
-        return persist(application, claims, type, file.originalFilename, file.size, { file.bytes }, DocumentContext.BUSINESS)
+        val upload = DocumentUpload(file.originalFilename, file.size) { file.bytes }
+        return persist(application, claims, type, upload.fileName, upload.size, upload.read, DocumentContext.BUSINESS)
     }
 
     /** Chat shares validation and storage, but its files cannot satisfy financial requirements or add process events. */
@@ -130,7 +133,7 @@ class DocumentService(
 
     /** Only from a draft: once sent, what the bank received stays in the application. */
     @Transactional
-    fun delete(applicationId: UUID, documentId: UUID) {
+    override fun delete(applicationId: UUID, documentId: UUID) {
         val (claims, application) = applications.own(applicationId)
         deleteInternal(application, claims, documentId)
     }
@@ -160,7 +163,7 @@ class DocumentService(
         )
     }
 
-    fun open(applicationId: UUID, documentId: UUID): Pair<ApplicationDocument, StoredFile> {
+    override fun open(applicationId: UUID, documentId: UUID): Pair<ApplicationDocument, StoredFile> {
         val application = applications.get(applicationId)
         val document = documents.find(application.id, documentId) ?: throw NotFoundException("Документ не найден")
         if (document.context == DocumentContext.CHAT && document.uploadedBy != CurrentCaller.claims().userId && !documents.isChatAttached(documentId)) {

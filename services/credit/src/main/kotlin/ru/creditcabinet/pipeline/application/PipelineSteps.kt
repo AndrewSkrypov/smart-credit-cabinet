@@ -1,4 +1,4 @@
-package ru.creditcabinet.pipeline
+package ru.creditcabinet.pipeline.application
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
@@ -44,6 +44,7 @@ import ru.creditcabinet.offer.OfferKind
 import ru.creditcabinet.offer.OfferRepository
 import ru.creditcabinet.offer.OfferStatus
 import ru.creditcabinet.offer.SigningSessions
+import ru.creditcabinet.pipeline.PipelineSettings
 import ru.creditcabinet.preapproved.domain.PreApprovedOfferStore
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.applicationCatalog
@@ -80,8 +81,8 @@ class PipelineSteps(
     private val settings: PipelineSettings,
     private val tx: TransactionTemplate,
     private val clock: Clock,
-) {
-    fun run(job: PipelineJob) {
+) : PipelineJobHandler {
+    override fun run(job: PipelineJob) {
         val application = applications.find(job.applicationId)
         if (application == null || application.status != expectedStatus(job.step)) {
             // Nothing to do any more: the application moved on or was withdrawn.

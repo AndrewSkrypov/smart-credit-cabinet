@@ -4,27 +4,16 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
-import ru.creditcabinet.application.domain.LoanApplication
+import ru.creditcabinet.application.application.ApplicationPageRows
+import ru.creditcabinet.application.application.ApplicationPages
 import ru.creditcabinet.common.security.CurrentCaller
 import java.util.UUID
 
-data class ApplicationPageRows(
-    val items: List<LoanApplication>,
-    val page: Int,
-    val size: Int,
-    val totalElements: Long,
-    val totalPages: Int,
-    val hasNext: Boolean,
-    val countsByGroup: Map<String, Long>,
-    val actionRequiredCount: Long,
-    val actionRequiredPreview: List<LoanApplication>,
-)
-
 /** SQL limits IDs before materializing entities; the legacy array endpoint is unchanged. */
 @Component
-class ApplicationPages(private val jdbc: NamedParameterJdbcTemplate, private val repository: ApplicationJpaRepository) {
+class JdbcApplicationPages(private val jdbc: NamedParameterJdbcTemplate, private val repository: ApplicationJpaRepository) : ApplicationPages {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    fun read(page: Long, size: Int, group: String?, q: String, sort: String): ApplicationPageRows {
+    override fun read(page: Long, size: Int, group: String?, q: String, sort: String): ApplicationPageRows {
         require(size in 1..100 && page >= 0 && page <= Int.MAX_VALUE / size) { "Недопустимый номер или размер страницы" }
         val query = q.trim()
         require(query.length <= 100) { "Поиск должен содержать не больше 100 символов" }

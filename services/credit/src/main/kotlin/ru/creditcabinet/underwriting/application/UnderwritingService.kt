@@ -1,4 +1,4 @@
-package ru.creditcabinet.underwriting
+package ru.creditcabinet.underwriting.application
 
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -35,6 +35,16 @@ import ru.creditcabinet.product.domain.forApplication
 import java.time.Clock
 import java.util.UUID
 
+interface UnderwritingDecisions {
+    fun approve(id: UUID, comment: String?): LoanApplication
+
+    fun counterOffer(id: UUID, productCode: String?, amount: Long, termMonths: Int, comment: String?): LoanApplication
+
+    fun requestInfo(id: UUID, items: List<InfoItem>, comment: String?): LoanApplication
+
+    fun reject(id: UUID, comment: String?): LoanApplication
+}
+
 /**
  * Decisions of an underwriter on applications in manual review (T13–T15). The rules'
  * recommendation is shown next to every action; going against it needs a comment, which goes to
@@ -52,9 +62,9 @@ class UnderwritingService(
     private val ruleSets: RuleSets,
     private val settings: PipelineSettings,
     private val clock: Clock,
-) {
+) : UnderwritingDecisions {
     @Transactional
-    fun approve(id: UUID, comment: String?): LoanApplication {
+    override fun approve(id: UUID, comment: String?): LoanApplication {
         val (claims, application, automatic, rules) = reviewed(id, Roles.UNDERWRITER)
         requireJustified(automatic, DecisionOutcome.APPROVE, comment)
         val product = products.forApplication(application)
@@ -75,7 +85,7 @@ class UnderwritingService(
     }
 
     @Transactional
-    fun counterOffer(id: UUID, productCode: String?, amount: Long, termMonths: Int, comment: String?): LoanApplication {
+    override fun counterOffer(id: UUID, productCode: String?, amount: Long, termMonths: Int, comment: String?): LoanApplication {
         val (claims, application, automatic, rules) = reviewed(id, Roles.UNDERWRITER)
         val product = products.forApplication(application, productCode ?: application.terms.productCode)
         require(product.amountFits(amount)) { "Сумма для «${product.name}» — от ${rubles(product.minAmount)} до ${rubles(product.maxAmount)}" }
@@ -96,7 +106,7 @@ class UnderwritingService(
 
     /** T14: a manager asks for documents too; the client gets a list and a deadline. */
     @Transactional
-    fun requestInfo(id: UUID, items: List<InfoItem>, comment: String?): LoanApplication {
+    override fun requestInfo(id: UUID, items: List<InfoItem>, comment: String?): LoanApplication {
         val (claims, application, automatic, rules) = reviewed(id, Roles.UNDERWRITER, Roles.MANAGER)
         require(items.isNotEmpty()) { "Укажите, что нужно от клиента" }
         val now = clock.instant()
@@ -125,7 +135,7 @@ class UnderwritingService(
 
     /** T15: a refusal always explains itself to the client. */
     @Transactional
-    fun reject(id: UUID, comment: String?): LoanApplication {
+    override fun reject(id: UUID, comment: String?): LoanApplication {
         val (claims, application, automatic, rules) = reviewed(id, Roles.UNDERWRITER)
         requireComment(comment, "Укажите причину отказа — клиент увидит её")
         record(application, claims, automatic, rules.version, DecisionOutcome.REJECT, RejectReason.R_MANUAL.name, comment)

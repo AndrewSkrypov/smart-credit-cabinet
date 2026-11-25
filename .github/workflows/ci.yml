@@ -479,6 +479,9 @@ jobs:
       COMPOSE_ANSI: never
       COMPOSE_PROGRESS: plain
       OLLAMA_URL: ""
+      CABINET_OTLP_ENABLED: "true"
+      CABINET_TRACE_SAMPLE_RATE: "1.0"
+      CABINET_LOG_FILE: '/var/log/cabinet/${HOSTNAME}/${spring.application.name}.jsonl'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -511,7 +514,7 @@ jobs:
           sha256sum -c ci-artifacts/backend.sha256
           sha256sum -c ci-artifacts/frontend.sha256
       - name: Start the complete cabinet
-        run: docker compose up --build --wait --wait-timeout 240
+        run: docker compose --profile monitoring up --build --wait --wait-timeout 300
       - name: Wait for public API routes
         run: npm run wait
         working-directory: e2e
@@ -553,7 +556,6 @@ jobs:
           python3 load/chaos.py races --project "$COMPOSE_PROJECT_NAME" --cohort ci-races
       - name: Verify provisioned monitoring and measured source failures
         run: |
-          docker compose --profile monitoring up -d --no-deps prometheus grafana
           docker compose exec -T prometheus promtool check config /etc/prometheus/prometheus.yml
           docker compose exec -T -w /etc/prometheus prometheus promtool test rules rules.test.yml
           python3 monitoring/verify.py --replicas 2 --require-activity --require-source-errors --require-source-timeouts
@@ -569,6 +571,11 @@ jobs:
           MAIL_TESTS=1 npm test --prefix e2e -- tests/release-notifications.spec.ts tests/release-accounts.spec.ts
           python3 load/mail.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-mail
           python3 load/account-mail.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-account-mail
+      - name: Confirm a real cross-service trace and correlated structured log
+        if: ${{ !cancelled() }}
+        run: |
+          replicas="$(docker compose ps --status running -q credit | wc -l)"
+          python3 monitoring/verify.py --replicas "$replicas" --require-correlation --report-name correlation
       - name: Capture service diagnostics
         if: failure()
         run: |

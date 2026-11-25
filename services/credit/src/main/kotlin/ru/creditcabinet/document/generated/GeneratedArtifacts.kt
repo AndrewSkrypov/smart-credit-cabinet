@@ -20,7 +20,7 @@ import ru.creditcabinet.common.notifications.PlatformNotification
 import ru.creditcabinet.common.notifications.PlatformNotifications
 import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.domain.StorageBackend
-import ru.creditcabinet.offer.ContractTexts
+import ru.creditcabinet.offer.application.ContractTexts
 import ru.creditcabinet.offer.Loans
 import ru.creditcabinet.offer.OfferRepository
 import ru.creditcabinet.offer.SigningSessions

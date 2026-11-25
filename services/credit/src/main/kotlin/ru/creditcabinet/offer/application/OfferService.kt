@@ -1,14 +1,13 @@
-package ru.creditcabinet.offer
+package ru.creditcabinet.offer.application
 
 import org.springframework.stereotype.Service
-import org.springframework.transaction.support.TransactionTemplate
+import ru.creditcabinet.application.application.ApplicationAccess
+import ru.creditcabinet.application.application.CommitTransition
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
-import ru.creditcabinet.application.service.ApplicationService
-import ru.creditcabinet.application.service.Transitions
 import ru.creditcabinet.application.service.toActor
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.BadRequestException
@@ -18,7 +17,11 @@ import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.integration.SigningGateway
 import ru.creditcabinet.integration.SigningResult
 import ru.creditcabinet.integration.SourceUnavailableException
-import ru.creditcabinet.offer.application.OfferActions
+import ru.creditcabinet.offer.domain.Offer
+import ru.creditcabinet.offer.domain.OfferRepository
+import ru.creditcabinet.offer.domain.OfferStatus
+import ru.creditcabinet.offer.domain.SigningSessionRecord
+import ru.creditcabinet.offer.domain.SigningSessions
 import ru.creditcabinet.product.domain.ProductCatalog
 import java.time.Clock
 import java.util.UUID
@@ -30,15 +33,15 @@ import java.util.UUID
  */
 @Service
 class OfferService(
-    private val applications: ApplicationService,
-    private val transitions: Transitions,
+    private val applications: ApplicationAccess,
+    private val transitions: CommitTransition,
     private val offers: OfferRepository,
     private val sessions: SigningSessions,
     private val gateway: SigningGateway,
     private val jobs: PipelineJobs,
     private val products: ProductCatalog,
     private val contracts: ContractTexts,
-    private val tx: TransactionTemplate,
+    private val transactions: OfferTransactions,
     private val clock: Clock,
 ) : OfferActions {
     /** T16, then a signing code is issued right away (if the signing service is down, the client asks again). */
@@ -48,11 +51,11 @@ class OfferService(
         val offer = issuedOffer(application)
         val now = clock.instant()
         if (offer.validUntil.isBefore(now)) throw ConflictException("Срок предложения истёк")
-        val saved = tx.execute {
+        val saved = transactions.execute {
             contracts.freeze(application, offer, products.version(offer.productCode, offer.productVersion)!!)
             offers.updateStatus(offer.id, OfferStatus.ACCEPTED, now)
             transitions.commit(application.move(ApplicationEvent.ACCEPT_OFFER, claims.toActor()!!, now, payload = mapOf("offerId" to offer.id.toString())))
-        }!!
+        }
         runCatching { startSigning(saved, offer, claims) }
         return saved
     }
@@ -63,10 +66,10 @@ class OfferService(
         if (application.status == ApplicationStatus.CLOSED) return application
         val offer = issuedOffer(application)
         val now = clock.instant()
-        return tx.execute {
+        return transactions.execute {
             offers.updateStatus(offer.id, OfferStatus.DECLINED, now)
             transitions.commit(application.move(ApplicationEvent.DECLINE_OFFER, claims.toActor()!!, now, comment = comment?.take(2000)))
-        }!!
+        }
     }
 
     /** A new one-time code; the previous one stops working. */
@@ -105,7 +108,7 @@ class OfferService(
         }
         return when (result) {
             is SigningResult.Refused -> throw BadRequestException(result.message)
-            is SigningResult.Signed -> tx.execute {
+            is SigningResult.Signed -> transactions.execute {
                 val now = clock.instant()
                 sessions.markSigned(session.id, result.signatureId, result.signedAt, claims.userId)
                 val saved = transitions.commit(
@@ -113,7 +116,7 @@ class OfferService(
                 )
                 jobs.enqueue(saved.id, PipelineStep.DISBURSEMENT, now)
                 saved
-            }!!
+            }
         }
     }
 

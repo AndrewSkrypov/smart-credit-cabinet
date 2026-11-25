@@ -36,7 +36,7 @@ import ru.creditcabinet.document.application.ApplicationDocuments
 import ru.creditcabinet.document.controller.toDocumentUpload
 import ru.creditcabinet.document.domain.DocumentRequirements
 import ru.creditcabinet.document.domain.DocumentType
-import ru.creditcabinet.offer.ContractTextView
+import ru.creditcabinet.offer.application.ContractTextView
 import ru.creditcabinet.offer.application.OfferActions
 import ru.creditcabinet.product.domain.Calculation
 import ru.creditcabinet.product.domain.LoanMath

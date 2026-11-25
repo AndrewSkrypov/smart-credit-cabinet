@@ -72,7 +72,7 @@ class PipelineSteps(
     private val decisions: DecisionRepository,
     private val offers: OfferRepository,
     private val signing: SigningSessions,
-    private val issuer: ru.creditcabinet.offer.OfferIssuer,
+    private val issuer: ru.creditcabinet.offer.application.OfferIssuer,
     private val loans: Loans,
     private val infoRequests: InfoRequests,
     private val documents: DocumentRepository,

@@ -1,9 +1,10 @@
-package ru.creditcabinet.offer
+package ru.creditcabinet.offer.application
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.offer.application.ContractTextStore
+import ru.creditcabinet.offer.domain.ContractTextSnapshot
+import ru.creditcabinet.offer.domain.Offer
 import ru.creditcabinet.product.domain.LoanMath
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductMatcher.rubles
@@ -12,16 +13,6 @@ import java.security.MessageDigest
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
-
-data class ContractTextSnapshot(
-    val id: UUID,
-    val applicationId: UUID,
-    val offerId: UUID,
-    val templateVersion: Int,
-    val text: String,
-    val sha256: String,
-    val createdAt: Instant,
-)
 
 data class ContractTextView(
     val snapshot: ContractTextSnapshot?,

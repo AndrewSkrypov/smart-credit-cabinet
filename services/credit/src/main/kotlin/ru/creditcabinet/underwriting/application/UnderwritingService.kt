@@ -26,7 +26,7 @@ import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.offer.OfferIssuer
+import ru.creditcabinet.offer.application.OfferIssuer
 import ru.creditcabinet.offer.OfferKind
 import ru.creditcabinet.pipeline.PipelineSettings
 import ru.creditcabinet.product.domain.ProductCatalog

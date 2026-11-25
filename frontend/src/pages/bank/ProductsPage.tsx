@@ -193,6 +193,7 @@ function ProductCard({
   const [viewedVersion, setViewedVersion] = useState<number | null>(null);
   const [lifecycleAction, setLifecycleAction] = useState<LifecycleAction | null>(null);
   const [lifecycleReason, setLifecycleReason] = useState('');
+  const [commissionInput, setCommissionInput] = useState<string | null>(null);
 
   const value = draft ?? current;
   const changed = !!draft && !!current && !sameVersionParams(draft, current);
@@ -206,7 +207,7 @@ function ProductCard({
     try {
       const saved = await productEditorApi.save(value, reason);
       setNotice(`Сохранена версия ${saved.product.version}. Новые заявки используют эти условия.`);
-      setDraft(null); setReason('');
+      setDraft(null); setCommissionInput(null); setReason('');
       setConfirm(false);
       await history.reload(); await onSaved();
     } catch (next) {
@@ -234,6 +235,7 @@ function ProductCard({
       setLifecycleAction(null);
       setLifecycleReason('');
       setDraft(null);
+      setCommissionInput(null);
       await history.reload();
       await onSaved();
     } catch (next) {
@@ -250,7 +252,7 @@ function ProductCard({
 
   const status = resolveLifecycle(value);
   const currentStatus = current ? resolveLifecycle(current) : status;
-  const commissionPct = ((value.agentCommissionRateBps ?? 150) / 100).toFixed(2);
+  const displayedCommission = commissionInput ?? ((value.agentCommissionRateBps ?? 150) / 100).toFixed(2);
 
   const numberField = (key: 'minAmount' | 'maxAmount' | 'minTermMonths' | 'maxTermMonths' | 'baseRate' | 'autoApprovalLimit', label: string) => (
     <Grid item xs={12} sm={6} key={key}>
@@ -323,7 +325,7 @@ function ProductCard({
               <Alert
                 severity="warning"
                 action={
-                  <Button disabled={busy} onClick={() => requestDiscard(() => { setDraft(null); setReason(''); setError(null); })}>
+                  <Button disabled={busy} onClick={() => requestDiscard(() => { setDraft(null); setCommissionInput(null); setReason(''); setError(null); })}>
                     Загрузить текущие условия
                   </Button>
                 }
@@ -346,15 +348,28 @@ function ProductCard({
                     label="Комиссия агента, %"
                     fullWidth
                     type="number"
-                    value={commissionPct}
+                    value={displayedCommission}
                     disabled={!canEdit || busy}
                     inputProps={{ min: 0, max: 100, step: '0.05' }}
                     helperText={`${value.agentCommissionRateBps ?? 150} б.п. (например, 1,50% = 150 б.п.)`}
                     onChange={(event) => {
-                      const pct = Number(event.target.value);
-                      if (Number.isFinite(pct) && pct >= 0) {
-                        change({ agentCommissionRateBps: Math.round(pct * 100) });
+                      const raw = event.target.value;
+                      setCommissionInput(raw);
+                      if (raw.trim() === '') return;
+                      const parsed = Number(raw.replace(',', '.'));
+                      if (Number.isFinite(parsed)) {
+                        const clamped = Math.min(100, Math.max(0, parsed));
+                        change({ agentCommissionRateBps: Math.round(clamped * 100) });
                       }
+                    }}
+                    onBlur={() => {
+                      if (commissionInput === null) return;
+                      const parsed = Number(commissionInput.replace(',', '.'));
+                      if (commissionInput.trim() !== '' && Number.isFinite(parsed)) {
+                        const clamped = Math.min(100, Math.max(0, parsed));
+                        change({ agentCommissionRateBps: Math.round(clamped * 100) });
+                      }
+                      setCommissionInput(null);
                     }}
                   />
                 </Grid>

@@ -94,6 +94,12 @@ jobs:
           done
           python3 deploy/check-schema-rollback.py --pg-bin "$(pg_config --bindir)" --port 5432 --user cabinet \
             --source-prefix cabinet_test_ --output ci-artifacts/schema-rollback.json
+      - name: Restore and replay every Flyway version on PostgreSQL 16
+        env:
+          PGPASSWORD: cabinet
+        run: |
+          python3 deploy/check-migration-restore.py --pg-bin "$(pg_config --bindir)" --java-bin "$JAVA_HOME/bin" \
+            --port 5432 --user cabinet --output ci-artifacts/migration-restore.json
       - name: Test and coverage reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -103,6 +109,7 @@ jobs:
             **/build/reports/tests/
             **/build/reports/jacoco/
             ci-artifacts/schema-rollback.json
+            ci-artifacts/migration-restore.json
       - name: Hash the tested service jars
         run: |
           mkdir -p ci-artifacts

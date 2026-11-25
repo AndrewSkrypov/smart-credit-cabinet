@@ -11,6 +11,7 @@ import subprocess
 import time
 import urllib.parse
 import urllib.request
+from urllib.error import HTTPError
 from uuid import uuid4
 
 parser = argparse.ArgumentParser(description="Проверка работающих Prometheus/Grafana и метрик конвейера")
@@ -62,10 +63,24 @@ def make_correlation_request():
     trace_id = uuid4().hex
     request = urllib.request.Request(
         gateway + "/api/v1/agent/applications",
-        headers={"Authorization": "Bearer " + token, "traceparent": f"00-{trace_id}-{uuid4().hex[:16]}-01"},
+        data=json.dumps({
+            "companyId": str(uuid4()), "productCode": "INVESTMENT", "purpose": "EQUIPMENT",
+            "amount": 1_000_000, "termMonths": 12,
+        }).encode(),
+        headers={
+            "Authorization": "Bearer " + token, "traceparent": f"00-{trace_id}-{uuid4().hex[:16]}-01",
+            "Content-Type": "application/json",
+        },
     )
-    with urllib.request.urlopen(request, timeout=10) as response:
-        request_id = response.headers["X-Request-Id"]
+    # An unassigned company makes credit consult identity and logs the expected denial.
+    # The request leaves no application behind.
+    try:
+        with urllib.request.urlopen(request, timeout=10):
+            raise AssertionError("Создание заявки для незакреплённой компании разрешено")
+    except HTTPError as error:
+        with error:
+            assert error.code == 404, f"Проверка мандата агента вернула HTTP {error.code}"
+            request_id = error.headers["X-Request-Id"]
     assert request_id, "Ответ API без X-Request-Id"
     return trace_id, request_id
 

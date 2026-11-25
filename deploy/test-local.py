@@ -78,6 +78,14 @@ def api_for(deployment):
                    ssl_context=ssl.create_default_context(cafile=str(deployment.gateway_config.parent / "local-ca.crt")))
 
 
+def verify_release(deployment, artifact):
+    if args.expected_revision:
+        result = run("verify-release.py", "--project", deployment.project, "--env-file", deployment.path,
+                     "--local", "--expected-revision", args.expected_revision, text=True, encoding="utf-8",
+                     stdout=subprocess.PIPE)
+        (output / artifact).write_text(result.stdout, encoding="utf-8")
+
+
 def check(name, condition):
     assert condition, name
     report["checks"].append(name)
@@ -127,6 +135,8 @@ try:
     run("start.py", "--project", source_name, "--env-file", source_path, "--local", "--no-build")
     run("verify.py", "--project", source_name, "--env-file", source_path)
     shutil.copyfile(ROOT / f"deploy/reports/{source_name}-boundary.json", output / "source-boundary.json")
+    stage = "source-release"
+    verify_release(source, "source-release.json")
     api = api_for(source)
     stage = "operator-bootstrap"
     bank_password = secrets.token_urlsafe(24)
@@ -233,6 +243,8 @@ try:
     shutil.copyfile(ROOT / "deploy/reports/restore.json", output / "restore.json")
     run("verify.py", "--project", target_name, "--env-file", target_path)
     shutil.copyfile(ROOT / f"deploy/reports/{target_name}-boundary.json", output / "restored-boundary.json")
+    stage = "restored-release"
+    verify_release(target, "restored-release.json")
     stage = "restored-database-permissions"
     subprocess.run([sys.executable, str(ROOT / "security/db-permissions.py"), "--project", target_name,
                     "--report-name", "prod-restored-" + suffix], cwd=ROOT, check=True)

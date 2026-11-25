@@ -26,6 +26,12 @@ import ru.creditcabinet.common.outbox.DurableOutbox
 import ru.creditcabinet.common.outbox.OutboxSettings
 import ru.creditcabinet.common.outbox.OutboxWorker
 import ru.creditcabinet.common.security.JwtVerifier
+import ru.creditcabinet.notification.application.NotificationPreference
+import ru.creditcabinet.notification.application.NotificationPreferences
+import ru.creditcabinet.notification.application.PeopleDirectory
+import ru.creditcabinet.notification.infrastructure.MailRecipientDirectory
+import ru.creditcabinet.notification.infrastructure.NotificationEmailDelivery
+import ru.creditcabinet.notification.infrastructure.NotificationMailHandler
 import ru.creditcabinet.tokenFor
 import java.time.Clock
 import java.time.Instant

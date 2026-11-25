@@ -1,10 +1,12 @@
-package ru.creditcabinet.notification
+package ru.creditcabinet.notification.application
 
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.notifications.NotificationEmail
 import ru.creditcabinet.common.security.CurrentCaller
+import ru.creditcabinet.notification.domain.Notification
+import ru.creditcabinet.notification.domain.NotificationType
 import java.time.Clock
 import java.util.UUID
 
@@ -56,11 +58,11 @@ class NotificationService(
     private val people: PeopleDirectory,
     private val clock: Clock,
     private val receipts: NotificationReceipts,
-    private val emailDelivery: NotificationEmailDelivery,
-) {
+    private val emailDelivery: NotificationEmailPort,
+) : NotificationUseCases {
     /** Turns each address into people and stores one row per person; a repeated delivery is stored once. */
     @Transactional
-    fun deliver(items: List<NewNotification>): Int {
+    override fun deliver(items: List<NewNotification>): Int {
         val now = clock.instant()
         return items.sumOf { item ->
             require(item.link == null || Notification.INTERNAL_LINK.matches(item.link)) { "Ссылка уведомления должна вести внутрь кабинета" }
@@ -87,23 +89,23 @@ class NotificationService(
         }
     }
 
-    fun page(page: Int, size: Int): NotificationPage {
+    override fun page(page: Int, size: Int): NotificationPage {
         val me = CurrentCaller.claims().userId
         val index = page.coerceAtLeast(0)
         val limit = size.coerceIn(1, MAX_PAGE)
         return NotificationPage(store.page(me, index * limit, limit).map(NotificationView::of), index, limit, store.total(me), store.unread(me))
     }
 
-    fun unread(): Int = store.unread(CurrentCaller.claims().userId)
+    override fun unread(): Int = store.unread(CurrentCaller.claims().userId)
 
     /** Another person's notification is "not found", like any id one cannot see. */
-    fun markRead(id: UUID) {
+    override fun markRead(id: UUID) {
         val me = CurrentCaller.claims().userId
         val notification = store.find(id)?.takeIf { it.recipientId == me } ?: throw NotFoundException("Уведомление не найдено")
         store.markRead(notification.id, me, clock.instant())
     }
 
-    fun markAllRead(): Int = store.markAllRead(CurrentCaller.claims().userId, clock.instant())
+    override fun markAllRead(): Int = store.markAllRead(CurrentCaller.claims().userId, clock.instant())
 
     private companion object {
         const val MAX_PAGE = 50

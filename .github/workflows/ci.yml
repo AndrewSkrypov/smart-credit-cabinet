@@ -525,6 +525,8 @@ jobs:
         working-directory: e2e
       - name: Evaluate 36 fixed assistant questions without a model connection
         run: python3 scripts/assistant-eval.py --mode rules --project "$COMPOSE_PROJECT_NAME" --report-name ci-rules
+      - name: Evaluate agent assistant facts and rights
+        run: python3 scripts/assistant-final-eval.py --output scripts/assistant-eval-reports/ci-agent-rules.json
       - name: Postman client and bank contracts
         run: npm test
         working-directory: contracts/postman
@@ -603,7 +605,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: assistant-eval-rules
-          path: scripts/assistant-eval-reports/ci-rules/report.json
+          path: |
+            scripts/assistant-eval-reports/ci-rules/report.json
+            scripts/assistant-eval-reports/ci-agent-rules.json
           retention-days: 14
       - name: Reliability measurements without session tokens
         if: always()

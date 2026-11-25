@@ -37,6 +37,9 @@ components:
           type: string
         canRemind:
           type: boolean
+        companyId:
+          format: uuid
+          type: string
         deadline:
           format: date-time
           type: string
@@ -50,6 +53,7 @@ components:
           - INFO_DEADLINE
           - OFFER_DEADLINE
           - PRE_APPROVED
+          - ALTERNATIVE
           type: string
       required:
       - canRemind

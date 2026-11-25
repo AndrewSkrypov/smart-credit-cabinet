@@ -1,0 +1,30 @@
+local.file_match "cabinet" {
+  path_targets = [{ "__path__" = "/var/log/cabinet/*/*.jsonl" }]
+}
+
+loki.source.file "cabinet" {
+  targets    = local.file_match.cabinet.targets
+  forward_to = [loki.process.cabinet.receiver]
+}
+
+loki.process "cabinet" {
+  forward_to = [loki.write.cabinet.receiver]
+
+  stage.json {
+    expressions = { service = "service" }
+  }
+
+  stage.labels {
+    values = { service = "service" }
+  }
+
+  stage.label_drop {
+    values = ["filename"]
+  }
+}
+
+loki.write "cabinet" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

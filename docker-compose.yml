@@ -17,7 +17,19 @@ x-service: &service
   networks:
     - cabinet
 
+x-observability: &observability
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: ${CABINET_LOG_FORMAT:-logstash}
+  LOGGING_STRUCTURED_FORMAT_FILE: logstash
+  LOGGING_FILE_NAME: ${CABINET_LOG_FILE:-}
+  LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE: 5MB
+  LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY: "2"
+  LOGGING_LOGBACK_ROLLINGPOLICY_TOTAL_SIZE_CAP: 32MB
+  MANAGEMENT_OTLP_TRACING_EXPORT_ENABLED: ${CABINET_OTLP_ENABLED:-false}
+  MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+  MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${CABINET_TRACE_SAMPLE_RATE:-0.1}
+
 x-service-env: &service-env
+  <<: *observability
   DB_HOST: postgres
   DB_PORT: 5432
   SPRING_FLYWAY_ENABLED: "false"
@@ -152,7 +164,42 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - cabinet-grafana:/var/lib/grafana
-    depends_on: [prometheus]
+    depends_on: [prometheus, tempo, loki]
+    networks: [cabinet]
+
+  tempo:
+    image: grafana/tempo:2.9.0@sha256:65a5789759435f1ef696f1953258b9bbdb18eb571d5ce711ff812d2e128288a4
+    profiles: [monitoring]
+    mem_limit: 512m
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./monitoring/tempo.yaml:/etc/tempo.yaml:ro
+      - cabinet-tempo:/var/tempo
+    networks: [cabinet]
+
+  loki:
+    image: grafana/loki:3.6.7@sha256:3c8fd3570dd9219951a60d3f919c7f31923d10baee578b77bc26c4a0b32d092d
+    profiles: [monitoring]
+    mem_limit: 512m
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./monitoring/loki.yaml:/etc/loki/config.yaml:ro
+      - cabinet-loki:/loki
+    networks: [cabinet]
+
+  alloy:
+    image: grafana/alloy:v1.13.2@sha256:8abcd0d97a97099cabb34be8dcfc448fca6c35931ae9291aaf74056105dedcca
+    profiles: [monitoring]
+    mem_limit: 256m
+    restart: unless-stopped
+    command: ["run", "--storage.path=/var/lib/alloy", "/etc/alloy/cabinet.alloy"]
+    volumes:
+      - ./monitoring/cabinet.alloy:/etc/alloy/cabinet.alloy:ro
+      - cabinet-service-logs:/var/log/cabinet:ro
+      - cabinet-alloy:/var/lib/alloy
+    depends_on: [loki, identity]
     networks: [cabinet]
 
   postgres:
@@ -271,6 +318,8 @@ services:
       REGISTRY_URL: http://external-sim:8080
       ENGAGEMENT_URL: http://engagement:8080
       SIM_API_KEY: ${SIM_API_KEY:-dev-sim-api-key}
+    volumes:
+      - cabinet-service-logs:/var/log/cabinet
     depends_on:
       valkey:
         condition: service_healthy
@@ -312,6 +361,7 @@ services:
       SOURCE_TIMEOUT: ${SOURCE_TIMEOUT:-PT3M}
     volumes:
       - cabinet-documents:/app/uploads
+      - cabinet-service-logs:/var/log/cabinet
     depends_on:
       valkey:
         condition: service_healthy
@@ -339,6 +389,8 @@ services:
       # The assistant uses the model when the "ai" profile runs, and answers by rules otherwise.
       OLLAMA_URL: ${OLLAMA_URL-http://ollama:11434}
       ASSISTANT_MODEL: ${ASSISTANT_MODEL:-qwen2.5:3b}
+    volumes:
+      - cabinet-service-logs:/var/log/cabinet
     depends_on:
       valkey:
         condition: service_healthy
@@ -355,9 +407,12 @@ services:
         SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
     mem_limit: 512m
     environment:
+      <<: *observability
       JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-32bytes+}
       SIM_API_KEY: ${SIM_API_KEY:-dev-sim-api-key}
       SIM_CONTROL_ENABLED: ${SIM_CONTROL_ENABLED:-true}
+    volumes:
+      - cabinet-service-logs:/var/log/cabinet
 
   frontend:
     build:
@@ -428,6 +483,10 @@ services:
       - cabinet
 
 volumes:
+  cabinet-service-logs:
+  cabinet-tempo:
+  cabinet-loki:
+  cabinet-alloy:
   cabinet-valkey:
   cabinet-seaweedfs:
   cabinet-clamav-signatures:

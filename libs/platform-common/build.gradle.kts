@@ -15,6 +15,7 @@ dependencies {
     compileOnly("org.flywaydb:flyway-core")
     implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("io.micrometer:micrometer-core")
+    implementation("io.micrometer:micrometer-tracing")
     implementation(libs.findLibrary("valkey-java").get())
     runtimeOnly(libs.findLibrary("jjwt-impl").get())
     runtimeOnly(libs.findLibrary("jjwt-jackson").get())

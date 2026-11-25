@@ -1,4 +1,4 @@
-package ru.creditcabinet.notification
+package ru.creditcabinet.notification.infrastructure
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.beans.factory.annotation.Value
@@ -12,6 +12,9 @@ import ru.creditcabinet.common.notifications.NotificationEmail
 import ru.creditcabinet.common.notifications.NotificationEmailKind
 import ru.creditcabinet.common.outbox.DeliveryHandler
 import ru.creditcabinet.common.outbox.DurableOutbox
+import ru.creditcabinet.notification.application.NotificationEmailPort
+import ru.creditcabinet.notification.application.NotificationPreferences
+import ru.creditcabinet.notification.domain.Notification
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
@@ -27,8 +30,8 @@ class NotificationEmailDelivery(
     private val preferences: NotificationPreferences,
     private val outbox: DurableOutbox,
     private val mapper: ObjectMapper,
-) {
-    fun enqueue(notification: Notification, content: NotificationEmail?) {
+) : NotificationEmailPort {
+    override fun enqueue(notification: Notification, content: NotificationEmail?) {
         if (content == null || notification.link == null || !preferences.get(notification.recipientId).emailEnabled) return
         val key = eventKey(notification.dedupKey!!, notification.recipientId)
         val job = NotificationMailJob(notification.recipientId, content, notification.link, key)

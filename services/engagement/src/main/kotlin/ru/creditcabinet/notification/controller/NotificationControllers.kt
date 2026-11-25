@@ -1,4 +1,4 @@
-package ru.creditcabinet.notification
+package ru.creditcabinet.notification.controller
 
 import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
@@ -16,12 +16,17 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.common.notifications.NotificationEmail
+import ru.creditcabinet.notification.application.Audience
+import ru.creditcabinet.notification.application.NewNotification
+import ru.creditcabinet.notification.application.NotificationPage
+import ru.creditcabinet.notification.application.NotificationUseCases
+import ru.creditcabinet.notification.domain.NotificationType
 import java.util.UUID
 
 @Tag(name = "Уведомления в кабинете")
 @RestController
 @RequestMapping("/api/v1/notifications")
-class NotificationController(private val service: NotificationService) {
+class NotificationController(private val service: NotificationUseCases) {
     @Operation(summary = "Мои уведомления, новые сверху")
     @GetMapping
     fun list(@RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int): NotificationPage = service.page(page, size)
@@ -58,7 +63,7 @@ data class InternalNotificationRequest(@field:Valid @field:Size(min = 1, max = 1
 @Hidden
 @RestController
 @RequestMapping("/internal/v1/notifications")
-class InternalNotificationController(private val service: NotificationService) {
+class InternalNotificationController(private val service: NotificationUseCases) {
     @PostMapping
     fun deliver(@Valid @RequestBody request: InternalNotificationRequest): Map<String, Int> =
         mapOf(

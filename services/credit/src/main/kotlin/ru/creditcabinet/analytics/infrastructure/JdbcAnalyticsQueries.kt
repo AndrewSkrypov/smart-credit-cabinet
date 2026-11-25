@@ -1,63 +1,22 @@
-package ru.creditcabinet.analytics
+package ru.creditcabinet.analytics.infrastructure
 
-import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.tags.Tag
-import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.RestController
-import ru.creditcabinet.common.security.CurrentCaller
+import org.springframework.stereotype.Repository
+import ru.creditcabinet.analytics.application.Analytics
+import ru.creditcabinet.analytics.application.AnalyticsQueries
+import ru.creditcabinet.analytics.application.FunnelStep
+import ru.creditcabinet.analytics.application.OutcomeCount
+import ru.creditcabinet.analytics.application.StageTime
 import java.sql.Timestamp
-import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 
-data class FunnelStep(val code: String, val title: String, val applications: Int)
-
-data class StageTime(val status: String, val title: String, val transitions: Int, val averageMinutes: Double?, val medianMinutes: Double?)
-
-data class OutcomeCount(val outcome: String, val decisions: Int)
-
-data class Analytics(
-    val from: Instant,
-    val to: Instant,
-    /** Applications sent in the period and how far they got. */
-    val funnel: List<FunnelStep>,
-    /** How long applications stay in each status before moving on (finished stays only). */
-    val stageTimes: List<StageTime>,
-    val automaticOutcomes: List<OutcomeCount>,
-    val manualOutcomes: List<OutcomeCount>,
-    /** Manual decisions that went against the rules' recommendation. */
-    val manualOverrides: Int,
-    val disbursedAmount: Long,
-    /** Applications in each status right now, drafts excluded. */
-    val currentStatuses: Map<String, Int>,
-)
-
-/**
- * The funnel of the credit pipeline, computed from the journal and the decisions: no separate
- * analytics store, so the numbers are exactly what happened to the applications.
- */
-@Tag(name = "Аналитика конвейера")
-@RestController
-@RequestMapping("/api/v1/analytics")
-class AnalyticsController(private val jdbc: NamedParameterJdbcTemplate, private val clock: Clock) {
-    @Operation(summary = "Воронка, время на этапах и исходы решений за период (по умолчанию 30 дней)")
-    @GetMapping("/funnel")
-    fun funnel(
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) from: Instant?,
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) to: Instant?,
-    ): Analytics {
-        CurrentCaller.requireBankStaff()
-        val end = to ?: clock.instant()
-        val start = from ?: end.minus(Duration.ofDays(30))
-        require(start.isBefore(end)) { "Начало периода должно быть раньше конца" }
-        val period = mapOf("from" to Timestamp.from(start), "to" to Timestamp.from(end))
+@Repository
+class JdbcAnalyticsQueries(private val jdbc: NamedParameterJdbcTemplate) : AnalyticsQueries {
+    override fun read(from: Instant, to: Instant): Analytics {
+        val period = mapOf("from" to Timestamp.from(from), "to" to Timestamp.from(to))
         return Analytics(
-            from = start,
-            to = end,
+            from = from,
+            to = to,
             funnel = funnelSteps(period),
             stageTimes = stageTimes(period),
             automaticOutcomes = outcomes("SYSTEM", period),
@@ -68,7 +27,10 @@ class AnalyticsController(private val jdbc: NamedParameterJdbcTemplate, private 
                 period,
                 Long::class.java,
             )!!,
-            currentStatuses = jdbc.query("select status, count(*) as n from applications where status <> 'DRAFT' group by status", emptyMap<String, Any>()) {
+            currentStatuses = jdbc.query(
+                "select status, count(*) as n from applications where status not in ('DRAFT', 'PENDING_CLIENT_CONFIRMATION') group by status",
+                emptyMap<String, Any>(),
+            ) {
                     rs,
                     _,
                 ->
@@ -112,7 +74,7 @@ class AnalyticsController(private val jdbc: NamedParameterJdbcTemplate, private 
                    avg(extract(epoch from left_at - occurred_at)) / 60 as avg_min,
                    percentile_cont(0.5) within group (order by extract(epoch from left_at - occurred_at)) / 60 as median_min
             from moves
-            where left_at is not null and occurred_at >= :from and occurred_at < :to
+            where left_at is not null and to_status <> 'PENDING_CLIENT_CONFIRMATION' and occurred_at >= :from and occurred_at < :to
             group by to_status
             """.trimIndent(),
             period,

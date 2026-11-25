@@ -2,6 +2,7 @@ package ru.creditcabinet.notification
 
 import ru.creditcabinet.common.notifications.NotificationEmail
 import ru.creditcabinet.common.notifications.NotificationEmailKind
+import ru.creditcabinet.notification.infrastructure.NotificationMailTemplates
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue

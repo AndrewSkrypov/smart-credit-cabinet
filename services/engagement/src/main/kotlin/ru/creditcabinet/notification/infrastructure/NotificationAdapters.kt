@@ -1,4 +1,4 @@
-package ru.creditcabinet.notification
+package ru.creditcabinet.notification.infrastructure
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.beans.factory.annotation.Value
@@ -7,6 +7,12 @@ import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import ru.creditcabinet.notification.application.NewNotification
+import ru.creditcabinet.notification.application.NotificationReceipts
+import ru.creditcabinet.notification.application.NotificationStore
+import ru.creditcabinet.notification.application.PeopleDirectory
+import ru.creditcabinet.notification.domain.Notification
+import ru.creditcabinet.notification.domain.NotificationType
 import java.sql.Timestamp
 import java.time.Duration
 import java.time.Instant

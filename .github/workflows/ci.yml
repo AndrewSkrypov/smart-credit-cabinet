@@ -84,7 +84,22 @@ jobs:
       - name: Build, ktlint and tests
         env:
           OUTBOX_WORKER_ENABLED: "false"
-        run: ./gradlew build --no-daemon
+        run: |
+          set -o pipefail
+          log="$RUNNER_TEMP/cabinet-gradle-build.log"
+          if ./gradlew build --no-daemon 2>&1 | tee "$log"; then
+            exit 0
+          else
+            status=$?
+          fi
+          if [[ "$GRADLE_BUILD_ACTION_CACHE_RESTORED" == true ]] &&
+             grep -Fq "Could not resolve all artifacts for configuration ':build-logic:classpath'" "$log" &&
+             grep -Eq 'repo\.maven\.apache\.org/.+Received status code 429' "$log"; then
+            echo 'Maven Central rate-limited dependency resolution. Retrying the same build from the restored Gradle cache.'
+            ./gradlew build --no-daemon --offline
+          else
+            exit "$status"
+          fi
       - name: Reapply schema comments after rollback on PostgreSQL 16
         env:
           PGPASSWORD: cabinet

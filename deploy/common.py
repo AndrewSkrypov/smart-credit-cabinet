@@ -79,6 +79,8 @@ class Deployment:
         if local and self.values["CABINET_DOMAIN"] != "localhost":
             raise ValueError("Локальная проверка допускает только localhost и внутренний CA")
         self.environment = {**os.environ, **self.values, "COMPOSE_PROFILES": ""}
+        if "ai" in self.profiles:
+            self.environment.setdefault("ASSISTANT_MODEL", "qwen2.5:1.5b")
         if "monitoring" in self.profiles:
             self.environment["CABINET_OTLP_ENABLED"] = "true"
             self.environment["CABINET_LOG_FILE"] = "/var/log/cabinet/${HOSTNAME}/${spring.application.name}.jsonl"

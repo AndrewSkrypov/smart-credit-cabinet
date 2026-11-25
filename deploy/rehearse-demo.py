@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--project", required=True)
     parser.add_argument("--confirm-project", required=True)
     parser.add_argument("--port", type=int, default=18082)
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     started = time.monotonic()
     subprocess.run(
@@ -31,7 +32,11 @@ def main():
     elapsed = time.monotonic() - started
     report = {"project": args.project, "seconds": round(elapsed, 3), "roles": roles,
               "passed": roles == {"agent": "AGENT", "client": "CLIENT"} and elapsed <= 300}
-    print(json.dumps(report, ensure_ascii=False), flush=True)
+    result = json.dumps(report, ensure_ascii=False)
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(result + "\n", encoding="utf-8")
+    print(result, flush=True)
     return 0 if report["passed"] else 1
 
 

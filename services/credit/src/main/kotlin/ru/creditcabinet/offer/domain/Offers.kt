@@ -1,4 +1,4 @@
-package ru.creditcabinet.offer
+package ru.creditcabinet.offer.domain
 
 import java.math.BigDecimal
 import java.time.Instant

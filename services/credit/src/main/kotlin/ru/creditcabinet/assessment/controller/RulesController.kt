@@ -6,7 +6,6 @@ import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
-import org.springframework.dao.DuplicateKeyException
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -15,14 +14,10 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import ru.creditcabinet.assessment.application.CreditRules
 import ru.creditcabinet.assessment.domain.Rating
 import ru.creditcabinet.assessment.domain.RuleSet
 import ru.creditcabinet.assessment.domain.RuleSetVersion
-import ru.creditcabinet.assessment.domain.RuleSets
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.NotFoundException
-import ru.creditcabinet.common.security.CurrentCaller
-import ru.creditcabinet.common.security.Roles
 
 /** The thresholds of the credit policy; the same shape is read and written. */
 data class RuleParams(
@@ -64,22 +59,16 @@ data class NewRulesRequest(
 @Tag(name = "Версии кредитной политики")
 @RestController
 @RequestMapping("/api/v1/rules")
-class RulesController(private val ruleSets: RuleSets) {
+class RulesController(private val rules: CreditRules) {
     @Operation(summary = "Действующие пороги кредитной политики и история версий")
     @GetMapping
-    fun current(): RulesResponse {
-        CurrentCaller.requireBankStaff()
-        val current = ruleSets.current()
-        return RulesResponse(current.version, RuleParams.of(current), ruleSets.history())
-    }
+    fun current(): RulesResponse = rules.current().let { RulesResponse(it.rule.version, RuleParams.of(it.rule), it.versions) }
 
     @Operation(summary = "Неизменяемый снимок выбранной версии правил")
     @GetMapping("/{version}")
     fun version(@PathVariable version: Int): RulesSnapshot {
-        CurrentCaller.requireBankStaff()
-        val rules = ruleSets.find(version) ?: throw NotFoundException("Версия правил не найдена")
-        val metadata = ruleSets.history().first { it.version == version }
-        return RulesSnapshot(version, RuleParams.of(rules), metadata)
+        val (rule, metadata) = rules.version(version)
+        return RulesSnapshot(version, RuleParams.of(rule), metadata)
     }
 
     /**
@@ -90,15 +79,7 @@ class RulesController(private val ruleSets: RuleSets) {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(@Valid @RequestBody request: NewRulesRequest): RulesResponse {
-        val claims = CurrentCaller.requireRole(Roles.RISK_ADMIN)
-        val candidate = request.params.toRuleSet(version = 0)
-        val problems = candidate.problems()
-        require(problems.isEmpty()) { problems.joinToString("; ") }
-        val saved = try {
-            ruleSets.create(candidate, request.expectedVersion, claims.userId, request.comment.trim(), claims.fullName, claims.role)
-        } catch (exception: DuplicateKeyException) {
-            throw ConflictException("Правила только что изменил другой администратор — обновите страницу")
-        }
-        return RulesResponse(saved.version, RuleParams.of(saved), ruleSets.history())
+        val (saved, versions) = rules.create(request.params.toRuleSet(version = 0), request.expectedVersion, request.comment)
+        return RulesResponse(saved.version, RuleParams.of(saved), versions)
     }
 }

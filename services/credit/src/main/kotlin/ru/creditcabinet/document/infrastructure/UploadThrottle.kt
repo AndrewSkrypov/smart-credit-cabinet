@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.limits.LimitWindow
 import ru.creditcabinet.common.limits.SharedLimits
+import ru.creditcabinet.document.application.DocumentUploadLimit
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -16,10 +17,10 @@ import java.util.concurrent.ConcurrentHashMap
  * storage. Valkey counts all replicas; local state is only for isolated development/tests.
  */
 @Component
-class UploadThrottle(private val shared: SharedLimits, private val clock: Clock = Clock.systemUTC()) {
+class UploadThrottle(private val shared: SharedLimits, private val clock: Clock = Clock.systemUTC()) : DocumentUploadLimit {
     private val uploads = ConcurrentHashMap<UUID, List<Instant>>()
 
-    fun acquire(userId: UUID) {
+    override fun acquire(userId: UUID) {
         if (shared.enabled) {
             shared.acquire("Слишком много загрузок подряд. Попробуйте через несколько минут.", LimitWindow("upload", userId.toString(), MAX_UPLOADS, WINDOW))
             return

@@ -1,8 +1,9 @@
-package ru.creditcabinet.pipeline
+package ru.creditcabinet.pipeline.infrastructure
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Component
@@ -105,14 +106,23 @@ class JdbcRuleSets(private val jdbc: NamedParameterJdbcTemplate, private val map
         require(current.copy(version = 0) != rules.copy(version = 0)) { "Условия не изменились — новая версия не требуется" }
         val params =
             with(rules) { Params(maxLoad, revenueMismatch, ratingCutoffs, ratingMargins, lowRiskOkved, highRiskOkved, weakAmountShare, weakRevenueShare) }
-        val version = jdbc.queryForObject(
+        val version = try {
+            insertVersion(current.version + 1, params, createdBy, comment, authorName, authorRole)
+        } catch (_: DuplicateKeyException) {
+            throw ConflictException("Правила только что изменил другой администратор — обновите страницу")
+        }
+        return rules.copy(version = version)
+    }
+
+    private fun insertVersion(version: Int, params: Params, createdBy: UUID, comment: String, authorName: String?, authorRole: String?): Int =
+        jdbc.queryForObject(
             """
             insert into rule_sets (version, params, created_by, comment, author_name, author_role)
             values (:version, cast(:params as jsonb), :by, :comment, :name, :role)
             returning version
             """.trimIndent(),
             mapOf(
-                "version" to current.version + 1,
+                "version" to version,
                 "params" to mapper.writeValueAsString(params),
                 "by" to createdBy,
                 "comment" to comment,
@@ -121,8 +131,6 @@ class JdbcRuleSets(private val jdbc: NamedParameterJdbcTemplate, private val map
             ),
             Int::class.java,
         )!!
-        return rules.copy(version = version)
-    }
 }
 
 @Component

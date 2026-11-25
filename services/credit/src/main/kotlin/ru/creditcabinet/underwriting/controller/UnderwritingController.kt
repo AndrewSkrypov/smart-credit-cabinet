@@ -1,4 +1,4 @@
-package ru.creditcabinet.underwriting
+package ru.creditcabinet.underwriting.controller
 
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -13,35 +13,25 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.InfoItem
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.application.service.notFound
 import ru.creditcabinet.assessment.domain.BankInfo
 import ru.creditcabinet.assessment.domain.BureauInfo
 import ru.creditcabinet.assessment.domain.Decision
 import ru.creditcabinet.assessment.domain.DecisionOutcome
-import ru.creditcabinet.assessment.domain.DecisionRepository
-import ru.creditcabinet.assessment.domain.EnrichmentStore
 import ru.creditcabinet.assessment.domain.FactorScore
 import ru.creditcabinet.assessment.domain.Rating
 import ru.creditcabinet.assessment.domain.Recommendation
 import ru.creditcabinet.assessment.domain.RegistryInfo
-import ru.creditcabinet.assessment.domain.Scorecard
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.assessment.domain.TaxInfo
-import ru.creditcabinet.common.security.CurrentCaller
-import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.document.domain.DocumentType
-import ru.creditcabinet.product.domain.ProductMatcher.rubles
+import ru.creditcabinet.underwriting.application.UnderwritingAssessment
+import ru.creditcabinet.underwriting.application.UnderwritingDecisions
+import ru.creditcabinet.underwriting.domain.Discrepancy
 import java.time.Instant
 import java.util.UUID
-import kotlin.math.abs
-import kotlin.math.roundToInt
-
-/** A place where what the client said and what a source says do not agree. */
-data class Discrepancy(val field: String, val declared: String, val source: String, val actual: String, val differencePercent: Int?)
 
 data class ReasonView(val code: String, val title: String)
 
@@ -129,37 +119,26 @@ data class InfoRequestBody(
 @RestController
 @RequestMapping("/api/v1/underwriting/applications")
 class UnderwritingController(
-    private val service: UnderwritingService,
-    private val applications: ApplicationRepository,
-    private val enrichment: EnrichmentStore,
-    private val decisions: DecisionRepository,
+    private val service: UnderwritingDecisions,
+    private val assessments: UnderwritingAssessment,
 ) {
     @Operation(summary = "Карточка оценки: данные источников, расхождения, скоринг и рекомендация")
     @GetMapping("/{id}")
     fun assessment(@PathVariable id: UUID): AssessmentView {
-        val claims = CurrentCaller.requireBankStaff()
-        val application = applications.find(id)?.takeIf { it.visibleToBank } ?: throw notFound()
-        val sources = enrichment.load(application.id)
-        val bank = sources[SourceKind.BANK] as BankInfo?
-        val actions = when {
-            application.status != ApplicationStatus.MANUAL_REVIEW -> emptyList()
-            claims.role == Roles.UNDERWRITER -> listOf("APPROVE", "COUNTER_OFFER", "REQUEST_INFO", "REJECT")
-            claims.role == Roles.MANAGER -> listOf("REQUEST_INFO")
-            else -> emptyList()
-        }
+        val card = assessments.read(id)
         return AssessmentView(
-            applicationId = application.id,
-            status = application.status,
-            registry = sources[SourceKind.REGISTRY] as RegistryInfo?,
-            tax = sources[SourceKind.TAX] as TaxInfo?,
-            bureau = sources[SourceKind.BUREAU] as BureauInfo?,
-            bank = bank,
-            sourceFetchedAt = enrichment.fetchedAt(application.id),
-            turnoverVariation = bank?.let { Scorecard.coefficientOfVariation(it.monthlyInflows) },
-            discrepancies = discrepancies(application, sources),
-            automaticDecision = decisions.latestAutomatic(application.id)?.let(DecisionView::of),
-            latestDecision = decisions.latest(application.id)?.let(DecisionView::of),
-            actions = actions,
+            applicationId = card.applicationId,
+            status = card.status,
+            registry = card.registry,
+            tax = card.tax,
+            bureau = card.bureau,
+            bank = card.bank,
+            sourceFetchedAt = card.sourceFetchedAt,
+            turnoverVariation = card.turnoverVariation,
+            discrepancies = card.discrepancies,
+            automaticDecision = card.automaticDecision?.let(DecisionView::of),
+            latestDecision = card.latestDecision?.let(DecisionView::of),
+            actions = card.actions,
         )
     }
 
@@ -186,30 +165,4 @@ class UnderwritingController(
     @Operation(summary = "Отказать с объяснением для клиента (T15)")
     @PostMapping("/{id}/reject")
     fun reject(@PathVariable id: UUID, @Valid @RequestBody request: CommentRequest) = service.reject(id, request.comment).result()
-
-    private fun discrepancies(application: LoanApplication, sources: Map<SourceKind, Any>): List<Discrepancy> =
-        buildList {
-            val tax = sources[SourceKind.TAX] as TaxInfo?
-            val declaredRevenue = application.terms.declaredRevenue12m
-            if (declaredRevenue != null && tax?.revenue != null && tax.revenue > 0) {
-                val difference = abs(declaredRevenue - tax.revenue).toDouble() / tax.revenue
-                if (difference >
-                    NOTICEABLE
-                ) {
-                    add(Discrepancy("Выручка за год", rubles(declaredRevenue), "ФНС", rubles(tax.revenue), (difference * 100).roundToInt()))
-                }
-            }
-            val bureau = sources[SourceKind.BUREAU] as BureauInfo?
-            val declaredDebt = application.terms.declaredMonthlyDebtPayments
-            if (bureau != null && declaredDebt != null && abs(declaredDebt - bureau.monthlyPaymentsTotal) > maxOf(10_000L, bureau.monthlyPaymentsTotal / 10)) {
-                add(Discrepancy("Платежи по кредитам в месяц", rubles(declaredDebt), "БКИ", rubles(bureau.monthlyPaymentsTotal), null))
-            }
-            val registry = sources[SourceKind.REGISTRY] as RegistryInfo?
-            if (registry != null && registry.status != "ACTIVE") add(Discrepancy("Статус компании", "действует", "ЕГРЮЛ/ЕГРИП", registry.statusTitle, null))
-        }
-
-    private companion object {
-        /** Differences smaller than this are rounding, not a discrepancy worth showing. */
-        const val NOTICEABLE = 0.05
-    }
 }

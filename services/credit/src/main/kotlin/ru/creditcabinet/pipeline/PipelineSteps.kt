@@ -48,6 +48,7 @@ import ru.creditcabinet.preapproved.domain.PreApprovedOfferStore
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.applicationCatalog
 import ru.creditcabinet.product.domain.forApplication
+import ru.creditcabinet.servicing.application.LoanServicingService
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -77,6 +78,7 @@ class PipelineSteps(
     private val products: ProductCatalog,
     private val ruleSets: RuleSets,
     private val preApprovedOffers: PreApprovedOfferStore,
+    private val loanServicing: LoanServicingService,
     private val settings: PipelineSettings,
     private val tx: TransactionTemplate,
     private val clock: Clock,
@@ -337,20 +339,19 @@ class PipelineSteps(
         }
         val now = clock.instant()
         tx.executeWithoutResult {
-            loans.save(
-                Loan(
-                    applicationId = application.id,
-                    contractNumber = booked.contractNumber,
-                    loanAccount = booked.loanAccount,
-                    settlementAccount = booked.settlementAccount,
-                    amount = offer.amount,
-                    termMonths = offer.termMonths,
-                    rate = offer.rate,
-                    revolving = products.version(offer.productCode, offer.productVersion)!!.revolving,
-                    disbursedAt = booked.disbursedAt,
-                    maturityDate = booked.maturityDate,
-                ),
+            val loan = Loan(
+                applicationId = application.id,
+                contractNumber = booked.contractNumber,
+                loanAccount = booked.loanAccount,
+                settlementAccount = booked.settlementAccount,
+                amount = offer.amount,
+                termMonths = offer.termMonths,
+                rate = offer.rate,
+                revolving = products.version(offer.productCode, offer.productVersion)!!.revolving,
+                disbursedAt = booked.disbursedAt,
+                maturityDate = booked.maturityDate,
             )
+            loans.save(loan)
             val disbursed = application.move(ApplicationEvent.DISBURSED, Actor.SYSTEM, now, payload = mapOf("contractNumber" to booked.contractNumber))
             val withCommission = if (application.agentId != null) {
                 val actualCommission = application.agentCommissionRateBps?.let { offer.amount * it / 10_000L } ?: application.agentCommissionAmount
@@ -363,7 +364,8 @@ class PipelineSteps(
             } else {
                 disbursed
             }
-            transitions.commit(withCommission)
+            val saved = transitions.commit(withCommission)
+            loanServicing.openOnDisbursement(saved, loan)
             jobs.complete(job.id)
         }
     }

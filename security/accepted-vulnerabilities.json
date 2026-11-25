@@ -3,7 +3,7 @@
   "component": "org.springframework:spring-webmvc",
   "reviewed_versions": ["6.2.19"],
   "reviewed_servlet_streams": {
-    "services/engagement/src/main/kotlin/ru/creditcabinet/assistant/AssistantController.kt": "99b746d88583d6f657e0b918354a1411a816ddd2f8c341d3f1061f2c992710a8"
+    "services/engagement/src/main/kotlin/ru/creditcabinet/assistant/AssistantController.kt": "69409c61b5e76b9f1f161c0a5eb12e79eaa61ad18812cfc8765e7a9eacc30297"
   },
   "exceptions": [
     {"id": "CVE-2026-47884", "reason": "В приложении нет XsltView/XsltViewResolver и неявного выбора XSLT по catch-all маршруту.", "source": "https://spring.io/security/cve-2026-47884/", "oss_fix": "7.0.9", "enterprise_fix": "6.2.20"},

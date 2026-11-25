@@ -1018,7 +1018,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | postgres:16.15-alpine@sha256:deb28ee471183cb0c303113dac9b2433c51eeeeb678def7af9a9ec5820367815 | PostgreSQL / основа cabinet/postgres:16.15-alpine-su-exec-0.3 | PostgreSQL | https://www.postgresql.org/about/licence/ |
 | nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3 | nginx | BSD-2-Clause | https://github.com/nginx/nginx/blob/master/LICENSE |
 | nginx/nginx-unprivileged:1.30.7-alpine@sha256:0c53a1f2890c3526bfd201440f0fd3970e5b78f80630f58284aad0d34b5ec7bd | nginx / непривилегированный образ | BSD-2-Clause / Apache-2.0 (рецепт образа) | https://github.com/nginx/docker-nginx-unprivileged/blob/main/LICENSE |
-| swaggerapi/swagger-ui:v5.35.0@sha256:3e7305b17cb806a2925ed16145eae469a6084ab50d82fcec7ede600bba91650b | Swagger UI | Apache-2.0 | https://github.com/swagger-api/swagger-ui/blob/v5.34.0/LICENSE |
+| swaggerapi/swagger-ui:v5.35.0@sha256:3e7305b17cb806a2925ed16145eae469a6084ab50d82fcec7ede600bba91650b | Swagger UI / основа cabinet/swagger-ui:v5.35.0-brotli | Apache-2.0 | https://github.com/swagger-api/swagger-ui/blob/v5.35.0/LICENSE |
 | ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8 | Ollama | MIT; дополнительные компоненты перечислены upstream | https://github.com/ollama/ollama/blob/v0.40.8/LICENSE |
 | gradle:8.10.2-jdk21 | Gradle / OpenJDK | Apache-2.0 / GPL-2.0-with-classpath-exception | https://github.com/gradle/gradle/blob/v8.10.2/LICENSE |
 | eclipse-temurin:21-jre-jammy@sha256:affcab5356e1270ac35d2361ee83135af2f03e8d580eca78a6d5d6fdbf048db0 | Eclipse Temurin / OpenJDK | GPL-2.0-with-classpath-exception; Apache-2.0 (рецепт образа) | https://adoptium.net/about/faq/ |

@@ -85,6 +85,15 @@ jobs:
         env:
           OUTBOX_WORKER_ENABLED: "false"
         run: ./gradlew build --no-daemon
+      - name: Reapply schema comments after rollback on PostgreSQL 16
+        env:
+          PGPASSWORD: cabinet
+        run: |
+          for db in identity credit engagement; do
+            psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U cabinet -d cabinet -c "create database cabinet_test_$db template $db"
+          done
+          python3 deploy/check-schema-rollback.py --pg-bin "$(pg_config --bindir)" --port 5432 --user cabinet \
+            --source-prefix cabinet_test_ --output ci-artifacts/schema-rollback.json
       - name: Test and coverage reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -93,6 +102,7 @@ jobs:
           path: |
             **/build/reports/tests/
             **/build/reports/jacoco/
+            ci-artifacts/schema-rollback.json
       - name: Hash the tested service jars
         run: |
           mkdir -p ci-artifacts
@@ -258,7 +268,7 @@ jobs:
           - name: gateway
             image: nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
           - name: swagger
-            image: swaggerapi/swagger-ui:v5.35.0@sha256:3e7305b17cb806a2925ed16145eae469a6084ab50d82fcec7ede600bba91650b
+            image: cabinet/swagger-ui:v5.35.0-brotli
           - name: prometheus
             image: prom/prometheus:v3.15.1
           - name: grafana
@@ -282,6 +292,9 @@ jobs:
           if [ "${{ matrix.name }}" = postgres ]; then
             docker build -f docker/postgres/Dockerfile -t '${{ matrix.image }}' .
             python3 security/postgres-image.py
+          elif [ "${{ matrix.name }}" = swagger ]; then
+            docker build -f docker/swagger/Dockerfile -t '${{ matrix.image }}' .
+            docker run --rm --entrypoint apk '${{ matrix.image }}' info brotli-libs
           elif [ "${{ matrix.name }}" != ollama ]; then
             docker pull '${{ matrix.image }}'
           fi
@@ -452,8 +465,10 @@ jobs:
         run: docker compose -p cabinet-demo-build -f docker-compose.yml -f ci/compose.yaml build
       - name: Create 120 real synthetic applications
         run: python3 -u scripts/seed-demo-history.py --start --project cabinet-demo-ci --image-prefix cabinet-demo-build --count 120 --report-name ci-first
-      - name: Reset only the dedicated demo project
-        run: bash scripts/demo-reset.sh --project cabinet-demo-ci --confirm-project cabinet-demo-ci --no-build
+      - name: Reset only the dedicated demo project and verify five-minute readiness
+        run: |
+          python3 -u deploy/rehearse-demo.py --project cabinet-demo-ci --confirm-project cabinet-demo-ci \
+            --output scripts/demo-reports/ci-agent-rehearsal.json
       - name: Recreate the complete history after reset
         run: python3 -u scripts/seed-demo-history.py --start --project cabinet-demo-ci --image-prefix cabinet-demo-build --count 120 --report-name ci-repeat
       - name: Synthetic history without session credentials
@@ -529,6 +544,9 @@ jobs:
         run: python3 scripts/assistant-final-eval.py --output scripts/assistant-eval-reports/ci-agent-rules.json
       - name: Postman client and bank contracts
         run: npm test
+        working-directory: contracts/postman
+      - name: Postman agent object rights and client-only transitions
+        run: npm run test:agent
         working-directory: contracts/postman
       - name: Restore policy after a controlled test failure
         run: npm run test:recovery

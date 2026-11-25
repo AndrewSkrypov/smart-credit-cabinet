@@ -457,7 +457,10 @@ services:
       - cabinet
 
   swagger-ui:
-    image: swaggerapi/swagger-ui:v5.35.0@sha256:3e7305b17cb806a2925ed16145eae469a6084ab50d82fcec7ede600bba91650b
+    image: cabinet/swagger-ui:v5.35.0-brotli
+    build:
+      context: .
+      dockerfile: docker/swagger/Dockerfile
     mem_limit: 128m
     environment:
       BASE_URL: /swagger

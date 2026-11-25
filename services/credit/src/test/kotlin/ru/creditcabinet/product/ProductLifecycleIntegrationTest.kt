@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
+import org.springframework.transaction.support.TransactionTemplate
 import ru.creditcabinet.application.domain.CompanyDirectory
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
@@ -28,13 +29,16 @@ import ru.creditcabinet.pipeline.PipelineFakesConfig
 import ru.creditcabinet.pipeline.PipelineWorker
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.Product
+import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.ProductLifecycleStatus
+import ru.creditcabinet.product.domain.ProductVersions
 import ru.creditcabinet.product.domain.problems
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.Date
 import java.util.UUID
+import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -54,6 +58,12 @@ class ProductLifecycleIntegrationTest {
 
     @Autowired private lateinit var jdbc: JdbcTemplate
 
+    @Autowired private lateinit var tx: TransactionTemplate
+
+    @Autowired private lateinit var catalog: ProductCatalog
+
+    @Autowired private lateinit var versions: ProductVersions
+
     @Autowired private lateinit var clock: MutableClock
 
     @Autowired private lateinit var sources: FakeSources
@@ -62,6 +72,7 @@ class ProductLifecycleIntegrationTest {
 
     @MockitoBean private lateinit var companies: CompanyDirectory
 
+    private val createdCodes = mutableListOf<String>()
     private val inn = "00" + UUID.randomUUID().leastSignificantBits.toString().filter(Char::isDigit).take(8)
     private val client by lazy { token("CLIENT", UUID.randomUUID()) }
     private val risk by lazy { token("RISK_ADMIN") }
@@ -83,6 +94,24 @@ class ProductLifecycleIntegrationTest {
         sources.companies[inn] = FakeSources.healthy(inn, clock.instant().atZone(ZoneOffset.UTC).toLocalDate())
     }
 
+    @AfterTest
+    fun archiveCreatedProducts() {
+        for (code in createdCodes) {
+            val current = catalog.latest(code) ?: continue
+            if (current.lifecycleStatus == ProductLifecycleStatus.ARCHIVED) continue
+            tx.executeWithoutResult {
+                versions.replace(
+                    current.copy(lifecycleStatus = ProductLifecycleStatus.ARCHIVED),
+                    current.version,
+                    UUID.randomUUID(),
+                    "Архивация тестового продукта после проверки",
+                    clock.instant(),
+                )
+            }
+        }
+        createdCodes.clear()
+    }
+
     private fun json(response: MockHttpServletResponse): JsonNode = mapper.readTree(response.getContentAsString(Charsets.UTF_8))
 
     private fun get(path: String, token: String = client) =
@@ -102,7 +131,8 @@ class ProductLifecycleIntegrationTest {
         content = mapper.writeValueAsString(body)
     }.andReturn().response
 
-    private fun uniqueCode(): String = "LIFE_${UUID.randomUUID().toString().replace("-", "").take(10).uppercase()}"
+    private fun uniqueCode(): String =
+        "LIFE_${UUID.randomUUID().toString().replace("-", "").take(10).uppercase()}".also(createdCodes::add)
 
     private fun createBody(
         code: String,
@@ -159,6 +189,45 @@ class ProductLifecycleIntegrationTest {
         assertTrue(valid.copy(effectiveFrom = t2, effectiveTo = t1).problems().isNotEmpty())
         assertTrue(valid.copy(agentCommissionRateBps = -1).problems().isNotEmpty())
         assertTrue(valid.copy(agentCommissionRateBps = 1001).problems().isNotEmpty())
+
+        val mid = Instant.parse("2026-09-01T00:00:00Z")
+        assertTrue(valid.copy(effectiveFrom = null, effectiveTo = null).isEffectiveAt(mid))
+        assertTrue(valid.copy(effectiveFrom = t1, effectiveTo = null).isEffectiveAt(t1))
+        assertFalse(valid.copy(effectiveFrom = t1, effectiveTo = null).isEffectiveAt(t1.minusSeconds(1)))
+        assertTrue(valid.copy(effectiveFrom = null, effectiveTo = t2).isEffectiveAt(t2))
+        assertFalse(valid.copy(effectiveFrom = null, effectiveTo = t2).isEffectiveAt(t2.plusSeconds(1)))
+        assertTrue(valid.isEffectiveAt(mid))
+        assertFalse(valid.isEffectiveAt(t1.minusSeconds(1)))
+        assertFalse(valid.isEffectiveAt(t2.plusSeconds(1)))
+    }
+
+    @Test
+    fun `active products outside effectiveFrom or effectiveTo window are hidden from public catalog`() {
+        val now = clock.instant()
+        val futureCode = uniqueCode()
+        val pastCode = uniqueCode()
+        val openCode = uniqueCode()
+
+        assertEquals(201, post("/api/v1/bank/products", createBody(futureCode, effectiveFrom = now.plusSeconds(3600), effectiveTo = null)).status)
+        assertEquals(200, post("/api/v1/bank/products/$futureCode/publish", mapOf("expectedVersion" to 1, "reason" to "Публикация будущего")).status)
+
+        assertEquals(201, post("/api/v1/bank/products", createBody(pastCode, effectiveFrom = null, effectiveTo = now.minusSeconds(3600))).status)
+        assertEquals(200, post("/api/v1/bank/products/$pastCode/publish", mapOf("expectedVersion" to 1, "reason" to "Публикация истёкшего")).status)
+
+        assertEquals(201, post("/api/v1/bank/products", createBody(openCode, effectiveFrom = null, effectiveTo = null)).status)
+        assertEquals(200, post("/api/v1/bank/products/$openCode/publish", mapOf("expectedVersion" to 1, "reason" to "Публикация бессрочного")).status)
+
+        val publicCodes = json(get("/api/v1/products")).map { it["code"].asText() }.toSet()
+        assertFalse(futureCode in publicCodes, "Future effectiveFrom product must be hidden from public catalog")
+        assertFalse(pastCode in publicCodes, "Past effectiveTo product must be hidden from public catalog")
+        assertTrue(openCode in publicCodes, "Null-bound ACTIVE product must be visible in public catalog")
+
+        assertEquals(404, get("/api/v1/products/$futureCode").status)
+        assertEquals(404, get("/api/v1/products/$pastCode").status)
+        assertEquals(200, get("/api/v1/products/$openCode").status)
+
+        val bankCodes = json(get("/api/v1/bank/products", underwriter)).map { it["code"].asText() }.toSet()
+        assertTrue(futureCode in bankCodes && pastCode in bankCodes && openCode in bankCodes)
     }
 
     @Test

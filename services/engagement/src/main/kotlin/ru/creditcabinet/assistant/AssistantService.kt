@@ -273,6 +273,7 @@ class AssistantService(
             Пересказывай справку близко к её тексту, своими словами только связывай; заголовки блоков («Справка», «Данные заявки») в ответ не переписывай.
             Первая статья справки — основная тема ответа. Сохрани все её существенные факты, включая условия выдачи и погашения, необходимые документы и доступные действия клиента: не ограничивайся одной деталью назначения продукта.
             Остальные статьи используй только для пояснения связей с основной темой. Не подменяй ответ объяснением соседнего понятия, даже если в вопросе есть общее слово.
+            При сравнении явно называй продукт, к которому относится каждое условие выдачи и погашения.
             Опирайся только на блоки «Справка» и «Данные заявки». Не придумывай суммы, ставки, сроки, причины и решения банка: если чего-то нет в данных, так и скажи и подскажи, где это посмотреть в кабинете.
             Не добавляй свойств продуктов, которых нет в справке, и не противоречь ей: например, все кредиты и овердрафт платные — проценты по ним начисляются.
             Называй каждую цифру так же, как она подписана в данных (например, «ориентировочный платёж»), и не пересчитывай её.
@@ -324,6 +325,7 @@ object Grounding {
             val text = answer.lowercase().replace('ё', 'е')
             val source = it.text.lowercase().replace('ё', 'е')
             if (it.essentialFacts.any { fact -> !fact.containsMatchIn(text) }) add("essential reference facts missing")
+            if (it.id == "overdraft" && hasUnattributedTermLoanCondition(text)) add("term-loan condition attributed to overdraft")
             val hasDocuments = it.id == "investment" || DOCUMENT_WORDS.containsMatchIn(source)
             if ((!hasDocuments && DOCUMENT_WORDS.containsMatchIn(text)) ||
                 SPECIFIC_DOCUMENTS.any { word -> word in text && word !in source } ||
@@ -345,6 +347,18 @@ object Grounding {
     private val PERCENTAGE = Regex("(\\d+(?:[.,]\\d+)?)\\s*(?:%|процент[а-я]*)", RegexOption.IGNORE_CASE)
     private val DOCUMENT_WORDS = Regex("документ|справк|спецификац|декларац|выписк|отчетност")
     private val SPECIFIC_DOCUMENTS = listOf("паспорт", "трудов", "декларац", "выписк", "отчетност")
+    private val TERM_LOAN_CONDITION = Regex(
+        "(?:одн|един)\\p{L}*\\s+сумм\\p{L}*|единовремен\\p{L}*|равн\\p{L}*\\s+платеж\\p{L}*|аннуитет\\p{L}*",
+    )
+    private val WORKING_CAPITAL_SUBJECT = Regex(
+        "(?<!\\p{L})кредит\\s+на\\s+пополнение\\s+оборот(?:а|ных\\s+средств)\\s+" +
+            "(?:выдается|выдают|гасится|погашается)(?!\\p{L})",
+    )
+
+    private fun hasUnattributedTermLoanCondition(text: String): Boolean = text.splitToSequence('.', '!', '?', '\n').any { sentence ->
+        val condition = TERM_LOAN_CONDITION.find(sentence) ?: return@any false
+        !WORKING_CAPITAL_SUBJECT.containsMatchIn(sentence.substring(0, condition.range.first))
+    }
 
     private fun normalise(number: String): String {
         val compact = number.replace(Regex("[\\s\\u00A0\\u202F]"), "").replace(',', '.')

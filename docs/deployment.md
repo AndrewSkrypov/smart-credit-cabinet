@@ -154,11 +154,20 @@ python deploy/provision-bank-user.py --project cabinet-prod --role UNDERWRITER -
 
 ```bash
 python deploy/backup.py --project cabinet-prod
-git fetch origin feature/submission-kit
+git fetch origin
 git checkout --detach НОВЫЙ_ПРОВЕРЕННЫЙ_SHA
 python deploy/set-release.py НОВЫЙ_ПРОВЕРЕННЫЙ_SHA
 python deploy/start.py --project cabinet-prod
+python deploy/verify-release.py --project cabinet-prod --expected-revision НОВЫЙ_ПРОВЕРЕННЫЙ_SHA
 ```
+
+После запуска `verify-release.py` считывает OCI revision и ID образа у пяти работающих
+сервисов выбранного Docker-проекта. Из ответа с проверенным HTTPS-сертификатом берёт
+входной JavaScript и сравнивает его SHA-256 с файлом внутри контейнера frontend.
+При расхождении команда завершится с ошибкой. При успехе она выведет JSON со временем
+проверки, идентификаторами образов и хешем JavaScript. Эту команду можно повторить
+без перезапуска сервисов и изменения данных. Проверки с локальным CA выполняются
+в изолированных прогонах CI до и после восстановления.
 
 Образы приложений получают тег выбранного SHA. Это локальные образы, registry не требуется.
 Сборка проверяет, что checkout чистый и HEAD точно равен `CABINET_RELEASE`; одна смена

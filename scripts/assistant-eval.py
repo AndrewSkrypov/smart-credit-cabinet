@@ -10,9 +10,11 @@ from pathlib import Path
 import re
 import subprocess
 import time
+from urllib.parse import urlsplit
+from urllib.request import urlopen
 from uuid import uuid4
 
-from cabinet_api import DockerCabinet
+from cabinet_api import Cabinet, DockerCabinet
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = {
@@ -44,10 +46,21 @@ def main():
     parser.add_argument("--model", choices=["qwen2.5:1.5b", "qwen3:1.7b", "qwen3:4b-instruct-2507-q4_K_M"], default="qwen2.5:1.5b",
                         help="Exact separately verified Apache-2.0 model tag; does not change the rubric")
     parser.add_argument("--report-name", required=True)
+    parser.add_argument("--native-manifest", type=Path, help="Манифест изолированного синтетического стенда на loopback")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", args.report_name):
         parser.error("Нужно безопасное имя отчёта")
-    api = DockerCabinet(args.base, args.project)
+    native = json.loads(args.native_manifest.read_text(encoding="utf-8")) if args.native_manifest else None
+    if native:
+        address = urlsplit(args.base)
+        model_url = urlsplit(native["ollama_url"])
+        assert native["synthetic"] and re.fullmatch(r"final_[a-z0-9_]{1,24}", native["db_prefix"])
+        assert address.scheme == "http" and address.hostname == "127.0.0.1" and address.port == native["gateway"]
+        if args.mode == "model":
+            assert model_url.scheme == "http" and model_url.hostname == "127.0.0.1" and native["model"] == args.model
+        else:
+            assert not native["ollama_url"]
+    api = Cabinet(args.base) if native else DockerCabinet(args.base, args.project)
     directory = ROOT / "scripts/assistant-eval-reports" / args.report_name
     directory.mkdir(parents=True, exist_ok=False)
     dataset_path = ROOT / "scripts/assistant-eval-cases.json"
@@ -63,7 +76,7 @@ def main():
         return subprocess.check_output(["docker", *arguments], text=True, encoding="utf-8", stderr=subprocess.DEVNULL)
 
     report = {
-        "started_at": datetime.now(timezone.utc).isoformat(), "project": args.project,
+        "started_at": datetime.now(timezone.utc).isoformat(), "project": args.project if not native else None,
         "requested_mode": args.mode, "completed": False, "automated_gate_passed": False,
         "manual_review_required": True,
         "dataset_sha256": digest(dataset_path), "rubric_version": dataset["rubric_version"],
@@ -79,25 +92,33 @@ def main():
     }
     owned = []
     try:
-        engagement_ids = api.containers("engagement")
-        for service in ["identity", "credit", "engagement"]:
-            for cid in api.containers(service):
-                info = json.loads(docker("inspect", cid))[0]
-                env = dict(item.split("=", 1) for item in info["Config"]["Env"] if "=" in item)
-                if service == "identity":
-                    assert env.get("DEMO_ACCOUNTS") == "true", "Evaluation is restricted to synthetic demo installations"
-                if service == "engagement" and args.mode == "rules":
-                    assert env.get("OLLAMA_URL") == "", "Rules CI requires explicitly empty OLLAMA_URL: no model probe/chat is possible"
-                if service == "engagement" and args.mode == "model":
-                    assert env.get("ASSISTANT_MODEL") == args.model, "Use the separately verified Apache-2.0 evaluation model"
-                report["images"].append({"service": service, "container": cid, "image": info["Image"],
-                                         "revision": (info["Config"].get("Labels") or {}).get("org.opencontainers.image.revision")})
+        if native:
+            report["native_fixture"] = {"revision": native["sha"], "database_prefix": native["db_prefix"],
+                                        "gateway_port": native["gateway"], "images_verified": False}
+        else:
+            engagement_ids = api.containers("engagement")
+            for service in ["identity", "credit", "engagement"]:
+                for cid in api.containers(service):
+                    info = json.loads(docker("inspect", cid))[0]
+                    env = dict(item.split("=", 1) for item in info["Config"]["Env"] if "=" in item)
+                    if service == "identity":
+                        assert env.get("DEMO_ACCOUNTS") == "true", "Evaluation is restricted to synthetic demo installations"
+                    if service == "engagement" and args.mode == "rules":
+                        assert env.get("OLLAMA_URL") == "", "Rules CI requires explicitly empty OLLAMA_URL: no model probe/chat is possible"
+                    if service == "engagement" and args.mode == "model":
+                        assert env.get("ASSISTANT_MODEL") == args.model, "Use the separately verified Apache-2.0 evaluation model"
+                    report["images"].append({"service": service, "container": cid, "image": info["Image"],
+                                             "revision": (info["Config"].get("Labels") or {}).get("org.opencontainers.image.revision")})
         readers = [api.register("assistant-eval") for _ in range(3)]
         state = api.json("GET", "/api/v1/assistant/status", token=readers[0]["token"])
         assert state["mode"] == args.mode.upper(), "Requested assistant mode is not actually available"
         report["assistant_status"] = state
         if args.mode == "model":
-            raw = docker("exec", engagement_ids[0], "curl", "-fsS", "--max-time", "10", "http://ollama:11434/api/tags")
+            if native:
+                with urlopen(native["ollama_url"] + "/api/tags", timeout=10) as response:
+                    raw = response.read()
+            else:
+                raw = docker("exec", engagement_ids[0], "curl", "-fsS", "--max-time", "10", "http://ollama:11434/api/tags")
             tag = next(item for item in json.loads(raw)["models"] if item["name"] == args.model)
             report["model"] = {key: tag[key] for key in ("name", "digest", "size", "details") if key in tag}
         fixtures = {}
@@ -128,6 +149,9 @@ def main():
         fixtures["missing"] = (readers[2]["token"], str(uuid4()))
         report["privacy_fixtures"] = {name: fixtures[name][1] for name in ["foreign", "missing"]}
         report["questions_started_at"] = datetime.now(timezone.utc).isoformat()
+        if native:
+            log_path = args.native_manifest.parent / "engagement.log"
+            log_offset = log_path.stat().st_size if log_path.is_file() else None
         for index, case in enumerate(cases):
             token, application = fixtures.get(case.get("fixture"), (readers[index % len(readers)]["token"], None))
             payload = {"question": case["question"], "history": case.get("history", [])}
@@ -164,15 +188,23 @@ def main():
                 "p95_seconds": timings[math.ceil(len(timings) * .95) - 1],
             }
         try:
-            logs = "\n".join(subprocess.check_output(
-                ["docker", "logs", "--since", report["questions_started_at"], cid],
-                text=True, encoding="utf-8", stderr=subprocess.STDOUT,
-            ) for cid in engagement_ids)
+            if native:
+                if log_offset is None:
+                    raise FileNotFoundError(log_path)
+                with log_path.open("rb") as stream:
+                    stream.seek(log_offset)
+                    logs = stream.read().decode("utf-8")
+            else:
+                logs = "\n".join(subprocess.check_output(
+                    ["docker", "logs", "--since", report["questions_started_at"], cid],
+                    text=True, encoding="utf-8", stderr=subprocess.STDOUT,
+                ) for cid in engagement_ids)
             dropped = sum("Assistant answer dropped:" in line for line in logs.splitlines())
+            source = "native engagement structured log" if native else "engagement logs in isolated evaluation interval"
             report["guard_rejections"] = {"count": dropped, "fraction_of_questions": dropped / len(cases),
-                                          "fraction_of_model_requests": None, "source": "engagement logs in isolated evaluation interval",
+                                          "fraction_of_model_requests": None, "source": source,
                                           "model_request_denominator": "API does not expose model attempts"}
-        except subprocess.CalledProcessError:
+        except (OSError, UnicodeError, subprocess.CalledProcessError):
             report["guard_rejections"]["unavailable_reason"] = "Container logs unavailable; no value inferred from RULES answers"
         if args.mode == "model":
             assert modes["MODEL"] > 0 or (report["guard_rejections"]["count"] or 0) > 0, "No actual model output observed; status alone is insufficient"

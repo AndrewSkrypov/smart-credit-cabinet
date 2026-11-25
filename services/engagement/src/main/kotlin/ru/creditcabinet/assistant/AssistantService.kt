@@ -78,9 +78,14 @@ class AssistantService(
             val explanation = articles.take(1).joinToString("\n\n") { it.text }
             return Answer(listOf(factsAnswer, explanation).filter { it.isNotBlank() }.joinToString("\n\n"), AnswerMode.RULES, sources)
         }
+        val normalized = question.lowercase()
         val procedure = when {
-            "гарант" in question.lowercase() -> "approval"
-            articles.any { it.id == "bureau" } && listOf("соглас", "тайком").any { it in question.lowercase() } -> "bureau"
+            "гарант" in normalized -> "approval"
+            articles.any { it.id == "bureau" } && listOf("соглас", "тайком").any { it in normalized } -> "bureau"
+            "контрпредлож" in normalized && listOf("отказ", "отклон", "приня").any { it in normalized } -> "counter-offer"
+            "овердрафт" in normalized && listOf("бесплат", "свои деньги", "мои деньги").any { it in normalized } -> "overdraft"
+            normalized.startsWith("на что") && "пополнени" in normalized && "оборот" in normalized -> "working-capital"
+            normalized.startsWith("что финансирует") && "инвестицион" in normalized -> "investment"
             else -> null
         }?.let { id -> Knowledge.articles.single { it.id == id } }
         if (procedure != null) return Answer(procedure.text, AnswerMode.RULES, listOf(procedure.title) + listOfNotNull(facts?.let { "Заявка № ${it.number}" }))

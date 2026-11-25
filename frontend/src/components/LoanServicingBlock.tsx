@@ -16,7 +16,7 @@ import {
   Typography
 } from '@mui/material';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { loanServicingApi } from '../api/client';
+import { agentApi, loanServicingApi } from '../api/client';
 import { formatDate, formatDateTime, months, percent, rub, rubExact } from '../shared/format';
 import { LoanAccount } from '../types';
 import { ErrorState } from './ErrorState';
@@ -32,7 +32,15 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function LoanServicingBlock({ applicationId, readOnly = false }: { applicationId: string; readOnly?: boolean }) {
+export function LoanServicingBlock({
+  applicationId,
+  readOnly = false,
+  agentScope = false
+}: {
+  applicationId: string;
+  readOnly?: boolean;
+  agentScope?: boolean;
+}) {
   const [loan, setLoan] = useState<LoanAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -46,14 +54,16 @@ export function LoanServicingBlock({ applicationId, readOnly = false }: { applic
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await loanServicingApi.getByApplication(applicationId);
+      const data = agentScope
+        ? await agentApi.getLoan(applicationId)
+        : await loanServicingApi.getByApplication(applicationId);
       setLoan(data);
     } catch (nextError) {
       setLoadError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить данные по обслуживанию кредита');
     } finally {
       setLoading(false);
     }
-  }, [applicationId]);
+  }, [agentScope, applicationId]);
 
   useEffect(() => {
     void load();

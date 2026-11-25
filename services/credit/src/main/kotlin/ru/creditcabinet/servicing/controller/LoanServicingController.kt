@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
+import ru.creditcabinet.common.security.CurrentCaller
+import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.servicing.application.LoanServicingService
 import ru.creditcabinet.servicing.domain.LoanAccount
 import ru.creditcabinet.servicing.domain.LoanAccountStatus
@@ -71,6 +73,13 @@ class LoanServicingController(
     @GetMapping("/api/v1/applications/{id}/loan")
     fun getByApplication(@PathVariable id: UUID): LoanAccountResponse =
         servicing.getByApplicationId(id).toResponse()
+
+    @Operation(summary = "Кредитный счёт и транши по выданной агентской заявке (только чтение)")
+    @GetMapping("/api/v1/agent/applications/{id}/loan")
+    fun getByAgentApplication(@PathVariable id: UUID): LoanAccountResponse {
+        CurrentCaller.requireRole(Roles.AGENT)
+        return servicing.getByApplicationId(id).toResponse()
+    }
 
     @Operation(summary = "Выбрать очередной транш по возобновляемому кредиту (только клиент)")
     @PostMapping("/api/v1/loans/{loanId}/tranches")

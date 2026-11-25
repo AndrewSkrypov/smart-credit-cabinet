@@ -446,6 +446,7 @@ services:
   ollama-pull:
     image: ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8
     profiles: ["ai"]
+    mem_limit: 128m
     environment:
       OLLAMA_HOST: http://ollama:11434
     entrypoint: ["ollama", "pull", "${ASSISTANT_MODEL:-qwen2.5:3b}"]

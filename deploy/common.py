@@ -44,6 +44,10 @@ class Deployment:
         if backend not in {"local", "s3"} or enabled not in {"true", "false"}:
             raise ValueError("Ожидаются STORAGE_BACKEND=local|s3 и STORAGE_ENABLED=true|false")
         self.profiles = {"prod"}
+        optional = {profile.strip() for profile in self.values.get("CABINET_OPTIONAL_PROFILES", "").split(",") if profile.strip()}
+        if not optional <= {"ai", "monitoring"}:
+            raise ValueError("CABINET_OPTIONAL_PROFILES поддерживает ai,monitoring")
+        self.profiles.update(optional)
         if backend == "s3" or enabled == "true":
             self.profiles.add("storage")
             keys = ["S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_ADMIN_ACCESS_KEY", "S3_ADMIN_SECRET_KEY"]
@@ -75,6 +79,9 @@ class Deployment:
         if local and self.values["CABINET_DOMAIN"] != "localhost":
             raise ValueError("Локальная проверка допускает только localhost и внутренний CA")
         self.environment = {**os.environ, **self.values, "COMPOSE_PROFILES": ""}
+        if "monitoring" in self.profiles:
+            self.environment["CABINET_OTLP_ENABLED"] = "true"
+            self.environment["CABINET_LOG_FILE"] = "/var/log/cabinet/${HOSTNAME}/${spring.application.name}.jsonl"
         self.gateway_config = ROOT / "deploy/runtime" / project / "gateway.conf"
         self.environment["GATEWAY_CONFIG"] = str(self.gateway_config)
         self.environment["SOURCE_REVISION"] = self.values["CABINET_RELEASE"]
@@ -82,9 +89,8 @@ class Deployment:
                         "-f", str(ROOT / "docker-compose.yml"), "-f", str(ROOT / "deploy/compose.yaml")]
         if local:
             self.command.extend(["-f", str(ROOT / "deploy/compose.local.yaml")])
-        self.command.extend(["--profile", "prod"])
-        if "storage" in self.profiles:
-            self.command.extend(["--profile", "storage"])
+        for profile in sorted(self.profiles):
+            self.command.extend(["--profile", profile])
 
     def compose(self, *arguments, capture=False):
         result = subprocess.run([*self.command, *arguments], cwd=ROOT, env=self.environment,

@@ -86,6 +86,8 @@ services:
     mem_limit: 96m
   swagger-ui:
     profiles: [documentation]
+  prometheus:
+    ports: !override []
   gateway:
     profiles: [prod]
     mem_limit: 48m

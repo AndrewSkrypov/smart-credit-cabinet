@@ -1,0 +1,360 @@
+{
+  "info": {
+    "name": "Агентский канал — контроль доступа и валидация",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Изолированный синтетический стенд. run-agent-newman.mjs создаёт заявку и документ и отзывает заявку после проверки."
+  },
+  "item": [
+    {
+      "name": "Агент видит закреплённый черновик",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{assigned}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{base}}/agent/applications/{{applicationId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Агент видит закреплённый черновик', () => pm.response.to.have.status(200));",
+              "pm.test('Контрольные поля', () => { pm.expect(pm.response.json().status).to.equal('DRAFT'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Чужая заявка скрыта",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{other}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{base}}/agent/applications/{{applicationId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Чужая заявка скрыта', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Чужую заявку нельзя изменить",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{other}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{base}}/agent/applications/{{applicationId}}",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productCode\": \"INVESTMENT\",\n  \"purpose\": \"EQUIPMENT\",\n  \"amount\": 1200000,\n  \"termMonths\": 12\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Чужую заявку нельзя изменить', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Чужой документ нельзя скачать",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{other}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{base}}/agent/applications/{{applicationId}}/documents/{{documentId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Чужой документ нельзя скачать', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Чужой документ нельзя удалить",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{other}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{base}}/agent/applications/{{applicationId}}/documents/{{documentId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Чужой документ нельзя удалить', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Агенту запрещено подтверждение за клиента",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{assigned}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{base}}/applications/{{applicationId}}/confirm",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bureauConsent\": true\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Агенту запрещено подтверждение за клиента', () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Агенту запрещён акцепт за клиента",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{assigned}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{base}}/applications/{{applicationId}}/offer/accept"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Агенту запрещён акцепт за клиента', () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Агенту запрещена подпись за клиента",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{assigned}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{base}}/applications/{{applicationId}}/sign",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"123456\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Агенту запрещена подпись за клиента', () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Сумма за пределами лимита отклонена",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{assigned}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{base}}/agent/applications",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"companyId\": \"{{companyId}}\",\n  \"productCode\": \"INVESTMENT\",\n  \"purpose\": \"EQUIPMENT\",\n  \"amount\": 0,\n  \"termMonths\": 12\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Сумма за пределами лимита отклонена', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Исходный черновик сохранился",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{assigned}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{base}}/agent/applications/{{applicationId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Исходный черновик сохранился', () => pm.response.to.have.status(200));",
+              "pm.test('Контрольные поля', () => { const draft = pm.response.json(); pm.expect(draft.status).to.equal('DRAFT'); pm.expect(draft.amount).to.equal(1000000); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Подлинный документ сохранился",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{assigned}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{base}}/agent/applications/{{applicationId}}/documents/{{documentId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Подлинный документ сохранился', () => pm.response.to.have.status(200));",
+              "pm.test('Содержимое совпадает с PDF и отдаётся как вложение', () => { pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment'); pm.expect(pm.response.text()).to.match(/^%PDF-/); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

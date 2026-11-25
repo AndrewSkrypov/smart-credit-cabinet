@@ -3,6 +3,7 @@ import { applicationsApi } from '../../../api/client';
 import { useApi } from '../../../hooks/useApi';
 import { eventText, historyForClient } from '../../../shared/applicationText';
 import { formatDateTime } from '../../../shared/format';
+import { actorTypeLabels } from '../../../shared/labels';
 
 /** The application's journal in the client's words, newest first. Reloads when the status changes. */
 export function HistoryBlock({ applicationId, version }: { applicationId: string; version: string }) {
@@ -16,7 +17,7 @@ export function HistoryBlock({ applicationId, version }: { applicationId: string
           <ListItem key={entry.id} disableGutters>
             <ListItemText
               primary={repeats > 1 ? `${eventText(entry)} (${repeats} раза)` : eventText(entry)}
-              secondary={[formatDateTime(entry.occurredAt), entry.actorType === 'UNDERWRITER' || entry.actorType === 'MANAGER' ? entry.comment : null].filter(Boolean).join(' · ')}
+              secondary={[formatDateTime(entry.occurredAt), actorTypeLabels[entry.actorType], entry.comment].filter(Boolean).join(' · ')}
             />
           </ListItem>
         ))}

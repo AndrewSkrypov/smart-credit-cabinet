@@ -19,9 +19,10 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/** Where each role starts: clients in their cabinet, bank staff in the bank workspace. */
+/** Where each role starts: clients in their cabinet, agents in their portfolio, bank staff in the bank workspace. */
 export const roleHome: Record<Role, string> = {
   CLIENT: '/client',
+  AGENT: '/agent',
   MANAGER: '/bank',
   UNDERWRITER: '/bank',
   RISK_ADMIN: '/bank'

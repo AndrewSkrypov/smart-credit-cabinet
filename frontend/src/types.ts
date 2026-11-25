@@ -1,4 +1,4 @@
-export type Role = 'CLIENT' | 'MANAGER' | 'UNDERWRITER' | 'RISK_ADMIN';
+export type Role = 'CLIENT' | 'AGENT' | 'MANAGER' | 'UNDERWRITER' | 'RISK_ADMIN';
 
 export interface ChatFile { id: string; fileName: string; sizeBytes: number }
 export interface ChatMessage { id: string; seq: number; authorName: string; side: 'COMPANY' | 'BANK'; text: string; createdAt: string; attachments: ChatFile[] }
@@ -119,6 +119,7 @@ export interface Calculation {
 
 export type ApplicationStatus =
   | 'DRAFT'
+  | 'PENDING_CLIENT_CONFIRMATION'
   | 'SUBMITTED'
   | 'INFO_REQUESTED'
   | 'ENRICHMENT'
@@ -131,6 +132,64 @@ export type ApplicationStatus =
   | 'REJECTED'
   | 'WITHDRAWN'
   | 'CLOSED';
+
+export type CommissionStatus = 'NONE' | 'EXPECTED' | 'ACCRUED' | 'CANCELLED';
+
+export type PreApprovedOfferStatus = 'ACTIVE' | 'USED' | 'EXPIRED';
+
+export interface PreApprovedOffer {
+  id: string;
+  companyId: string;
+  productCode: string;
+  productName: string;
+  maxAmount: number;
+  minTermMonths: number;
+  maxTermMonths: number;
+  rate: number;
+  validUntil: string;
+  status: PreApprovedOfferStatus;
+}
+
+export interface PreApprovedApplicationView {
+  id: string;
+  number: number | null;
+  status: ApplicationStatus;
+  productCode: string;
+  amount: number;
+  termMonths: number;
+  preApprovedOfferId: string | null;
+}
+
+export interface AgentClientSummary {
+  companyId: string;
+  inn: string;
+  name: string | null;
+  legalForm: LegalForm;
+  assignedAt: string;
+}
+
+export interface AgentPortfolioSummary {
+  assignedCompaniesCount: number;
+  totalApplications: number;
+  draftCount: number;
+  pendingConfirmationCount: number;
+  inProgressCount: number;
+  disbursedCount: number;
+  rejectedOrClosedCount: number;
+  expectedCommissionTotal: number;
+  accruedCommissionTotal: number;
+}
+
+export interface AgentCreateApplicationInput {
+  companyId: string;
+  productCode: string;
+  purpose: FinancingPurpose;
+  purposeComment?: string | null;
+  amount: number;
+  termMonths: number;
+  declaredRevenue12m?: number | null;
+  declaredMonthlyDebtPayments?: number | null;
+}
 
 export type CloseReason = 'INFO_EXPIRED' | 'OFFER_DECLINED' | 'OFFER_EXPIRED';
 
@@ -264,6 +323,12 @@ export interface Application {
     loan: Loan | null;
     outcome: Outcome | null;
   };
+  agentId?: string | null;
+  agentName?: string | null;
+  preApprovedOfferId?: string | null;
+  agentCommissionRateBps?: number | null;
+  agentCommissionAmount?: number | null;
+  agentCommissionStatus?: CommissionStatus;
 }
 
 export interface ApplicationSummary {
@@ -280,6 +345,10 @@ export interface ApplicationSummary {
   submittedAt: string | null;
   statusChangedAt: string;
   unreadChatCount?: number;
+  agentId?: string | null;
+  agentName?: string | null;
+  agentCommissionAmount?: number | null;
+  agentCommissionStatus?: CommissionStatus;
 }
 
 export interface ApplicationPage {
@@ -307,7 +376,7 @@ export interface JournalEntry {
   event: string;
   fromStatus: ApplicationStatus | null;
   toStatus: ApplicationStatus;
-  actorType: 'CLIENT' | 'SYSTEM' | 'MANAGER' | 'UNDERWRITER';
+  actorType: 'CLIENT' | 'AGENT' | 'SYSTEM' | 'MANAGER' | 'UNDERWRITER';
   actorId: string | null;
   reasonCode: string | null;
   comment: string | null;

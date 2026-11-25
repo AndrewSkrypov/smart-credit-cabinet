@@ -2,7 +2,7 @@ import { Box, Button, Container, IconButton, Stack, Tab, Tabs, Tooltip, Typograp
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import { roleHome, useAuth } from '../auth/AuthProvider';
-import { roleLabels } from '../shared/labels';
+import { bankRoles, roleLabels } from '../shared/labels';
 import { nightGlow, tokens } from '../theme/theme';
 import { DocumentSurface } from './DocumentSurface';
 import { BrandMark } from './BrandMark';
@@ -22,6 +22,10 @@ const clientSections = [
   { path: '/client/employees', label: 'Сотрудники' }
 ];
 
+const agentSections = [
+  { path: '/agent', label: 'Портфель' }
+];
+
 // Light tabs on the dark band; the current one is marked by the brand's red line.
 const darkTabs = {
   minHeight: 48,
@@ -39,11 +43,12 @@ export function AppShell() {
   const location = useLocation();
   if (!session) return null;
   const { user } = session;
-  const bank = user.role !== 'CLIENT';
-  const sections = bank ? bankSections : clientSections;
+  const bank = bankRoles.includes(user.role);
+  const agent = user.role === 'AGENT';
+  const sections = bank ? bankSections : agent ? agentSections : clientSections;
   const section = [...sections].reverse().find((item) => location.pathname.startsWith(item.path))?.path ?? false;
   const tabs = (sx: object) => (
-    <Tabs value={section} variant="scrollable" sx={{ ...darkTabs, ...sx }} aria-label={bank ? 'Разделы банка' : 'Разделы компании'}>
+    <Tabs value={section} variant="scrollable" sx={{ ...darkTabs, ...sx }} aria-label={bank ? 'Разделы банка' : agent ? 'Разделы агента' : 'Разделы компании'}>
       {sections.map((item) => <Tab key={item.path} value={item.path} label={item.label} component={RouterLink} to={item.path} />)}
     </Tabs>
   );
@@ -53,7 +58,7 @@ export function AppShell() {
         <Container maxWidth="lg">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 3 }, minHeight: { xs: 56, md: 64 }, pl: { xs: 1.5, md: 2.5 }, pr: { xs: 1, md: 1.5 },
             borderRadius: '99px', bgcolor: 'rgba(28, 28, 30, 0.72)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#fff' }}>
-            <BrandMark to={roleHome[user.role]} compact inverted label={bank ? 'Рабочее место банка' : 'Кабинет предпринимателя'} />
+            <BrandMark to={roleHome[user.role]} compact inverted label={bank ? 'Рабочее место банка' : agent ? 'Кабинет агента' : 'Кабинет предпринимателя'} />
             {tabs({ display: { xs: 'none', lg: 'flex' }, flexGrow: 1 })}
             <Box sx={{ flexGrow: 1, display: { lg: 'none' } }} />
             <Stack sx={{ display: { xs: 'none', sm: 'flex' }, textAlign: 'right', minWidth: 0 }}>

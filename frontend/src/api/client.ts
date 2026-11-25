@@ -1,10 +1,14 @@
 import axios from 'axios';
 import { clearSession, readSession } from '../auth/session';
 import {
+  AgentClientSummary,
+  AgentCreateApplicationInput,
+  AgentPortfolioSummary,
   Analytics,
   Application,
   ApplicationDocument,
   ApplicationInput,
+  ApplicationStatus,
   ApplicationSummary,
   AssessmentView,
   AssistantAnswer,
@@ -16,6 +20,8 @@ import {
   JournalEntry,
   NotificationPage,
   NotificationSettings,
+  PreApprovedApplicationView,
+  PreApprovedOffer,
   Product,
   ProductMatch,
   ProductRevision,
@@ -173,6 +179,10 @@ export const applicationsApi = {
   /** The key makes a repeated click or a retry after a timeout return the first result. */
   submit: async (id: string, idempotencyKey: string, acceptedProductVersion?: number) =>
     (await api.post<Application>(`/applications/${id}/submit`, { acceptedProductVersion }, { headers: { 'Idempotency-Key': idempotencyKey } })).data,
+  confirm: (id: string, bureauConsent: boolean, acceptedProductVersion?: number) =>
+    post<Application>(`/applications/${id}/confirm`, { bureauConsent, acceptedProductVersion }),
+  returnToAgent: (id: string, comment?: string) =>
+    post<Application>(`/applications/${id}/return-to-agent`, { comment }),
   withdraw: (id: string, comment?: string) => post<Application>(`/applications/${id}/withdraw`, { comment }),
   events: (id: string) => get<JournalEntry[]>(`/applications/${id}/events`),
   uploadDocument: async (id: string, type: DocumentType, file: File) => {
@@ -230,6 +240,48 @@ export const notificationsApi = {
   unreadCount: async () => (await get<{ unread: number }>('/notifications/unread-count')).unread,
   markRead: (id: string) => post<void>(`/notifications/${id}/read`),
   markAllRead: () => post<{ updated: number }>('/notifications/read-all')
+};
+
+export const preApprovedApi = {
+  list: () => get<PreApprovedOffer[]>('/pre-approved-offers'),
+  apply: (id: string) => post<PreApprovedApplicationView>(`/pre-approved-offers/${id}/apply`)
+};
+
+export const agentApi = {
+  portfolio: () => get<AgentPortfolioSummary>('/agent/portfolio'),
+  clients: () => get<AgentClientSummary[]>('/agent/clients'),
+  preApprovedOffers: () => get<PreApprovedOffer[]>('/agent/pre-approved-offers'),
+  applyPreApprovedOffer: (id: string) => post<Application>(`/agent/pre-approved-offers/${id}/apply`),
+  applications: (status?: ApplicationStatus[]) =>
+    get<ApplicationSummary[]>('/agent/applications', status?.length ? { status: status.join(',') } : undefined),
+  createApplication: (input: AgentCreateApplicationInput) => post<Application>('/agent/applications', input),
+  getApplication: (id: string) => get<Application>(`/agent/applications/${id}`),
+  updateApplication: (id: string, input: ApplicationInput) => put<Application>(`/agent/applications/${id}`, input),
+  requestConfirmation: (id: string) => post<Application>(`/agent/applications/${id}/request-confirmation`),
+  cancelApplication: (id: string) => post<Application>(`/agent/applications/${id}/cancel`),
+  provideInfo: (id: string, answer?: string) => post<Application>(`/agent/applications/${id}/info-provided`, { answer }),
+  listDocuments: (id: string) => get<ApplicationDocument[]>(`/agent/applications/${id}/documents`),
+  uploadDocument: async (id: string, type: DocumentType, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return (await api.post<ApplicationDocument>(`/agent/applications/${id}/documents`, form, { params: { type }, headers: { 'Content-Type': 'multipart/form-data' } })).data;
+  },
+  deleteDocument: async (id: string, documentId: string) => {
+    await api.delete(`/agent/applications/${id}/documents/${documentId}`);
+  },
+  downloadDocument: async (id: string, documentId: string, fileName: string) => {
+    await downloadFile(`/agent/applications/${id}/documents/${documentId}`, fileName);
+  },
+  chatPage: async (id: string, params: { after?: number; before?: number; limit?: number } = {}) =>
+    (await api.get<ChatPage>(`/agent/applications/${id}/messages`, { params })).data,
+  chatSend: async (id: string, key: string, text: string, documentIds: string[]) =>
+    (await api.post<ChatMessage>(`/agent/applications/${id}/messages`, { text, documentIds }, { headers: { 'Idempotency-Key': key } })).data,
+  chatRead: (id: string, lastReadSeq: number) => post<ChatRead>(`/agent/applications/${id}/messages/read`, { lastReadSeq }),
+  chatUpload: async (id: string, key: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return (await api.post<ChatFile>(`/agent/applications/${id}/messages/attachments`, form, { headers: { 'Idempotency-Key': key, 'Content-Type': 'multipart/form-data' } })).data;
+  }
 };
 
 export const assistantApi = {

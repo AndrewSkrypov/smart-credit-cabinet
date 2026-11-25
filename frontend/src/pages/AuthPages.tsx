@@ -17,6 +17,8 @@ const DEMO_PASSWORD = 'Demo2026';
 
 const demoAccounts = [
   { email: 'client@demo.test', label: 'Предприниматель' },
+  { email: 'agent@demo.test', label: 'Агент — Соколов Артём (4 клиента)' },
+  { email: 'agent2@demo.test', label: 'Агент 2 — Морозова Елена (1 клиент)' },
   { email: 'manager@demo.test', label: 'Кредитный менеджер' },
   { email: 'underwriter@demo.test', label: 'Андеррайтер' },
   { email: 'risk@demo.test', label: 'Риск-администратор' }

@@ -28,7 +28,7 @@ if (process.env.MAIL_TESTS !== '1') {
       const draft = await draftResponse.json();
       await page.goto('/bank/products');
       await page.getByLabel('Продукт', { exact: true }).click();
-      await page.getByRole('option', { name: original.name, exact: true }).click();
+      await page.getByRole('option', { name: `${original.name} · Активен`, exact: true }).click();
       await page.getByLabel('Базовая ставка, %', { exact: true }).fill(String(changedRate));
       await page.getByLabel('Причина изменения продукта').fill('Проверка новой ставки и сохранения выданного кредита');
       await page.getByRole('button', { name: 'Сохранить новую версию продукта', exact: true }).click();
@@ -68,8 +68,10 @@ if (process.env.MAIL_TESTS !== '1') {
       await noHorizontalOverflow(page);
     } finally {
       const current = (await (await request.get('/api/v1/bank/products/WORKING_CAPITAL', { headers: headers(risk) })).json())[0].product;
-      const restored = await request.put('/api/v1/bank/products/WORKING_CAPITAL', { headers: headers(risk), data: { ...original, expectedVersion: current.version, reason: 'Восстановление исходных условий после проверки интерфейса' } });
-      expect(restored.status()).toBe(200);
+      if (current.version !== original.version) {
+        const restored = await request.put('/api/v1/bank/products/WORKING_CAPITAL', { headers: headers(risk), data: { ...original, expectedVersion: current.version, reason: 'Восстановление исходных условий после проверки интерфейса' } });
+        expect(restored.status()).toBe(200);
+      }
       await clearActive(request, client);
     }
   });
@@ -80,7 +82,7 @@ if (process.env.MAIL_TESTS !== '1') {
     try {
       await page.goto('/bank/products');
       await page.getByLabel('Продукт', { exact: true }).click();
-      await page.getByRole('option', { name: original.name, exact: true }).click();
+      await page.getByRole('option', { name: `${original.name} · Активен`, exact: true }).click();
       await expect(page.getByLabel('Базовая ставка, %', { exact: true })).toHaveValue(String(original.baseRate));
       await page.getByLabel('Базовая ставка, %', { exact: true }).fill(String(original.baseRate + 2));
       const competing = await request.put('/api/v1/bank/products/WORKING_CAPITAL', { headers: headers(risk), data: { ...original, baseRate: original.baseRate + 1, expectedVersion: original.version, reason: 'Конкурентная правка для проверки конфликта' } });
@@ -99,11 +101,14 @@ if (process.env.MAIL_TESTS !== '1') {
       await page.getByRole('button', { name: 'Загрузить текущие условия', exact: true }).click();
       await page.getByRole('button', { name: 'Продолжить без сохранения', exact: true }).click();
       await expect(page.getByLabel('Базовая ставка, %', { exact: true })).toHaveValue(String(original.baseRate + 1));
-      await page.getByRole('checkbox', { name: 'Показывать в каталоге и принимать новые заявки', exact: true }).uncheck();
-      await page.getByLabel('Причина изменения продукта').fill('Временное выключение для проверки каталога');
-      await page.getByRole('button', { name: 'Сохранить новую версию продукта', exact: true }).click();
-      await page.getByRole('button', { name: 'ОК', exact: true }).click();
-      await expect(page.getByText(`Сохранена версия ${original.version + 2}. Новые заявки используют эти условия.`, { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'В архив', exact: true }).click();
+      const archive = page.getByRole('dialog', { name: 'Отправить продукт в архив?', exact: true });
+      await archive.getByLabel('Причина изменения статуса').fill('Временное архивирование для проверки каталога');
+      await archive.getByRole('button', { name: 'В архив', exact: true }).click();
+      await expect(page.getByText('Продукт переведён в архив.', { exact: true })).toBeVisible();
+      const history = await request.get('/api/v1/bank/products/WORKING_CAPITAL', { headers: headers(risk) });
+      expect(history.status()).toBe(200);
+      expect((await history.json())[0].product).toMatchObject({ version: original.version + 2, lifecycleStatus: 'ARCHIVED' });
       expect((await request.get('/api/v1/products/WORKING_CAPITAL')).status()).toBe(404);
       const catalogue = await (await request.get('/api/v1/products')).json();
       expect(catalogue.some((product: { code: string }) => product.code === 'WORKING_CAPITAL')).toBe(false);
@@ -112,7 +117,9 @@ if (process.env.MAIL_TESTS !== '1') {
       await page.screenshot({ path: testInfo.outputPath('product-disabled.png') });
     } finally {
       const current = (await (await request.get('/api/v1/bank/products/WORKING_CAPITAL', { headers: headers(risk) })).json())[0].product;
-      expect((await request.put('/api/v1/bank/products/WORKING_CAPITAL', { headers: headers(risk), data: { ...original, expectedVersion: current.version, reason: 'Возврат каталога после проверки конфликта и выключения' } })).status()).toBe(200);
+      if (current.version !== original.version) {
+        expect((await request.put('/api/v1/bank/products/WORKING_CAPITAL', { headers: headers(risk), data: { ...original, expectedVersion: current.version, reason: 'Возврат каталога после проверки конфликта и архивирования' } })).status()).toBe(200);
+      }
     }
   });
 

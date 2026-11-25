@@ -622,6 +622,7 @@ jobs:
           name: access-security-reports
           path: |
             security/reports/access-matrix.json
+            security/reports/final-access-matrix.json
             security/reports/negative.json
           retention-days: 14
       - name: Monitoring verification

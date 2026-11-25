@@ -13,13 +13,15 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-from cabinet_api import DockerCabinet, synthetic_inn  # noqa: E402
+from cabinet_api import Cabinet, DockerCabinet, synthetic_inn  # noqa: E402
+import final_access  # noqa: E402
 
 parser = argparse.ArgumentParser(description="Полная матрица ролей и владения объектами")
 parser.add_argument("--base", default="http://localhost:8080")
 parser.add_argument("--project", default="cabinet-submission")
 parser.add_argument("--check-only", action="store_true", help="Проверить полноту таблицы без обращения к стенду")
 parser.add_argument("--write-table", action="store_true", help="Обновить читаемую таблицу из access-policy.json без обращения к стенду")
+parser.add_argument("--final-only", action="store_true", help="Проверить только новые маршруты через локальный HTTP")
 args = parser.parse_args()
 policy = json.loads((ROOT / "security/access-policy.json").read_text(encoding="utf-8"))
 roles = policy["roles"]
@@ -36,12 +38,21 @@ for file in sorted((ROOT / "contracts/openapi").glob("*.yaml")):
         for method in methods:
             if method.upper() in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}:
                 actual.add((file.stem, method.upper(), path))
-assert declared == actual, f"Матрица не совпадает с OpenAPI: отсутствуют {actual-declared}; лишние {declared-actual}"
+final_routes = {(service, method, path) for service, method, path, statuses in final_access.ROUTES}
+assert len(final_routes) == len(final_access.ROUTES) and not declared & final_routes, "Повтор маршрута финала"
+assert all(len(statuses) == len(final_access.ROLES) for _, _, _, statuses in final_access.ROUTES), "Не перечислены все роли финала"
+covered = declared | final_routes
+assert covered == actual, f"Матрица не совпадает с OpenAPI: отсутствуют {actual-covered}; лишние {covered-actual}"
 table = ["# Матрица ожидаемого доступа", "", "Источник ожиданий — [access-policy.json](access-policy.json). Полнота проверяется по четырём OpenAPI.", ""]
 table.extend(f"- {note}" for note in policy["notes"])
 table.extend(["", "| Сервис | Операция | " + " | ".join(policy["role_titles"]) + " |",
               "| --- | --- | " + " | ".join(["---"]*len(roles)) + " |"])
 for service, method, path, fixture, statuses in policy["endpoints"]:
+    table.append(f"| {service} | `{method} {path}` | " + " | ".join(map(str, statuses)) + " |")
+table += ["", "## Маршруты финала", "", "Матрица проверяет роли на отсутствующих объектах. Сквозные положительные сценарии используют действующий мандат в Playwright.",
+          "", "| Сервис | Операция | " + " | ".join(final_access.ROLE_TITLES) + " |",
+          "| --- | --- | " + " | ".join(["---"] * len(final_access.ROLES)) + " |"]
+for service, method, path, statuses in final_access.ROUTES:
     table.append(f"| {service} | `{method} {path}` | " + " | ".join(map(str, statuses)) + " |")
 table_text = "\n".join(table) + "\n"
 table_file = ROOT / "security/access-matrix.md"
@@ -49,13 +60,17 @@ if args.write_table:
     table_file.write_text(table_text, encoding="utf-8")
 else:
     assert table_file.read_text(encoding="utf-8").replace("\r\n", "\n") == table_text, "Обновите таблицу: python security/matrix.py --write-table"
-print(f"Полнота: {len(actual)} операций × {len(roles)} ролей = {len(actual)*len(roles)} проверок", flush=True)
+legacy_checks = len(declared) * len(roles)
+print(f"Полнота: {len(actual)} операций, {legacy_checks} основных и {len(final_routes) * len(final_access.ROLES)} проверок финала", flush=True)
 if args.check_only or args.write_table:
     raise SystemExit(0)
 if not re.fullmatch(r"cabinet-(?:submission|reliability|e2e|release|polish)(?:-[a-z0-9]+)?", args.project):
     parser.error("Разрешён только отдельный синтетический тестовый проект")
 if urlparse(args.base).hostname not in {"localhost", "127.0.0.1", "::1"}:
     parser.error("HTTP-стенд должен быть локальным; внешние серверы этой проверкой не изменяются")
+if args.final_only:
+    final_access.check(Cabinet(args.base))
+    raise SystemExit(0)
 
 api = DockerCabinet(args.base, args.project)
 reports = ROOT / "security/reports"
@@ -300,7 +315,7 @@ try:
         if kind == "create":
             for app_id, token in created:
                 close(app_id, token)
-        print(f"Проверено {len(rows)}/{len(actual)*len(roles)}: {method} {template}", flush=True)
+        print(f"Проверено {len(rows)}/{legacy_checks}: {method} {template}", flush=True)
     assert api.json("GET", "/api/v1/rules", token=tokens["risk_admin"])["params"] == original_rules
     completed = True
 except Exception as error:
@@ -333,10 +348,12 @@ finally:
             close(app_id, token)
         except Exception as error:
             cleanup_errors.append(str(error))
-    summary = {"checked_at": datetime.now(timezone.utc).isoformat(), "operations": len(actual), "roles": roles,
-               "expected_checks": len(actual)*len(roles), "checks": rows,
+    summary = {"checked_at": datetime.now(timezone.utc).isoformat(), "operations": len(declared), "roles": roles,
+               "expected_checks": legacy_checks, "checks": rows,
                "failure": failure, "cleanup_errors": cleanup_errors, "extra_checks": extra_checks,
-               "passed": completed and not cleanup_errors and len(rows) == len(actual)*len(roles) and all(row["expected"] == row["actual"] for row in rows)}
+               "passed": completed and not cleanup_errors and len(rows) == legacy_checks and all(row["expected"] == row["actual"] for row in rows)}
     (reports / "access-matrix.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     if completed and cleanup_errors:
         raise AssertionError("Не завершено восстановление стенда: " + "; ".join(cleanup_errors))
+
+final_access.check(api)

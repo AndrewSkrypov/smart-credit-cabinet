@@ -42,9 +42,26 @@ flowchart LR
   Identity --> Valkey[(Valkey)]
   Credit --> Valkey
   Engagement --> Valkey
+  subgraph Monitoring["Профиль monitoring"]
+    Prometheus["Prometheus"]
+    Tempo["Tempo"]
+    Logs["Файлы JSON-логов"]
+    Alloy["Grafana Alloy"]
+    Loki["Loki"]
+    Grafana["Grafana"]
+    Logs --> Alloy --> Loki
+    Grafana --> Prometheus & Tempo & Loki
+  end
+  Prometheus -->|Метрики Actuator| Credit
+  Credit -->|OTLP| Tempo
+  Credit -->|Структурированные логи| Logs
 ```
 
 Входящий шлюз маршрутизирует публичные контуры. Доступ к `/internal/` и `/ext/` через него закрыт. Веб-процессы работают под собственными ролями `*_app`, отдельно от владельцев схем. Помощник работает по правилам при отключении Ollama.
+
+Все четыре сервиса публикуют метрики, OTLP-трейсы и структурированные логи.
+Стрелки для credit показывают путь данных через профиль `monitoring`.
+Связь с HTTP и outbox описана в [руководстве по эксплуатации](operations.md).
 
 ## C4 Component. Границы внутри credit
 
@@ -59,7 +76,9 @@ flowchart LR
   subgraph Use["Операции приложения"]
     AgentUse["AgentApplicationService"]
     AppUse["ApplicationService"]
+    AppRead["ApplicationProcesses и ApplicationPages"]
     BankUse["UnderwritingService"]
+    BankRead["UnderwritingAssessment"]
     Steps["PipelineSteps"]
   end
   subgraph Domain["Домен"]
@@ -71,20 +90,24 @@ flowchart LR
     Store["ApplicationRepository, ApplicationJournal, PipelineJobs"]
     Mandate["AgentAccessPort"]
     Doc["DocumentRepository, FileStore"]
+    Offers["OfferRepository, Loans, ContractTextStore"]
     Source["Внешние источники, ПЭП и АБС"]
     Notices["PlatformNotifications"]
   end
   AgentHttp --> AgentUse
-  ClientHttp --> AppUse
-  BankHttp --> BankUse
+  ClientHttp --> AppUse & AppRead
+  BankHttp --> BankUse & BankRead
   Worker --> Steps
   AgentUse --> State & Mandate & Doc
   AppUse --> State & Product & Store & Notices
-  BankUse --> State & Risk
+  AppRead --> Store & Offers
+  BankUse --> State & Risk & Offers
+  BankRead --> Store & Risk
   Steps --> State & Risk & Store & Source
   Store --> Postgres[(PostgreSQL)]
   Mandate --> Identity["identity, внутренний HTTP"]
   Doc --> Files["JDBC, S3 или локальное хранилище"]
+  Offers --> Postgres
   Source --> Sim["external-sim"]
   Notices --> Outbox[(delivery_outbox)]
 ```

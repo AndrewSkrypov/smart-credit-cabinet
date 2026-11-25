@@ -29,6 +29,7 @@ import { Link as RouterLink, useParams } from 'react-router-dom';
 import { agentApi, productsApi } from '../../api/client';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingBlock } from '../../components/LoadingBlock';
+import { LoanServicingBlock } from '../../components/LoanServicingBlock';
 import { MessagesBlock } from '../../components/MessagesBlock';
 import { MoneyField } from '../../components/MoneyField';
 import { PageHeader } from '../../components/PageHeader';
@@ -291,7 +292,7 @@ function AgentApplicationCard({ id }: { id: string }) {
       <PageHeader
         title={`Заявка${application.number ? ` № ${application.number}` : ''}`}
         subtitle={`${application.company.name ?? `ИНН ${application.company.inn}`} · ${application.product.name} · ${rub(application.amount)}`}
-        actions={<Chip label={statusTitle(application.status)} color={tone === 'default' ? 'default' : tone} />}
+        actions={<Chip label={statusTitle(application.status)} color={tone === 'default' ? 'default' : tone} sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }} />}
       />
 
       <Grid container spacing={3} sx={{ pb: 6 }}>
@@ -465,6 +466,10 @@ function AgentApplicationCard({ id }: { id: string }) {
                   Действительно до {formatDateTime(application.process.offer.validUntil)}. Решение о принятии и подписании принимает клиент.
                 </Typography>
               </Paper>
+            )}
+
+            {application.status === 'DISBURSED' && (
+              <LoanServicingBlock applicationId={application.id} readOnly />
             )}
 
             {/* Documents block via agent API */}

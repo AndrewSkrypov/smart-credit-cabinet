@@ -146,8 +146,8 @@ export function AgentClientPage() {
               <Grid item xs={12} md={6} key={offer.id}>
                 <Card variant="outlined" sx={{ borderColor: 'success.main' }}>
                   <CardContent>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                      <Typography variant="subtitle1" fontWeight={700}>{offer.productName}</Typography>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+                      <Typography variant="subtitle1" fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>{offer.productName}</Typography>
                       <Chip size="small" color="success" icon={<AutoAwesomeRoundedIcon />} label={`Ставка ${percent(offer.rate)}`} />
                     </Stack>
                     <Typography variant="h5" fontWeight={700} sx={{ mt: 1 }}>до {rub(offer.maxAmount)}</Typography>
@@ -288,8 +288,8 @@ export function AgentClientPage() {
                   return (
                     <Card key={app.id} variant="outlined">
                       <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                          <Typography fontWeight={600}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+                          <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
                             {app.number ? `№ ${app.number}` : 'Черновик'} · {app.productName}
                           </Typography>
                           <Chip size="small" label={statusTitle(app.status)} color={tone === 'default' ? 'default' : tone} />

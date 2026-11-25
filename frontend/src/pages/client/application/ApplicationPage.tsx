@@ -17,6 +17,7 @@ import { InfoRequestBlock } from './InfoRequestBlock';
 import { LoanBlock } from './LoanBlock';
 import { OfferBlock } from './OfferBlock';
 import { GeneratedFilesBlock } from '../../../components/GeneratedFilesBlock';
+import { LoanServicingBlock } from '../../../components/LoanServicingBlock';
 import { SigningBlock } from './SigningBlock';
 import { StageStepper } from './StageStepper';
 
@@ -210,6 +211,7 @@ function ApplicationCard({ id }: { id: string }) {
             )}
             {application.status === 'SIGNING' && <SigningBlock application={application} onChanged={apply} />}
             {application.status === 'DISBURSED' && application.process.loan && <LoanBlock application={application} />}
+            {application.status === 'DISBURSED' && <LoanServicingBlock applicationId={application.id} />}
             {application.status === 'DISBURSED' && application.process.loan && <GeneratedFilesBlock applicationId={application.id} final />}
             {application.status === 'DISBURSED' && application.process.offer && <Box component="details"><Typography component="summary" sx={{ cursor: 'pointer', py: 1 }}>Согласованные условия</Typography><OfferBlock historical application={application} onChanged={apply} /></Box>}
             {outcome && (

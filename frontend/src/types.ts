@@ -65,6 +65,8 @@ export interface Purpose {
   title: string;
 }
 
+export type ProductLifecycleStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+
 export interface Product {
   code: string;
   name: string;
@@ -79,6 +81,28 @@ export interface Product {
   revolving: boolean;
   version?: number;
   active?: boolean;
+  lifecycleStatus?: ProductLifecycleStatus;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  agentCommissionRateBps?: number;
+}
+
+export interface ProductCreateInput {
+  code: string;
+  name: string;
+  description: string;
+  purposes: FinancingPurpose[];
+  minAmount: number;
+  maxAmount: number;
+  minTermMonths: number;
+  maxTermMonths: number;
+  baseRate: number;
+  autoApprovalLimit: number;
+  revolving: boolean;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  agentCommissionRateBps: number;
+  reason: string;
 }
 
 export interface ProductRevision {
@@ -280,6 +304,48 @@ export interface Loan {
   rate: number;
   disbursedAt: string;
   maturityDate: string;
+}
+
+export type LoanAccountStatus = 'ACTIVE' | 'REPAID';
+export type LoanPaymentStatus = 'SCHEDULED' | 'PAID';
+
+export interface LoanTranche {
+  id: string;
+  trancheNumber: number;
+  amount: number;
+  purpose: string | null;
+  disbursedAt: string;
+}
+
+export interface LoanPayment {
+  id: string;
+  paymentNumber: number;
+  dueDate: string;
+  paymentAmount: number;
+  principalAmount: number;
+  interestAmount: number;
+  remainingBalance: number;
+  status: LoanPaymentStatus;
+  paidAt: string | null;
+}
+
+export interface LoanAccount {
+  id: string;
+  applicationId: string;
+  contractNumber: string;
+  status: LoanAccountStatus;
+  approvedLimit: number;
+  disbursedAmount: number;
+  availableLimit: number;
+  outstandingPrincipal: number;
+  rate: number;
+  termMonths: number;
+  revolving: boolean;
+  disbursedAt: string;
+  maturityDate: string;
+  repaidAt: string | null;
+  tranches: LoanTranche[];
+  payments: LoanPayment[];
 }
 
 export interface Outcome {

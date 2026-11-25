@@ -18,11 +18,13 @@ import {
   DocumentType,
   FinancingPurpose,
   JournalEntry,
+  LoanAccount,
   NotificationPage,
   NotificationSettings,
   PreApprovedApplicationView,
   PreApprovedOffer,
   Product,
+  ProductCreateInput,
   ProductMatch,
   ProductRevision,
   Purpose,
@@ -152,8 +154,23 @@ export const productsApi = {
 
 export const productEditorApi = {
   list: () => get<Product[]>('/bank/products'),
+  create: (input: ProductCreateInput) => post<ProductRevision>('/bank/products', input),
   history: (code: string) => get<ProductRevision[]>(`/bank/products/${code}`),
-  save: (product: Product, reason: string) => put<ProductRevision>(`/bank/products/${product.code}`, { ...product, expectedVersion: product.version, reason })
+  save: (product: Product, reason: string) => put<ProductRevision>(`/bank/products/${product.code}`, { ...product, expectedVersion: product.version, reason }),
+  publish: (code: string, expectedVersion: number, reason: string) =>
+    post<ProductRevision>(`/bank/products/${code}/publish`, { expectedVersion, reason }),
+  archive: (code: string, expectedVersion: number, reason: string) =>
+    post<ProductRevision>(`/bank/products/${code}/archive`, { expectedVersion, reason }),
+  restore: (code: string, expectedVersion: number, reason: string) =>
+    post<ProductRevision>(`/bank/products/${code}/restore`, { expectedVersion, reason })
+};
+
+export const loanServicingApi = {
+  getByApplication: (applicationId: string) => get<LoanAccount>(`/applications/${applicationId}/loan`),
+  drawTranche: (loanId: string, amount: number, purpose?: string) =>
+    post<LoanAccount>(`/loans/${loanId}/tranches`, { amount, purpose: purpose?.trim() || undefined }),
+  payNext: (loanId: string) => post<LoanAccount>(`/loans/${loanId}/payments/next`),
+  repayEarly: (loanId: string) => post<LoanAccount>(`/loans/${loanId}/repay-early`)
 };
 
 export const chatApi = {

@@ -29,6 +29,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingBlock } from '../../components/LoadingBlock';
 import { PageHeader } from '../../components/PageHeader';
+import { TableScrollRegion } from '../../components/TableScrollRegion';
 import { useApi } from '../../hooks/useApi';
 import { agentNextAction, statusTitle, statusTone } from '../../shared/applicationText';
 import { formatDate, formatDateTime, months, percent, rub } from '../../shared/format';
@@ -137,9 +138,9 @@ export function AgentPortfolioPage() {
                 <Grid item xs={12} md={6} key={client.companyId}>
                   <Card variant="outlined" sx={{ height: '100%' }}>
                     <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1} flexWrap="wrap" useFlexGap>
                         <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="subtitle1" fontWeight={700} noWrap>
+                          <Typography variant="subtitle1" fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>
                             {client.name ?? `ИНН ${client.inn}`}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
@@ -207,8 +208,10 @@ export function AgentPortfolioPage() {
             description={onlyActionRequired ? 'Отключите фильтр, чтобы увидеть все заявки портфеля.' : 'Выберите клиента выше, чтобы подготовить первую заявку.'}
           />
         ) : (
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small" aria-label="Заявки портфеля агента">
+          <Paper variant="outlined" sx={{ p: { xs: 1, sm: 0 }, overflow: 'hidden' }}>
+            <TableScrollRegion label="Заявки портфеля агента">
+              <TableContainer>
+                <Table size="small" aria-label="Заявки портфеля агента">
               <TableHead>
                 <TableRow>
                   <TableCell>Заявка</TableCell>
@@ -272,8 +275,10 @@ export function AgentPortfolioPage() {
                   );
                 })}
               </TableBody>
-            </Table>
-          </TableContainer>
+                </Table>
+              </TableContainer>
+            </TableScrollRegion>
+          </Paper>
         )}
       </Box>
     </Stack>

@@ -38,7 +38,7 @@ function ApplicationRow({ item, onOpen }: { item: ApplicationSummary; onOpen: ()
                 Агент подготовил заявку — проверьте и подтвердите
               </Typography>
             )}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 2 }} alignItems={{ sm: 'center' }} sx={{ mt: 1 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 2 }} alignItems={{ sm: 'center' }} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
               <Typography variant="subtitle1" component="p" fontWeight={700}>{rub(item.amount)} <Typography component="span" color="text.secondary">· {months(item.termMonths)}</Typography></Typography>
               <Chip label={statusTitle(item.status)} color={tone === 'default' ? 'default' : tone} sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }} />
               {(item.unreadChatCount ?? 0) > 0 && <Chip size="small" color="info" label={`Сообщений: ${item.unreadChatCount}`} />}
@@ -123,8 +123,8 @@ export function ClientHomePage() {
                     <Grid item xs={12} sm={6} key={offer.id}>
                       <Card variant="outlined" sx={{ height: '100%', borderColor: 'success.main' }}>
                         <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%' }}>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                            <Typography variant="subtitle1" fontWeight={700}>{offer.productName}</Typography>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+                            <Typography variant="subtitle1" fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>{offer.productName}</Typography>
                             <Chip size="small" color="success" icon={<AutoAwesomeRoundedIcon />} label={percent(offer.rate)} />
                           </Stack>
                           <Typography variant="h5" fontWeight={700}>до {rub(offer.maxAmount)}</Typography>

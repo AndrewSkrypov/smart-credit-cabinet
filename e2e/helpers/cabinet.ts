@@ -1,5 +1,20 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { setTimeout as pause } from 'node:timers/promises';
+
+// API fixtures and browser sign-ins share the gateway's 30 requests/minute budget in CI.
+// The limit-specific scenario sends its own requests to exercise the live 429 response.
+const SIGN_IN_INTERVAL_MS = 2_100;
+let nextSignInAt = 0;
+
+async function paceDemoSignIn(): Promise<void> {
+  const now = performance.now();
+  const scheduled = Math.max(now, nextSignInAt);
+  nextSignInAt = scheduled + SIGN_IN_INTERVAL_MS;
+  if (scheduled > now) {
+    await pause(Math.ceil(scheduled - now));
+  }
+}
 
 export interface Session { token: string; user: { role: string } }
 export interface Application {
@@ -21,6 +36,7 @@ export interface Scenario {
 }
 
 export async function signIn(request: APIRequestContext, account: string): Promise<Session> {
+  await paceDemoSignIn();
   const response = await request.post('/api/v1/auth/sign-in', { data: { email: `${account}@demo.test`, password: 'Demo2026' } });
   expect(response.status(), `Вход ${account}: ${await response.text()}`).toBe(200);
   return response.json();
@@ -32,6 +48,7 @@ export async function login(page: Page, account: string): Promise<Session> {
   await page.goto('/sign-in');
   await page.getByLabel('Email', { exact: false }).fill(`${account}@demo.test`);
   await page.getByLabel('Пароль', { exact: false }).fill('Demo2026');
+  await paceDemoSignIn();
   const responsePromise = page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/sign-in') && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
   const response = await responsePromise;

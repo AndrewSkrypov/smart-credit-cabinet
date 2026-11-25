@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
-import { headers, login, noHorizontalOverflow, syntheticInn, waitStatus, type Session, type Application } from '../helpers/cabinet.js';
+import { headers, login, noHorizontalOverflow, signIn, syntheticInn, waitStatus, type Session, type Application } from '../helpers/cabinet.js';
 
 const mailEnabled = process.env.MAIL_TESTS === '1';
 const mailpit = process.env.MAILPIT_URL ?? 'http://127.0.0.1:8025';
@@ -54,9 +54,7 @@ if (mailEnabled) {
     // A synthetic company can need manual review; only action-required and outcome mail is expected.
     const appState = await request.get(`/api/v1/applications/${app.id}`, { headers: headers(session) });
     if ((await appState.json()).status === 'MANUAL_REVIEW') {
-      const bankResponse = await request.post('/api/v1/auth/sign-in', { data: { email: 'underwriter@demo.test', password: 'Demo2026' } });
-      expect(bankResponse.ok()).toBeTruthy();
-      const bank: Session = await bankResponse.json();
+      const bank = await signIn(request, 'underwriter');
       expect((await request.post(`/api/v1/underwriting/applications/${app.id}/approve`, {
         headers: headers(bank), data: { comment: 'Синтетическая проверка почтового канала' }
       })).ok()).toBeTruthy();

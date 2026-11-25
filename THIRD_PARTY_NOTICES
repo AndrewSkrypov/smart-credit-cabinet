@@ -1004,7 +1004,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | Образ | Основное ПО | Лицензия | Источник |
 | --- | --- | --- | --- |
 | postgres:16.15-alpine@sha256:deb28ee471183cb0c303113dac9b2433c51eeeeb678def7af9a9ec5820367815 | PostgreSQL / основа cabinet/postgres:16.15-alpine-su-exec-0.3 | PostgreSQL | https://www.postgresql.org/about/licence/ |
-| nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94 | nginx | BSD-2-Clause | https://github.com/nginx/nginx/blob/master/LICENSE |
+| nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3 | nginx | BSD-2-Clause | https://github.com/nginx/nginx/blob/master/LICENSE |
 | nginxinc/nginx-unprivileged:1.30-alpine | nginx / непривилегированный образ | BSD-2-Clause / Apache-2.0 (рецепт образа) | https://github.com/nginx/docker-nginx-unprivileged/blob/main/LICENSE |
 | swaggerapi/swagger-ui:v5.34.0@sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0 | Swagger UI | Apache-2.0 | https://github.com/swagger-api/swagger-ui/blob/v5.34.0/LICENSE |
 | ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8 | Ollama | MIT; дополнительные компоненты перечислены upstream | https://github.com/ollama/ollama/blob/v0.40.8/LICENSE |

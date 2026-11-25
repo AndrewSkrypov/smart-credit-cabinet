@@ -31,6 +31,7 @@ import ru.creditcabinet.pipeline.PipelineFakesConfig
 import ru.creditcabinet.pipeline.PipelineWorker
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
+import ru.creditcabinet.product.domain.ProductLifecycleStatus
 import ru.creditcabinet.product.domain.ProductVersions
 import java.util.Date
 import java.util.UUID
@@ -159,7 +160,7 @@ class ProductVersionsIntegrationTest {
                 maxAmount = 900_000,
                 autoApprovalLimit = 300_000,
                 maxTermMonths = 12,
-                active = false,
+                lifecycleStatus = ProductLifecycleStatus.ARCHIVED,
             ),
         )
         assertEquals(200, changed.status, changed.contentAsString)
@@ -277,7 +278,7 @@ class ProductVersionsIntegrationTest {
         val id = submitted()
         worker.runDue()
         assertEquals("MANUAL_REVIEW", json(get("/api/v1/applications/$id"))["status"].asText())
-        assertEquals(200, edit(alternative.copy(baseRate = 88.toBigDecimal(), revolving = false, active = false)).status)
+        assertEquals(200, edit(alternative.copy(baseRate = 88.toBigDecimal(), revolving = false, lifecycleStatus = ProductLifecycleStatus.ARCHIVED)).status)
         val counter = post(
             "/api/v1/underwriting/applications/$id/counter-offer",
             mapOf(

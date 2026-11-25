@@ -15,6 +15,14 @@ data class ProductRevision(
 interface ProductVersions {
     fun list(): List<Product>
     fun history(code: String): List<ProductRevision>
+    fun create(
+        product: Product,
+        authorId: UUID,
+        reason: String,
+        now: Instant,
+        authorName: String? = null,
+        authorRole: String? = null,
+    ): ProductRevision
     fun replace(
         product: Product,
         expectedVersion: Long,
@@ -35,4 +43,8 @@ fun Product.problems(): List<String> = buildList {
     if (minTermMonths <= 0 || minTermMonths > maxTermMonths || maxTermMonths > 120) add("Срок — от 1 до 120 месяцев, минимум не больше максимума")
     if (baseRate.signum() <= 0 || baseRate > 100.toBigDecimal() || baseRate.scale() > 2) add("Ставка — больше 0 и не больше 100%, до двух знаков после запятой")
     if (autoApprovalLimit !in minAmount..maxAmount) add("Лимит автоодобрения должен быть в пределах сумм продукта")
+    if (effectiveFrom != null && effectiveTo != null && effectiveFrom.isAfter(effectiveTo)) {
+        add("Дата начала действия не может быть позже даты окончания")
+    }
+    if (agentCommissionRateBps !in 0..1000) add("Комиссия агента — от 0 до 1000 б.п.")
 }

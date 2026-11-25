@@ -8,14 +8,16 @@ import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
+import ru.creditcabinet.product.domain.ProductLifecycleStatus
 import ru.creditcabinet.product.domain.ProductRevision
 import ru.creditcabinet.product.domain.ProductVersions
 import java.sql.Timestamp
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
 @Component
-class ProductJdbcCatalog(private val jdbc: JdbcTemplate) : ProductCatalog, ProductVersions {
+class ProductJdbcCatalog(private val jdbc: JdbcTemplate, private val clock: Clock) : ProductCatalog, ProductVersions {
     private val mapper = RowMapper { rs, _ ->
         @Suppress("UNCHECKED_CAST")
         val purposes = (rs.getArray("purposes").array as Array<String>).map(FinancingPurpose::valueOf).toSet()
@@ -32,13 +34,27 @@ class ProductJdbcCatalog(private val jdbc: JdbcTemplate) : ProductCatalog, Produ
             autoApprovalLimit = rs.getLong("auto_approval_limit"),
             revolving = rs.getBoolean("revolving"),
             version = rs.getLong("version"),
-            active = rs.getBoolean("active"),
+            lifecycleStatus = ProductLifecycleStatus.valueOf(rs.getString("lifecycle_status")),
+            effectiveFrom = rs.getTimestamp("effective_from")?.toInstant(),
+            effectiveTo = rs.getTimestamp("effective_to")?.toInstant(),
+            agentCommissionRateBps = rs.getInt("agent_commission_rate_bps"),
         )
     }
 
-    override fun all(): List<Product> = jdbc.query("$CURRENT where v.active order by p.display_order", mapper)
+    override fun all(): List<Product> {
+        val now = Timestamp.from(clock.instant())
+        return jdbc.query(
+            "$CURRENT where v.lifecycle_status = 'ACTIVE' " +
+                "and (v.effective_from is null or v.effective_from <= ?) " +
+                "and (v.effective_to is null or v.effective_to >= ?) " +
+                "order by p.display_order",
+            mapper,
+            now,
+            now,
+        )
+    }
 
-    override fun find(code: String): Product? = latest(code)?.takeIf { it.active }
+    override fun find(code: String): Product? = latest(code)?.takeIf { it.active && it.isEffectiveAt(clock.instant()) }
 
     override fun latest(code: String): Product? = jdbc.query("$CURRENT where p.code = ?", mapper, code).firstOrNull()
 
@@ -62,6 +78,35 @@ class ProductJdbcCatalog(private val jdbc: JdbcTemplate) : ProductCatalog, Produ
         code,
     )
 
+    override fun create(
+        product: Product,
+        authorId: UUID,
+        reason: String,
+        now: Instant,
+        authorName: String?,
+        authorRole: String?,
+    ): ProductRevision {
+        val existing = jdbc.queryForList("select 1 from products where code = ? for update", product.code)
+        if (existing.isNotEmpty()) {
+            throw ConflictException("Продукт с кодом ${product.code} уже существует")
+        }
+        val saved = product.copy(version = 1)
+        val purposesSql = saved.purposes.joinToString(",", "{", "}") { it.name }
+        val displayOrder = jdbc.queryForObject("select coalesce(max(display_order), 0) + 10 from products", Int::class.java) ?: 10
+        jdbc.update(
+            """
+            insert into products (code, name, description, purposes, min_amount, max_amount, min_term_months, max_term_months,
+                base_rate, auto_approval_limit, revolving, display_order, current_version)
+            values (?, ?, ?, ?::varchar[], ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent(),
+            saved.code, saved.name, saved.description, purposesSql, saved.minAmount, saved.maxAmount,
+            saved.minTermMonths, saved.maxTermMonths, saved.baseRate, saved.autoApprovalLimit,
+            saved.revolving, displayOrder, saved.version,
+        )
+        insertVersion(saved, purposesSql, authorId, reason, now, authorName, authorRole)
+        return ProductRevision(saved, authorId, reason, now, authorName, authorRole)
+    }
+
     override fun replace(
         product: Product,
         expectedVersion: Long,
@@ -84,18 +129,34 @@ class ProductJdbcCatalog(private val jdbc: JdbcTemplate) : ProductCatalog, Produ
             "Условия не изменились — новая версия не требуется"
         }
         val saved = product.copy(version = expectedVersion + 1)
+        val purposesSql = saved.purposes.joinToString(",", "{", "}") { it.name }
+        insertVersion(saved, purposesSql, authorId, reason, now, authorName, authorRole)
+        jdbc.update("update products set current_version = ? where code = ?", saved.version, saved.code)
+        return ProductRevision(saved, authorId, reason, now, authorName, authorRole)
+    }
+
+    private fun insertVersion(
+        saved: Product,
+        purposesSql: String,
+        authorId: UUID,
+        reason: String,
+        now: Instant,
+        authorName: String?,
+        authorRole: String?,
+    ) {
         jdbc.update(
             """
             insert into product_versions (code, version, name, description, purposes, min_amount, max_amount, min_term_months, max_term_months,
-                base_rate, auto_approval_limit, revolving, active, author_id, reason, created_at, author_name, author_role)
-            values (?, ?, ?, ?, ?::varchar[], ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                base_rate, auto_approval_limit, revolving, active, lifecycle_status, effective_from, effective_to, agent_commission_rate_bps,
+                author_id, reason, created_at, author_name, author_role)
+            values (?, ?, ?, ?, ?::varchar[], ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
-            saved.code, saved.version, saved.name, saved.description, saved.purposes.joinToString(",", "{", "}") { it.name },
+            saved.code, saved.version, saved.name, saved.description, purposesSql,
             saved.minAmount, saved.maxAmount, saved.minTermMonths, saved.maxTermMonths, saved.baseRate, saved.autoApprovalLimit,
-            saved.revolving, saved.active, authorId, reason, Timestamp.from(now), authorName, authorRole,
+            saved.revolving, saved.active, saved.lifecycleStatus.name,
+            saved.effectiveFrom?.let(Timestamp::from), saved.effectiveTo?.let(Timestamp::from), saved.agentCommissionRateBps,
+            authorId, reason, Timestamp.from(now), authorName, authorRole,
         )
-        jdbc.update("update products set current_version = ? where code = ?", saved.version, saved.code)
-        return ProductRevision(saved, authorId, reason, now, authorName, authorRole)
     }
 
     private companion object {

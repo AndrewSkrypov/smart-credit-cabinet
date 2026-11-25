@@ -1,6 +1,13 @@
 package ru.creditcabinet.product.domain
 
 import java.math.BigDecimal
+import java.time.Instant
+
+enum class ProductLifecycleStatus {
+    DRAFT,
+    ACTIVE,
+    ARCHIVED,
+}
 
 /** What the business needs the money for; the client picks one in the needs wizard. */
 enum class FinancingPurpose(val title: String) {
@@ -29,8 +36,18 @@ data class Product(
     /** A limit used and repaid again (overdraft, card) rather than a one-off loan. */
     val revolving: Boolean,
     val version: Long = 1,
-    val active: Boolean = true,
+    val lifecycleStatus: ProductLifecycleStatus = ProductLifecycleStatus.ACTIVE,
+    val effectiveFrom: Instant? = null,
+    val effectiveTo: Instant? = null,
+    val agentCommissionRateBps: Int = 150,
 ) {
+    val active: Boolean
+        get() = lifecycleStatus == ProductLifecycleStatus.ACTIVE
+
+    fun isEffectiveAt(at: Instant): Boolean =
+        (effectiveFrom == null || !at.isBefore(effectiveFrom)) &&
+            (effectiveTo == null || !at.isAfter(effectiveTo))
+
     fun amountFits(amount: Long) = amount in minAmount..maxAmount
 
     fun termFits(termMonths: Int) = termMonths in minTermMonths..maxTermMonths

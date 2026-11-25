@@ -469,7 +469,7 @@ function AgentApplicationCard({ id }: { id: string }) {
             )}
 
             {application.status === 'DISBURSED' && (
-              <LoanServicingBlock applicationId={application.id} readOnly />
+              <LoanServicingBlock applicationId={application.id} readOnly agentScope />
             )}
 
             {/* Documents block via agent API */}

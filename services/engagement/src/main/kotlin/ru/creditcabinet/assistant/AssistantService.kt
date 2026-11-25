@@ -27,13 +27,18 @@ class AssistantService(
     private val applications: CreditApplications,
     private val products: CreditProducts,
     private val clock: Clock,
+    private val cache: AssistantReferenceCache,
+    private val metrics: AssistantMetrics,
 ) {
     private val recent = ConcurrentHashMap<UUID, List<Instant>>()
     private val log = org.slf4j.LoggerFactory.getLogger(javaClass)
 
     fun status(): Pair<AnswerMode, String?> = if (model.available()) AnswerMode.MODEL to model.name else AnswerMode.RULES to null
 
-    fun answer(question: String, applicationId: UUID?, history: List<Turn>, authorization: String): Answer {
+    fun answer(question: String, applicationId: UUID?, history: List<Turn>, authorization: String): Answer =
+        metrics.measure("message") { reply(question, applicationId, history, authorization) }
+
+    private fun reply(question: String, applicationId: UUID?, history: List<Turn>, authorization: String): Answer {
         val claims = CurrentCaller.claims()
         throttle(claims.userId)
         val facts = applicationId?.let { applications.facts(it, authorization) }
@@ -46,6 +51,21 @@ class AssistantService(
         // and a model would make one up.
         // Legal advice and ways around repayment are refused before any model sees the question.
         if (RuleAnswers.asksForLegalAdvice(question)) return Answer(RuleAnswers.NO_LEGAL_ADVICE, AnswerMode.RULES, sources)
+        if (applicationId != null && ALTERNATIVE.containsMatchIn(question) && (claims.isClient || claims.isAgent)) {
+            val application = applications.application(applicationId, authorization, claims.isAgent)
+            val offer = application.path("process").path("offer")
+            if (application.path("status").asText() == "REJECTED" || offer.path("kind").asText() == "COUNTER") {
+                val requested = NeedParser.parse(question)
+                val need = FinancingNeed(
+                    requested.purpose ?: application.path("purpose").asText(),
+                    requested.amount ?: application.path("amount").asLong(),
+                    requested.termMonths ?: application.path("termMonths").asInt(),
+                )
+                val excluded = offer.path("productCode").asText().ifBlank { application.path("product").path("code").asText() }
+                val (text, link) = ProductAdvice.answer(need, products, authorization, excluded)
+                return Answer(text, AnswerMode.RULES, listOf("Подбор продукта", "Данные заявки"), link)
+            }
+        }
         // «Подбери кредит…»: products and payments come from the matcher of the needs wizard, by rules.
         financingNeed(question, history)?.let { need ->
             val (text, link) = ProductAdvice.answer(need, products, authorization)
@@ -58,9 +78,14 @@ class AssistantService(
             val explanation = articles.take(1).joinToString("\n\n") { it.text }
             return Answer(listOf(factsAnswer, explanation).filter { it.isNotBlank() }.joinToString("\n\n"), AnswerMode.RULES, sources)
         }
+        val normalized = question.lowercase()
         val procedure = when {
-            "гарант" in question.lowercase() -> "approval"
-            articles.any { it.id == "bureau" } && listOf("соглас", "тайком").any { it in question.lowercase() } -> "bureau"
+            "гарант" in normalized -> "approval"
+            articles.any { it.id == "bureau" } && listOf("соглас", "тайком").any { it in normalized } -> "bureau"
+            "контрпредлож" in normalized && listOf("отказ", "отклон", "приня").any { it in normalized } -> "counter-offer"
+            "овердрафт" in normalized && listOf("бесплат", "свои деньги", "мои деньги").any { it in normalized } -> "overdraft"
+            normalized.startsWith("на что") && "пополнени" in normalized && "оборот" in normalized -> "working-capital"
+            normalized.startsWith("что финансирует") && "инвестицион" in normalized -> "investment"
             else -> null
         }?.let { id -> Knowledge.articles.single { it.id == id } }
         if (procedure != null) return Answer(procedure.text, AnswerMode.RULES, listOf(procedure.title) + listOfNotNull(facts?.let { "Заявка № ${it.number}" }))
@@ -70,18 +95,32 @@ class AssistantService(
             return Answer(RuleAnswers.answer(question, facts, reference), AnswerMode.RULES, sources)
         }
         if (articles.isEmpty()) return Answer(RuleAnswers.answer(question, facts, articles), AnswerMode.RULES, sources)
+        val trusted = (articles.map { it.text } + listOfNotNull(facts?.asText())).joinToString("\n")
+        // Only public, fixed prompts qualify, with no user history or application context.
+        val key = if (applicationId == null && history.isEmpty()) cache.key(question, articles, model.name) else null
+        if (key != null && model.available()) {
+            cache.read(key)?.takeIf { Grounding.problems(it, trusted, articles.first()).isEmpty() }?.let {
+                metrics.modelEvent("CACHE_HIT")
+                return Answer(it, AnswerMode.MODEL, sources)
+            }
+        }
         val messages = prompt(question, facts, articles, history)
-        model.chat(messages)?.let { reply ->
+        val generated = model.chat(messages)
+        generated?.let { reply ->
             val text = withoutPromptEcho(plainText(reply), question)
             // A small model can still invent a figure, contradict the reference, slip into another
             // script or ramble; such an answer is not shown, the rules answer is.
             // User questions and earlier turns are not authoritative financial facts.
-            val trusted = (articles.map { it.text } + listOfNotNull(facts?.asText())).joinToString("\n")
             val problems = Grounding.problems(text, trusted, articles.first())
-            if (problems.isEmpty()) return Answer(text, AnswerMode.MODEL, sources)
+            if (problems.isEmpty()) {
+                metrics.modelEvent("ACCEPTED")
+                if (key != null) cache.save(key, text)
+                return Answer(text, AnswerMode.MODEL, sources)
+            }
             // Problems may contain rejected figures or fragments; never copy them into logs.
             log.warn("Assistant answer dropped: reference validation failed")
         }
+        metrics.modelEvent(if (generated == null) "UNAVAILABLE" else "GUARD_REJECTED")
         return Answer(RuleAnswers.answer(question, facts, articles), AnswerMode.RULES, sources)
     }
 
@@ -90,7 +129,10 @@ class AssistantService(
      * the conclusions it is given; a figure not in them, or a model that is not there, gives the
      * summary by rules: the verdict and the first items.
      */
-    fun underwritingSummary(applicationId: UUID, authorization: String): Answer {
+    fun underwritingSummary(applicationId: UUID, authorization: String): Answer =
+        metrics.measure("underwriting_summary") { summarize(applicationId, authorization) }
+
+    private fun summarize(applicationId: UUID, authorization: String): Answer {
         val claims = CurrentCaller.requireBankStaff()
         throttle(claims.userId)
         val advice = applications.advice(applicationId, authorization)
@@ -102,12 +144,17 @@ class AssistantService(
         if (items.isEmpty()) return Answer(verdict, AnswerMode.RULES, sources)
         val context = "Вывод: $verdict\nПункты:\n" + items.joinToString("\n") { "— $it" }
         val messages = listOf(ChatMessage("system", UNDERWRITER_SYSTEM), ChatMessage("user", context))
-        model.chat(messages)?.let { reply ->
+        val generated = model.chat(messages)
+        generated?.let { reply ->
             val text = withoutPromptEcho(plainText(reply))
             val problems = Grounding.problems(text, context)
-            if (problems.isEmpty()) return Answer(text, AnswerMode.MODEL, sources)
-            log.warn("Underwriting summary dropped: {}", problems)
+            if (problems.isEmpty()) {
+                metrics.modelEvent("ACCEPTED")
+                return Answer(text, AnswerMode.MODEL, sources)
+            }
+            log.warn("Underwriting summary dropped: reference validation failed")
         }
+        metrics.modelEvent(if (generated == null) "UNAVAILABLE" else "GUARD_REJECTED")
         return Answer(byRules, AnswerMode.RULES, sources)
     }
 
@@ -190,6 +237,7 @@ class AssistantService(
         private const val MAX_TEXT = 1000
         private val PROMPT_LABELS = listOf("Справка", "Данные заявки", "Вопрос клиента", "Заявка не выбрана")
         private val ANSWER_LABEL = Regex("Ответ(?: на вопрос клиента)?:", RegexOption.IGNORE_CASE)
+        private val ALTERNATIVE = Regex("альтернатив|друг(?:ой|ие|ого)\\s+продукт", RegexOption.IGNORE_CASE)
         private const val MAX_HISTORY = 4
         private const val MAX_QUESTIONS = 20
         private val WINDOW: Duration = Duration.ofMinutes(10)

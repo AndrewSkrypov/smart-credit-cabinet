@@ -1,14 +1,69 @@
-import { Alert, Box, Button, Chip, Drawer, Fab, IconButton, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Badge, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Drawer, Fab, IconButton, Stack, TextField, Typography } from '@mui/material';
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Link as RouterLink, useLocation } from 'react-router-dom';
-import { assistantApi } from '../api/client';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { api, assistantApi, get, post } from '../api/client';
+import { readSession } from '../auth/session';
 import { tokens } from '../theme/theme';
 import { SensitiveDataNotice } from './SensitiveDataNotice';
 import { AssistantAnswer, AssistantTurn } from '../types';
 
-const APPLICATION_PATH = /^\/client\/applications\/([0-9a-f-]{36})/;
+const APPLICATION_PATH = /^\/(?:client|agent)\/applications\/([0-9a-f-]{36})(?:\/|$)/;
+const AGENT_COMPANY_PATH = /^\/agent\/clients\/([0-9a-f-]{36})(?:\/|$)/;
+
+interface Hint {
+  type: 'MISSING_DOCUMENTS' | 'INFO_DEADLINE' | 'OFFER_DEADLINE' | 'PRE_APPROVED' | 'ALTERNATIVE';
+  title: string;
+  detail: string;
+  applicationId: string | null;
+  deadline: string | null;
+  canRemind: boolean;
+  companyId?: string | null;
+}
+
+interface DraftPreview {
+  companyId: string | null;
+  input: { productCode: string; purpose: string; amount: number; termMonths: number };
+  productName: string;
+}
+
+const deadlineFormat = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Moscow' });
+
+async function readAssistantStream(
+  question: string, applicationId: string | null, history: AssistantTurn[], signal: AbortSignal, showStatus: (text: string) => void
+): Promise<AssistantAnswer> {
+  const { data } = await api.post<ReadableStream<Uint8Array>>('/assistant/messages/stream', { question, applicationId, history }, {
+    adapter: 'fetch', responseType: 'stream', signal, headers: { Accept: 'text/event-stream' }
+  });
+  const reader = data.getReader();
+  const decoder = new TextDecoder();
+  let pending = '';
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) throw new Error('Ответ помощника оборвался. Повторите вопрос.');
+      pending += decoder.decode(value, { stream: true });
+      let boundary = pending.indexOf('\n\n');
+      while (boundary >= 0) {
+        const lines = pending.slice(0, boundary).split('\n');
+        pending = pending.slice(boundary + 2);
+        const type = lines.find((line) => line.startsWith('event: '))?.slice(7);
+        const json = lines.find((line) => line.startsWith('data: '))?.slice(6);
+        if (json) {
+          const event = JSON.parse(json);
+          if (type === 'status') showStatus(event.text);
+          if (type === 'answer') return event as AssistantAnswer;
+          if (type === 'failure') throw new Error(event.message);
+        }
+        boundary = pending.indexOf('\n\n');
+      }
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+}
 
 const suggestionsFor = (onApplication: boolean) =>
   onApplication
@@ -33,17 +88,30 @@ const contextFor = (messages: Message[]): AssistantTurn[] => messages
  */
 export function AssistantPanel() {
   const location = useLocation();
+  const navigate = useNavigate();
   const applicationId = location.pathname.match(APPLICATION_PATH)?.[1] ?? null;
+  const companyId = location.pathname.match(AGENT_COMPANY_PATH)?.[1] ?? null;
+  const agent = location.pathname === '/agent' || location.pathname.startsWith('/agent/');
+  const contextKey = `${agent ? 'agent' : 'client'}:${applicationId ?? ''}:${companyId ?? ''}`;
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<{ mode: 'MODEL' | 'RULES'; model: string | null } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hints, setHints] = useState<Hint[]>([]);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [sendingReminder, setSendingReminder] = useState(false);
+  const [reminderFeedback, setReminderFeedback] = useState<{ error: boolean; text: string } | null>(null);
+  const [draftPreview, setDraftPreview] = useState<DraftPreview | null>(null);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
   const requestId = useRef(0);
-  const currentApplication = useRef(applicationId);
-  currentApplication.current = applicationId;
+  const currentContext = useRef(contextKey);
+  currentContext.current = contextKey;
+  const inFlight = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (open && !mode) assistantApi.status().then(setMode).catch(() => setMode(null));
@@ -59,15 +127,39 @@ export function AssistantPanel() {
     setMessages([]);
     setQuestion('');
     setError(null);
+    setProgress(null);
     setBusy(false);
-    return () => { requestId.current += 1; };
-  }, [applicationId]);
+    setConfirmation(null);
+    setSendingReminder(false);
+    setReminderFeedback(null);
+    setDraftPreview(null);
+    setDraftBusy(false);
+    setDraftError(null);
+    return () => {
+      requestId.current += 1;
+      inFlight.current?.abort();
+    };
+  }, [contextKey]);
+
+  useEffect(() => {
+    setHints([]);
+    if ((!agent && !applicationId) || !readSession()) return;
+    let active = true;
+    const refresh = () => get<Hint[]>('/assistant/next-steps', applicationId ? { applicationId } : undefined).then((value) => {
+      if (active) setHints(value);
+    }).catch(() => { if (active) setHints([]); });
+    void refresh();
+    const interval = window.setInterval(() => { void refresh(); }, 60_000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, [agent, applicationId, companyId]);
 
   const ask = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
     const request = ++requestId.current;
-    const isCurrent = () => request === requestId.current && applicationId === currentApplication.current;
+    const isCurrent = () => request === requestId.current && contextKey === currentContext.current;
+    const controller = new AbortController();
+    inFlight.current = controller;
     const history = contextFor(messages);
     const last = messages.at(-1);
     const retry = last?.role === 'user' && !last.completed && last.text === trimmed;
@@ -76,8 +168,11 @@ export function AssistantPanel() {
     setQuestion('');
     setBusy(true);
     setError(null);
+    setProgress(null);
     try {
-      const answer = await assistantApi.ask(trimmed, applicationId, history);
+      const answer = mode?.mode === 'MODEL' && readSession() && typeof ReadableStream !== 'undefined'
+        ? await readAssistantStream(trimmed, applicationId, history, controller.signal, (text) => { if (isCurrent()) setProgress(text); })
+        : await assistantApi.ask(trimmed, applicationId, history);
       if (isCurrent()) setMessages((current) => [
         ...current.map((message, index) => index === questionIndex ? { ...message, completed: true } : message),
         { role: 'assistant', text: answer.text, answer, completed: true }
@@ -85,7 +180,73 @@ export function AssistantPanel() {
     } catch (nextError) {
       if (isCurrent()) setError(nextError instanceof Error ? nextError.message : 'Помощник сейчас недоступен');
     } finally {
-      if (isCurrent()) setBusy(false);
+      if (isCurrent()) { setBusy(false); setProgress(null); }
+    }
+  };
+
+  const sendReminder = async () => {
+    if (!confirmation || sendingReminder) return;
+    setSendingReminder(true);
+    setReminderFeedback(null);
+    try {
+      await post('/assistant/reminders', { applicationId: confirmation });
+      if (contextKey !== currentContext.current) return;
+      setConfirmation(null);
+      setReminderFeedback({ error: false, text: 'Клиенту отправлено уведомление' });
+    } catch (nextError) {
+      if (contextKey !== currentContext.current) return;
+      setConfirmation(null);
+      setReminderFeedback({ error: true, text: nextError instanceof Error ? nextError.message : 'Напоминание не отправлено' });
+    } finally {
+      if (contextKey === currentContext.current) setSendingReminder(false);
+    }
+  };
+
+  const prepareDraft = async (path: string) => {
+    if (draftBusy) return;
+    setDraftError(null);
+    setDraftBusy(true);
+    try {
+      const query = new URL(path, window.location.origin).searchParams;
+      const purpose = query.get('purpose');
+      const amount = Number(query.get('amount'));
+      const termMonths = Number(query.get('termMonths'));
+      const excluded = query.get('excludeProductCode');
+      if (!purpose || !Number.isSafeInteger(amount) || amount <= 0 || !Number.isInteger(termMonths) || termMonths < 1) {
+        throw new Error('Уточните цель, сумму и срок, чтобы подготовить черновик');
+      }
+      const target = agent
+        ? companyId ?? (applicationId ? (await get<{ company: { id: string } }>(`/agent/applications/${applicationId}`)).company.id : null)
+        : null;
+      if (agent && !target) throw new Error('Сначала откройте клиента в агентском кабинете');
+      const matches = await post<Array<{ fits: boolean; termMonths: number; product: { code: string; name: string } }>>('/products/match', { purpose, amount, termMonths });
+      const match = matches.find(({ fits, product }) => fits && product.code !== excluded);
+      if (!match) throw new Error('Для этих параметров пока нет подходящего продукта');
+      if (contextKey === currentContext.current) setDraftPreview({ companyId: target, productName: match.product.name,
+        input: { productCode: match.product.code, purpose, amount, termMonths: match.termMonths } });
+    } catch (nextError) {
+      if (contextKey === currentContext.current) setDraftError(nextError instanceof Error ? nextError.message : 'Черновик недоступен');
+    } finally {
+      if (contextKey === currentContext.current) setDraftBusy(false);
+    }
+  };
+
+  const createDraft = async () => {
+    if (!draftPreview || draftBusy) return;
+    setDraftBusy(true);
+    setDraftError(null);
+    try {
+      const draft = draftPreview.companyId
+        ? await post<{ id: string }>('/agent/applications', { ...draftPreview.input, companyId: draftPreview.companyId })
+        : await post<{ id: string }>('/applications', { ...draftPreview.input, bureauConsent: false });
+      if (contextKey !== currentContext.current) return;
+      setDraftPreview(null);
+      setOpen(false);
+      navigate(`/${draftPreview.companyId ? 'agent' : 'client'}/applications/${draft.id}`);
+    } catch (nextError) {
+      if (contextKey === currentContext.current) setDraftError(nextError instanceof Error ? nextError.message : 'Черновик не создан');
+    } finally {
+      if (contextKey === currentContext.current) setDraftBusy(false);
     }
   };
 
@@ -98,7 +259,7 @@ export function AssistantPanel() {
     <>
       <Fab variant="extended" color="secondary" onClick={() => setOpen(true)} aria-label="Открыть помощника"
         sx={{ position: 'fixed', right: { xs: 16, md: 32 }, bottom: { xs: 16, md: 32 }, textTransform: 'none', zIndex: 1200 }}>
-        <ChatBubbleOutlineRoundedIcon sx={{ mr: 1 }} />
+        <Badge color="error" badgeContent={hints.length} sx={{ mr: 1.5 }}><ChatBubbleOutlineRoundedIcon /></Badge>
         Помощник
       </Fab>
       {/* No scroll lock: removing the page's scrollbar would shift the whole page sideways. */}
@@ -115,6 +276,21 @@ export function AssistantPanel() {
         </Stack>
 
         <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }} aria-live="polite">
+          {hints.length > 0 && <Stack spacing={1} sx={{ mb: 2 }}>
+            {hints.map((hint, index) => <Box key={`${hint.type}:${hint.applicationId ?? index}`} sx={{ p: 1.5, bgcolor: tokens.secondaryFill, borderRadius: 2 }}>
+              <Typography fontWeight={700}>{hint.title}</Typography>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{hint.detail}</Typography>
+              {hint.deadline && <Typography variant="caption" display="block">До {deadlineFormat.format(new Date(hint.deadline))} МСК</Typography>}
+              <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 0.5 }}>
+                {hint.applicationId && hint.applicationId !== applicationId && <Button component={RouterLink} to={`/${agent ? 'agent' : 'client'}/applications/${hint.applicationId}`} size="small" onClick={() => setOpen(false)}>Открыть заявку</Button>}
+                {hint.type === 'PRE_APPROVED' && hint.companyId && <Button component={RouterLink} to={`/agent/clients/${hint.companyId}`} size="small" onClick={() => setOpen(false)}>Открыть клиента</Button>}
+                {hint.type === 'ALTERNATIVE' && applicationId === hint.applicationId && <Button size="small" disabled={busy} onClick={() => void ask('Подбери альтернативный продукт и посчитай платёж')}>Сравнить продукты</Button>}
+                {hint.canRemind && hint.applicationId && <Button size="small" onClick={() => setConfirmation(hint.applicationId)}>Напомнить клиенту</Button>}
+              </Stack>
+            </Box>)}
+          </Stack>}
+          {reminderFeedback && <Alert severity={reminderFeedback.error ? 'error' : 'success'} sx={{ mb: 2 }}>{reminderFeedback.text}</Alert>}
+          {draftError && !draftPreview && <Alert severity="error" sx={{ mb: 2 }}>{draftError}</Alert>}
           {messages.length === 0 && (
             <Stack spacing={1.5}>
               <Typography color="text.secondary">
@@ -134,7 +310,9 @@ export function AssistantPanel() {
                   <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{message.text}</Typography>
                 </Box>
                 {message.answer?.link && (
-                  <Button component={RouterLink} to={message.answer.link.path} variant="contained" size="small" sx={{ mt: 1, display: 'flex', width: 'fit-content' }}>{message.answer.link.label}</Button>
+                  agent || new URL(message.answer.link.path, window.location.origin).searchParams.has('excludeProductCode')
+                    ? <Button variant="contained" size="small" disabled={draftBusy} sx={{ mt: 1 }} onClick={() => void prepareDraft(message.answer!.link!.path)}>Подготовить черновик</Button>
+                    : <Button component={RouterLink} to={message.answer.link.path} variant="contained" size="small" sx={{ mt: 1, display: 'flex', width: 'fit-content' }}>{message.answer.link.label}</Button>
                 )}
                 {message.answer && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                   {message.answer.mode === 'MODEL' ? 'Ответ модели' : 'По правилам и данным кабинета'}
@@ -144,7 +322,7 @@ export function AssistantPanel() {
                 </Typography>}
               </Box>
             ))}
-            {busy && <Typography color="text.secondary">Помощник печатает…</Typography>}
+            {busy && <Typography color="text.secondary">{progress ?? 'Помощник печатает…'}</Typography>}
           </Stack>
           <div ref={end} />
         </Box>
@@ -156,6 +334,26 @@ export function AssistantPanel() {
           <Button type="submit" variant="contained" disabled={busy || !question.trim()}>Спросить</Button>
         </Stack>
       </Drawer>
+      <Dialog open={confirmation !== null} onClose={() => { if (!sendingReminder) setConfirmation(null); }}>
+        <DialogTitle>Напомнить клиенту о документах?</DialogTitle>
+        <DialogContent>Клиент получит уведомление в кабинете со ссылкой на запрос банка.</DialogContent>
+        <DialogActions>
+          <Button disabled={sendingReminder} onClick={() => setConfirmation(null)}>Отмена</Button>
+          <Button variant="contained" disabled={sendingReminder} onClick={() => void sendReminder()}>Отправить уведомление</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={draftPreview !== null} onClose={() => { if (!draftBusy) setDraftPreview(null); }}>
+        <DialogTitle>{draftPreview?.companyId ? 'Создать черновик для клиента?' : 'Создать черновик заявки?'}</DialogTitle>
+        {draftPreview && <DialogContent>
+          <Typography>{draftPreview.productName}</Typography>
+          <Typography>{draftPreview.input.amount.toLocaleString('ru-RU')} ₽ на {draftPreview.input.termMonths} мес.</Typography>
+          {draftError && <Alert severity="error" sx={{ mt: 1 }}>{draftError}</Alert>}
+        </DialogContent>}
+        <DialogActions>
+          <Button disabled={draftBusy} onClick={() => setDraftPreview(null)}>Отмена</Button>
+          <Button variant="contained" disabled={draftBusy} onClick={() => void createDraft()}>Создать черновик</Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

@@ -18,6 +18,7 @@ import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.integration.SigningGateway
 import ru.creditcabinet.integration.SigningResult
 import ru.creditcabinet.integration.SourceUnavailableException
+import ru.creditcabinet.offer.application.OfferActions
 import ru.creditcabinet.product.domain.ProductCatalog
 import java.time.Clock
 import java.util.UUID
@@ -39,9 +40,9 @@ class OfferService(
     private val contracts: ContractTexts,
     private val tx: TransactionTemplate,
     private val clock: Clock,
-) {
+) : OfferActions {
     /** T16, then a signing code is issued right away (if the signing service is down, the client asks again). */
-    fun accept(id: UUID): LoanApplication {
+    override fun accept(id: UUID): LoanApplication {
         val (claims, application) = applications.own(id)
         if (application.status == ApplicationStatus.SIGNING) return application
         val offer = issuedOffer(application)
@@ -57,7 +58,7 @@ class OfferService(
     }
 
     /** T17 by the client. */
-    fun decline(id: UUID, comment: String?): LoanApplication {
+    override fun decline(id: UUID, comment: String?): LoanApplication {
         val (claims, application) = applications.own(id)
         if (application.status == ApplicationStatus.CLOSED) return application
         val offer = issuedOffer(application)
@@ -69,7 +70,7 @@ class OfferService(
     }
 
     /** A new one-time code; the previous one stops working. */
-    fun requestCode(id: UUID): SigningSessionRecord {
+    override fun requestCode(id: UUID): SigningSessionRecord {
         val (claims, application) = applications.own(id)
         requireSigner(claims)
         if (application.status != ApplicationStatus.SIGNING) throw ConflictException("Подписывать сейчас нечего")
@@ -82,7 +83,7 @@ class OfferService(
     }
 
     /** T18: the code is checked by the signing service; then the money is on its way. */
-    fun sign(id: UUID, code: String): LoanApplication {
+    override fun sign(id: UUID, code: String): LoanApplication {
         val (claims, application) = applications.own(id)
         requireSigner(claims)
         if (application.status == ApplicationStatus.DISBURSING || application.status == ApplicationStatus.DISBURSED) return application
@@ -116,9 +117,9 @@ class OfferService(
         }
     }
 
-    fun current(applicationId: UUID): Offer? = offers.current(applicationId)
+    override fun current(applicationId: UUID): Offer? = offers.current(applicationId)
 
-    fun contract(id: UUID): ContractTextView {
+    override fun contract(id: UUID): ContractTextView {
         val application = applications.get(id)
         val offer = offers.current(id) ?: throw ru.creditcabinet.common.exception.NotFoundException("Текста пока нет: банк ещё не сделал предложение")
         val snapshot = contracts.find(offer.id)

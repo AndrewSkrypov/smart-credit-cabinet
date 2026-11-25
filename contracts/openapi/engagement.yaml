@@ -30,6 +30,37 @@ components:
       - label
       - path
       type: object
+    AssistantHint:
+      properties:
+        applicationId:
+          format: uuid
+          type: string
+        canRemind:
+          type: boolean
+        companyId:
+          format: uuid
+          type: string
+        deadline:
+          format: date-time
+          type: string
+        detail:
+          type: string
+        title:
+          type: string
+        type:
+          enum:
+          - MISSING_DOCUMENTS
+          - INFO_DEADLINE
+          - OFFER_DEADLINE
+          - PRE_APPROVED
+          - ALTERNATIVE
+          type: string
+      required:
+      - canRemind
+      - detail
+      - title
+      - type
+      type: object
     AssistantQuestion:
       properties:
         applicationId:
@@ -318,6 +349,263 @@ paths:
       security:
       - bearerAuth: []
       summary: Вопрос помощнику о продуктах, статусе и решении по заявке
+      tags:
+      - Кредитный помощник
+  /api/v1/assistant/messages/stream:
+    post:
+      operationId: stream
+      parameters:
+      - in: header
+        name: Authorization
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantQuestion'
+        required: true
+      responses:
+        '200':
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/assistant/messages/stream
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/assistant/messages/stream
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/assistant/messages/stream
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/assistant/messages/stream
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '429':
+          content:
+            application/json:
+              example:
+                error: Too Many Requests
+                message: Слишком много запросов — повторите позже
+                path: /api/v1/assistant/messages/stream
+                requestId: example-request-id
+                status: 429
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Превышено ограничение частоты запросов
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/assistant/messages/stream
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Ход проверки и проверенный ответ помощника в потоке событий
+      tags:
+      - Кредитный помощник
+  /api/v1/assistant/next-steps:
+    get:
+      operationId: nextSteps
+      parameters:
+      - in: query
+        name: applicationId
+        required: false
+        schema:
+          format: uuid
+          type: string
+      - in: header
+        name: Authorization
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/AssistantHint'
+                type: array
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/assistant/next-steps
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/assistant/next-steps
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/assistant/next-steps
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Актуальные подсказки по заявкам и портфелю агента
+      tags:
+      - Кредитный помощник
+  /api/v1/assistant/reminders:
+    post:
+      operationId: remind
+      parameters:
+      - in: header
+        name: Authorization
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SummaryRequest'
+        required: true
+      responses:
+        '204':
+          description: No Content
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/assistant/reminders
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/assistant/reminders
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/assistant/reminders
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/assistant/reminders
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/assistant/reminders
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Отправить клиенту подтверждённое напоминание о документах
       tags:
       - Кредитный помощник
   /api/v1/assistant/status:

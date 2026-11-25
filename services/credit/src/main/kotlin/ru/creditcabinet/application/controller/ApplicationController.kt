@@ -22,27 +22,22 @@ import org.springframework.web.bind.annotation.RequestPart
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
-import ru.creditcabinet.application.domain.ActorType
+import ru.creditcabinet.application.application.ApplicationPages
+import ru.creditcabinet.application.application.ApplicationProcesses
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationStateMachine
 import ru.creditcabinet.application.domain.ApplicationStatus
-import ru.creditcabinet.application.domain.InfoRequests
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.application.infrastructure.ApplicationPages
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.application.service.toActor
-import ru.creditcabinet.assessment.domain.DecisionRepository
 import ru.creditcabinet.chat.application.ChatService
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller
-import ru.creditcabinet.document.DocumentService
+import ru.creditcabinet.document.application.ApplicationDocuments
+import ru.creditcabinet.document.controller.toDocumentUpload
 import ru.creditcabinet.document.domain.DocumentRequirements
 import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.offer.ContractTextView
-import ru.creditcabinet.offer.Loans
-import ru.creditcabinet.offer.OfferKind
-import ru.creditcabinet.offer.OfferService
-import ru.creditcabinet.offer.SigningSessions
+import ru.creditcabinet.offer.application.OfferActions
 import ru.creditcabinet.product.domain.Calculation
 import ru.creditcabinet.product.domain.LoanMath
 import java.nio.charset.StandardCharsets
@@ -53,12 +48,9 @@ import java.util.UUID
 @RequestMapping("/api/v1/applications")
 class ApplicationController(
     private val service: ApplicationService,
-    private val documents: DocumentService,
-    private val offers: OfferService,
-    private val infoRequests: InfoRequests,
-    private val decisions: DecisionRepository,
-    private val signing: SigningSessions,
-    private val loans: Loans,
+    private val documents: ApplicationDocuments,
+    private val offers: OfferActions,
+    private val processes: ApplicationProcesses,
     private val chat: ChatService,
     private val pages: ApplicationPages,
 ) {
@@ -153,13 +145,7 @@ class ApplicationController(
 
     @Operation(summary = "График платежей по выданному кредиту или по предложению банка")
     @GetMapping("/{id}/schedule")
-    fun schedule(@PathVariable id: UUID): Calculation {
-        val application = service.get(id)
-        val loan = loans.find(application.id)
-        val offer = offers.current(application.id) ?: throw NotFoundException("Графика пока нет: банк ещё не сделал предложение")
-        val product = service.product(application, offer.productCode)
-        return LoanMath.calculate(loan?.amount ?: offer.amount, loan?.rate ?: offer.rate, loan?.termMonths ?: offer.termMonths, product.revolving)
-    }
+    fun schedule(@PathVariable id: UUID): Calculation = processes.schedule(service.get(id))
 
     @Operation(summary = "Подписываемый текст договора и сохранённый снимок; для старых заявок — сводка условий")
     @GetMapping("/{id}/contract")
@@ -176,7 +162,7 @@ class ApplicationController(
     @PostMapping("/{id}/documents", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
     fun upload(@PathVariable id: UUID, @RequestParam type: DocumentType, @RequestPart file: MultipartFile): DocumentView =
-        DocumentView.of(documents.upload(id, type, file))
+        DocumentView.of(documents.upload(id, type, file.toDocumentUpload()))
 
     @Operation(summary = "Удалить свой документ из редактируемого черновика")
     @DeleteMapping("/{id}/documents/{documentId}")
@@ -197,33 +183,13 @@ class ApplicationController(
     }
 
     private fun process(application: LoanApplication, isOwnClient: Boolean): ProcessView {
-        val offer = offers.current(application.id)
-        // What changed against the request: the rules' notes for an automatic counter offer, the underwriter's comment for theirs.
-        val offerDecision = offer?.let { decisions.find(it.decisionId) }
-        val changes = when {
-            offer?.kind != OfferKind.COUNTER || offerDecision == null -> emptyList()
-            offerDecision.decidedByType == ActorType.SYSTEM -> offerDecision.recommendation?.notes.orEmpty()
-            else -> listOfNotNull(offerDecision.comment)
-        }
-        val decision = decisions.latest(application.id)
+        val process = processes.read(application)
         return ProcessView(
-            infoRequest = infoRequests.open(application.id)?.let(InfoRequestView::of),
-            offer = offer?.let {
-                OfferView.of(
-                    it,
-                    service.product(application, it.productCode).name,
-                    if (decision?.decidedByType ==
-                        ActorType.SYSTEM
-                    ) {
-                        changes
-                    } else {
-                        listOfNotNull(decision?.comment)
-                    },
-                )
-            },
-            signing = signing.latest(application.id)?.toView(showCode = isOwnClient && CurrentCaller.claims().canSign),
-            loan = loans.find(application.id)?.let(LoanView::of),
-            outcome = decision?.takeIf { application.status == ApplicationStatus.REJECTED }?.let(OutcomeView::of),
+            infoRequest = process.infoRequest?.let(InfoRequestView::of),
+            offer = process.offer?.let { OfferView.of(it.offer, it.productName, it.changes) },
+            signing = process.signing?.toView(showCode = isOwnClient && CurrentCaller.claims().canSign),
+            loan = process.loan?.let(LoanView::of),
+            outcome = process.rejection?.let(OutcomeView::of),
         )
     }
 

@@ -1,6 +1,18 @@
 server:
   port: ${SERVER_PORT:8080}
 
+logging:
+  structured:
+    json:
+      add:
+        service: ${spring.application.name}
+
+management:
+  otlp:
+    tracing:
+      export:
+        enabled: ${MANAGEMENT_OTLP_TRACING_EXPORT_ENABLED:false}
+
 spring:
   application:
     name: identity

@@ -49,6 +49,7 @@ class DurableOutboxIntegrationTest {
         val root = generateSequence(Path.of("").toAbsolutePath()) { it.parent }
             .first { Files.exists(it.resolve("services/identity/src/main/resources")) }
         jdbc.execute(Files.readString(root.resolve("services/identity/src/main/resources/db/migration/V4__delivery_outbox.sql")))
+        jdbc.execute(Files.readString(root.resolve("services/identity/src/main/resources/db/migration/V7__outbox_trace_parent.sql")))
         jdbc.execute("create table effects (event_key text primary key)")
     }
 
@@ -77,6 +78,17 @@ class DurableOutboxIntegrationTest {
         assertEquals(first, enqueue("same"))
         assertFailsWith<IllegalArgumentException> { transaction.execute { outbox.enqueue("test", "same", "{\"changed\":true}") } }
         assertEquals(1, count("delivery_outbox"))
+    }
+
+    @Test
+    fun `claim keeps the original trace without changing event idempotency`() {
+        val event = enqueue("trace")
+        val trace = "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01"
+        jdbc.update("update delivery_outbox set trace_parent=? where id=?", trace, event)
+        assertEquals(event, enqueue("trace"))
+        val claim = outbox.claim(Instant.now(), OutboxSettings().lease, OutboxSettings().maxAttempts)
+        assertEquals(trace, assertNotNull(claim).traceParent)
+        assertEquals("{}", claim.payload)
     }
 
     @Test

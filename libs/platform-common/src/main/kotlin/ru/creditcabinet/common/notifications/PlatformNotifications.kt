@@ -2,6 +2,9 @@ package ru.creditcabinet.common.notifications
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.tracing.Tracer
+import io.micrometer.tracing.propagation.Propagator
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -18,6 +21,7 @@ import ru.creditcabinet.common.outbox.DeliveryHandler
 import ru.creditcabinet.common.outbox.DurableOutbox
 import ru.creditcabinet.common.outbox.OutboxMetrics
 import ru.creditcabinet.common.outbox.OutboxSettings
+import ru.creditcabinet.common.outbox.OutboxTracing
 import ru.creditcabinet.common.outbox.OutboxWorker
 import java.time.Duration
 import java.util.UUID
@@ -84,8 +88,16 @@ class DisabledNotificationsConfig {
 @ConditionalOnProperty(name = ["cabinet.outbox.enabled"], havingValue = "true")
 class PlatformNotificationsConfig {
     @Bean
-    fun durableOutbox(dataSource: DataSource, transactionManager: PlatformTransactionManager, mapper: ObjectMapper): DurableOutbox =
-        DurableOutbox(NamedParameterJdbcTemplate(dataSource), TransactionTemplate(transactionManager), mapper)
+    fun outboxTracing(tracer: ObjectProvider<Tracer>, propagator: ObjectProvider<Propagator>): OutboxTracing =
+        OutboxTracing(tracer.ifAvailable ?: Tracer.NOOP, propagator.ifAvailable ?: Propagator.NOOP)
+
+    @Bean
+    fun durableOutbox(
+        dataSource: DataSource,
+        transactionManager: PlatformTransactionManager,
+        mapper: ObjectMapper,
+        tracing: OutboxTracing,
+    ): DurableOutbox = DurableOutbox(NamedParameterJdbcTemplate(dataSource), TransactionTemplate(transactionManager), mapper, tracing)
 
     @Bean
     fun platformNotifications(outbox: DurableOutbox, mapper: ObjectMapper): PlatformNotifications = OutboxNotifications(outbox, mapper)
@@ -107,6 +119,11 @@ class PlatformNotificationsConfig {
     fun outboxMetrics(registry: MeterRegistry, dataSource: DataSource): OutboxMetrics = OutboxMetrics(registry, dataSource)
 
     @Bean
-    fun outboxWorker(outbox: DurableOutbox, handlers: List<DeliveryHandler>, settings: OutboxSettings, metrics: OutboxMetrics): OutboxWorker =
-        OutboxWorker(outbox, handlers, settings, observation = metrics)
+    fun outboxWorker(
+        outbox: DurableOutbox,
+        handlers: List<DeliveryHandler>,
+        settings: OutboxSettings,
+        metrics: OutboxMetrics,
+        tracing: OutboxTracing,
+    ): OutboxWorker = OutboxWorker(outbox, handlers, settings, observation = metrics, tracing = tracing)
 }

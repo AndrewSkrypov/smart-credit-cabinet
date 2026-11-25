@@ -96,3 +96,40 @@
 | external-sim | `GET /sim/control` | 200 | 200 | 200 | 200 | 200 | 200 |
 | external-sim | `POST /sim/control/reset` | 200 | 200 | 200 | 200 | 200 | 200 |
 | external-sim | `PUT /sim/control/sources/{source}` | 200 | 200 | 200 | 200 | 200 | 200 |
+
+## Маршруты финала
+
+Матрица проверяет роли на отсутствующих объектах. Сквозные положительные сценарии используют действующий мандат в Playwright.
+
+| Сервис | Операция | Без токена | Клиент | Другой клиент | Менеджер | Андеррайтер | Риск-администратор | Агент | Другой агент |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| identity | `GET /api/v1/agent/clients` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
+| credit | `GET /api/v1/agent/applications` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
+| credit | `POST /api/v1/agent/applications` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `GET /api/v1/agent/applications/{id}` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `PUT /api/v1/agent/applications/{id}` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `POST /api/v1/agent/applications/{id}/cancel` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `GET /api/v1/agent/applications/{id}/documents` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `POST /api/v1/agent/applications/{id}/documents` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `DELETE /api/v1/agent/applications/{id}/documents/{documentId}` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `GET /api/v1/agent/applications/{id}/documents/{documentId}` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `POST /api/v1/agent/applications/{id}/info-provided` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `GET /api/v1/agent/applications/{id}/messages` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `POST /api/v1/agent/applications/{id}/messages` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `POST /api/v1/agent/applications/{id}/messages/attachments` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `POST /api/v1/agent/applications/{id}/messages/read` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `POST /api/v1/agent/applications/{id}/request-confirmation` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `GET /api/v1/agent/portfolio` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
+| credit | `GET /api/v1/agent/pre-approved-offers` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
+| credit | `POST /api/v1/agent/pre-approved-offers/{id}/apply` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `POST /api/v1/applications/{id}/confirm` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
+| credit | `POST /api/v1/applications/{id}/return-to-agent` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
+| credit | `POST /api/v1/bank/products` | 401 | 403 | 403 | 403 | 403 | 409 | 403 | 403 |
+| credit | `POST /api/v1/bank/products/{code}/archive` | 401 | 403 | 403 | 403 | 403 | 404 | 403 | 403 |
+| credit | `POST /api/v1/bank/products/{code}/publish` | 401 | 403 | 403 | 403 | 403 | 404 | 403 | 403 |
+| credit | `POST /api/v1/bank/products/{code}/restore` | 401 | 403 | 403 | 403 | 403 | 404 | 403 | 403 |
+| credit | `GET /api/v1/pre-approved-offers` | 401 | 200 | 200 | 403 | 403 | 403 | 403 | 403 |
+| credit | `POST /api/v1/pre-approved-offers/{id}/apply` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
+| engagement | `POST /api/v1/assistant/messages/stream` | 401 | 200 | 200 | 200 | 200 | 200 | 200 | 200 |
+| engagement | `GET /api/v1/assistant/next-steps` | 401 | 404 | 404 | 200 | 200 | 200 | 404 | 404 |
+| engagement | `POST /api/v1/assistant/reminders` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |

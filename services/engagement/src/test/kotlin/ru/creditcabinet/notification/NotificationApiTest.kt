@@ -11,6 +11,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import ru.creditcabinet.common.security.JwtVerifier
+import ru.creditcabinet.notification.application.PeopleDirectory
 import ru.creditcabinet.tokenFor
 import java.util.UUID
 import kotlin.test.BeforeTest

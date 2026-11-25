@@ -273,6 +273,7 @@ export const agentApi = {
     get<ApplicationSummary[]>('/agent/applications', status?.length ? { status: status.join(',') } : undefined),
   createApplication: (input: AgentCreateApplicationInput) => post<Application>('/agent/applications', input),
   getApplication: (id: string) => get<Application>(`/agent/applications/${id}`),
+  getLoan: (id: string) => get<LoanAccount>(`/agent/applications/${id}/loan`),
   updateApplication: (id: string, input: ApplicationInput) => put<Application>(`/agent/applications/${id}`, input),
   requestConfirmation: (id: string) => post<Application>(`/agent/applications/${id}/request-confirmation`),
   cancelApplication: (id: string) => post<Application>(`/agent/applications/${id}/cancel`),

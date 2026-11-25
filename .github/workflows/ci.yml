@@ -45,7 +45,7 @@ jobs:
             --mount type=bind,source="$PWD/docker/clamav/healthcheck.sh",target=/cabinet/healthcheck.sh,readonly \
             -e TZ=UTC \
             --entrypoint /bin/sh \
-            clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e \
+            clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614 \
             -c 'cp /cabinet/clamd.conf /etc/clamav/clamd.conf && exec /init'
           for attempt in $(seq 1 120); do
             if docker exec cabinet-ci-clamav sh /cabinet/healthcheck.sh; then break; fi
@@ -53,7 +53,7 @@ jobs:
           done
           docker exec cabinet-ci-clamav sh /cabinet/healthcheck.sh
           docker run --rm --network none --mount type=bind,source="$PWD/docker/clamav",target=/cabinet,readonly \
-            --entrypoint /bin/sh clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e \
+            --entrypoint /bin/sh clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614 \
             /cabinet/test-healthcheck.sh
       - name: Start real private S3 for storage integration tests
         run: |
@@ -63,7 +63,7 @@ jobs:
             -e S3_SECRET_KEY=dev-storage-secret-change-me -e S3_ADMIN_ACCESS_KEY=dev-storage-operator \
             -e S3_ADMIN_SECRET_KEY=dev-storage-operator-secret-change-me -e GOMEMLIMIT=384MiB \
             --entrypoint /bin/sh \
-            chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d \
+            chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9 \
             /cabinet/start.sh
           for attempt in $(seq 1 60); do
             if test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18333/cabinet-documents/)" = 403; then break; fi
@@ -85,6 +85,15 @@ jobs:
         env:
           OUTBOX_WORKER_ENABLED: "false"
         run: ./gradlew build --no-daemon
+      - name: Reapply schema comments after rollback on PostgreSQL 16
+        env:
+          PGPASSWORD: cabinet
+        run: |
+          for db in identity credit engagement; do
+            psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U cabinet -d cabinet -c "create database cabinet_test_$db template $db"
+          done
+          python3 deploy/check-schema-rollback.py --pg-bin "$(pg_config --bindir)" --port 5432 --user cabinet \
+            --source-prefix cabinet_test_ --output ci-artifacts/schema-rollback.json
       - name: Test and coverage reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -93,6 +102,7 @@ jobs:
           path: |
             **/build/reports/tests/
             **/build/reports/jacoco/
+            ci-artifacts/schema-rollback.json
       - name: Hash the tested service jars
         run: |
           mkdir -p ci-artifacts
@@ -256,23 +266,23 @@ jobs:
           - name: postgres
             image: cabinet/postgres:16.15-alpine-su-exec-0.3
           - name: gateway
-            image: nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
+            image: nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
           - name: swagger
-            image: swaggerapi/swagger-ui:v5.34.0@sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0
+            image: cabinet/swagger-ui:v5.35.0-brotli
           - name: prometheus
             image: prom/prometheus:v3.15.1
           - name: grafana
-            image: grafana/grafana:13.2.4
+            image: grafana/grafana:13.2.5@sha256:9f7aa1e1e3246aade5792d35a738049f7f32f89cd51d1956cf426a4e86268a84
           - name: caddy
-            image: caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd
+            image: caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9
           - name: ollama
             image: ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8
           - name: mailpit
             image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
           - name: clamav
-            image: clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e
+            image: clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614
           - name: seaweedfs
-            image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+            image: chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9
           - name: valkey
             image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     steps:
@@ -282,6 +292,9 @@ jobs:
           if [ "${{ matrix.name }}" = postgres ]; then
             docker build -f docker/postgres/Dockerfile -t '${{ matrix.image }}' .
             python3 security/postgres-image.py
+          elif [ "${{ matrix.name }}" = swagger ]; then
+            docker build -f docker/swagger/Dockerfile -t '${{ matrix.image }}' .
+            docker run --rm --entrypoint apk '${{ matrix.image }}' info brotli-libs
           elif [ "${{ matrix.name }}" != ollama ]; then
             docker pull '${{ matrix.image }}'
           fi
@@ -452,8 +465,10 @@ jobs:
         run: docker compose -p cabinet-demo-build -f docker-compose.yml -f ci/compose.yaml build
       - name: Create 120 real synthetic applications
         run: python3 -u scripts/seed-demo-history.py --start --project cabinet-demo-ci --image-prefix cabinet-demo-build --count 120 --report-name ci-first
-      - name: Reset only the dedicated demo project
-        run: bash scripts/demo-reset.sh --project cabinet-demo-ci --confirm-project cabinet-demo-ci --no-build
+      - name: Reset only the dedicated demo project and verify five-minute readiness
+        run: |
+          python3 -u deploy/rehearse-demo.py --project cabinet-demo-ci --confirm-project cabinet-demo-ci \
+            --output scripts/demo-reports/ci-agent-rehearsal.json
       - name: Recreate the complete history after reset
         run: python3 -u scripts/seed-demo-history.py --start --project cabinet-demo-ci --image-prefix cabinet-demo-build --count 120 --report-name ci-repeat
       - name: Synthetic history without session credentials
@@ -479,6 +494,10 @@ jobs:
       COMPOSE_ANSI: never
       COMPOSE_PROGRESS: plain
       OLLAMA_URL: ""
+      CABINET_AGENT_ROUTE_BOUNDARY: "1"
+      CABINET_OTLP_ENABLED: "true"
+      CABINET_TRACE_SAMPLE_RATE: "1.0"
+      CABINET_LOG_FILE: '/var/log/cabinet/${HOSTNAME}/${spring.application.name}.jsonl'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -511,19 +530,36 @@ jobs:
           sha256sum -c ci-artifacts/backend.sha256
           sha256sum -c ci-artifacts/frontend.sha256
       - name: Start the complete cabinet
-        run: docker compose up --build --wait --wait-timeout 240
+        run: docker compose --profile monitoring up --build --wait --wait-timeout 300
       - name: Wait for public API routes
         run: npm run wait
         working-directory: e2e
       - name: Verify live OpenAPI snapshots
         run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" scripts/export-openapi.py --check'
+      - name: Verify the final access matrix through the gateway
+        id: early_access
+        continue-on-error: true
+        run: |
+          status=0
+          "$RUNNER_TEMP/cabinet-contracts/bin/python" security/matrix.py --final-only || status=$?
+          if test -f security/reports/final-access-matrix.json; then
+            cp security/reports/final-access-matrix.json security/reports/early-final-access-matrix.json
+          fi
+          exit "$status"
       - name: Desktop and mobile scenarios
+        id: browser
+        continue-on-error: true
         run: npm test
         working-directory: e2e
       - name: Evaluate 36 fixed assistant questions without a model connection
         run: python3 scripts/assistant-eval.py --mode rules --project "$COMPOSE_PROJECT_NAME" --report-name ci-rules
+      - name: Evaluate agent assistant facts and rights
+        run: python3 scripts/assistant-final-eval.py --output scripts/assistant-eval-reports/ci-agent-rules.json
       - name: Postman client and bank contracts
         run: npm test
+        working-directory: contracts/postman
+      - name: Postman agent object rights and client-only transitions
+        run: npm run test:agent
         working-directory: contracts/postman
       - name: Restore policy after a controlled test failure
         run: npm run test:recovery
@@ -553,11 +589,12 @@ jobs:
           python3 load/chaos.py races --project "$COMPOSE_PROJECT_NAME" --cohort ci-races
       - name: Verify provisioned monitoring and measured source failures
         run: |
-          docker compose --profile monitoring up -d --no-deps prometheus grafana
           docker compose exec -T prometheus promtool check config /etc/prometheus/prometheus.yml
           docker compose exec -T -w /etc/prometheus prometheus promtool test rules rules.test.yml
           python3 monitoring/verify.py --replicas 2 --require-activity --require-source-errors --require-source-timeouts
       - name: Verify every endpoint against the explicit access matrix
+        id: full_access
+        continue-on-error: true
         run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" security/matrix.py --project "$COMPOSE_PROJECT_NAME"'
       - name: Reject forged tokens, foreign objects and unsafe inputs
         run: python3 security/negative.py --project "$COMPOSE_PROJECT_NAME"
@@ -569,6 +606,21 @@ jobs:
           MAIL_TESTS=1 npm test --prefix e2e -- tests/release-notifications.spec.ts tests/release-accounts.spec.ts
           python3 load/mail.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-mail
           python3 load/account-mail.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-account-mail
+      - name: Confirm a real cross-service trace and correlated structured log
+        if: ${{ !cancelled() }}
+        run: |
+          replicas="$(docker compose ps --status running -q credit | wc -l)"
+          python3 monitoring/verify.py --replicas "$replicas" --require-correlation --report-name correlation
+      - name: Require desktop and mobile acceptance
+        if: ${{ !cancelled() && steps.browser.outcome == 'failure' }}
+        run: |
+          echo 'Desktop or mobile scenarios failed. See the Playwright report.'
+          exit 1
+      - name: Require both access matrix checks
+        if: ${{ !cancelled() && (steps.early_access.outcome == 'failure' || steps.full_access.outcome == 'failure') }}
+        run: |
+          echo 'An access matrix failed. See the early and final access reports.'
+          exit 1
       - name: Capture service diagnostics
         if: failure()
         run: |
@@ -596,7 +648,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: assistant-eval-rules
-          path: scripts/assistant-eval-reports/ci-rules/report.json
+          path: |
+            scripts/assistant-eval-reports/ci-rules/report.json
+            scripts/assistant-eval-reports/ci-agent-rules.json
           retention-days: 14
       - name: Reliability measurements without session tokens
         if: always()
@@ -622,6 +676,8 @@ jobs:
           name: access-security-reports
           path: |
             security/reports/access-matrix.json
+            security/reports/early-final-access-matrix.json
+            security/reports/final-access-matrix.json
             security/reports/negative.json
           retention-days: 14
       - name: Monitoring verification

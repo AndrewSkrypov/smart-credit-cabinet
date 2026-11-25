@@ -20,7 +20,8 @@ dependencies {
     // Metrics for Prometheus (/actuator/prometheus) and a trace id per request in every log
     // line, carried across internal calls.
     "runtimeOnly"("io.micrometer:micrometer-registry-prometheus")
-    "implementation"("io.micrometer:micrometer-tracing-bridge-brave")
+    "implementation"("io.micrometer:micrometer-tracing-bridge-otel")
+    "runtimeOnly"("io.opentelemetry:opentelemetry-exporter-otlp")
     "testImplementation"("org.springframework.boot:spring-boot-starter-test")
     "testImplementation"("org.jetbrains.kotlin:kotlin-test-junit5")
 }

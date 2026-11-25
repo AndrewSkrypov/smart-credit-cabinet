@@ -9,23 +9,24 @@ import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 
-data class DeliveryClaim(val id: UUID, val channel: String, val payload: String, val attempts: Int, val token: UUID)
+data class DeliveryClaim(val id: UUID, val channel: String, val payload: String, val attempts: Int, val token: UUID, val traceParent: String? = null)
 
 /** Shared SQL protocol; each sending service owns the migration in its own database. */
 class DurableOutbox(
     private val jdbc: NamedParameterJdbcTemplate,
     private val transaction: TransactionTemplate,
     private val mapper: ObjectMapper,
+    private val tracing: OutboxTracing? = null,
 ) {
     fun enqueue(channel: String, key: String, payload: String): UUID {
         check(TransactionSynchronizationManager.isActualTransactionActive()) { "Outbox enqueue requires the business transaction" }
         require(channel.length in 1..32 && key.length in 1..255) { "Invalid outbox address" }
         val id = UUID.randomUUID()
-        val parameters = mapOf("id" to id, "channel" to channel, "key" to key, "payload" to payload)
+        val parameters = mapOf("id" to id, "channel" to channel, "key" to key, "payload" to payload, "traceParent" to tracing?.traceParent())
         val inserted = jdbc.query(
             """
-            insert into delivery_outbox (id, channel, event_key, payload)
-            values (:id, :channel, :key, cast(:payload as jsonb))
+            insert into delivery_outbox (id, channel, event_key, payload, trace_parent)
+            values (:id, :channel, :key, cast(:payload as jsonb), :traceParent)
             on conflict (channel, event_key) do nothing returning id
             """.trimIndent(),
             parameters,
@@ -57,7 +58,7 @@ class DurableOutbox(
                 order by next_attempt_at, id for update skip locked limit 1
             )
             update delivery_outbox o set state='RUNNING', attempts=attempts+1, claim_token=:token, locked_until=:until, updated_at=:now
-            from candidate c where o.id=c.id returning o.id, o.channel, o.payload::text, o.attempts, o.claim_token
+            from candidate c where o.id=c.id returning o.id, o.channel, o.payload::text, o.attempts, o.claim_token, o.trace_parent
             """.trimIndent(),
             parameters,
         ) { rs, _ ->
@@ -67,6 +68,7 @@ class DurableOutbox(
                 rs.getString("payload"),
                 rs.getInt("attempts"),
                 rs.getObject("claim_token", UUID::class.java),
+                rs.getString("trace_parent"),
             )
         }.firstOrNull()
     }

@@ -270,8 +270,14 @@ class LoanServicingIntegrationTest {
             }.andReturn().response.status,
         )
         assertEquals(
-            200,
+            403,
             mockMvc.get("/api/v1/applications/$revolvingAppId/loan") {
+                header("Authorization", "Bearer $agentToken")
+            }.andReturn().response.status,
+        )
+        assertEquals(
+            200,
+            mockMvc.get("/api/v1/agent/applications/$revolvingAppId/loan") {
                 header("Authorization", "Bearer $agentToken")
             }.andReturn().response.status,
         )
@@ -280,7 +286,7 @@ class LoanServicingIntegrationTest {
         agentMandateActive = false
         assertEquals(
             404,
-            mockMvc.get("/api/v1/applications/$revolvingAppId/loan") {
+            mockMvc.get("/api/v1/agent/applications/$revolvingAppId/loan") {
                 header("Authorization", "Bearer $agentToken")
             }.andReturn().response.status,
         )

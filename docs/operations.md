@@ -23,6 +23,8 @@
 ## Запуск
 
 ```bash
+export CABINET_OTLP_ENABLED=true CABINET_TRACE_SAMPLE_RATE=1.0
+export CABINET_LOG_FILE='/var/log/cabinet/${HOSTNAME}/${spring.application.name}.jsonl'
 docker compose --profile monitoring up --build -d
 python monitoring/verify.py --require-activity
 ```
@@ -37,8 +39,44 @@ Prometheus: http://localhost:9090, targets: `/targets`, alerts: `/alerts`.
 Grafana: http://localhost:3000, дашборд **«Кредитный конвейер»** в папке «Кабинет»,
 UID `credit-pipeline`. Локальный вход: `admin` / `local-monitoring-change-me`;
 переопределения — `GRAFANA_USER`, `GRAFANA_PASSWORD`, `GRAFANA_PORT`, `PROMETHEUS_PORT`.
-Оба порта слушают только `127.0.0.1`; на сервере используйте SSH-туннель и собственный пароль.
+В разработке оба порта слушают только `127.0.0.1`. В production Prometheus остаётся внутри сети Compose.
+Для Grafana на сервере используйте SSH-туннель и собственный пароль.
 Изменение env-пароля не меняет уже созданного администратора в существующем томе Grafana.
+
+Для production укажите `CABINET_OPTIONAL_PROFILES=ai,monitoring` в `deploy/.env` и передайте
+фактический объём памяти через `deploy/start.py --host-memory-gib`. `monitoring` включает
+OTLP-экспорт и файловые логи. Для репетиции в малонагруженном проекте можно выставить
+`CABINET_TRACE_SAMPLE_RATE=1.0`, штатное значение — `0.1`. Профиль `ai` скачивает
+выбранные веса локально. Отдельно проверьте размер модели, свободную память и время прогрева.
+
+## Логи, трейсы и метрики в одной проверке
+
+Сервисы публикуют метрики в Prometheus и передают W3C `traceparent` при HTTP-вызовах.
+В outbox `trace_parent` хранится отдельным полем, поэтому очереди, повторная доставка и
+сравнение тела события сохраняют прежнюю семантику. Воркер восстанавливает родительский
+контекст перед отправкой. Старые записи без родителя начинают отдельный трейс доставки.
+
+Tempo принимает OTLP внутри сети Compose. Alloy читает только файлы приложений из выделенного
+тома и передаёт их в Loki. По `service`, `traceId`, `spanId` и `requestId` связываются логи и трейсы.
+`userId` в JSON-логах — псевдоним на основе HMAC, `role` — проверенная роль JWT.
+Тела запросов, токены, пароли, URL с параметрами и персональные данные в измерение не включаются.
+
+Для синтетического проекта автоматическая проверка
+`python monitoring/verify.py --require-correlation` запрашивает недоступную агенту
+компанию, находит кредитный и identity-спаны в Tempo и сопоставляет JSON-лог Loki
+по одному trace ID. Сценарий диагностики обычной операции описан ниже.
+
+1. Подтвердите одну агентскую заявку клиентом. Запишите `X-Request-Id` и время из ответа.
+2. Откройте Tempo в Grafana по этому ID. Найдите HTTP-операцию и дочерние запросы. Когда
+   переход ставит уведомление в очередь, найдите `cabinet.outbox.deliver` и его HTTP-вызов.
+3. Перейдите к Loki из выбранного span или запросите `{service="credit"} | json | traceId="ID"`.
+   Сопоставьте `route`, `status` и роль с операцией.
+4. В Prometheus проверьте `max by (stage) (cabinet_agent_applications_reached)`. Для отказов по
+   правам используйте `sum by (status) (increase(cabinet_agent_access_denied_total[15m]))`.
+   Долю заявок, дошедших до каждого этапа, считайте от числа уникальных `DRAFT` в этом же снимке.
+5. В панели задержки ИИ откройте exemplar для выборки с сохранённым трейсом. При отсутствии
+   exemplar используйте время и `X-Request-Id`. `cabinet_assistant_model_total` различает
+   `ACCEPTED`, `CACHE_HIT`, `UNAVAILABLE` и `GUARD_REJECTED`.
 
 Prometheus 3.15.1 и Grafana 13.2.4 работают как отдельные открытые компоненты.
 Конфигурация, datasource и 14 панелей поставляются в [monitoring](../monitoring/prometheus.yml).

@@ -40,7 +40,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends curl fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --system --uid 10001 --home-dir /app app \
- && mkdir -p /app/uploads && chown app /app/uploads
+ && mkdir -p /app/uploads /var/log/cabinet && chown app /app/uploads /var/log/cabinet
 WORKDIR /app
 COPY --from=extract /extract/layers/dependencies/ ./
 COPY --from=extract /extract/layers/spring-boot-loader/ ./

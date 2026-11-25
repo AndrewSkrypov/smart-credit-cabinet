@@ -86,6 +86,8 @@ services:
     mem_limit: 96m
   swagger-ui:
     profiles: [documentation]
+  prometheus:
+    ports: !override []
   gateway:
     profiles: [prod]
     mem_limit: 48m
@@ -101,7 +103,7 @@ services:
       edge:
         ipv4_address: ${GATEWAY_EDGE_IP:-172.30.40.3}
   caddy:
-    image: caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd
+    image: caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9
     profiles: [prod]
     mem_limit: 96m
     restart: unless-stopped

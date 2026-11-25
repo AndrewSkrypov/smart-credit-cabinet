@@ -200,7 +200,7 @@ class AgentWorkflowIntegrationTest {
         }.andReturn().response
         assertEquals(404, hiddenFromClient.status)
 
-        // Update draft with revenue
+        // Update draft with revenue (bureauConsent remains false for agent)
         val updateResp = mockMvc.put("/api/v1/agent/applications/$appId") {
             header("Authorization", "Bearer $agentToken")
             contentType = MediaType.APPLICATION_JSON
@@ -208,6 +208,14 @@ class AgentWorkflowIntegrationTest {
                 """{"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":2000000,"termMonths":12,"declaredRevenue12m":24000000,"declaredMonthlyDebtPayments":50000}"""
         }.andReturn().response
         assertEquals(200, updateResp.status, updateResp.getContentAsString(Charsets.UTF_8))
+        assertFalse(json(updateResp)["bureauConsent"].asBoolean())
+        assertEquals(0, json(updateResp)["submissionProblems"].size(), json(updateResp)["submissionProblems"].toString())
+
+        val agentGetResp = mockMvc.get("/api/v1/agent/applications/$appId") {
+            header("Authorization", "Bearer $agentToken")
+        }.andReturn().response
+        assertEquals(200, agentGetResp.status, agentGetResp.getContentAsString(Charsets.UTF_8))
+        assertEquals(0, json(agentGetResp)["submissionProblems"].size(), json(agentGetResp)["submissionProblems"].toString())
 
         // Upload document as agent
         val uploadResp = mockMvc.multipart("/api/v1/agent/applications/$appId/documents") {
@@ -560,6 +568,164 @@ class AgentWorkflowIntegrationTest {
         createdApplicationIds += appId
         assertEquals(ownOfferId.toString(), json(applyResp)["preApprovedOfferId"].asText())
         assertEquals(agentId.toString(), json(applyResp)["agentId"].asText())
+
+        // Cancelling an unsubmitted agent draft releases the pre-approved offer back to ACTIVE
+        val cancelResp = mockMvc.post("/api/v1/agent/applications/$appId/cancel") {
+            header("Authorization", "Bearer $agentToken")
+        }.andReturn().response
+        assertEquals(200, cancelResp.status, cancelResp.getContentAsString(Charsets.UTF_8))
+        assertEquals(
+            "ACTIVE",
+            jdbc.queryForObject("select status from pre_approved_offers where id = ?", String::class.java, ownOfferId),
+        )
+
+        // Re-apply, send to client for confirmation, then client withdraws -> offer also returns to ACTIVE
+        val reapplyResp = mockMvc.post("/api/v1/agent/pre-approved-offers/$ownOfferId/apply") {
+            header("Authorization", "Bearer $agentToken")
+        }.andReturn().response
+        assertEquals(201, reapplyResp.status, reapplyResp.getContentAsString(Charsets.UTF_8))
+        val app2Id = UUID.fromString(json(reapplyResp)["id"].asText())
+        createdApplicationIds += app2Id
+        assertEquals(
+            200,
+            mockMvc.put("/api/v1/agent/applications/$app2Id") {
+                header("Authorization", "Bearer $agentToken")
+                contentType = MediaType.APPLICATION_JSON
+                content =
+                    """{"productCode":"OVERDRAFT","purpose":"CASH_GAP","amount":2000000,"termMonths":12,"declaredRevenue12m":24000000}"""
+            }.andReturn().response.status,
+        )
+        assertEquals(
+            200,
+            mockMvc.post("/api/v1/agent/applications/$app2Id/request-confirmation") {
+                header("Authorization", "Bearer $agentToken")
+            }.andReturn().response.status,
+        )
+        val withdrawResp = mockMvc.post("/api/v1/applications/$app2Id/withdraw") {
+            header("Authorization", "Bearer $kotovaClientToken")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"comment":"Передумали"}"""
+        }.andReturn().response
+        assertEquals(200, withdrawResp.status, withdrawResp.getContentAsString(Charsets.UTF_8))
+        assertEquals(
+            "ACTIVE",
+            jdbc.queryForObject("select status from pre_approved_offers where id = ?", String::class.java, ownOfferId),
+        )
+    }
+
+    @Test
+    fun `product version bump in DRAFT or PENDING_CLIENT_CONFIRMATION does not deadlock client confirmation`() {
+        val riskToken = token(Roles.RISK_ADMIN, fullName = "Риск Админ")
+        val initialProduct = json(
+            mockMvc.get("/api/v1/bank/products/WORKING_CAPITAL") {
+                header("Authorization", "Bearer $riskToken")
+            }.andReturn().response,
+        )[0]["product"]
+
+        fun bumpProduct(expectedVersion: Long, baseRate: String, commissionBps: Int): Long {
+            val payload = mapOf(
+                "expectedVersion" to expectedVersion,
+                "name" to initialProduct["name"].asText(),
+                "description" to initialProduct["description"].asText(),
+                "purposes" to initialProduct["purposes"].map { it.asText() },
+                "minAmount" to initialProduct["minAmount"].asLong(),
+                "maxAmount" to initialProduct["maxAmount"].asLong(),
+                "minTermMonths" to initialProduct["minTermMonths"].asInt(),
+                "maxTermMonths" to initialProduct["maxTermMonths"].asInt(),
+                "baseRate" to BigDecimal(baseRate),
+                "autoApprovalLimit" to initialProduct["autoApprovalLimit"].asLong(),
+                "revolving" to initialProduct["revolving"].asBoolean(),
+                "active" to true,
+                "agentCommissionRateBps" to commissionBps,
+                "reason" to "Тестовое обновление ставки",
+            )
+            val resp = mockMvc.put("/api/v1/bank/products/WORKING_CAPITAL") {
+                header("Authorization", "Bearer $riskToken")
+                contentType = MediaType.APPLICATION_JSON
+                content = mapper.writeValueAsString(payload)
+            }.andReturn().response
+            assertEquals(200, resp.status, resp.getContentAsString(Charsets.UTF_8))
+            return json(resp)["product"]["version"].asLong()
+        }
+
+        var currentVersion = initialProduct["version"].asLong()
+        try {
+            // 1) Create draft on version N, then bump product to N+1 while still in DRAFT
+            val createResp = createAgentDraft(product = "WORKING_CAPITAL", amount = 2_000_000L)
+            assertEquals(201, createResp.status)
+            val appId = UUID.fromString(json(createResp)["id"].asText())
+            assertEquals(currentVersion, json(createResp)["product"]["version"].asLong())
+
+            currentVersion = bumpProduct(currentVersion, "20.25", 175)
+
+            // Request confirmation refreshes productVersion & commission from latest active product
+            val reqConfResp = mockMvc.post("/api/v1/agent/applications/$appId/request-confirmation") {
+                header("Authorization", "Bearer $agentToken")
+            }.andReturn().response
+            assertEquals(200, reqConfResp.status, reqConfResp.getContentAsString(Charsets.UTF_8))
+            assertEquals(currentVersion, json(reqConfResp)["product"]["version"].asLong())
+            assertEquals(175, json(reqConfResp)["agentCommissionRateBps"].asInt())
+            assertEquals(2_000_000L * 175 / 10_000L, json(reqConfResp)["agentCommissionAmount"].asLong())
+
+            // 2) Bump product again to N+2 while application is in PENDING_CLIENT_CONFIRMATION
+            currentVersion = bumpProduct(currentVersion, "20.50", 200)
+
+            // Client fetches card and receives currentProduct with latest version N+2
+            val clientGet = mockMvc.get("/api/v1/applications/$appId") {
+                header("Authorization", "Bearer $kotovaClientToken")
+            }.andReturn().response
+            assertEquals(200, clientGet.status, clientGet.getContentAsString(Charsets.UTF_8))
+            val clientCard = json(clientGet)
+            assertFalse(clientCard["currentProduct"].isNull, "currentProduct must be present in PENDING_CLIENT_CONFIRMATION")
+            assertEquals(currentVersion, clientCard["currentProduct"]["version"].asLong())
+
+            // Client confirms using currentProduct.version -> succeeds cleanly with no deadlock
+            val confirmResp = mockMvc.post("/api/v1/applications/$appId/confirm") {
+                header("Authorization", "Bearer $kotovaClientToken")
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"bureauConsent":true,"acceptedProductVersion":$currentVersion}"""
+            }.andReturn().response
+            assertEquals(200, confirmResp.status, confirmResp.getContentAsString(Charsets.UTF_8))
+            assertEquals("SUBMITTED", json(confirmResp)["status"].asText())
+            assertEquals(currentVersion, json(confirmResp)["product"]["version"].asLong())
+            assertEquals(200, json(confirmResp)["agentCommissionRateBps"].asInt())
+            assertEquals(2_000_000L * 200 / 10_000L, json(confirmResp)["agentCommissionAmount"].asLong())
+        } finally {
+            bumpProduct(
+                currentVersion,
+                initialProduct["baseRate"].asText(),
+                initialProduct["agentCommissionRateBps"].asInt(),
+            )
+        }
+    }
+
+    @Test
+    fun `PENDING_CLIENT_CONFIRMATION applications are excluded from bank analytics`() {
+        val managerToken = token(Roles.MANAGER, fullName = "Менеджер Банка")
+        val createResp = createAgentDraft(product = "INVESTMENT", purpose = "EQUIPMENT", amount = 2_000_000L)
+        assertEquals(201, createResp.status)
+        val appId = UUID.fromString(json(createResp)["id"].asText())
+
+        assertEquals(
+            200,
+            mockMvc.post("/api/v1/agent/applications/$appId/request-confirmation") {
+                header("Authorization", "Bearer $agentToken")
+            }.andReturn().response.status,
+        )
+
+        val analyticsResp = mockMvc.get("/api/v1/analytics/funnel?from=2026-01-01T00:00:00Z&to=2027-12-31T00:00:00Z") {
+            header("Authorization", "Bearer $managerToken")
+        }.andReturn().response
+        assertEquals(200, analyticsResp.status, analyticsResp.getContentAsString(Charsets.UTF_8))
+        val analytics = json(analyticsResp)
+        assertFalse(
+            analytics["currentStatuses"].has("PENDING_CLIENT_CONFIRMATION"),
+            "PENDING_CLIENT_CONFIRMATION must not appear in bank analytics: ${analytics["currentStatuses"]}",
+        )
+        assertFalse(
+            analytics["currentStatuses"].has("DRAFT"),
+            "DRAFT must not appear in bank analytics: ${analytics["currentStatuses"]}",
+        )
     }
 
     @Test

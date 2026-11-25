@@ -17,10 +17,10 @@ create index idx_agent_clients_agent
 
 -- Demo agents share password "Demo2026" (same bcrypt hash as V2/V3) and respect DEMO_ACCOUNTS.
 insert into users (id, full_name, email, role, status, company_id, can_sign, password_hash, created_at) values
-('9b2f0c4a-6d1e-4f2a-8c3b-000000000201', 'Мария Соколова', 'agent@demo.test', 'AGENT',
+('9b2f0c4a-6d1e-4f2a-8c3b-000000000201', 'Соколов Артём', 'agent@demo.test', 'AGENT',
     case when '${demo-accounts}' = 'true' then 'ACTIVE' else 'BLOCKED' end,
     null, false, '$2a$10$QAS4QGFj5n0t4bOUdzhGq.2R1di2Knm8WRphHGDFiVElZ/NKZBTCO', '2026-10-01T09:00:00Z'),
-('9b2f0c4a-6d1e-4f2a-8c3b-000000000202', 'Сергей Волков', 'agent2@demo.test', 'AGENT',
+('9b2f0c4a-6d1e-4f2a-8c3b-000000000202', 'Морозова Елена', 'agent2@demo.test', 'AGENT',
     case when '${demo-accounts}' = 'true' then 'ACTIVE' else 'BLOCKED' end,
     null, false, '$2a$10$QAS4QGFj5n0t4bOUdzhGq.2R1di2Knm8WRphHGDFiVElZ/NKZBTCO', '2026-10-01T09:00:00Z');
 

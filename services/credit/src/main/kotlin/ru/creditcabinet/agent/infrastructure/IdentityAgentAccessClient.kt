@@ -1,5 +1,6 @@
 package ru.creditcabinet.agent.infrastructure
 
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.http.client.SimpleClientHttpRequestFactory
@@ -22,6 +23,8 @@ class IdentityAgentAccessClient(
     @Value("\${cabinet.identity.url:}") identityUrl: String,
     builder: RestClient.Builder,
 ) : AgentAccessPort {
+    private val logger = LoggerFactory.getLogger(IdentityAgentAccessClient::class.java)
+
     private val client: RestClient? = identityUrl.takeIf { it.isNotBlank() }?.let {
         val requestFactory = SimpleClientHttpRequestFactory().apply {
             setConnectTimeout(Duration.ofSeconds(2))
@@ -42,7 +45,8 @@ class IdentityAgentAccessClient(
                 .body(Array<UUID>::class.java)
                 ?.toList()
                 .orEmpty()
-        } catch (_: Exception) {
+        } catch (exception: Exception) {
+            logger.warn("Identity agent access check failed for agentId={}: {}", agentId, exception.message)
             throw unavailable()
         }
     }
@@ -59,7 +63,8 @@ class IdentityAgentAccessClient(
                 allowed = response.allowed,
                 company = response.company?.let { CompanySnapshot(it.id, it.inn, it.name, it.legalForm) },
             )
-        } catch (_: Exception) {
+        } catch (exception: Exception) {
+            logger.warn("Identity agent access check failed for agentId={}: {}", agentId, exception.message)
             throw unavailable()
         }
     }

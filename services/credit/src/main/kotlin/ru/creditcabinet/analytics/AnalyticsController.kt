@@ -68,7 +68,10 @@ class AnalyticsController(private val jdbc: NamedParameterJdbcTemplate, private 
                 period,
                 Long::class.java,
             )!!,
-            currentStatuses = jdbc.query("select status, count(*) as n from applications where status <> 'DRAFT' group by status", emptyMap<String, Any>()) {
+            currentStatuses = jdbc.query(
+                "select status, count(*) as n from applications where status not in ('DRAFT', 'PENDING_CLIENT_CONFIRMATION') group by status",
+                emptyMap<String, Any>(),
+            ) {
                     rs,
                     _,
                 ->
@@ -112,7 +115,7 @@ class AnalyticsController(private val jdbc: NamedParameterJdbcTemplate, private 
                    avg(extract(epoch from left_at - occurred_at)) / 60 as avg_min,
                    percentile_cont(0.5) within group (order by extract(epoch from left_at - occurred_at)) / 60 as median_min
             from moves
-            where left_at is not null and occurred_at >= :from and occurred_at < :to
+            where left_at is not null and to_status not in ('DRAFT', 'PENDING_CLIENT_CONFIRMATION') and occurred_at >= :from and occurred_at < :to
             group by to_status
             """.trimIndent(),
             period,

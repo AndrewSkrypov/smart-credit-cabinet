@@ -156,6 +156,12 @@ function ApplicationCard({ id }: { id: string }) {
                   </Box>
                 )}
 
+                {application.currentProduct && application.currentProduct.version !== application.product.version && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Условия продукта «{application.currentProduct.name}» обновились (версия {application.currentProduct.version}, базовая ставка {percent(application.currentProduct.baseRate)}). Подтверждая заявку, вы соглашаетесь с актуальными условиями продукта.
+                  </Alert>
+                )}
+
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -177,7 +183,7 @@ function ApplicationCard({ id }: { id: string }) {
                         setConfirmBusy(true);
                         setError(null);
                         try {
-                          apply(await applicationsApi.confirm(application.id, true, application.product.version));
+                          apply(await applicationsApi.confirm(application.id, true, (application.currentProduct ?? application.product).version));
                         } catch (nextError) {
                           if (!mounted.current) return;
                           setError(nextError instanceof Error ? nextError.message : 'Не удалось подтвердить заявку');
@@ -282,6 +288,7 @@ function ApplicationCard({ id }: { id: string }) {
                 if (!mounted.current) return;
                 setReturning(false);
                 setReturnComment('');
+                setConfirmConsent(false);
               } catch (nextError) {
                 if (!mounted.current) return;
                 setError(nextError instanceof Error ? nextError.message : 'Не удалось вернуть заявку агенту');

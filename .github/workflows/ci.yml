@@ -537,6 +537,8 @@ jobs:
       - name: Verify live OpenAPI snapshots
         run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" scripts/export-openapi.py --check'
       - name: Desktop and mobile scenarios
+        id: browser
+        continue-on-error: true
         run: npm test
         working-directory: e2e
       - name: Evaluate 36 fixed assistant questions without a model connection
@@ -597,6 +599,11 @@ jobs:
         run: |
           replicas="$(docker compose ps --status running -q credit | wc -l)"
           python3 monitoring/verify.py --replicas "$replicas" --require-correlation --report-name correlation
+      - name: Require desktop and mobile acceptance
+        if: ${{ !cancelled() && steps.browser.outcome == 'failure' }}
+        run: |
+          echo 'Desktop or mobile scenarios failed. See the Playwright report.'
+          exit 1
       - name: Capture service diagnostics
         if: failure()
         run: |

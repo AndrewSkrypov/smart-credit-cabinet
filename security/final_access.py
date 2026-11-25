@@ -98,7 +98,7 @@ def check(api):
                 elif template.endswith("/next-steps"):
                     route += "?applicationId=" + missing
                 elif template.endswith("/reminders"):
-                    body = {"applicationId": missing}
+                    body = {"applicationId": missing, "infoRequestId": str(uuid4())}
                 elif template.endswith("/stream"):
                     body, headers = {"question": "Дай юридический совет"}, {"Accept": "text/event-stream"}
                 token = tokens.get(role)

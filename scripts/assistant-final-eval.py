@@ -9,6 +9,7 @@ import math
 from pathlib import Path
 import time
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 from cabinet_api import Cabinet
 
@@ -49,7 +50,8 @@ def main():
                 if case["route"] == "next_steps":
                     response = api.request("GET", f"/api/v1/assistant/next-steps?applicationId={application}", token=token, expected=None)
                 elif case["route"] == "reminder":
-                    response = api.request("POST", "/api/v1/assistant/reminders", {"applicationId": application}, token, expected=None)
+                    response = api.request("POST", "/api/v1/assistant/reminders",
+                                           {"applicationId": application, "infoRequestId": str(uuid4())}, token, expected=None)
                 else:
                     response = api.request("POST", "/api/v1/assistant/messages", {
                         "question": "Что сейчас с моей заявкой?", "applicationId": application,

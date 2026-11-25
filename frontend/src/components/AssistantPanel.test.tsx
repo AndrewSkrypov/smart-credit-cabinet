@@ -36,16 +36,47 @@ describe('AssistantPanel', () => {
 
   it('shows the proactive agent card and requires explicit confirmation before sending', async () => {
     const user = userEvent.setup();
+    const infoRequestId = '6f1d4c1e-0b8e-4c55-9a51-000000000002';
     vi.mocked(readSession).mockReturnValue({ token: 'synthetic' } as ReturnType<typeof readSession>);
-    get.mockResolvedValue([{ type: 'INFO_DEADLINE', title: 'Банк ждёт документы', detail: 'Выписка', applicationId: APPLICATION, canRemind: true }]);
+    get.mockResolvedValue([{ type: 'INFO_DEADLINE', title: 'Банк ждёт документы', detail: 'Выписка', applicationId: APPLICATION, infoRequestId, canRemind: true }]);
     render(<MemoryRouter initialEntries={['/agent']}><AssistantPanel /></MemoryRouter>);
     await user.click(screen.getByRole('button', { name: 'Открыть помощника' }));
     await user.click(await screen.findByRole('button', { name: 'Напомнить клиенту' }));
+    expect(await screen.findByRole('dialog', { name: 'Напомнить клиенту о документах?' })).toHaveTextContent('Выписка');
     expect(post).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Отправить уведомление' }));
     expect(post).toHaveBeenCalledOnce();
-    expect(post).toHaveBeenCalledWith('/assistant/reminders', { applicationId: APPLICATION });
+    expect(post).toHaveBeenCalledWith('/assistant/reminders', { applicationId: APPLICATION, infoRequestId });
     expect(await screen.findByText('Клиенту отправлено уведомление')).toBeInTheDocument();
+  });
+
+  it('keeps the document request shown in the confirmation when the hint refreshes', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      const user = userEvent.setup();
+      const previous = '6f1d4c1e-0b8e-4c55-9a51-000000000002';
+      const current = '6f1d4c1e-0b8e-4c55-9a51-000000000003';
+      const hint = { type: 'INFO_DEADLINE', title: 'Банк ждёт документы', applicationId: APPLICATION, canRemind: true };
+      vi.mocked(readSession).mockReturnValue({ token: 'synthetic' } as ReturnType<typeof readSession>);
+      get.mockResolvedValueOnce([{ ...hint, infoRequestId: previous, detail: 'Выписка' }])
+        .mockResolvedValue([{ ...hint, infoRequestId: current, detail: 'Декларация' }]);
+      post.mockRejectedValueOnce(new Error('Запрос документов изменился.'));
+      render(<MemoryRouter initialEntries={['/agent']}><AssistantPanel /></MemoryRouter>);
+      await user.click(screen.getByRole('button', { name: 'Открыть помощника' }));
+      await user.click(await screen.findByRole('button', { name: 'Напомнить клиенту' }));
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+      expect(get).toHaveBeenCalledTimes(2);
+      const dialog = screen.getByRole('dialog', { name: 'Напомнить клиенту о документах?' });
+      expect(dialog).toHaveTextContent('Выписка');
+      await user.click(screen.getByRole('button', { name: 'Отправить уведомление' }));
+
+      expect(post).toHaveBeenCalledOnce();
+      expect(post).toHaveBeenCalledWith('/assistant/reminders', { applicationId: APPLICATION, infoRequestId: previous });
+      expect(await screen.findByText('Запрос документов изменился.')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('shows the selected draft terms before calling the agent creation endpoint', async () => {

@@ -37,11 +37,15 @@ class AssistantNextStepsTest {
 
     @Test
     fun `just-expired document requests do not offer a reminder`() {
+        val infoRequestId = UUID.randomUUID()
         fun request(deadline: Instant) = mapper.readTree(
-            """{"status":"INFO_REQUESTED","process":{"infoRequest":{"deadline":"$deadline","items":[{"title":"Счёт","documentType":"OTHER"}]}}}""",
+            """{"status":"INFO_REQUESTED","process":{"infoRequest":{"id":"$infoRequestId","deadline":"$deadline",
+                "items":[{"title":"Счёт","documentType":"OTHER"}]}}}""",
         )
         val open = request(now.plusSeconds(1))
-        assertTrue(nextSteps.summarize(applicationId, open, agent = true, now).single().canRemind)
+        val agentHint = nextSteps.summarize(applicationId, open, agent = true, now).single()
+        assertTrue(agentHint.canRemind)
+        assertEquals(infoRequestId, agentHint.infoRequestId)
         assertFalse(nextSteps.summarize(applicationId, open, agent = false, now).single().canRemind)
         assertTrue(nextSteps.summarize(applicationId, request(now), agent = true, now).isEmpty())
     }

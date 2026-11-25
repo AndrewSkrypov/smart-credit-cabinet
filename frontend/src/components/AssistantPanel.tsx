@@ -20,6 +20,7 @@ interface Hint {
   deadline: string | null;
   canRemind: boolean;
   companyId?: string | null;
+  infoRequestId?: string | null;
 }
 
 interface DraftPreview {
@@ -101,7 +102,7 @@ export function AssistantPanel() {
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hints, setHints] = useState<Hint[]>([]);
-  const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<Hint | null>(null);
   const [sendingReminder, setSendingReminder] = useState(false);
   const [reminderFeedback, setReminderFeedback] = useState<{ error: boolean; text: string } | null>(null);
   const [draftPreview, setDraftPreview] = useState<DraftPreview | null>(null);
@@ -109,6 +110,7 @@ export function AssistantPanel() {
   const [draftError, setDraftError] = useState<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
   const requestId = useRef(0);
+  const reminderSequence = useRef(0);
   const currentContext = useRef(contextKey);
   currentContext.current = contextKey;
   const inFlight = useRef<AbortController | null>(null);
@@ -137,6 +139,7 @@ export function AssistantPanel() {
     setDraftError(null);
     return () => {
       requestId.current += 1;
+      reminderSequence.current += 1;
       inFlight.current?.abort();
     };
   }, [contextKey]);
@@ -185,20 +188,22 @@ export function AssistantPanel() {
   };
 
   const sendReminder = async () => {
-    if (!confirmation || sendingReminder) return;
+    if (!confirmation?.applicationId || !confirmation.infoRequestId || sendingReminder) return;
+    const request = ++reminderSequence.current;
+    const isCurrent = () => request === reminderSequence.current && contextKey === currentContext.current;
     setSendingReminder(true);
     setReminderFeedback(null);
     try {
-      await post('/assistant/reminders', { applicationId: confirmation });
-      if (contextKey !== currentContext.current) return;
+      await post('/assistant/reminders', { applicationId: confirmation.applicationId, infoRequestId: confirmation.infoRequestId });
+      if (!isCurrent()) return;
       setConfirmation(null);
       setReminderFeedback({ error: false, text: 'Клиенту отправлено уведомление' });
     } catch (nextError) {
-      if (contextKey !== currentContext.current) return;
+      if (!isCurrent()) return;
       setConfirmation(null);
       setReminderFeedback({ error: true, text: nextError instanceof Error ? nextError.message : 'Напоминание не отправлено' });
     } finally {
-      if (contextKey === currentContext.current) setSendingReminder(false);
+      if (isCurrent()) setSendingReminder(false);
     }
   };
 
@@ -285,7 +290,7 @@ export function AssistantPanel() {
                 {hint.applicationId && hint.applicationId !== applicationId && <Button component={RouterLink} to={`/${agent ? 'agent' : 'client'}/applications/${hint.applicationId}`} size="small" onClick={() => setOpen(false)}>Открыть заявку</Button>}
                 {hint.type === 'PRE_APPROVED' && hint.companyId && <Button component={RouterLink} to={`/agent/clients/${hint.companyId}`} size="small" onClick={() => setOpen(false)}>Открыть клиента</Button>}
                 {hint.type === 'ALTERNATIVE' && applicationId === hint.applicationId && <Button size="small" disabled={busy} onClick={() => void ask('Подбери альтернативный продукт и посчитай платёж')}>Сравнить продукты</Button>}
-                {hint.canRemind && hint.applicationId && <Button size="small" onClick={() => setConfirmation(hint.applicationId)}>Напомнить клиенту</Button>}
+                {hint.canRemind && hint.applicationId && hint.infoRequestId && <Button size="small" onClick={() => setConfirmation(hint)}>Напомнить клиенту</Button>}
               </Stack>
             </Box>)}
           </Stack>}
@@ -336,7 +341,10 @@ export function AssistantPanel() {
       </Drawer>
       <Dialog open={confirmation !== null} onClose={() => { if (!sendingReminder) setConfirmation(null); }}>
         <DialogTitle>Напомнить клиенту о документах?</DialogTitle>
-        <DialogContent>Клиент получит уведомление в кабинете со ссылкой на запрос банка.</DialogContent>
+        <DialogContent>
+          <Typography sx={{ whiteSpace: 'pre-line' }}>{confirmation?.detail}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Клиент получит уведомление со ссылкой на заявку.</Typography>
+        </DialogContent>
         <DialogActions>
           <Button disabled={sendingReminder} onClick={() => setConfirmation(null)}>Отмена</Button>
           <Button variant="contained" disabled={sendingReminder} onClick={() => void sendReminder()}>Отправить уведомление</Button>

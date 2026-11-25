@@ -76,7 +76,7 @@ class AssistantApiTest {
         mockMvc.post("/api/v1/assistant/reminders") {
             header("Authorization", "Bearer $agent")
             contentType = MediaType.APPLICATION_JSON
-            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId))
+            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId, "infoRequestId" to UUID.randomUUID()))
         }.andExpect { status { isNotFound() } }
         org.mockito.kotlin.verifyNoInteractions(notifications)
     }
@@ -97,13 +97,21 @@ class AssistantApiTest {
         }.andExpect {
             status { isOk() }
             jsonPath("$[0].canRemind") { value(true) }
+            jsonPath("$[0].infoRequestId") { value(infoRequest.toString()) }
         }
+        org.mockito.kotlin.verifyNoInteractions(notifications)
+
+        mockMvc.post("/api/v1/assistant/reminders") {
+            header("Authorization", "Bearer $agent")
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId))
+        }.andExpect { status { isBadRequest() } }
         org.mockito.kotlin.verifyNoInteractions(notifications)
 
         fun remind(session: String) = mockMvc.post("/api/v1/assistant/reminders") {
             header("Authorization", "Bearer $session")
             contentType = MediaType.APPLICATION_JSON
-            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId))
+            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId, "infoRequestId" to infoRequest))
         }
         remind(token).andExpect { status { isForbidden() } }
         repeat(2) { remind(agent).andExpect { status { isNoContent() } } }
@@ -111,6 +119,44 @@ class AssistantApiTest {
         verify(notifications, org.mockito.kotlin.times(2)).deliver(notices.capture())
         assertTrue(notices.allValues.all { rows -> rows.single().audience.companyId == company })
         assertTrue(notices.allValues.all { rows -> rows.single().dedupKey == "assistant-documents:$applicationId:$infoRequest" })
+    }
+
+    @Test
+    fun `a replaced document request requires a fresh reminder confirmation`() {
+        val agent = verifier.tokenFor(UUID.randomUUID(), Roles.AGENT)
+        val company = UUID.randomUUID()
+        val previous = UUID.randomUUID()
+        val current = UUID.randomUUID()
+        val deadline = Instant.now().plusSeconds(3600)
+
+        fun application(infoRequestId: UUID) = mapper.readTree(
+            """{"status":"INFO_REQUESTED","company":{"id":"$company"},"process":{"infoRequest":{"id":"$infoRequestId",
+                "deadline":"$deadline","items":[{"documentType":"BANK_STATEMENT","title":"Выписка"}]}}}""",
+        )
+
+        whenever(applications.application(eq(applicationId), eq("Bearer $agent"), eq(true)))
+            .thenReturn(application(previous), application(current))
+
+        mockMvc.get("/api/v1/assistant/next-steps") {
+            param("applicationId", applicationId.toString())
+            header("Authorization", "Bearer $agent")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$[0].infoRequestId") { value(previous.toString()) }
+        }
+
+        fun remind(infoRequestId: UUID) = mockMvc.post("/api/v1/assistant/reminders") {
+            header("Authorization", "Bearer $agent")
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId, "infoRequestId" to infoRequestId))
+        }
+
+        remind(previous).andExpect { status { isConflict() } }
+        org.mockito.kotlin.verifyNoInteractions(notifications)
+        remind(current).andExpect { status { isNoContent() } }
+        val notice = argumentCaptor<List<NewNotification>>()
+        verify(notifications).deliver(notice.capture())
+        assertEquals("assistant-documents:$applicationId:$current", notice.firstValue.single().dedupKey)
     }
 
     @Test

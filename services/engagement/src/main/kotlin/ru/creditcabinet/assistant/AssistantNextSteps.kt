@@ -26,6 +26,7 @@ data class AssistantHint(
     val deadline: Instant? = null,
     val canRemind: Boolean = false,
     val companyId: UUID? = null,
+    val infoRequestId: UUID? = null,
 )
 
 @Service
@@ -68,7 +69,7 @@ class AssistantNextSteps(
         return applications + offers
     }
 
-    fun sendReminder(id: UUID, authorization: String) {
+    fun sendReminder(id: UUID, infoRequestId: UUID, authorization: String) {
         CurrentCaller.requireRole(Roles.AGENT)
         val app = credit.application(id, authorization, agent = true)
         val request = app.path("process").path("infoRequest")
@@ -79,8 +80,10 @@ class AssistantNextSteps(
         ) {
             throw ApiException(HttpStatus.CONFLICT, "Сейчас нет действующего запроса документов для напоминания")
         }
+        if (request.path("id").uuid() != infoRequestId) {
+            throw ApiException(HttpStatus.CONFLICT, "Запрос документов изменился. Проверьте новый запрос перед отправкой напоминания.")
+        }
         val companyId = UUID.fromString(app.path("company").path("id").asText())
-        val requestId = UUID.fromString(request.path("id").asText())
         notifications.deliver(
             listOf(
                 NewNotification(
@@ -89,7 +92,7 @@ class AssistantNextSteps(
                     title = "Агент напомнил о запросе документов",
                     body = "Банк ждёт документы по заявке. Откройте карточку и проверьте список.",
                     link = "/client/applications/$id",
-                    dedupKey = "assistant-documents:$id:$requestId",
+                    dedupKey = "assistant-documents:$id:$infoRequestId",
                 ),
             ),
         )
@@ -123,7 +126,18 @@ class AssistantNextSteps(
                 val checkList = request.path("items").map { it.path("title").asText() }.filter(String::isNotBlank)
                 val hasDocuments = request.path("items").any { it.path("documentType").isTextual }
                 val title = if (deadline <= now.plus(REMINDER_WINDOW)) "Скоро истечёт срок ответа банку" else "Банк ждёт ответа по заявке"
-                listOf(AssistantHint(HintType.INFO_DEADLINE, title, checkList.joinToString("\n"), id, deadline, agent && hasDocuments))
+                val infoRequestId = if (agent && hasDocuments) request.path("id").uuid() else null
+                listOf(
+                    AssistantHint(
+                        HintType.INFO_DEADLINE,
+                        title,
+                        checkList.joinToString("\n"),
+                        id,
+                        deadline,
+                        canRemind = infoRequestId != null,
+                        infoRequestId = infoRequestId,
+                    ),
+                )
             }
             "OFFER_ISSUED" -> buildList {
                 val offer = process.path("offer")
@@ -147,6 +161,8 @@ class AssistantNextSteps(
     }
 
     private fun JsonNode.instant(): Instant? = if (isTextual) runCatching { Instant.parse(asText()) }.getOrNull() else null
+
+    private fun JsonNode.uuid(): UUID? = if (isTextual) runCatching { UUID.fromString(asText()) }.getOrNull() else null
 
     private fun alternative(id: UUID) =
         AssistantHint(HintType.ALTERNATIVE, "Можно сравнить другие продукты", "Подбор посчитает ориентировочный платёж по параметрам этой заявки.", id)

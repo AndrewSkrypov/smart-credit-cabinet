@@ -36,6 +36,8 @@ data class AssistantStatus(val mode: AnswerMode, val model: String?)
 
 data class SummaryRequest(val applicationId: UUID)
 
+data class ReminderRequest(val applicationId: UUID, val infoRequestId: UUID)
+
 @Tag(name = "Кредитный помощник")
 @RestController
 @RequestMapping("/api/v1/assistant")
@@ -99,6 +101,6 @@ class AssistantController(
     @Operation(summary = "Отправить клиенту подтверждённое напоминание о документах")
     @PostMapping("/reminders")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun remind(@RequestBody request: SummaryRequest, @RequestHeader(HttpHeaders.AUTHORIZATION) authorization: String) =
-        nextSteps.sendReminder(request.applicationId, authorization)
+    fun remind(@RequestBody request: ReminderRequest, @RequestHeader(HttpHeaders.AUTHORIZATION) authorization: String) =
+        nextSteps.sendReminder(request.applicationId, request.infoRequestId, authorization)
 }

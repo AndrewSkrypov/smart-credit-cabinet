@@ -11,18 +11,21 @@ import ru.creditcabinet.common.security.TokenClaims
 fun TokenClaims.toActor(): Actor? =
     when (role) {
         Roles.CLIENT -> Actor(ActorType.CLIENT, userId)
+        Roles.AGENT -> Actor(ActorType.AGENT, userId)
         Roles.MANAGER -> Actor(ActorType.MANAGER, userId)
         Roles.UNDERWRITER -> Actor(ActorType.UNDERWRITER, userId)
         else -> null
     }
 
 /**
- * Whether the caller may see the application: a client — those of their own company, bank
- * staff — all but drafts. Everything else is answered 404, so ids of others do not leak.
+ * Whether the caller may see the application: a client — those of their own company (except
+ * agent drafts not yet sent for confirmation), an agent — their own applications, bank staff —
+ * all submitted applications. Everything else is answered 404, so ids of others do not leak.
  */
 fun TokenClaims.canSee(application: LoanApplication): Boolean =
     when {
-        isClient -> companyId != null && application.company.id == companyId
+        isClient -> companyId != null && application.company.id == companyId && application.visibleToClient
+        isAgent -> application.agentId == userId
         isBankStaff -> application.visibleToBank
         else -> false
     }

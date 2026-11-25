@@ -27,13 +27,18 @@ class AssistantService(
     private val applications: CreditApplications,
     private val products: CreditProducts,
     private val clock: Clock,
+    private val cache: AssistantReferenceCache,
+    private val metrics: AssistantMetrics,
 ) {
     private val recent = ConcurrentHashMap<UUID, List<Instant>>()
     private val log = org.slf4j.LoggerFactory.getLogger(javaClass)
 
     fun status(): Pair<AnswerMode, String?> = if (model.available()) AnswerMode.MODEL to model.name else AnswerMode.RULES to null
 
-    fun answer(question: String, applicationId: UUID?, history: List<Turn>, authorization: String): Answer {
+    fun answer(question: String, applicationId: UUID?, history: List<Turn>, authorization: String): Answer =
+        metrics.measure("message") { reply(question, applicationId, history, authorization) }
+
+    private fun reply(question: String, applicationId: UUID?, history: List<Turn>, authorization: String): Answer {
         val claims = CurrentCaller.claims()
         throttle(claims.userId)
         val facts = applicationId?.let { applications.facts(it, authorization) }
@@ -70,18 +75,32 @@ class AssistantService(
             return Answer(RuleAnswers.answer(question, facts, reference), AnswerMode.RULES, sources)
         }
         if (articles.isEmpty()) return Answer(RuleAnswers.answer(question, facts, articles), AnswerMode.RULES, sources)
+        val trusted = (articles.map { it.text } + listOfNotNull(facts?.asText())).joinToString("\n")
+        // Only public, fixed prompts qualify, with no user history or application context.
+        val key = if (applicationId == null && history.isEmpty()) cache.key(question, articles, model.name) else null
+        if (key != null && model.available()) {
+            cache.read(key)?.takeIf { Grounding.problems(it, trusted, articles.first()).isEmpty() }?.let {
+                metrics.modelEvent("CACHE_HIT")
+                return Answer(it, AnswerMode.MODEL, sources)
+            }
+        }
         val messages = prompt(question, facts, articles, history)
-        model.chat(messages)?.let { reply ->
+        val generated = model.chat(messages)
+        generated?.let { reply ->
             val text = withoutPromptEcho(plainText(reply), question)
             // A small model can still invent a figure, contradict the reference, slip into another
             // script or ramble; such an answer is not shown, the rules answer is.
             // User questions and earlier turns are not authoritative financial facts.
-            val trusted = (articles.map { it.text } + listOfNotNull(facts?.asText())).joinToString("\n")
             val problems = Grounding.problems(text, trusted, articles.first())
-            if (problems.isEmpty()) return Answer(text, AnswerMode.MODEL, sources)
+            if (problems.isEmpty()) {
+                metrics.modelEvent("ACCEPTED")
+                if (key != null) cache.save(key, text)
+                return Answer(text, AnswerMode.MODEL, sources)
+            }
             // Problems may contain rejected figures or fragments; never copy them into logs.
             log.warn("Assistant answer dropped: reference validation failed")
         }
+        metrics.modelEvent(if (generated == null) "UNAVAILABLE" else "GUARD_REJECTED")
         return Answer(RuleAnswers.answer(question, facts, articles), AnswerMode.RULES, sources)
     }
 
@@ -90,7 +109,10 @@ class AssistantService(
      * the conclusions it is given; a figure not in them, or a model that is not there, gives the
      * summary by rules: the verdict and the first items.
      */
-    fun underwritingSummary(applicationId: UUID, authorization: String): Answer {
+    fun underwritingSummary(applicationId: UUID, authorization: String): Answer =
+        metrics.measure("underwriting_summary") { summarize(applicationId, authorization) }
+
+    private fun summarize(applicationId: UUID, authorization: String): Answer {
         val claims = CurrentCaller.requireBankStaff()
         throttle(claims.userId)
         val advice = applications.advice(applicationId, authorization)
@@ -102,12 +124,17 @@ class AssistantService(
         if (items.isEmpty()) return Answer(verdict, AnswerMode.RULES, sources)
         val context = "Вывод: $verdict\nПункты:\n" + items.joinToString("\n") { "— $it" }
         val messages = listOf(ChatMessage("system", UNDERWRITER_SYSTEM), ChatMessage("user", context))
-        model.chat(messages)?.let { reply ->
+        val generated = model.chat(messages)
+        generated?.let { reply ->
             val text = withoutPromptEcho(plainText(reply))
             val problems = Grounding.problems(text, context)
-            if (problems.isEmpty()) return Answer(text, AnswerMode.MODEL, sources)
-            log.warn("Underwriting summary dropped: {}", problems)
+            if (problems.isEmpty()) {
+                metrics.modelEvent("ACCEPTED")
+                return Answer(text, AnswerMode.MODEL, sources)
+            }
+            log.warn("Underwriting summary dropped: reference validation failed")
         }
+        metrics.modelEvent(if (generated == null) "UNAVAILABLE" else "GUARD_REJECTED")
         return Answer(byRules, AnswerMode.RULES, sources)
     }
 

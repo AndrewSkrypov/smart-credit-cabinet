@@ -3,11 +3,15 @@ package ru.creditcabinet.assistant
 import com.fasterxml.jackson.databind.JsonNode
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.RestClientException
+import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.NotFoundException
+import ru.creditcabinet.common.security.CurrentCaller
 import java.time.Duration
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -60,6 +64,7 @@ class CreditApplications(
     }
 
     fun facts(applicationId: UUID, authorization: String): ApplicationFacts? {
+        if (CurrentCaller.claims().isAgent) return describe(application(applicationId, authorization, agent = true))
         val client = client ?: return null
         val application = try {
             client.get().uri("/api/v1/applications/{id}", applicationId).header(HttpHeaders.AUTHORIZATION, authorization).retrieve().body(JsonNode::class.java)
@@ -70,6 +75,37 @@ class CreditApplications(
         } ?: return null
         return describe(application)
     }
+
+    fun application(id: UUID, authorization: String, agent: Boolean): JsonNode =
+        read(authorization, if (agent) "/api/v1/agent/applications/{id}" else "/api/v1/applications/{id}", id)
+
+    fun agentApplications(authorization: String): JsonNode = read(authorization, "/api/v1/agent/applications")
+
+    fun agentOffers(authorization: String): JsonNode = read(authorization, "/api/v1/agent/pre-approved-offers")
+
+    private fun read(authorization: String, path: String, vararg variables: UUID): JsonNode = requestWithCaller {
+        get().uri(path, *variables).header(HttpHeaders.AUTHORIZATION, authorization)
+            .retrieve().body(JsonNode::class.java) ?: unavailable()
+    }
+
+    private fun <T> requestWithCaller(block: RestClient.() -> T): T {
+        val target = client ?: unavailable()
+        return try {
+            target.block()
+        } catch (_: HttpClientErrorException.NotFound) {
+            throw NotFoundException("Заявка не найдена")
+        } catch (_: HttpClientErrorException.Unauthorized) {
+            throw ApiException(HttpStatus.UNAUTHORIZED, "Требуется вход в систему")
+        } catch (_: HttpClientErrorException.Forbidden) {
+            throw ApiException(HttpStatus.FORBIDDEN, "Недостаточно прав для этого действия")
+        } catch (_: HttpClientErrorException.Conflict) {
+            throw ApiException(HttpStatus.CONFLICT, "Действие недоступно в текущем состоянии заявки")
+        } catch (_: RestClientException) {
+            unavailable()
+        }
+    }
+
+    private fun unavailable(): Nothing = throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Данные заявки сейчас недоступны")
 
     private fun describe(app: JsonNode): ApplicationFacts {
         val process = app["process"]
@@ -110,7 +146,7 @@ class CreditApplications(
             }?.let { add("Кредит выдан: договор ${it["contractNumber"].asText()}, погашение до ${it["maturityDate"].asText()}") }
         }
         return ApplicationFacts(
-            number = app["number"].asText(),
+            number = app.path("number").asText("без номера"),
             status = (STATUS[app["status"].asText()] ?: app["status"].asText()) +
                 (app["closeReason"]?.takeIf { !it.isNull }?.let { reason -> CLOSE_REASONS[reason.asText()]?.let { ": $it" } } ?: ""),
             lines = lines,
@@ -142,6 +178,7 @@ class CreditApplications(
         )
         val STATUS = mapOf(
             "DRAFT" to "черновик, ещё не отправлена",
+            "PENDING_CLIENT_CONFIRMATION" to "ждёт подтверждения клиента",
             "SUBMITTED" to "принята, банк проверяет полноту данных",
             "INFO_REQUESTED" to "банк ждёт от клиента дополнительные данные",
             "ENRICHMENT" to "банк запрашивает сведения в ЕГРЮЛ/ЕГРИП, ФНС и БКИ",

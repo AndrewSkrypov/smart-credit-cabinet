@@ -16,10 +16,15 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.JwtVerifier
+import ru.creditcabinet.common.security.Roles
+import ru.creditcabinet.notification.NewNotification
+import ru.creditcabinet.notification.NotificationService
 import ru.creditcabinet.tokenFor
+import java.time.Instant
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,6 +42,8 @@ class AssistantApiTest {
     @MockitoBean private lateinit var model: LanguageModel
 
     @MockitoBean private lateinit var applications: CreditApplications
+
+    @MockitoBean private lateinit var notifications: NotificationService
 
     private val applicationId = UUID.randomUUID()
     private val token by lazy { verifier.tokenFor(UUID.randomUUID(), "CLIENT", UUID.randomUUID()) }
@@ -57,6 +64,70 @@ class AssistantApiTest {
             contentType = MediaType.APPLICATION_JSON
             content = mapper.writeValueAsString(mapOf("question" to question, "applicationId" to application))
         }.andReturn().response
+
+    @Test
+    fun `agent next steps enforce the same upstream access as an ordinary agent request`() {
+        val agent = verifier.tokenFor(UUID.randomUUID(), Roles.AGENT)
+        whenever(applications.application(eq(applicationId), eq("Bearer $agent"), eq(true))).thenThrow(NotFoundException("Заявка не найдена"))
+        mockMvc.get("/api/v1/assistant/next-steps") {
+            param("applicationId", applicationId.toString())
+            header("Authorization", "Bearer $agent")
+        }.andExpect { status { isNotFound() } }
+        mockMvc.post("/api/v1/assistant/reminders") {
+            header("Authorization", "Bearer $agent")
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId))
+        }.andExpect { status { isNotFound() } }
+        org.mockito.kotlin.verifyNoInteractions(notifications)
+    }
+
+    @Test
+    fun `agent to client reminder is confirmed and scoped to the current active document request`() {
+        val agent = verifier.tokenFor(UUID.randomUUID(), Roles.AGENT)
+        val company = UUID.randomUUID()
+        val infoRequest = UUID.randomUUID()
+        val application = mapper.readTree(
+            """{"status":"INFO_REQUESTED","company":{"id":"$company"},"process":{"infoRequest":{"id":"$infoRequest",
+                "deadline":"${Instant.now().plusSeconds(3600)}","items":[{"documentType":"BANK_STATEMENT","title":"Выписка"}]}}}""",
+        )
+        whenever(applications.application(eq(applicationId), eq("Bearer $agent"), eq(true))).thenReturn(application)
+        mockMvc.get("/api/v1/assistant/next-steps") {
+            param("applicationId", applicationId.toString())
+            header("Authorization", "Bearer $agent")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$[0].canRemind") { value(true) }
+        }
+        org.mockito.kotlin.verifyNoInteractions(notifications)
+
+        fun remind(session: String) = mockMvc.post("/api/v1/assistant/reminders") {
+            header("Authorization", "Bearer $session")
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId))
+        }
+        remind(token).andExpect { status { isForbidden() } }
+        repeat(2) { remind(agent).andExpect { status { isNoContent() } } }
+        val notices = argumentCaptor<List<NewNotification>>()
+        verify(notifications, org.mockito.kotlin.times(2)).deliver(notices.capture())
+        assertTrue(notices.allValues.all { rows -> rows.single().audience.companyId == company })
+        assertTrue(notices.allValues.all { rows -> rows.single().dedupKey == "assistant-documents:$applicationId:$infoRequest" })
+    }
+
+    @Test
+    fun `the assistant streams progress and the validated answer with the caller context`() {
+        val complete = mockMvc.post("/api/v1/assistant/messages/stream") {
+            header("Authorization", "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.TEXT_EVENT_STREAM
+            content = mapper.writeValueAsString(mapOf("question" to "Дай юридический совет"))
+        }.andReturn().response
+        assertEquals(200, complete.status)
+        val events = complete.getContentAsString(Charsets.UTF_8)
+        assertTrue(events.contains("event: status\n"), events)
+        assertTrue(events.contains("event: answer\n"), events)
+        assertTrue(events.contains("Юридических советов я не даю"), events)
+        verify(model, org.mockito.kotlin.never()).chat(any())
+    }
 
     @Test
     fun `without a model the answer comes from the rules and the application's own facts`() {

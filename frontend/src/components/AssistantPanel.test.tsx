@@ -5,10 +5,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssistantPanel } from './AssistantPanel';
 import { AssistantAnswer } from '../types';
 import { assistantApi } from '../api/client';
+import { readSession } from '../auth/session';
 
 const ask = vi.fn().mockResolvedValue({ text: 'Банк просит <b>декларацию</b>.', mode: 'RULES', sources: ['Заявка № 1042'] });
+const get = vi.fn();
+const post = vi.fn();
+
+vi.mock('../auth/session', () => ({ readSession: vi.fn() }));
 
 vi.mock('../api/client', () => ({
+  get: (...args: unknown[]) => get(...args),
+  post: (...args: unknown[]) => post(...args),
+  api: { post: (...args: unknown[]) => post(...args) },
   assistantApi: {
     status: vi.fn().mockResolvedValue({ mode: 'RULES', model: null }),
     ask: (...args: unknown[]) => ask(...args)
@@ -21,6 +29,23 @@ describe('AssistantPanel', () => {
   beforeEach(() => {
     ask.mockReset().mockResolvedValue({ text: 'Банк просит <b>декларацию</b>.', mode: 'RULES', sources: ['Заявка № 1042'] });
     vi.mocked(assistantApi.status).mockResolvedValue({ mode: 'RULES', model: null });
+    vi.mocked(readSession).mockReturnValue(null);
+    get.mockReset().mockResolvedValue([]);
+    post.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('shows the proactive agent card and requires explicit confirmation before sending', async () => {
+    const user = userEvent.setup();
+    vi.mocked(readSession).mockReturnValue({ token: 'synthetic' } as ReturnType<typeof readSession>);
+    get.mockResolvedValue([{ type: 'INFO_DEADLINE', title: 'Банк ждёт документы', detail: 'Выписка', applicationId: APPLICATION, canRemind: true }]);
+    render(<MemoryRouter initialEntries={['/agent']}><AssistantPanel /></MemoryRouter>);
+    await user.click(screen.getByRole('button', { name: 'Открыть помощника' }));
+    await user.click(await screen.findByRole('button', { name: 'Напомнить клиенту' }));
+    expect(post).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Отправить уведомление' }));
+    expect(post).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledWith('/assistant/reminders', { applicationId: APPLICATION });
+    expect(await screen.findByText('Клиенту отправлено уведомление')).toBeInTheDocument();
   });
   it('keeps twelve questions visible but sends only four previous completed turns, bounded to MAX_TEXT', async () => {
     const user = userEvent.setup();

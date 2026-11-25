@@ -338,6 +338,8 @@ services:
       CREDIT_URL: http://credit:8080
       # The assistant uses the model when the "ai" profile runs, and answers by rules otherwise.
       OLLAMA_URL: ${OLLAMA_URL-http://ollama:11434}
+      ASSISTANT_KEEP_ALIVE: ${ASSISTANT_KEEP_ALIVE:-15m}
+      ASSISTANT_WARMUP: ${ASSISTANT_WARMUP:-true}
       ASSISTANT_MODEL: ${ASSISTANT_MODEL:-qwen2.5:3b}
     depends_on:
       valkey:

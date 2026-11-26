@@ -1,7 +1,7 @@
 package ru.creditcabinet.application.service
 
 import org.springframework.stereotype.Component
-import ru.creditcabinet.advice.ManualReviewEvents
+import ru.creditcabinet.advice.application.ManualReviewEvents
 import ru.creditcabinet.application.application.CommitTransition
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository

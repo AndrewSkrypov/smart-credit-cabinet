@@ -10,7 +10,8 @@ IMAGE_COMPONENTS = (*APP_SERVICES, "postgres", "swagger")
 OPTIONAL_IMAGES = {"ssh-bridge", "clamav"}
 REVISION = re.compile(r"[0-9a-f]{40}")
 SHA256 = re.compile(r"[0-9a-f]{64}")
-KAFKA_IMAGE = re.compile(r"apache/kafka:[0-9.]+@sha256:[0-9a-f]{64}")
+KAFKA_UPSTREAM_IMAGE = re.compile(r"apache/kafka:[0-9.]+@sha256:[0-9a-f]{64}")
+KAFKA_IMAGE_FILE = Path(__file__).resolve().parents[1] / "ci/alpha/kafka-image.txt"
 IMAGE = re.compile(r"[a-z0-9.-]+(?::[0-9]{1,5})?(?:/[a-z0-9][a-z0-9._-]*)+@sha256:[0-9a-f]{64}")
 SERVICE_COMPONENTS = {
     **{name: name for name in (*APP_SERVICES, "postgres")},
@@ -22,13 +23,14 @@ SERVICE_COMPONENTS = {
     "credit-migrate": "credit",
     "engagement-migrate": "engagement",
     "analytics-db": "postgres",
+    "analytics-kafka": "kafka",
     "analytics": "analytics",
     "analytics-migrate": "analytics",
 }
 
 
 class RegistryRelease:
-    def __init__(self, path):
+    def __init__(self, path, *, allow_legacy_alpha=False):
         self.path = Path(path).resolve()
         raw = self.path.read_bytes()
         release = json.loads(raw)
@@ -48,6 +50,7 @@ class RegistryRelease:
         if len(repositories) != 1:
             raise ValueError("Образы выпуска должны находиться в одном проекте Registry")
         self.alpha_dev = None
+        self.legacy_alpha = False
         if "alpha_dev" in release:
             alpha = release["alpha_dev"]
             repository, = repositories
@@ -55,10 +58,27 @@ class RegistryRelease:
                     or not isinstance(alpha["image"], str)
                     or not re.fullmatch(re.escape(repository) + r"/analytics@sha256:[0-9a-f]{64}", alpha["image"])
                     or not isinstance(alpha["jar_sha256"], str) or not SHA256.fullmatch(alpha["jar_sha256"])
-                    or not isinstance(alpha["kafka_image"], str) or not KAFKA_IMAGE.fullmatch(alpha["kafka_image"])):
+                    or not isinstance(alpha["kafka_image"], str)):
                 raise ValueError("Некорректный digest образа Analytics, Kafka или SHA256 JAR в manifest")
+            if not re.fullmatch(re.escape(repository) + r"/kafka@sha256:[0-9a-f]{64}", alpha["kafka_image"]):
+                if not allow_legacy_alpha or not KAFKA_UPSTREAM_IMAGE.fullmatch(alpha["kafka_image"]):
+                    raise ValueError("Нужен digest образа Kafka из проекта Registry выпуска")
+                self.legacy_alpha = True
             self.alpha_dev = alpha
         self.checksum = sha256(raw).hexdigest()
+
+    @property
+    def kafka_image(self):
+        if not self.alpha_dev or self.legacy_alpha:
+            raise ValueError("Для запуска Kafka нужен образ из проекта Registry выпуска")
+        return self.alpha_dev["kafka_image"]
+
+    @property
+    def kafka_upstream(self):
+        image = KAFKA_IMAGE_FILE.read_text(encoding="utf-8").strip()
+        if not KAFKA_UPSTREAM_IMAGE.fullmatch(image):
+            raise ValueError("Нужен закреплённый upstream образ Apache Kafka")
+        return image
 
     def environment(self):
         return {
@@ -70,6 +90,8 @@ class RegistryRelease:
     def pull_and_verify(self, services):
         components = {SERVICE_COMPONENTS[name] for name in services if name in SERVICE_COMPONENTS}
         images = self.images if not self.alpha_dev else {**self.images, "analytics": self.alpha_dev["image"]}
+        if "kafka" in components:
+            images = {**images, "kafka": self.kafka_image}
         for name in sorted(components.intersection(images)):
             image = images[name]
             # Do not print command output. A configured credential helper can include sensitive errors.
@@ -80,13 +102,17 @@ class RegistryRelease:
 
     def local_image_id(self, name):
         labels = '{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}'
+        expected = [self.revision]
         if name == "analytics" and self.alpha_dev:
             image = self.alpha_dev["image"]
             labels += ' {{index .Config.Labels "org.opencontainers.image.jar.sha256"}}'
-            expected = [self.revision, self.alpha_dev["jar_sha256"]]
+            expected.append(self.alpha_dev["jar_sha256"])
+        elif name == "kafka":
+            image = self.kafka_image
+            labels += ' {{index .Config.Labels "org.opencontainers.image.base.name"}}'
+            expected.append(self.kafka_upstream)
         else:
             image = self.images[name]
-            expected = [self.revision]
         result = subprocess.run(
             ["docker", "image", "inspect", "--format", labels, image], capture_output=True, text=True,
         )

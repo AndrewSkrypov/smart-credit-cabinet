@@ -6,9 +6,6 @@ import re
 import subprocess
 import tempfile
 
-from registry_release import KAFKA_IMAGE
-
-
 PROJECT = "cabinet-dev"
 PARTITIONS = 3
 SERVICES = ("analytics", "analytics-db", "analytics-kafka")
@@ -20,7 +17,6 @@ SECRET_KEYS = (
     "CABINET_ALPHA_DEV_JWT_SECRET",
 )
 OPS_DIR = Path(__file__).resolve().parents[1] / "services/analytics/ops"
-KAFKA_IMAGE_FILE = Path(__file__).resolve().parents[1] / "ci/alpha/kafka-image.txt"
 
 
 @dataclass(frozen=True)
@@ -47,6 +43,8 @@ class AlphaDev:
         # Previous manifests can still be used to back up the base stack.
         if not release or not release.alpha_dev:
             return None
+        if release.legacy_alpha:
+            raise ValueError("Для пилота Dev нужен manifest с образом Kafka из проекта Registry выпуска")
         generation = values.get("CABINET_ALPHA_DEV_GENERATION", "")
         if not re.fullmatch(r"g[0-9a-f]{16}", generation):
             raise ValueError("Поколение Dev требует g и 16 строчных шестнадцатеричных символов")
@@ -73,18 +71,9 @@ class AlphaDev:
     def group(self):
         return f"alpha-dev-analytics-{self.generation}"
 
-    @property
-    def kafka_image(self):
-        image = KAFKA_IMAGE_FILE.read_text(encoding="utf-8").strip()
-        if not KAFKA_IMAGE.fullmatch(image):
-            raise ValueError("Требуется закреплённый образ Apache Kafka")
-        return image
-
     def environment(self, release):
-        if release.alpha_dev["kafka_image"] != self.kafka_image:
-            raise ValueError("Digest Kafka из manifest не совпадает с закреплённым в ревизии")
         return {
-            "CABINET_ALPHA_DEV_KAFKA_IMAGE": self.kafka_image,
+            "CABINET_ALPHA_DEV_KAFKA_IMAGE": release.kafka_image,
             "CABINET_ALPHA_DEV_TOPIC": self.topic,
             "CABINET_ALPHA_DEV_GROUP": self.group,
             "CABINET_ALPHA_DEV_DLQ_TOPIC": self.dlq,

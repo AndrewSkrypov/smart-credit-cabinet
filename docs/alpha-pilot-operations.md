@@ -4,12 +4,13 @@
 
 ## Проверка инфраструктуры
 
-На локальном изолированном Docker daemon с Compose v2 smoke использует
-[Образ Kafka с закреплённым digest](../ci/alpha/kafka-image.txt).
-Для другого JVM-образа Apache Kafka с KRaft и совместимым CLI задайте
-`ALPHA_PILOT_KAFKA_IMAGE=apache/kafka:<version>@sha256:<digest>`.
-Зафиксируйте точную ссылку в квитанции прогона. PostgreSQL закреплён тем же
-upstream @sha256, который указан в [Dockerfile проекта](../docker/postgres/Dockerfile).
+На локальном изолированном Docker daemon с Compose v2 smoke собирает
+образ Kafka из [закреплённой базы](../ci/alpha/kafka-image.txt) по
+[рецепту релиза](../ci/alpha/Kafka.Dockerfile). Для совместимой
+JVM-базы KRaft с исправленным пакетом в официальном APK-репозитории
+можно задать `ALPHA_PILOT_KAFKA_IMAGE=apache/kafka:<version>@sha256:<digest>`.
+Скрипт фиксирует исходную ссылку и ID запущенного образа.
+Пин PostgreSQL соответствует [Dockerfile проекта](../docker/postgres/Dockerfile).
 Из корня чистого checkout кандидата запустите:
 
 ```bash
@@ -30,6 +31,10 @@ DDL от `analytics_owner`, права `analytics_app`, два поколени�
 
 ```bash
 alpha_project="cabinet-alpha-$(python3 -c 'import secrets; print(secrets.token_hex(8))')"
+export ALPHA_PILOT_KAFKA_IMAGE="$alpha_project-kafka:qa"
+docker build --platform linux/amd64 --file ci/alpha/Kafka.Dockerfile \
+  --build-arg "UPSTREAM_KAFKA_IMAGE=$(cat ci/alpha/kafka-image.txt)" \
+  --tag "$ALPHA_PILOT_KAFKA_IMAGE" ci/alpha
 alpha_compose=(docker compose --env-file /dev/null -f ci/alpha/compose.yaml
   -p "$alpha_project" --profile alpha-pilot)
 "${alpha_compose[@]}" up --wait --wait-timeout 150
@@ -49,8 +54,8 @@ alpha_compose=(docker compose --env-file /dev/null -f ci/alpha/compose.yaml
 
 Корневой pipeline подключает `ci/alpha/gitlab.yml` при `CABINET_ALPHA_PILOT=1`.
 Выделенный pipeline runner-canary выполняется отдельно. В изолированном CI
-задайте `CABINET_ALPHA_PILOT=1`. Smoke использует закреплённый Kafka digest из репозитория. Оба задания используют существующий `.quality`.
-Инфраструктурное задание запускает зависимости, отдельное задание
+задайте `CABINET_ALPHA_PILOT=1`. Оба задания используют существующий `.quality`.
+Инфраструктурное задание сканирует точный ID собранного Kafka и запускает зависимости, отдельное задание
 `alpha-pilot-analytics-jar` собирает Analytics на интегрированном SHA.
 
 Для локальной сборки используйте отдельное чистое рабочее дерево кандидата:

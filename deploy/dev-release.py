@@ -74,7 +74,7 @@ def release_at(releases, revision):
     if not isinstance(revision, str) or not REVISION.fullmatch(revision):
         raise ValueError("Некорректная ревизия в состоянии dev")
     root = releases / revision
-    release = RegistryRelease(root / "release.json")
+    release = RegistryRelease(root / "release.json", allow_legacy_alpha=True)
     if release.revision != revision:
         raise ValueError("Каталог релиза не совпадает с manifest")
     return root, release

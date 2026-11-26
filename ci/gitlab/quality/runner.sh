@@ -7,4 +7,4 @@ case "$CABINET_CI_DOCKER_HOST" in
 esac
 unset DOCKER_CONTEXT
 export DOCKER_HOST="$CABINET_CI_DOCKER_HOST"
-docker info --format '{{range .Labels}}{{println .}}{{end}}' | grep -Fxq 'cabinet-ci=true'
+docker info --format '{{range .Labels}}{{println .}}{{end}}' | grep -Fx 'cabinet-ci=true' >/dev/null

@@ -1,0 +1,32 @@
+# Applied only by Deployment for the canonical HTTPS Dev project.
+services:
+  caddy:
+    environment:
+      CABINET_DEV_DEMO_SITE: import /etc/caddy/demo-edge.Caddyfile
+      CABINET_DEV_DEMO_API: import /etc/caddy/demo-api.caddy
+    volumes:
+      # Keep the release Caddyfile when the earlier Grafana overlay is enabled.
+      - type: bind
+        source: ./deploy/Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /etc/pump/cabinet-demo-edge.Caddyfile
+        target: /etc/caddy/demo-edge.Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./deploy/demo-api.caddy
+        target: /etc/caddy/demo-api.caddy
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      cabinet-demo-caddy-edge: {}
+
+networks:
+  cabinet-demo-caddy-edge:
+    external: true

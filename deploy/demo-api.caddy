@@ -1,0 +1,35 @@
+@cabinet_demo_ready path /demo/__ready
+handle @cabinet_demo_ready {
+    header >Cache-Control no-store
+    @cabinet_demo_ready_get method GET
+    handle @cabinet_demo_ready_get {
+        rewrite * /api/v1/auth/options?
+        reverse_proxy demo-gateway:80 {
+            header_up Host demo.dev.credit-cabinet.ru
+            header_up X-Forwarded-Host demo.dev.credit-cabinet.ru
+            header_up -Cookie
+            header_up -Authorization
+            header_down -Set-Cookie
+            header_down -Location
+        }
+    }
+    handle {
+        header Allow GET
+        respond 405
+    }
+}
+
+@cabinet_demo_api path /demo/api/v1/*
+handle @cabinet_demo_api {
+    uri strip_prefix /demo
+    reverse_proxy demo-gateway:80 {
+        header_up Host demo.dev.credit-cabinet.ru
+        header_up X-Forwarded-Host demo.dev.credit-cabinet.ru
+        header_up -Cookie
+        header_down -Set-Cookie
+        header_down -Location
+    }
+}
+
+@cabinet_demo_unsupported_api path /demo/api /demo/api/*
+respond @cabinet_demo_unsupported_api 404

@@ -1,5 +1,6 @@
 import { Alert, Button, FormControlLabel, Grid, Paper, Radio, RadioGroup, Stack, TextField, Typography } from '@mui/material';
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { agentApi } from '../../api/client';
 import { extractInvoice, financingApi, FinancingInputs, FinancingScenario, InvoiceExtraction } from '../../api/financing';
 import { FinancingComparison } from '../../components/FinancingScenarioView';
 import { MoneyField } from '../../components/MoneyField';
@@ -39,6 +40,8 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
   const fileInput = useRef<HTMLInputElement>(null);
   const [scenario, setScenario] = useState<FinancingScenario | null>(null);
   const [form, setForm] = useState<ScenarioForm>(() => defaultInputs(baseTerm));
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [invoiceDocumentId, setInvoiceDocumentId] = useState<string | null>(null);
   const [extraction, setExtraction] = useState<InvoiceExtraction | null>(null);
   const [selectedSourceDate, setSelectedSourceDate] = useState('');
   const [useSourceAmount, setUseSourceAmount] = useState(false);
@@ -90,6 +93,8 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
     setBusy('extract');
     setError(null);
     setExtraction(null);
+    setInvoiceFile(file);
+    setInvoiceDocumentId(null);
     setSelectedSourceDate('');
     setUseSourceAmount(false);
     setSourceManuallyEdited(false);
@@ -98,7 +103,7 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
       const found = await extractInvoice(id, file);
       setExtraction(found);
       setInvoiceNotice(found.amount || found.dates.length
-        ? 'Проверьте предложенные значения. Можно внести данные вручную.'
+        ? 'Проверьте значения. При сохранении выбранных строк счёт приложится к заявке. Также можно ввести данные вручную.'
         : invoiceError);
     } catch {
       setInvoiceNotice(invoiceError);
@@ -133,7 +138,13 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
       const saved = await saveDraft();
       if (!saved) return;
       const selectedTermMonths = form.selectedTermMonths === form.alternativeTermMonths ? form.selectedTermMonths : saved.termMonths;
-      const source = verifiedSource() ?? (!extraction && !sourceManuallyEdited ? scenario?.inputs.source : undefined);
+      const verified = verifiedSource();
+      let source: FinancingInputs['source'] = !extraction && !sourceManuallyEdited ? scenario?.inputs.source : undefined;
+      if (verified && invoiceFile) {
+        const documentId = invoiceDocumentId ?? (await agentApi.uploadDocument(id, 'OTHER', invoiceFile)).id;
+        setInvoiceDocumentId(documentId);
+        source = { ...verified, documentId };
+      }
       const next = await financingApi.save(id, {
         ...form,
         openingBalance: form.openingBalance,
@@ -198,7 +209,7 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
           <Grid item xs={12} sm={6}><TextField fullWidth label="Задержка поступления, дней" type="number" inputProps={{ min: 0, max: 365 }} value={form.delayDays} disabled={fieldDisabled} onChange={(event) => change('delayDays', Number(event.target.value))} /></Grid>
           <Grid item xs={12} sm={6}><TextField fullWidth label="Второй срок, месяцев" type="number" inputProps={{ min: 1, max: 120 }} value={form.alternativeTermMonths || ''} disabled={fieldDisabled} onChange={(event) => change('alternativeTermMonths', Number(event.target.value))} /></Grid>
         </Grid>
-        {scenario && <FinancingComparison scenario={scenario} />}
+        {scenario && <FinancingComparison scenario={scenario} onDownloadSource={(documentId) => agentApi.downloadDocument(id, documentId, 'Счёт.pdf')} />}
         <RadioGroup row aria-label="Выбрать срок для передачи" value={form.selectedTermMonths === form.alternativeTermMonths ? form.alternativeTermMonths : baseTerm}
           onChange={(_, value) => change('selectedTermMonths', Number(value))}>
           <FormControlLabel value={baseTerm} control={<Radio />} disabled={fieldDisabled || !baseTerm} label={months(baseTerm)} />
@@ -213,6 +224,8 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
           {dirty && <Button disabled={fieldDisabled} onClick={() => {
             setForm(scenario?.inputs ?? defaultInputs(baseTerm));
             setExtraction(null);
+            setInvoiceFile(null);
+            setInvoiceDocumentId(null);
             setSelectedSourceDate('');
             setUseSourceAmount(false);
             setSourceManuallyEdited(false);

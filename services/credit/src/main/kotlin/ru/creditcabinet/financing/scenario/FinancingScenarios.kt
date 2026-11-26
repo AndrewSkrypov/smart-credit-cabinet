@@ -8,6 +8,9 @@ import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.document.domain.DocumentContext
 import ru.creditcabinet.document.domain.DocumentRepository
+import ru.creditcabinet.document.domain.FileStore
+import ru.creditcabinet.financing.invoice.InvoiceEvidence
+import ru.creditcabinet.financing.invoice.InvoicePdfReader
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
 import java.util.UUID
@@ -16,6 +19,7 @@ import java.util.UUID
 class FinancingScenarios(
     private val products: ProductCatalog,
     private val documents: DocumentRepository,
+    private val files: FileStore,
     private val store: FinancingScenarioStore,
 ) {
     fun forAgent(application: LoanApplication): FinancingScenarioSnapshot? {
@@ -41,6 +45,7 @@ class FinancingScenarios(
             ?: throw ConflictException("Продукт заявки выключен из каталога")
         val revision = (store.latest(application.id)?.snapshot?.revision ?: 0L) + 1
         val snapshot = FinancingScenarioCalculation.draft(revision, inputs, application.terms, product)
+        verifyInvoiceSource(application.id, inputs)
         store.append(application.id, ScenarioRevision(product.version, snapshot))
         return snapshot
     }
@@ -59,6 +64,7 @@ class FinancingScenarios(
             throw ConflictException("Условия заявки изменились — пересчитайте сценарий перед передачей")
         }
         // A new handoff after a return can carry new document versions, even when the terms were kept.
+        snapshot.inputs.source?.documentId?.let { requireInvoiceDocument(application.id, it) }
         val revision = if (snapshot.status == FinancingScenarioStatus.DRAFT) {
             snapshot.revision
         } else {
@@ -105,6 +111,30 @@ class FinancingScenarios(
         store.publish(application.id, snapshot.revision, FinancingScenarioStatus.CONFIRMED)
         return false
     }
+
+    private fun verifyInvoiceSource(applicationId: UUID, inputs: FinancingScenarioInputs) {
+        val source = inputs.source ?: return
+        val documentId = source.documentId ?: return
+        val document = requireInvoiceDocument(applicationId, documentId)
+        val file = files.get(document.storedName, document.storageBackend)
+            ?: throw ConflictException("Счёт недоступен — приложите его заново")
+        val bytes = file.content.use { it.readNBytes(InvoicePdfReader.MAX_FILE_BYTES.toInt() + 1) }
+        require(bytes.size <= InvoicePdfReader.MAX_FILE_BYTES) { "Счёт превышает допустимый размер" }
+        val evidence = InvoiceEvidence.from(InvoicePdfReader().read(bytes))
+        val amountMatches = evidence.amounts.any {
+            it.page == source.page && it.quote == source.amountQuote && it.value == inputs.expectedReceiptAmount
+        }
+        val dateMatches = evidence.dates.any {
+            it.fact.page == source.page && it.fact.quote == source.dateQuote && it.fact.value == inputs.expectedReceiptDate
+        }
+        require(amountMatches && dateMatches) { "Сумма или дата не совпадает со строкой приложенного счёта" }
+    }
+
+    private fun requireInvoiceDocument(applicationId: UUID, documentId: UUID) =
+        documents.find(applicationId, documentId)?.takeIf {
+            it.context == DocumentContext.BUSINESS && !it.privateToBank &&
+                it.sizeBytes in 1..InvoicePdfReader.MAX_FILE_BYTES
+        } ?: throw ConflictException("Счёт должен быть приложен к этой заявке")
 
     private fun staleScenario() = ConflictException("Пакет финансирования изменился — откройте переданную версию и подтвердите её")
 }

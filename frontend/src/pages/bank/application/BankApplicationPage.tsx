@@ -109,7 +109,7 @@ function BankApplicationCard({ id }: { id: string }) {
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
       {error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => void load()}>Повторить</Button>}>{error}. Показаны последние полученные данные; действия появятся после обновления.</Alert>}
       <BankSummary application={application} assessment={assessment} stale={Boolean(error)} />
-      {scenario.data && !scenario.error && <Box sx={{ mb: 3 }}><FinancingScenarioView scenario={scenario.data} /></Box>}
+      {scenario.data && !scenario.error && <Box sx={{ mb: 3 }}><FinancingScenarioView applicationId={id} scenario={scenario.data} /></Box>}
       {scenario.error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => void scenario.reload()}>Повторить</Button>}>{scenario.error}</Alert>}
       <Grid container spacing={3}>
         <Grid item xs={12} lg={7}>

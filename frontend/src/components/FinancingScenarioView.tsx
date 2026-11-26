@@ -1,10 +1,29 @@
-import { Alert, Box, Chip, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { useState } from 'react';
+import { applicationsApi } from '../api/client';
 import { FinancingScenario } from '../api/financing';
 import { formatDate, months, percent, rub } from '../shared/format';
 import { TableScrollRegion } from './TableScrollRegion';
 
-export function FinancingComparison({ scenario }: { scenario: FinancingScenario }) {
+interface ComparisonProps {
+  scenario: FinancingScenario;
+  onDownloadSource?: (documentId: string) => Promise<void>;
+}
+
+export function FinancingComparison({ scenario, onDownloadSource }: ComparisonProps) {
   const { inputs } = scenario;
+  const sourceDocumentId = inputs.source?.documentId;
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  async function download(documentId: string) {
+    setDownloadError(null);
+    try {
+      await onDownloadSource?.(documentId);
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : 'Счёт недоступен');
+    }
+  }
+
   return (
     <Stack spacing={1.5}>
       <Typography variant="body2">
@@ -42,16 +61,20 @@ export function FinancingComparison({ scenario }: { scenario: FinancingScenario 
       </TableScrollRegion>
       {inputs.source && (
         <Box>
-          <Typography variant="body2" fontWeight={600}>Подтверждённый источник · страница {inputs.source.page}</Typography>
+          <Typography variant="body2" fontWeight={600}>Счёт · страница {inputs.source.page}</Typography>
           <Typography variant="body2" color="text.secondary" component="blockquote" sx={{ m: 0, overflowWrap: 'anywhere' }}>{inputs.source.amountQuote}</Typography>
           <Typography variant="body2" color="text.secondary" component="blockquote" sx={{ m: 0, overflowWrap: 'anywhere' }}>{inputs.source.dateQuote}</Typography>
+          {sourceDocumentId && onDownloadSource && (
+            <Button size="small" onClick={() => void download(sourceDocumentId)}>Скачать исходный счёт</Button>
+          )}
+          {downloadError && <Alert severity="warning">{downloadError}</Alert>}
         </Box>
       )}
     </Stack>
   );
 }
 
-export function FinancingScenarioView({ scenario }: { scenario: FinancingScenario }) {
+export function FinancingScenarioView({ applicationId, scenario }: { applicationId: string; scenario: FinancingScenario }) {
   const label = scenario.status === 'CONFIRMED' ? 'Подтверждённый пакет' : 'Пакет на подтверждение';
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
@@ -65,7 +88,7 @@ export function FinancingScenarioView({ scenario }: { scenario: FinancingScenari
             </Box>
           </Alert>
         ) : null}
-        <FinancingComparison scenario={scenario} />
+        <FinancingComparison scenario={scenario} onDownloadSource={(documentId) => applicationsApi.downloadDocument(applicationId, documentId, 'Счёт.pdf')} />
       </Stack>
     </Paper>
   );

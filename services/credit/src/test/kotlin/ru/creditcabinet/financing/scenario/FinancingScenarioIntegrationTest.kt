@@ -3,6 +3,11 @@ package ru.creditcabinet.financing.scenario
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.jsonwebtoken.Jwts
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.pdmodel.PDPage
+import org.apache.pdfbox.pdmodel.PDPageContentStream
+import org.apache.pdfbox.pdmodel.font.PDType1Font
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -29,10 +34,12 @@ import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.DocumentType
+import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.integration.CompanySources
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.LoanMath
 import ru.creditcabinet.product.domain.ProductCatalog
+import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 import java.time.Clock
 import java.util.Date
@@ -52,6 +59,7 @@ class FinancingScenarioIntegrationTest {
     @Autowired private lateinit var mapper: ObjectMapper
     @Autowired private lateinit var applications: ApplicationRepository
     @Autowired private lateinit var documents: DocumentRepository
+    @Autowired private lateinit var files: FileStore
     @Autowired private lateinit var jdbc: JdbcTemplate
     @Autowired private lateinit var clock: Clock
     @Autowired private lateinit var products: ProductCatalog
@@ -193,6 +201,51 @@ class FinancingScenarioIntegrationTest {
         assertEquals(200, confirm(clientPath, revision = null).status)
         assertEquals(204, get(bankPath(application.id), bank).status)
         assertEquals(1, submissionCount(application.id))
+    }
+
+    @Test
+    fun `the source must be an ordinary attachment with the exact selected facts`() {
+        val application = draft()
+        val path = "${agentPath(application.id)}/financing-scenario"
+        val regular = document(application.id, privateToBank = false)
+        val privateDoc = document(application.id, privateToBank = true)
+        val bytes = invoicePdf()
+        files.put("$regular.pdf", bytes.inputStream(), bytes.size.toLong())
+
+        fun scenario(documentId: UUID, quote: String) =
+            put(
+                path,
+                """
+                {"openingBalance":150000,"expectedReceiptAmount":140000,"expectedReceiptDate":"2026-12-10",
+                 "paymentDate":"2026-12-15","delayDays":14,"alternativeTermMonths":24,"selectedTermMonths":24,
+                 "source":{"page":1,"amountQuote":"Amount due: 140000 RUB","dateQuote":"$quote","documentId":"$documentId"}}
+                """.trimIndent(),
+            )
+
+        assertEquals(409, scenario(privateDoc, "Due date: 10.12.2026").status)
+        assertEquals(409, scenario(UUID.randomUUID(), "Due date: 10.12.2026").status)
+        assertEquals(400, scenario(regular, "Due date: 24.12.2026").status)
+        val result = snapshot(scenario(regular, "Due date: 10.12.2026"))
+        assertEquals(regular.toString(), result.at("/inputs/source/documentId").asText())
+    }
+
+    private fun invoicePdf(): ByteArray {
+        val output = ByteArrayOutputStream()
+        PDDocument().use { document ->
+            val page = PDPage()
+            document.addPage(page)
+            PDPageContentStream(document, page).use { stream ->
+                stream.beginText()
+                stream.setFont(PDType1Font(Standard14Fonts.FontName.HELVETICA), 12f)
+                stream.newLineAtOffset(40f, 700f)
+                stream.showText("Amount due: 140000 RUB")
+                stream.newLineAtOffset(0f, -24f)
+                stream.showText("Due date: 10.12.2026")
+                stream.endText()
+            }
+            document.save(output)
+        }
+        return output.toByteArray()
     }
 
     private fun draft(): LoanApplication {

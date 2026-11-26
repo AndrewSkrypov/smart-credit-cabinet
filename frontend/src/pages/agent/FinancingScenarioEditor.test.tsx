@@ -1,8 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { agentApi } from '../../api/client';
 import { extractInvoice, financingApi } from '../../api/financing';
 import { Application } from '../../types';
 import { FinancingScenarioEditor } from './FinancingScenarioEditor';
+
+vi.mock('../../api/client', () => ({ agentApi: { uploadDocument: vi.fn() } }));
 
 vi.mock('../../api/financing', () => ({
   extractInvoice: vi.fn(),
@@ -12,6 +15,7 @@ vi.mock('../../api/financing', () => ({
 describe('FinancingScenarioEditor', () => {
   it('requires an explicit choice for both invoice fields before persisting evidence', async () => {
     vi.mocked(financingApi.agent).mockResolvedValue(null);
+    vi.mocked(agentApi.uploadDocument).mockResolvedValue({ id: 'invoice-document' } as Awaited<ReturnType<typeof agentApi.uploadDocument>>);
     vi.mocked(extractInvoice).mockResolvedValue({
       mode: 'MANUAL',
       amount: { value: 140_000, page: 1, quote: 'К оплате 140 000 руб.' },
@@ -62,7 +66,7 @@ describe('FinancingScenarioEditor', () => {
       expectedReceiptDate: '2026-12-10',
       selectedTermMonths: 24,
       delayDays: 14,
-      source: { page: 1, amountQuote: 'К оплате 140 000 руб.', dateQuote: 'Срок оплаты 10.12.2026' }
+      source: { page: 1, amountQuote: 'К оплате 140 000 руб.', dateQuote: 'Срок оплаты 10.12.2026', documentId: 'invoice-document' }
     })));
     expect(await screen.findByRole('table', { name: 'Сравнение сценариев финансирования' })).toBeInTheDocument();
   });

@@ -4,6 +4,7 @@ export interface FinancingSource {
   page: number;
   amountQuote: string;
   dateQuote: string;
+  documentId?: string | null;
 }
 
 export interface FinancingInputs {

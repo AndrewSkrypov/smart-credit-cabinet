@@ -140,7 +140,7 @@ function ApplicationCard({ id }: { id: string }) {
             {application.status === 'DRAFT' && application.editable && !canResume && (
               <DraftForm application={application} onSaved={apply} onSubmitted={apply} />
             )}
-            {scenario.data && !scenario.error && <FinancingScenarioView scenario={scenario.data} />}
+            {scenario.data && !scenario.error && <FinancingScenarioView applicationId={id} scenario={scenario.data} />}
             {application.agentId && scenario.error && (
               <Alert severity="warning" action={<Button onClick={() => void scenario.reload()}>Повторить</Button>}>{scenario.error}</Alert>
             )}

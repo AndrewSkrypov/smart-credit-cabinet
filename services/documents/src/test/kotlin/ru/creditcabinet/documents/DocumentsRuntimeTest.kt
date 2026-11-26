@@ -397,7 +397,13 @@ class DocumentsRuntimeTest {
         assertEquals(401, http("$base/documents/$visible", "").statusCode())
         assertEquals(404, http("$base/documents/$visible", token(actor, "CLIENT", UUID.randomUUID())).statusCode())
         assertEquals(404, http("$base/documents/$visible", token(actor, "UNKNOWN", scope.companyId)).statusCode())
-        assertEquals(404, http("/api/v1/agent/applications/${scope.applicationId}/documents/$visible", token(UUID.fromString(env("DOCUMENTS_TEST_REVOKED_AGENT")), "AGENT", null)).statusCode())
+        assertEquals(
+            404,
+            http(
+                "/api/v1/agent/applications/${scope.applicationId}/documents/$visible",
+                token(UUID.fromString(env("DOCUMENTS_TEST_REVOKED_AGENT")), "AGENT", null),
+            ).statusCode(),
+        )
         assertEquals(404, http("/internal/documents/v1", client).statusCode())
     }
 

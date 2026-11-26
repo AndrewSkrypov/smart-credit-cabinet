@@ -86,7 +86,7 @@ tasks.register("updateDependencyLocks") {
 
 licenseReport {
     projects = arrayOf(project) + coverageModules.toTypedArray()
-    buildScriptProjects = arrayOf(project)
+    buildScriptProjects = arrayOf(project, project(":libs:catalog-contracts"))
     configurations = emptyArray()
     renderers = arrayOf(JsonReportRenderer("backend-dependencies.json", false))
 }

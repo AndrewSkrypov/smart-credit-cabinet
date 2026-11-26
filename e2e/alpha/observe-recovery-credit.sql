@@ -13,7 +13,8 @@ with ids as (
     from application_events e
     where e.application_id in (select id from ids) and e.event = 'WITHDRAW'
 ), outbox as (
-    select o.id, o.event_key, o.state, o.attempts, o.payload
+    select o.id, o.event_key, o.state, o.attempts, o.payload,
+           to_jsonb(o) ->> 'stream_generation' as stream_generation
     from application_status_outbox o
     where o.payload ->> 'applicationId' in (select id::text from ids)
 )

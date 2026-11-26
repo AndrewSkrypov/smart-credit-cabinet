@@ -3,7 +3,7 @@ set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 if [[ $# -lt 2 ]]; then
-  echo "Usage: $0 {seed|dump|restore|credit|projection|credit-evidence|analytics-evidence} DATABASE [ARCHIVE]" >&2
+  echo "Usage: $0 {seed|dump|restore|credit|projection|credit-evidence|analytics-evidence|generation} DATABASE [ARCHIVE]" >&2
   exit 2
 fi
 operation=$1
@@ -20,7 +20,7 @@ unset PGHOSTADDR PGSERVICE PGSERVICEFILE PGOPTIONS
 psql_cmd=(psql -XqAt -v ON_ERROR_STOP=1 -d "$database")
 
 case "$operation" in
-  seed|credit|projection|credit-evidence|analytics-evidence)
+  seed|credit|projection|credit-evidence|analytics-evidence|generation)
     [[ $# == 2 ]] || exit 2
     case "$operation" in
       seed) "${psql_cmd[@]}" -f "$here/seed-credit.sql" ;;
@@ -28,6 +28,7 @@ case "$operation" in
       projection) "${psql_cmd[@]}" -f "$here/export-projection.sql" ;;
       credit-evidence) "${psql_cmd[@]}" -f "$here/observe-recovery-credit.sql" ;;
       analytics-evidence) "${psql_cmd[@]}" -f "$here/observe-recovery-analytics.sql" ;;
+      generation) "${psql_cmd[@]}" -f "$here/observe-generation.sql" ;;
     esac
     ;;
   dump|restore)

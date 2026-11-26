@@ -92,14 +92,25 @@ jobs:
           else
             status=$?
           fi
-          if [[ "$GRADLE_BUILD_ACTION_CACHE_RESTORED" == true ]] &&
-             grep -Fq "Could not resolve all artifacts for configuration ':build-logic:classpath'" "$log" &&
-             grep -Eq 'repo\.maven\.apache\.org/.+Received status code 429' "$log"; then
-            echo 'Maven Central rate-limited dependency resolution. Retrying the same build from the restored Gradle cache.'
-            ./gradlew build --no-daemon --offline
-          else
+          if ! grep -Fq "Could not resolve all artifacts for configuration ':build-logic:classpath'" "$log" ||
+             ! grep -Eq 'repo\.maven\.apache\.org/.+/org/jetbrains/kotlin/.+Received status code 429' "$log"; then
             exit "$status"
           fi
+          if [[ "$GRADLE_BUILD_ACTION_CACHE_RESTORED" == true ]]; then
+            echo 'Maven Central rate-limited dependency resolution. Retrying the same build from the restored Gradle cache.'
+            offline_log="$RUNNER_TEMP/cabinet-gradle-offline.log"
+            if ./gradlew build --no-daemon --offline 2>&1 | tee "$offline_log"; then
+              exit 0
+            else
+              status=$?
+            fi
+            if ! grep -Fq "Could not resolve all artifacts for configuration ':build-logic:classpath'" "$offline_log" ||
+               ! grep -Eq 'No cached version of org\.jetbrains\.kotlin:.+ available for offline mode' "$offline_log"; then
+              exit "$status"
+            fi
+          fi
+          echo 'Resolving Kotlin build plugin dependencies from the Maven Central mirror.'
+          ./gradlew build --no-daemon -PcabinetKotlinCentralMirror=true
       - name: Reapply schema comments after rollback on PostgreSQL 16
         env:
           PGPASSWORD: cabinet

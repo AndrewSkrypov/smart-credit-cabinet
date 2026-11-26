@@ -39,7 +39,8 @@ class DevRolloutTest(unittest.TestCase):
         self.alpha = AlphaDev("g1234567890abcdef", False)
         self.images = {name: f"{self.repository}/{name}@sha256:" + "b" * 64 for name in IMAGE_COMPONENTS}
         self.alpha_metadata = {"image": f"{self.repository}/analytics@sha256:" + "c" * 64,
-                               "jar_sha256": "d" * 64, "kafka_image": self.alpha.kafka_image}
+                               "jar_sha256": "d" * 64,
+                               "kafka_image": f"{self.repository}/kafka@sha256:" + "e" * 64}
 
     def manifest(self, **extra):
         path = self.state / "release.json"
@@ -82,15 +83,20 @@ class DevRolloutTest(unittest.TestCase):
         )
         self.assertEqual(json.loads(result.read_text())["images"], self.images)
         self.assertNotIn("CABINET_IMAGE_ALPHA_ANALYTICS", release.environment())
+        self.assertNotIn("CABINET_ALPHA_DEV_KAFKA_IMAGE", release.environment())
 
-    def test_manifest_rejects_wrong_analytics_repository_and_bad_hashes(self):
+    def test_manifest_rejects_wrong_pilot_repositories_components_and_hashes(self):
         for invalid in (
             {"image": "registry.example.invalid/other/analytics@sha256:" + "c" * 64},
             {"image": f"{self.repository}/credit@sha256:" + "c" * 64},
             {"jar_sha256": "d" * 63},
-            {"kafka_image": "apache/kafka:latest"},
+            {"kafka_image": "registry.example.invalid/other/kafka@sha256:" + "e" * 64},
+            {"kafka_image": f"{self.repository}/analytics@sha256:" + "e" * 64},
+            {"kafka_image": f"{self.repository}/kafka:custom@sha256:" + "e" * 64},
+            {"kafka_image": f"{self.repository}/kafka:latest"},
+            {"kafka_image": f"{self.repository}/kafka@sha256:" + "e" * 63},
         ):
-            with self.subTest(field=next(iter(invalid))), self.assertRaises(ValueError):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 self.manifest(alpha_dev={**self.alpha_metadata, **invalid})
 
     def test_revision_and_jar_labels_are_both_checked(self):
@@ -106,6 +112,32 @@ class DevRolloutTest(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         release.local_image_id("analytics")
 
+    def test_kafka_pull_checks_registry_digest_revision_and_upstream(self):
+        release = self.manifest(alpha_dev=self.alpha_metadata)
+        image_id = "sha256:" + "f" * 64
+        pull_result = subprocess.CompletedProcess([], 0)
+        for revision, upstream, valid in (
+            (self.revision, release.kafka_upstream, True),
+            ("0" * 40, release.kafka_upstream, False),
+            (self.revision, "apache/kafka:4.3.2@sha256:" + "0" * 64, False),
+            (self.revision, "", False),
+        ):
+            inspected = subprocess.CompletedProcess([], 0, f"{image_id} {revision} {upstream}", "")
+            with (
+                self.subTest(revision=revision, upstream=upstream),
+                patch("registry_release.subprocess.run", side_effect=[pull_result, inspected]) as docker,
+            ):
+                if valid:
+                    release.pull_and_verify(["analytics-kafka"])
+                else:
+                    with self.assertRaisesRegex(RuntimeError, "OCI provenance образа kafka"):
+                        release.pull_and_verify(["analytics-kafka"])
+                pull, inspect = docker.call_args_list
+                self.assertEqual(pull, call(["docker", "pull", self.alpha_metadata["kafka_image"]], capture_output=True))
+                self.assertEqual(inspect.args[0][-1], self.alpha_metadata["kafka_image"])
+                self.assertIn("org.opencontainers.image.revision", inspect.args[0][-2])
+                self.assertIn("org.opencontainers.image.base.name", inspect.args[0][-2])
+
     def test_only_dev_with_an_explicit_manifest_and_config_enables_alpha(self):
         release = self.manifest(alpha_dev=self.alpha_metadata)
         self.assertIsNone(AlphaDev.from_config("cabinet-dev", False, {}, release))
@@ -113,9 +145,8 @@ class DevRolloutTest(unittest.TestCase):
             with self.subTest(project=project, local=local), self.assertRaises(ValueError):
                 AlphaDev.from_config(project, local, self.config(), release)
         self.assertEqual(AlphaDev.from_config("cabinet-dev", False, self.config(), release), self.alpha)
-        wrong_kafka = self.manifest(alpha_dev={**self.alpha_metadata, "kafka_image": "apache/kafka:4.3.2@sha256:"+"f"*64})
-        with self.assertRaises(ValueError):
-            self.alpha.environment(wrong_kafka)
+        self.assertEqual(self.alpha.environment(release)["CABINET_ALPHA_DEV_KAFKA_IMAGE"],
+                         self.alpha_metadata["kafka_image"])
 
     def test_rollout_requires_shadow_and_rejects_reusing_retired_generation(self):
         release = self.manifest(alpha_dev=self.alpha_metadata)
@@ -244,10 +275,27 @@ class DevRolloutTest(unittest.TestCase):
                 self.assertEqual(self.env_file.read_bytes(), original)
                 self.assertFalse((self.state / "alpha-generations.json").exists())
 
-    def test_wrong_pinned_kafka_digest_is_rejected_before_initialization(self):
-        release = self.manifest(alpha_dev={**self.alpha_metadata, "kafka_image": "apache/kafka:4.3.2@sha256:" + "f" * 64})
+    def test_legacy_kafka_manifest_is_only_read_for_historical_backup(self):
+        upstream = self.manifest().kafka_upstream
+        with self.assertRaisesRegex(ValueError, "Kafka из проекта Registry"):
+            self.manifest(alpha_dev={**self.alpha_metadata, "kafka_image": upstream})
+        old_root = self.state / self.revision
+        old_root.mkdir()
+        old_manifest = self.state / "release.json"
+        old_manifest.rename(old_root / "release.json")
+        historical_root, release = dev_release.release_at(self.state, self.revision)
+        self.assertEqual(historical_root, old_root)
+        self.assertEqual(release.alpha_dev["kafka_image"], upstream)
+        with self.assertRaisesRegex(ValueError, "Kafka из проекта Registry"):
+            AlphaDev.from_config("cabinet-dev", False, self.config(), release)
+        with (
+            patch("registry_release.subprocess.run") as docker,
+            self.assertRaisesRegex(ValueError, "Kafka нужен образ из проекта Registry"),
+        ):
+            release.pull_and_verify(["analytics-kafka", "credit"])
+        docker.assert_not_called()
         original = self.write_env()
-        with self.runtime() as (run, _), self.assertRaisesRegex(ValueError, "Digest Kafka"):
+        with self.runtime() as (run, _), self.assertRaisesRegex(ValueError, "Kafka из проекта Registry"):
             dev_release.deploy(self.apply, self.state, release)
         run.assert_not_called()
         self.assertEqual(self.env_file.read_bytes(), original)
@@ -302,7 +350,8 @@ class DevRolloutTest(unittest.TestCase):
         containers = {"credit": "credit", "analytics-kafka": "kafka"}
         origin = "https://dev.example.invalid"
         url = origin + verify_release.ALPHA_ROUTE
-        image = b"sha256:" + b"e" * 64
+        image_id = "sha256:" + "f" * 64
+        inspected = f"true {deployment.release.kafka_image} {image_id}".encode("ascii")
         for status in (404, 200, 302, 401, None):
             opener = MagicMock()
             if status is None:
@@ -311,17 +360,39 @@ class DevRolloutTest(unittest.TestCase):
                 opener.open.side_effect = HTTPError(url, status, "probe", {}, None)
             with (
                 self.subTest(status=status),
-                patch.object(verify_release, "docker", side_effect=[b"true " + image, image, b"401", b"503"]),
+                patch.object(verify_release, "docker", side_effect=[inspected, b"401", b"503"]),
+                patch.object(deployment.release, "local_image_id", return_value=image_id),
                 patch.object(verify_release, "analytics_owner", return_value=f"{self.alpha.topic} " + "f" * 64),
             ):
                 if status == 404:
                     report = verify_release.verify_alpha(deployment, opener, origin, containers)
                     self.assertEqual(report["public_http"], 404)
                     self.assertEqual(report["http_with_token"], 503)
+                    self.assertEqual(report["kafka"], {"container": "kafka", "image_id": image_id,
+                                                       "registry_ref": deployment.release.kafka_image,
+                                                       "revision": self.revision,
+                                                       "upstream_ref": deployment.release.kafka_upstream})
                 else:
                     with self.assertRaises(RuntimeError):
                         verify_release.verify_alpha(deployment, opener, origin, containers)
                 opener.open.assert_called_once_with(url, timeout=15)
+
+    def test_alpha_runtime_requires_the_exact_kafka_reference_and_config(self):
+        release = self.manifest(alpha_dev=self.alpha_metadata)
+        deployment = SimpleNamespace(alpha_dev=self.alpha, release=release)
+        image_id = "sha256:" + "f" * 64
+        for ref, expected_id, message in (
+            (release.kafka_upstream, image_id, "digest из manifest"),
+            (release.kafka_image, "sha256:" + "0" * 64, "отличается от проверенного образа"),
+        ):
+            with (
+                self.subTest(ref=ref, expected_id=expected_id),
+                patch.object(verify_release, "docker", return_value=f"true {ref} {image_id}".encode("ascii")),
+                patch.object(release, "local_image_id", return_value=expected_id),
+                self.assertRaisesRegex(RuntimeError, message),
+            ):
+                verify_release.verify_alpha(deployment, MagicMock(), "https://dev.example.invalid",
+                                            {"analytics-kafka": "kafka"})
 
     def test_failed_shadow_verification_blocks_promotion_until_retry(self):
         release = self.manifest(alpha_dev=self.alpha_metadata)

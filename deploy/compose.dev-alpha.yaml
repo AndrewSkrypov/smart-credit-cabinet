@@ -23,7 +23,8 @@ services:
       ANALYTICS_STATUS_READ_TIMEOUT_MS: "500"
 
   analytics-kafka:
-    image: ${CABINET_ALPHA_DEV_KAFKA_IMAGE:?Нужен закреплённый образ Kafka}
+    image: ${CABINET_ALPHA_DEV_KAFKA_IMAGE:?Нужен digest образа Kafka}
+    pull_policy: never
     platform: linux/amd64
     networks: [alpha-stream]
     mem_limit: 1152m

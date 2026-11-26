@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { FinancingScenario } from '../../api/financing';
 import { cabinetTheme } from '../../theme/theme';
 import { AgentPortfolioPage } from './AgentPortfolioPage';
 import { AgentApplicationPage } from './AgentApplicationPage';
@@ -21,7 +22,9 @@ const mocks = vi.hoisted(() => ({
   getApp: vi.fn(),
   confirmApp: vi.fn(),
   returnToAgent: vi.fn(),
-  withdrawApp: vi.fn()
+  withdrawApp: vi.fn(),
+  clientScenario: vi.fn(),
+  agentScenario: vi.fn()
 }));
 
 vi.mock('../../api/client', () => ({
@@ -45,6 +48,10 @@ vi.mock('../../api/client', () => ({
     withdraw: mocks.withdrawApp,
     events: vi.fn(async () => [])
   }
+}));
+
+vi.mock('../../api/financing', () => ({
+  financingApi: { client: mocks.clientScenario, agent: mocks.agentScenario }
 }));
 
 vi.mock('../../auth/AuthProvider', () => ({
@@ -211,14 +218,36 @@ describe('Client confirmation flow in PENDING_CLIENT_CONFIRMATION', () => {
     agentCommissionStatus: 'EXPECTED'
   } as unknown as Application;
 
+  const scenario: FinancingScenario = {
+    revision: 3,
+    status: 'AWAITING_CLIENT',
+    inputs: {
+      openingBalance: 150_000,
+      expectedReceiptAmount: 140_000,
+      expectedReceiptDate: '2026-12-10',
+      paymentDate: '2026-12-15',
+      delayDays: 14,
+      alternativeTermMonths: 24,
+      selectedTermMonths: 24
+    },
+    loanAmount: 3_000_000,
+    annualRatePercent: 17.5,
+    options: [
+      { termMonths: 12, monthlyPayment: 274_000, totalInterest: 288_000, balanceOnPaymentDate: -124_000 },
+      { termMonths: 24, monthlyPayment: 149_000, totalInterest: 576_000, balanceOnPaymentDate: 1_000 }
+    ]
+  };
+
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.getApp.mockResolvedValue(pendingApp);
+    mocks.clientScenario.mockResolvedValue(null);
     mocks.confirmApp.mockResolvedValue({ ...pendingApp, status: 'SUBMITTED', bureauConsent: true, allowedActions: ['WITHDRAW'] });
     mocks.returnToAgent.mockResolvedValue({ ...pendingApp, status: 'DRAFT', allowedActions: [] });
   });
 
-  it('requires BKI consent before confirming and allows returning to agent with a comment', async () => {
+  it.each([['a legacy draft', null], ['a versioned package', scenario]] as const)('requires BKI consent before confirming %s', async (_, snapshot) => {
+    mocks.clientScenario.mockResolvedValue(snapshot);
     render(
       <ThemeProvider theme={cabinetTheme}>
         <MemoryRouter initialEntries={['/client/applications/app-pending-1']}>
@@ -230,19 +259,23 @@ describe('Client confirmation flow in PENDING_CLIENT_CONFIRMATION', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Подтверждение агентской заявки' })).toBeInTheDocument();
+    if (snapshot) {
+      expect(await screen.findByRole('heading', { name: 'Пакет на подтверждение · версия 3' })).toBeInTheDocument();
+    }
     expect(screen.getAllByText(/Соколов Артём/).length).toBeGreaterThanOrEqual(1);
     const confirmBtn = screen.getByRole('button', { name: /Подтвердить и отправить в банк/i });
     expect(confirmBtn).toBeDisabled();
 
     const consentCheckbox = screen.getByRole('checkbox', { name: /бюро кредитных историй/i });
-    fireEvent.click(consentCheckbox);
+    await act(async () => { fireEvent.click(consentCheckbox); });
     expect(confirmBtn).toBeEnabled();
 
     await act(async () => {
       fireEvent.click(confirmBtn);
     });
     await waitFor(() => {
-      expect(mocks.confirmApp).toHaveBeenCalledWith('app-pending-1', true, 1);
+      const version = snapshot ? [snapshot.revision] : [];
+      expect(mocks.confirmApp).toHaveBeenCalledWith('app-pending-1', true, 1, ...version);
     });
   });
 
@@ -312,6 +345,7 @@ describe('AgentApplicationPage draft fetch & confirmation lock', () => {
     mocks.productsList.mockResolvedValue([]);
     mocks.getAgentApp.mockResolvedValue(draftApp);
     mocks.updateAgentApp.mockResolvedValue(draftApp);
+    mocks.agentScenario.mockResolvedValue(null);
   });
 
   it('fetches application once on initial mount and keeps actions locked while requestConfirmation is in flight', async () => {

@@ -42,6 +42,7 @@ springdoc:
 
 cabinet:
   servicing:
+    worker-enabled: ${SERVICING_WORKER_ENABLED:true}
     mode: ${SERVICING_MODE:local}
     grpc:
       host: ${SERVICING_GRPC_HOST:}

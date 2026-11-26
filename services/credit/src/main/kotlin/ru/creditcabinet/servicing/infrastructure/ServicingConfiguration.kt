@@ -32,6 +32,14 @@ import java.time.ZoneId
 
 @Configuration
 class ServicingConfiguration {
+    @Bean("servicingOpeningDeliveryScheduler")
+    fun servicingOpeningDeliveryScheduler(): org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler = org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler().apply {
+        poolSize = 1
+        setThreadNamePrefix("servicing-opening-delivery-")
+        setWaitForTasksToCompleteOnShutdown(true)
+        setAwaitTerminationSeconds(5)
+    }
+
     @Bean fun servicingOperations(accounts: LoanAccountStore, plans: PaymentReserveStore, jdbc: JdbcTemplate,
         tx: TransactionTemplate, mapper: ObjectMapper, clock: Clock,
         @Value("\${cabinet.servicing.mode:local}") mode: String,

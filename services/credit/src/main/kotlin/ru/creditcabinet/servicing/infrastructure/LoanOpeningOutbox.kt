@@ -30,6 +30,7 @@ class LoanOpeningOutbox(
     private val tx: TransactionTemplate,
     private val clock: Clock,
     @Value("\${cabinet.servicing.mode:local}") private val mode: String,
+    @Value("\${cabinet.servicing.worker-enabled:true}") private val workerEnabled: Boolean = true,
 ) : LoanOpening {
     override fun bookedLoan(applicationId: UUID): Loan? = jdbc.query("select booked_loan_json from servicing_open_outbox where application_id=?",{rs,_ -> mapper.readValue(rs.getString(1),Loan::class.java)},applicationId).singleOrNull()
     override fun requireSignedSnapshot(applicationId: UUID, cycleId: UUID) {
@@ -74,8 +75,8 @@ class LoanOpeningOutbox(
             Timestamp.from(until),jobId)
     }
     /** Separate delivery loop; no notification worker or business transaction waits on the network. */
-    @Scheduled(fixedDelayString = "\${cabinet.servicing.outbox-poll:PT1S}")
-    fun poll() { if(mode == "remote") deliverOne() }
+    @Scheduled(fixedDelayString = "\${cabinet.servicing.outbox-poll:PT1S}", scheduler = "servicingOpeningDeliveryScheduler")
+    fun poll() { if(mode == "remote" && workerEnabled) deliverOne() }
     fun deliverOne(): Boolean {
         val command = tx.execute {
             val selected = jdbc.query("select command_json from servicing_open_outbox where state='PENDING' and available_at<=? order by created_at limit 1 for update skip locked",

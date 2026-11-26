@@ -6,7 +6,6 @@ import io.grpc.StatusRuntimeException
 import io.grpc.TlsChannelCredentials
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import io.jsonwebtoken.Jwts
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.mock.env.MockEnvironment
@@ -29,7 +28,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-@EnabledIfEnvironmentVariable(named = "CATALOG_TEST_JDBC_URL", matches = ".+")
 class CatalogPostgresIntegrationTest {
     private val secret = "catalog-integration-test-signing-secret"
     private val verifier = JwtVerifier(secret, MockEnvironment())

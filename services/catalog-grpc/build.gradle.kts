@@ -16,3 +16,5 @@ dependencies {
 springBoot {
     mainClass.set("ru.creditcabinet.cataloggrpc.CatalogGrpcApplicationKt")
 }
+
+apply(from = rootProject.file("gradle/catalog-integration.gradle.kts"))

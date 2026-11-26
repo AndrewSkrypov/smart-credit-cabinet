@@ -89,13 +89,16 @@ python3 services/catalog-grpc/cutover/snapshot.py switch credit-owner /var/tmp/c
 ./gradlew :services:credit:test --tests '*ProductVersionsIntegrationTest' --tests '*ProductLifecycleIntegrationTest' --tests '*AgentWorkflowIntegrationTest'
 ```
 
-Для `CatalogPostgresIntegrationTest` задайте `CATALOG_TEST_JDBC_URL`, `CATALOG_TEST_DATABASE_USER`, `CATALOG_TEST_DATABASE_PASSWORD` и `CATALOG_TEST_CERTS`. Каталог сертификатов содержит `ca.crt`, пары `server.crt/key`, `credit.crt/key`, `wrong.crt/key`. Серверный SAN включает `127.0.0.1`. Для правильного и неправильного клиентов используйте один CA и разные URI SAN. Writer в тестовой БД должен быть открыт после переноса.
-
-Для `RemoteCatalogIntegrationTest` задайте `CATALOG_CREDIT_TEST=true` на отдельной инсталляции с двумя БД после переноса. Настройте `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, параметры TLS клиента и единый тестовый `JWT_SECRET` для обоих сервисов. Тест использует настоящие HTTP-обработчики Credit, отдельный Catalog по mTLS и синтетические мандаты. Он воспроизводит дедлайн обеих подач, чтение переданного пакета и контрпредложение по закреплённой альтернативе. Для проверки недоступности тесту необходимы `CATALOG_TEST_OWNER_JDBC_URL`, `CATALOG_TEST_OWNER_DATABASE_USER` и `CATALOG_TEST_OWNER_DATABASE_PASSWORD` для временного закрытия writer на изолированной БД.
+Оба интеграционных теста запускаются общей командой локально и в CI:
 
 ```sh
-./gradlew :services:credit:test --tests '*RemoteCatalogIntegrationTest'
+export GRADLE_USER_HOME=/tmp/alpha-catalog-gradle
+bash scripts/check-catalog-integration.sh
 ```
+
+Локально нужны JDK 21 (`JAVA_HOME`), OpenSSL и PostgreSQL 16 с `initdb`, `pg_ctl` и `psql`. По умолчанию скрипт находит их через `pg_config --bindir`. Для распакованного PostgreSQL можно задать `CATALOG_TEST_PG_BIN` и `CATALOG_TEST_PG_SHARE`. `CATALOG_TEST_GRADLE` позволяет указать установленный Gradle 8.10.2 вместо wrapper. В общей локальной среде запускайте команду под согласованной блокировкой `/tmp/alpha-heavy-jvm.lock`.
+
+Скрипт создаёт отдельный кластер, две БД, роли с разными паролями и временный CA. Он применяет миграции и штатную передачу записи, запускает Catalog и проверяет mTLS, права редактора, прямую и агентскую подачи через Credit и доступ к истории при недоступном Catalog. Gate требует выполненных тестов без пропусков. GitLab и GitHub используют проверенный PostgreSQL-образ в отдельном контейнере и дополнительно проверяют наличие схемы Protobuf в Docker-контексте.
 
 ## Проверки сборки в CI
 

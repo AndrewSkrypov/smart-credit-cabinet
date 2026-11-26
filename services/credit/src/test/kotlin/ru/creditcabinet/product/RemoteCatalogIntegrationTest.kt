@@ -3,7 +3,6 @@ package ru.creditcabinet.product
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.jsonwebtoken.Jwts
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doCallRealMethod
 import org.mockito.kotlin.whenever
@@ -57,7 +56,6 @@ import kotlin.test.assertTrue
 )
 @AutoConfigureMockMvc
 @Import(PipelineFakesConfig::class)
-@EnabledIfEnvironmentVariable(named = "CATALOG_CREDIT_TEST", matches = "true")
 class RemoteCatalogIntegrationTest {
     @Autowired
     private lateinit var mvc: MockMvc

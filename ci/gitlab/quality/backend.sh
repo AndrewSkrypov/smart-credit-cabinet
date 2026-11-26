@@ -90,6 +90,8 @@ export VALKEY_TEST_PORT
 VALKEY_TEST_PORT=$(published_port "$valkey" 6379)
 
 OUTBOX_WORKER_ENABLED=false ./gradlew build --no-daemon
+GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}" CATALOG_TEST_POSTGRES_IMAGE="$image" \
+    bash scripts/check-catalog-integration.sh --no-daemon
 
 mkdir -p ci-artifacts
 for db in identity credit engagement; do

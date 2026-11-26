@@ -21,3 +21,5 @@ dependencies {
     implementation("org.apache.kafka:kafka-clients")
     testImplementation(libs.mockito.kotlin)
 }
+
+apply(from = rootProject.file("gradle/catalog-integration.gradle.kts"))

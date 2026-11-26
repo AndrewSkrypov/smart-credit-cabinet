@@ -1042,6 +1042,7 @@ npm — из lock-файлов, дополненных license-checker для п
 
 ## Шрифт, веса модели и Python-инструменты
 
+- Apache Kafka (дистрибутив для CI Assessment), 4.3.2 (Scala 2.13): Apache-2.0. https://github.com/apache/kafka/blob/4.3.2/LICENSE. Локальный брокер обязательного интеграционного теста. SHA-512 архива закреплён в e2e/alpha-assessment/kafka-ci.sha512. Лицензии встроенных зависимостей перечислены в LICENSE и NOTICE дистрибутива.
 - Inter, @fontsource/inter 5.3.0 (точная версия — npm lock): SIL Open Font License 1.1. https://github.com/rsms/inter/blob/master/LICENSE.txt. Шрифт поставляется в frontend через @fontsource/inter; оригинальное уведомление есть в пакете LICENSE.
 - Fluent Emoji (3D), microsoft/fluentui-emoji, main, 23.10.2026: MIT. https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE. 22 объёмных иллюстрации в frontend/public/illustrations (лендинг, вход, кабинет); файлы без изменений, имена сокращены.
 - Qwen2.5-3B-Instruct, Ollama qwen2.5:3b: Qwen Research License. https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/blob/main/LICENSE. Модель помощника по умолчанию; необязательные открытые веса, скачиваются профилем ai. Лицензия разрешает исследовательское и некоммерческое использование, коммерческое — по отдельному соглашению с Alibaba Cloud; для промышленного запуска заменить через ASSISTANT_MODEL на модель под Apache-2.0 (qwen2.5:1.5b или qwen2.5:7b). Тег Ollama не является digest весов; смена ASSISTANT_MODEL требует повторной проверки лицензии.

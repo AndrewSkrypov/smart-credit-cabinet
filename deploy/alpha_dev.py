@@ -30,6 +30,10 @@ class AlphaDev:
 
     @classmethod
     def from_config(cls, project, local, values, release):
+        if (project == PROJECT and not local and release and release.alpha_dev
+                and "CABINET_ALPHA_DEV_ENABLED" not in values
+                and any(key.startswith("CABINET_ALPHA_DEV_") for key in values)):
+            raise ValueError("При заданных настройках Analytics укажите CABINET_ALPHA_DEV_ENABLED=true или false")
         enabled = values.get("CABINET_ALPHA_DEV_ENABLED", "false")
         read = values.get("CABINET_ALPHA_DEV_READ_ENABLED", "false")
         if enabled not in {"true", "false"} or read not in {"true", "false"}:

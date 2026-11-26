@@ -197,9 +197,8 @@ class DevRolloutTest(unittest.TestCase):
         for label, metadata, config, verify_only in (
             ("baseline manifest", {}, (), False),
             ("verify only", {"alpha_dev": self.alpha_metadata}, (), True),
-            ("disabled Alpha", {"alpha_dev": self.alpha_metadata}, (b"CABINET_ALPHA_DEV_ENABLED=false",), False),
-            ("partial Alpha", {"alpha_dev": self.alpha_metadata}, (b"CABINET_ALPHA_DEV_GENERATION=",), False),
-            ("unknown Alpha key", {"alpha_dev": self.alpha_metadata}, (b"CABINET_ALPHA_DEV_OTHER=custom",), False),
+            ("disabled Alpha", {"alpha_dev": self.alpha_metadata},
+             (b"CABINET_ALPHA_DEV_ENABLED=false", b"CABINET_ALPHA_DEV_GENERATION="), False),
             ("configured Alpha", {"alpha_dev": self.alpha_metadata},
              tuple(f"{key}={value}".encode("ascii") for key, value in self.config().items()), False),
         ):
@@ -226,6 +225,10 @@ class DevRolloutTest(unittest.TestCase):
             ("pending baseline", None, state, (), RuntimeError, "незавершённый выпуск"),
             ("missing current Alpha", {**state, "alpha_dev": self.alpha.state()}, None, (), ValueError, "записанного поколения"),
             ("missing pending Alpha", None, {**state, "alpha_dev": self.alpha.state()}, (), ValueError, "записанного поколения"),
+            ("generation without enable flag", None, None, (b"CABINET_ALPHA_DEV_GENERATION=g1234567890abcdef",),
+             ValueError, "укажите CABINET_ALPHA_DEV_ENABLED"),
+            ("other Alpha key without enable flag", None, None, (b"CABINET_ALPHA_DEV_OTHER=custom",),
+             ValueError, "укажите CABINET_ALPHA_DEV_ENABLED"),
             ("partial enabled Alpha", None, None, (b"CABINET_ALPHA_DEV_ENABLED=true",), ValueError, "Поколение Dev"),
         ):
             with self.subTest(label=label), self.runtime() as (run, _):

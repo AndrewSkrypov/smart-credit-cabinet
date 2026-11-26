@@ -68,3 +68,11 @@ kubectl -n cabinet-prod wait certificate/cabinet-prod --for=condition=Ready --ti
 kubectl -n cabinet-prod get certificate cabinet-prod \
   -o 'custom-columns=NAME:.metadata.name,EXPIRES:.status.notAfter,RENEWAL:.status.renewalTime'
 ```
+
+If a temporary, publicly trusted DNS-01 certificate already populates
+`cabinet-prod-tls`, leave the Secret in place while bringing up the HTTP-01
+path. A manual DNS-01 certificate has no automated renewal. After applying
+the Issuer and Certificate, verify a successful cert-manager
+`CertificateRequest` and a populated renewal time. If the existing certificate
+continues to be served, check the presented certificate serial and the
+CertificateRequest status before declaring the handover complete.

@@ -3,6 +3,7 @@ package ru.creditcabinet.servicing.grpc
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.databind.cfg.JsonNodeFeature
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.google.protobuf.Descriptors
 import com.google.protobuf.Message
@@ -10,7 +11,9 @@ import com.google.protobuf.util.JsonFormat
 
 /** Typed descriptors define the wire schema; exact decimal values are encoded as strings. */
 class ServicingWire(mapper: ObjectMapper) {
-    private val json = mapper.copy().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+    private val json = mapper.copy()
+        .configure(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES, false)
+        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 
     fun <T : Message> encode(value: Any, builder: Message.Builder): T {

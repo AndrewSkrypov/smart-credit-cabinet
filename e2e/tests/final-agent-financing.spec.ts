@@ -97,6 +97,9 @@ test.describe('Финальное агентское финансировани�
     const apps: Array<{ owner: Session; id: string }> = [];
     try {
       if (original) await revoke(request, agro, original.id);
+      await status(await request.post(mandatesPath, {
+        headers: headers(vector), data: { agentUserId: agent2Id, expiresAt: '2025-01-01T00:00:00Z' },
+      }), 400);
       const vectorGrant = await grant(request, vector);
       granted.push({ owner: vector, id: vectorGrant.id });
       granted.push({ owner: furniture, id: (await grant(request, furniture)).id });
@@ -116,6 +119,11 @@ test.describe('Финальное агентское финансировани�
       apps.push({ owner: vector, id: draft.id });
       const furnitureDraft = await createDraft(request, agent, companies.furniture);
       apps.push({ owner: furniture, id: furnitureDraft.id });
+      const ordinary = await json<{ id: string }>(await request.post(`${agentApplication(draft.id)}/documents?type=TAX_RETURN`, {
+        headers: headers(agent), multipart: { file: syntheticInvoicePdf() },
+      }), 201);
+      const agentDocument = `${agentApplication(draft.id)}/documents/${ordinary.id}`;
+      await status(await request.get(agentDocument, { headers: headers(agent) }), 200);
       await sendChat(request, agent, draft.id, 'Синтетическое сообщение до подачи');
       await status(await request.get(application(draft.id), { headers: headers(bank) }), 404);
       await status(await request.get(`${application(draft.id)}/messages`, { headers: headers(bank) }), 404);
@@ -149,6 +157,7 @@ test.describe('Финальное агентское финансировани�
       for (const route of ['', '/events', '/documents', '/messages', '/notification-access']) {
         await status(await request.get(`${agentApplication(draft.id)}${route}`, { headers: headers(agent) }), 404);
       }
+      await status(await request.get(agentDocument, { headers: headers(agent) }), 404);
       const remaining = await json<Array<{ id: string }>>(await request.get('/api/v1/agent/applications', { headers: headers(agent) }), 200);
       expect(remaining.map((row) => row.id)).not.toContain(draft.id);
       expect((await notifications(request, agent)).map((row) => row.id)).not.toContain(queued!.id);
@@ -160,6 +169,7 @@ test.describe('Финальное агентское финансировани�
         headers: headers(vector), data: { bureauConsent: true },
       }), 200);
       expect(submitted).toMatchObject({ id: draft.id, status: 'SUBMITTED' });
+      await status(await request.get(application(draft.id), { headers: headers(bank) }), 200);
 
       const withdrawnBefore = await bankWithdrawnCount(request, bank);
       await status(await request.post(`${agentApplication(furnitureDraft.id)}/cancel`, { headers: headers(agent) }), 200);
@@ -358,6 +368,9 @@ async function transferRevisedPackage(
   await status(await request.get(bankPath, { headers: headers(bank) }), 404);
   const source = await extract(request, agent, draft.id, info);
   const originalInputs = { ...scenarioInput, source };
+  await status(await request.put(agentPath, {
+    headers: headers(agent), data: { ...originalInputs, selectedTermMonths: 36 },
+  }), 400);
   const original = await json<Scenario>(await request.put(agentPath, {
     headers: headers(agent), data: originalInputs,
   }), 200);

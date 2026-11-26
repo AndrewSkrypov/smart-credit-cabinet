@@ -16,6 +16,7 @@ dependencyResolutionManagement {
 rootProject.name = "smart-credit-cabinet"
 
 include(":libs:platform-common")
+include(":libs:starter-observability")
 
 // Deployable services, each built and started on its own (see docs/architecture.md).
 include(":services:identity")

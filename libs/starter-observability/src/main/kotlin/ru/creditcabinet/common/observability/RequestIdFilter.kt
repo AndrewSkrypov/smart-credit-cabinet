@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.MDC
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
-import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
 /**
@@ -14,7 +13,6 @@ import org.springframework.web.filter.OncePerRequestFilter
  * quote it and it can be found in the logs. Runs after the tracing filter has opened the
  * request's span (and put its trace id into the logging context).
  */
-@Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 class RequestIdFilter : OncePerRequestFilter() {
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain) {

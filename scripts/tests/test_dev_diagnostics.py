@@ -262,6 +262,8 @@ class DockerBoundariesTest(unittest.TestCase):
     def test_error_categories_do_not_emit_stderr(self):
         with self.assertRaisesRegex(RuntimeError, "^Docker: disk_full$"):
             self.run_substitute(f"import sys; print('no space left on device {SECRET}', file=sys.stderr); sys.exit(1)")
+        with self.assertRaisesRegex(RuntimeError, "^Docker: docker_unavailable$"):
+            self.run_substitute(f"import sys; print('failed to connect to the Docker API {SECRET}', file=sys.stderr); sys.exit(1)")
         with self.assertRaisesRegex(RuntimeError, "^Docker: unclassified$"):
             self.run_substitute(f"import sys; print('{SECRET}', file=sys.stderr); sys.exit(1)")
 

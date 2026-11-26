@@ -54,8 +54,9 @@ STOCK_REFS = frozenset({
     "grafana/grafana:13.2.5@sha256:9f7aa1e1e3246aade5792d35a738049f7f32f89cd51d1956cf426a4e86268a84",
 })
 ERROR_CATEGORIES = (
-    ("docker_unavailable", ("cannot connect to the docker daemon", "permission denied while trying to connect",
-                            "is the docker daemon running", "error during connect")),
+    ("docker_unavailable", ("cannot connect to the docker daemon", "failed to connect to the docker api",
+                            "permission denied while trying to connect", "is the docker daemon running",
+                            "error during connect")),
     ("disk_full", ("no space left on device", "disk quota exceeded")),
     ("filesystem_read_only", ("read-only file system",)),
     ("network_overlap", ("pool overlaps", "overlaps with other one", "invalid subnet")),

@@ -101,3 +101,77 @@ ACK и закрытие по resolved. Локальный `smoke.py` отдел�
 [Нативный webhook GoAlert](https://goalert.me/docs/alerting/alerting-from-prometheus/),
 [эксплуатация GoAlert](https://github.com/target/goalert/blob/v0.35.0/docs/getting-started.md),
 [Alertmanager](https://prometheus.io/docs/alerting/0.33/configuration/).
+
+## Живая проверка Telegram на dev
+
+Добавьте `monitoring/compose.paging.yml` последним, после `monitoring/compose.ops.yaml`.
+Включите `monitoring` в `CABINET_OPTIONAL_PROFILES`. Alertmanager остаётся внутри
+сети Compose и использует отдельный том `cabinet-alertmanager:/alertmanager`.
+Только `CabinetTelegramSmoke` из dev проходит в согласованный канал. TLS проверяется
+системным набором CA. Токен и chat ID не передаются через Compose env.
+
+На хосте `pump-final` используются следующие пути.
+
+- `CABINET_ALERTMANAGER_PAGING_DIR` по умолчанию `/etc/pump/monitoring/cabinet-paging`.
+  Каталог принадлежит `root:65534` с режимом `0750`. Файлы `telegram-token` и
+  `telegram-chat-id` принадлежат `root:65534` с режимом `0640`. В контейнере путь
+  `/etc/alertmanager/secrets/cabinet-paging` доступен UID/GID 65534 только для чтения.
+- `CABINET_ALERTMANAGER_RULES_DIR` по умолчанию `/etc/pump/monitoring/live-rules`.
+  Файл `cabinet-telegram-smoke.yml` устанавливается в неактивном состоянии и
+  читается Prometheus из `/etc/prometheus/live-rules`. Запись разрешена оператору хоста.
+
+Для проверки приложения через loopback нужны `GRAFANA_USER`, `GRAFANA_PASSWORD`,
+`GRAFANA_PORT`, `PROMETHEUS_PORT`, `CABINET_SYNTHETIC_AGENT_EMAIL` и
+`CABINET_SYNTHETIC_AGENT_PASSWORD`. `deploy/common.py` выставляет
+`CABINET_OTLP_ENABLED` и `CABINET_LOG_FILE` для профиля мониторинга.
+Для синтетической операции используйте `CABINET_TRACE_SAMPLE_RATE=1.0` при репетиции.
+
+Команды ниже запускаются на dev с существующим проектом и набором Compose-файлов.
+Замените `compose` на команду текущего проекта с его `-p`, `--env-file`, `-f` и профилями.
+
+```bash
+compose exec -T prometheus promtool query instant http://127.0.0.1:9090 'up{service!=""}'
+compose exec -T prometheus promtool query instant http://127.0.0.1:9090 'prometheus_notifications_alertmanagers_discovered'
+compose exec -T alertmanager amtool check-config /etc/alertmanager/alertmanager.yml
+compose exec -T alertmanager amtool alert query --alertmanager.url=http://127.0.0.1:9093 alertname=CabinetTelegramSmoke
+```
+
+Сначала подтвердите, что app targets Up и Prometheus видит один Alertmanager.
+Убедитесь, что очередь оповещений не содержит `CabinetTelegramSmoke`. Затем, в согласованное
+окно, запустите от имени оператора:
+
+```bash
+rules_dir="${CABINET_ALERTMANAGER_RULES_DIR:-/etc/pump/monitoring/live-rules}"
+rule="$rules_dir/cabinet-telegram-smoke.yml"
+install_smoke_rule() {
+  hold="$1"
+  temp="$(mktemp "$rules_dir/.cabinet-smoke.XXXXXXXX")"
+  sed "s/vector(0)/vector($hold)/" monitoring/alerts/cabinet-telegram-smoke.yml > "$temp"
+  chmod 0644 "$temp"
+  mv "$temp" "$rule"
+  compose kill -s SIGHUP prometheus
+}
+trap 'install_smoke_rule 0' EXIT
+install_smoke_rule 1
+```
+
+Проверяйте `pending`, затем `firing` после непрерывного hold 2 минуты.
+
+```bash
+compose exec -T prometheus promtool query instant http://127.0.0.1:9090 'ALERTS{alertname="CabinetTelegramSmoke"}'
+compose exec -T alertmanager amtool alert query --alertmanager.url=http://127.0.0.1:9093 alertname=CabinetTelegramSmoke
+```
+
+В той же оболочке снимите условие после появления FIRING в канале. При сбое доставки
+также снимите условие перед диагностикой.
+
+```bash
+install_smoke_rule 0
+trap - EXIT
+```
+
+Дождитесь RESOLVED и проверьте `alertmanager_notifications_failed_total`.
+
+В prod `monitoring/cabinet-paging` хранит те же ключи `telegram-token` и
+`telegram-chat-id`. `goalert-url` добавляется после согласования маршрута GoAlert.
+`paging-values.yaml` подключается отдельным изменением после готовности целей.

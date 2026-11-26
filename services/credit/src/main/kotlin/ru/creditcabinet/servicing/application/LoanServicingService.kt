@@ -9,7 +9,9 @@ import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.offer.Loan
 import ru.creditcabinet.servicing.domain.LoanAccount
 import ru.creditcabinet.servicing.domain.LoanAccountStore
+import ru.creditcabinet.servicing.domain.LoanClosureCertificate
 import java.time.Clock
+import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
 
@@ -74,6 +76,15 @@ class LoanServicingService(
         store.saveState(updated)
         return updated
     }
+
+    @Transactional
+    fun closureCertificate(loanId: UUID): LoanClosureCertificate {
+        val (_, companyId) = CurrentCaller.requireClient()
+        val account = ownForUpdate(loanId, companyId)
+        return account.closureCertificate(clock.instant())
+    }
+
+    fun today(): LocalDate = clock.instant().atZone(ZONE).toLocalDate()
 
     private fun ownForUpdate(loanId: UUID, companyId: UUID): LoanAccount =
         store.findByIdForUpdate(loanId)?.takeIf { it.companyId == companyId }

@@ -153,6 +153,17 @@ it('rejects a session for a different role without writing it', async () => {
   expect(auth.updateSession).not.toHaveBeenCalled();
 });
 
+it('shows an unavailable role when options fail instead of redirecting to the prior demo role', async () => {
+  scope('https://dev.credit-cabinet.ru');
+  auth.session.mockReturnValue({ user: { role: 'CLIENT' } });
+  auth.options.mockRejectedValue(new Error('HTTP 429'));
+  show(false, '/sign-in?demoRole=manager');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Демо-вход временно недоступен.');
+  expect(screen.getByRole('link', { name: 'Продолжить в прежней демо-роли' })).toHaveAttribute('href', '/client');
+  expect(auth.demoSignIn).not.toHaveBeenCalled();
+  expect(auth.updateSession).not.toHaveBeenCalled();
+});
+
 it.each([
   ['https://credit-cabinet.ru', 'agent', true],
   ['https://dev.credit-cabinet.ru', 'client&demoRole=manager', true],

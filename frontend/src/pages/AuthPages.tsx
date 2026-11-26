@@ -95,6 +95,7 @@ export function SignInPage() {
   const autoAttempted = useRef(false);
   const [switchingDemo, setSwitchingDemo] = useState(false);
   const pendingDemo = switchingDemo || Boolean(requestedDemo && demo !== false);
+  const visibleError = error ?? (requestedDemo && demo === false ? 'Демо-вход временно недоступен.' : null);
   const submitting = useRef(false);
   const errors = { email: emailError(email), password: password ? '' : requiredError };
   const feedback = useFieldFeedback(errors);
@@ -159,7 +160,7 @@ export function SignInPage() {
     });
   }, [demo, navigate, requestedDemo, updateSession]);
 
-  if (session && !pendingDemo && !error) {
+  if (session && !pendingDemo && !visibleError) {
     return <Navigate to={roleDestination(session.user.role, location.search, roleHome[session.user.role])} replace />;
   }
 
@@ -175,13 +176,13 @@ export function SignInPage() {
       <Stack component="form" spacing={2} onSubmit={submit} noValidate>
         {params.get('expired') && <Alert severity="info">Сессия истекла — войдите снова.</Alert>}
         {params.get('security') && <Alert severity="success">Все сессии завершены. Войдите заново.</Alert>}
-        {error && <Alert severity="error">{error}</Alert>}
+        {visibleError && <Alert severity="error">{visibleError}</Alert>}
         <TextField {...feedback.field('email')} label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         <TextField {...feedback.field('password')} label="Пароль" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
         <Typography id="signin-readiness" variant="body2" color="text.secondary">{ready ? 'Данные заполнены — можно войти.' : 'Для входа укажите корректный email и пароль.'}</Typography>
         <Button type="submit" variant="contained" size="large" disabled={busy || pendingDemo || !ready} aria-describedby="signin-readiness">Войти</Button>
         {inDemo && <Link href="/sign-in">Вернуться к обычному входу</Link>}
-        {inDemo && session && error && <Link component={RouterLink} to={roleHome[session.user.role]}>Продолжить в прежней демо-роли</Link>}
+        {inDemo && session && visibleError && <Link component={RouterLink} to={roleHome[session.user.role]}>Продолжить в прежней демо-роли</Link>}
         <Link component={RouterLink} to="/password-recovery">Забыли пароль?</Link>
         <Typography variant="body2">
           Нет кабинета? <Link component={RouterLink} to={authPath('/sign-up', location.search)}>Подключите компанию</Link>

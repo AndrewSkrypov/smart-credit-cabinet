@@ -274,12 +274,14 @@ class AssistantApiTest {
     @Test
     fun `with a model the prompt holds the rules, the reference and the facts, and the model answers`() {
         whenever(model.available()).thenReturn(true)
-        whenever(model.chat(any())).thenReturn("## Ответ\n**Нагрузка** — доля выручки на платежи.\n1. Считаются все кредиты, включая новый")
+        whenever(model.chat(any())).thenReturn(
+            "## Ответ\n**Нагрузка** — доля месячной выручки на платежи.\n1. Считаются все кредиты, включая новый",
+        )
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
         val answer = mapper.readTree(ask("Что такое долговая нагрузка?").getContentAsString(Charsets.UTF_8))
         assertEquals("MODEL", answer["mode"].asText())
         assertEquals(
-            "Ответ\nНагрузка — доля выручки на платежи.\n— Считаются все кредиты, включая новый",
+            "Ответ\nНагрузка — доля месячной выручки на платежи.\n— Считаются все кредиты, включая новый",
             answer["text"].asText(),
             "markup is turned into plain text",
         )
@@ -323,6 +325,28 @@ class AssistantApiTest {
         val answer = mapper.readTree(ask("На что выдаётся кредит на пополнение оборота?", application = null).getContentAsString(Charsets.UTF_8))
         assertEquals("RULES", answer["mode"].asText())
         assertTrue(!answer["text"].asText().contains("паспорт"))
+    }
+
+    @Test
+    fun `debt burden retellings keep the monthly revenue period`() {
+        whenever(model.available()).thenReturn(true)
+        val question = "Как считается долговая нагрузка?"
+        val incomplete = "Долговая нагрузка — это процент от выручки, который уходит на все ваши кредиты, включая новый."
+        for (reply in listOf(
+            incomplete,
+            "Долговая нагрузка — доля месячных платежей от выручки по всем кредитам, включая новый.",
+        )) {
+            whenever(model.chat(any())).thenReturn(reply)
+            val fallback = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+            assertEquals("RULES", fallback["mode"].asText(), reply)
+            assertTrue(fallback["text"].asText().contains("месячной выручки"))
+        }
+
+        val complete = incomplete.replace("от выручки", "от выручки бизнеса за месяц")
+        whenever(model.chat(any())).thenReturn(complete)
+        val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("MODEL", answer["mode"].asText())
+        assertEquals(complete, answer["text"].asText())
     }
 
     @Test
@@ -391,8 +415,8 @@ class AssistantApiTest {
     fun `load explanation must include the new loan and cannot recommend reducing revenue`() {
         whenever(model.available()).thenReturn(true)
         for (reply in listOf(
-            "Долговая нагрузка — доля выручки на платежи по всем кредитам. Банк проверяет установленный порог.",
-            "Доля выручки на платежи по всем кредитам, включая новый. Снизить нагрузку можно, уменьшив выручку.",
+            "Долговая нагрузка — доля месячной выручки на платежи по всем кредитам. Банк проверяет установленный порог.",
+            "Доля месячной выручки на платежи по всем кредитам, включая новый. Снизить нагрузку можно, уменьшив выручку.",
         )) {
             whenever(model.chat(any())).thenReturn(reply)
             val answer = mapper.readTree(ask("Как считается долговая нагрузка?", application = null).getContentAsString(Charsets.UTF_8))

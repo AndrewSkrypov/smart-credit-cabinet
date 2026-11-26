@@ -37,6 +37,13 @@ for topic in "$qa_old_topic" "$qa_old_topic.dlq" "$qa_new_topic" "$qa_new_topic.
 done
 ```
 
+При отдельном нативном Kafka 3.9 установите `ALPHA_QA_KAFKA_BIN` в абсолютный
+путь к `bin`, а `ALPHA_QA_KAFKA_BOOTSTRAP` в `127.0.0.1:<порт>`.
+Вместо команды Compose запускайте `"$ALPHA_QA_KAFKA_BIN/kafka-topics.sh"
+--bootstrap-server "$ALPHA_QA_KAFKA_BOOTSTRAP"` с теми же аргументами.
+`kafka-evidence.sh` использует эти настройки для публикации, записи broker offsets
+и отдельного диагностического consumer. Его доказательства можно сохранять в `/var/tmp`.
+
 Синтетические сессии рассчитаны на тестовый Credit с этим новым `JWT_SECRET` и пустым `IDENTITY_URL`. При действующем тестовом Identity задайте его токены вместо этих сессий. Для `withdraw` клиенты должны представлять компании из фикстуры с UUID, оканчивающимися на `000005` и `000010`. Токены, профиль PostgreSQL и `session.env` остаются в тестовой среде. Перед передачей артефактов уберите их и файлы дампов.
 
 Для Credit выставьте `APPLICATION_STATUS_EVENTS_ENABLED=true` и `APPLICATION_STATUS_KAFKA_BOOTSTRAP_SERVERS` из тестового стека. Для Analytics используйте те же bootstrap servers, `ANALYTICS_KAFKA_ENABLED=true` и `ANALYTICS_KAFKA_GROUP_ID`/ `ANALYTICS_KAFKA_DLQ_TOPIC` нужного поколения. `APPLICATION_STATUS_KAFKA_TOPIC` должен совпадать у обоих экземпляров в рамках одного поколения. Значения для переключения и ограничения доступа приведены в [операционном контракте P5](../../services/analytics/ops/status-read.md). В командах ниже `qa_credit_url`, `qa_restored_url`, `qa_analytics_url` и `qa_baseline_url` означают origin соответствующих процессов с явными loopback-портами.

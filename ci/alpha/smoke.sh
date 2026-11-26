@@ -136,7 +136,7 @@ echo "Starting synthetic dependencies in Compose project $project" >&2
 compose_started=true
 "${compose[@]}" up --pull never --wait --wait-timeout 150 >&2
 
-if [[ $("${compose[@]}" exec -T kafka apk info -v brotli-libs) != brotli-libs-1.2.1-r0 ]]; then
+if ! "${compose[@]}" exec -T kafka apk info --exists 'brotli-libs=1.2.1-r0' >/dev/null; then
     echo "The running Kafka container is missing patched brotli-libs" >&2
     exit 1
 fi

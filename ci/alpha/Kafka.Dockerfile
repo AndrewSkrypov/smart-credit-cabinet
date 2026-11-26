@@ -6,7 +6,7 @@ LABEL org.opencontainers.image.base.name="${UPSTREAM_KAFKA_IMAGE}"
 
 USER root
 RUN apk add --no-cache brotli-libs=1.2.1-r0 \
-    && test "$(apk info -v brotli-libs)" = brotli-libs-1.2.1-r0
+    && apk info --exists 'brotli-libs=1.2.1-r0' >/dev/null
 
 # Apache's CVE-2026-114938 workaround for the bundled Temurin JVM.
 # https://kafka.apache.org/blog/2026/11/19/mitigating-cve-2026-114938-java4shell-in-apache-kafka-deployments/

@@ -1,0 +1,62 @@
+{
+  "evaluatedAt": "2026-11-26T10:00:00Z",
+  "selected": {
+    "code": "WORKING_CAPITAL",
+    "version": "2"
+  },
+  "products": [
+    {
+      "ref": {
+        "code": "WORKING_CAPITAL",
+        "version": "2"
+      },
+      "name": "Кредит на пополнение оборота",
+      "description": "Закупка товара и сырья, подготовка к сезону, крупный заказ. Погашение равными платежами.",
+      "purposes": [
+        "FINANCING_PURPOSE_WORKING_CAPITAL",
+        "FINANCING_PURPOSE_CASH_GAP",
+        "FINANCING_PURPOSE_BUSINESS_DEVELOPMENT"
+      ],
+      "minAmountRub": "300000",
+      "maxAmountRub": "30000000",
+      "minTermMonths": 3,
+      "maxTermMonths": 36,
+      "baseRateBps": 2025,
+      "autoApprovalLimitRub": "5000000",
+      "lifecycleStatus": "PRODUCT_LIFECYCLE_STATUS_ACTIVE",
+      "effectiveFrom": "2026-11-26T10:00:00Z",
+      "effectiveTo": "2026-11-26T12:00:00Z",
+      "agentCommissionRateBps": 175,
+      "audit": {
+        "reason": "Синтетическая редакция",
+        "createdAt": "2026-11-25T10:00:00Z"
+      }
+    },
+    {
+      "ref": {
+        "code": "INVESTMENT",
+        "version": "1"
+      },
+      "name": "Инвестиционный кредит",
+      "description": "Оборудование, транспорт, ремонт помещения. Длинный срок снижает ежемесячный платёж.",
+      "purposes": [
+        "FINANCING_PURPOSE_EQUIPMENT",
+        "FINANCING_PURPOSE_VEHICLE",
+        "FINANCING_PURPOSE_RENOVATION",
+        "FINANCING_PURPOSE_BUSINESS_DEVELOPMENT"
+      ],
+      "minAmountRub": "1000000",
+      "maxAmountRub": "50000000",
+      "minTermMonths": 12,
+      "maxTermMonths": 60,
+      "baseRateBps": 1800,
+      "autoApprovalLimitRub": "5000000",
+      "lifecycleStatus": "PRODUCT_LIFECYCLE_STATUS_ACTIVE",
+      "agentCommissionRateBps": 0,
+      "audit": {
+        "reason": "Синтетическая редакция",
+        "createdAt": "2026-11-25T10:00:00Z"
+      }
+    }
+  ]
+}

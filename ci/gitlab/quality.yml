@@ -56,12 +56,15 @@ backend:
       - '**/build/reports/jacoco/'
       - ci-artifacts/schema-rollback.json
       - ci-artifacts/migration-restore.json
+      - ci-artifacts/catalog-r1/
       - security/reports/postgres-image.json
       - services/*/build/libs/app.jar
       - ci-artifacts/backend.sha256
     reports:
       junit:
         - '**/build/test-results/test/TEST-*.xml'
+        - '**/build/test-results/catalogIntegrationTest/TEST-*.xml'
+
 backend-template:
   stage: quality
   extends: .quality
@@ -174,6 +177,7 @@ image-security:
   parallel:
     matrix:
       - SERVICE:
+          - catalog-grpc
           - identity
           - credit
           - engagement

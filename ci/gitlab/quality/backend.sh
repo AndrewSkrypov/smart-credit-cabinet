@@ -90,6 +90,9 @@ export VALKEY_TEST_PORT
 VALKEY_TEST_PORT=$(published_port "$valkey" 6379)
 
 OUTBOX_WORKER_ENABLED=false ./gradlew build --no-daemon
+GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}" CATALOG_TEST_POSTGRES_IMAGE="$image" \
+    CATALOG_TEST_POSTGRES_NAME="$prefix-catalog-postgres" \
+    bash scripts/check-catalog-integration.sh --no-daemon
 
 mkdir -p ci-artifacts
 for db in identity credit engagement; do
@@ -101,5 +104,4 @@ python3 deploy/check-schema-rollback.py --pg-bin "$(pg_config --bindir)" --port 
 python3 deploy/check-migration-restore.py --pg-bin "$(pg_config --bindir)" --java-bin "${JAVA_HOME:?}/bin" \
     --port "$DB_PORT" --user cabinet --output ci-artifacts/migration-restore.json
 
-test "$(find services -path '*/build/libs/app.jar' | wc -l)" -eq 4
-sha256sum services/*/build/libs/app.jar > ci-artifacts/backend.sha256
+bash ci/gitlab/quality/backend-artifacts.sh

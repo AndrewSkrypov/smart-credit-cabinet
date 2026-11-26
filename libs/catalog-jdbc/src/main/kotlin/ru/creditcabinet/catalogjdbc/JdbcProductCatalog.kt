@@ -1,8 +1,7 @@
-package ru.creditcabinet.product.infrastructure
+package ru.creditcabinet.catalogjdbc
 
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
-import org.springframework.stereotype.Component
 import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.product.domain.FinancingPurpose
@@ -11,13 +10,19 @@ import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.ProductLifecycleStatus
 import ru.creditcabinet.product.domain.ProductRevision
 import ru.creditcabinet.product.domain.ProductVersions
+import ru.creditcabinet.product.domain.SubmissionProductCatalog
+import ru.creditcabinet.product.domain.SubmissionProductSnapshot
 import java.sql.Timestamp
 import java.time.Clock
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
-@Component
-class ProductJdbcCatalog(private val jdbc: JdbcTemplate, private val clock: Clock) : ProductCatalog, ProductVersions {
+class JdbcProductCatalog(
+    private val jdbc: JdbcTemplate,
+    private val clock: Clock,
+    private val requireCurrentAuthority: () -> Unit = {},
+) : ProductCatalog, ProductVersions, SubmissionProductCatalog {
     private val mapper = RowMapper { rs, _ ->
         @Suppress("UNCHECKED_CAST")
         val purposes = (rs.getArray("purposes").array as Array<String>).map(FinancingPurpose::valueOf).toSet()
@@ -41,40 +46,62 @@ class ProductJdbcCatalog(private val jdbc: JdbcTemplate, private val clock: Cloc
         )
     }
 
-    override fun all(): List<Product> {
-        val now = Timestamp.from(clock.instant())
-        return jdbc.query(
-            "$CURRENT where v.lifecycle_status = 'ACTIVE' " +
-                "and (v.effective_from is null or v.effective_from <= ?) " +
-                "and (v.effective_to is null or v.effective_to >= ?) " +
-                "order by p.display_order",
-            mapper,
-            now,
-            now,
+    private val revisionMapper = RowMapper { rs, row ->
+        ProductRevision(
+            mapper.mapRow(rs, row)!!,
+            rs.getObject("author_id", UUID::class.java),
+            rs.getString("reason"),
+            rs.getTimestamp("created_at").toInstant(),
+            rs.getString("author_name"),
+            rs.getString("author_role"),
         )
     }
 
-    override fun find(code: String): Product? = latest(code)?.takeIf { it.active && it.isEffectiveAt(clock.instant()) }
+    override fun all(): List<Product> = currentRevisions(effectiveAt = clock.instant()).map(ProductRevision::product)
 
-    override fun latest(code: String): Product? = jdbc.query("$CURRENT where p.code = ?", mapper, code).firstOrNull()
+    override fun find(code: String): Product? = currentRevisions(code, clock.instant()).singleOrNull()?.product
+
+    override fun latest(code: String): Product? = currentRevisions(code).singleOrNull()?.product
 
     override fun version(code: String, version: Long): Product? =
         jdbc.query("select * from product_versions where code = ? and version = ?", mapper, code, version).firstOrNull()
 
-    override fun list(): List<Product> = jdbc.query("$CURRENT order by p.display_order", mapper)
+    override fun list(): List<Product> = currentRevisions().map(ProductRevision::product)
+
+    fun currentRevisions(code: String? = null, effectiveAt: Instant? = null): List<ProductRevision> {
+        requireCurrentAuthority()
+        val sql = StringBuilder(CURRENT)
+        val values = mutableListOf<Any>()
+        sql.append(" where true")
+        if (code != null) {
+            sql.append(" and p.code = ?")
+            values.add(code)
+        }
+        if (effectiveAt != null) {
+            sql.append(" and v.lifecycle_status = 'ACTIVE'")
+            sql.append(" and (v.effective_from is null or v.effective_from <= ?)")
+            sql.append(" and (v.effective_to is null or v.effective_to >= ?)")
+            val bound = Timestamp.from(effectiveAt.truncatedTo(ChronoUnit.MICROS))
+            values.add(bound)
+            values.add(bound)
+        }
+        sql.append(" order by p.display_order, p.code")
+        return jdbc.query(sql.toString(), revisionMapper, *values.toTypedArray())
+    }
+
+    override fun snapshotForSubmission(selectedProductCode: String): SubmissionProductSnapshot? {
+        val at = clock.instant().truncatedTo(ChronoUnit.MICROS)
+        val revisions = currentRevisions(effectiveAt = at)
+        val selected = revisions.firstOrNull { it.product.code == selectedProductCode } ?: return null
+        return SubmissionProductSnapshot(at, selected.product, revisions.map(ProductRevision::product), revisions)
+    }
+
+    fun revision(code: String, version: Long): ProductRevision? =
+        jdbc.query("select * from product_versions where code = ? and version = ?", revisionMapper, code, version).firstOrNull()
 
     override fun history(code: String): List<ProductRevision> = jdbc.query(
         "select * from product_versions where code = ? order by version desc",
-        { rs, row ->
-            ProductRevision(
-                mapper.mapRow(rs, row)!!,
-                rs.getObject("author_id", UUID::class.java),
-                rs.getString("reason"),
-                rs.getTimestamp("created_at").toInstant(),
-                rs.getString("author_name"),
-                rs.getString("author_role"),
-            )
-        },
+        revisionMapper,
         code,
     )
 
@@ -86,6 +113,8 @@ class ProductJdbcCatalog(private val jdbc: JdbcTemplate, private val clock: Cloc
         authorName: String?,
         authorRole: String?,
     ): ProductRevision {
+        requireCurrentAuthority()
+        jdbc.execute("select pg_advisory_xact_lock(941528327)")
         val existing = jdbc.queryForList("select 1 from products where code = ? for update", product.code)
         if (existing.isNotEmpty()) {
             throw ConflictException("Продукт с кодом ${product.code} уже существует")
@@ -104,7 +133,7 @@ class ProductJdbcCatalog(private val jdbc: JdbcTemplate, private val clock: Cloc
             saved.revolving, displayOrder, saved.version,
         )
         insertVersion(saved, purposesSql, authorId, reason, now, authorName, authorRole)
-        return ProductRevision(saved, authorId, reason, now, authorName, authorRole)
+        return checkNotNull(revision(saved.code, saved.version))
     }
 
     override fun replace(
@@ -116,6 +145,7 @@ class ProductJdbcCatalog(private val jdbc: JdbcTemplate, private val clock: Cloc
         authorName: String?,
         authorRole: String?,
     ): ProductRevision {
+        requireCurrentAuthority()
         val current = jdbc.queryForList("select current_version from products where code = ? for update", product.code).firstOrNull()
             ?: throw NotFoundException("Продукт не найден")
         if ((current["current_version"] as Number).toLong() != expectedVersion) {
@@ -132,7 +162,7 @@ class ProductJdbcCatalog(private val jdbc: JdbcTemplate, private val clock: Cloc
         val purposesSql = saved.purposes.joinToString(",", "{", "}") { it.name }
         insertVersion(saved, purposesSql, authorId, reason, now, authorName, authorRole)
         jdbc.update("update products set current_version = ? where code = ?", saved.version, saved.code)
-        return ProductRevision(saved, authorId, reason, now, authorName, authorRole)
+        return checkNotNull(revision(saved.code, saved.version))
     }
 
     private fun insertVersion(

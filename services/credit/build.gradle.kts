@@ -7,6 +7,8 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":libs:catalog-jdbc"))
+    implementation(project(":libs:catalog-client"))
     implementation(platform(libs.aws.sdk.bom))
     implementation(libs.aws.sdk.s3) {
         exclude(group = "software.amazon.awssdk", module = "apache-client")
@@ -24,3 +26,5 @@ tasks.test {
     // Twelve cached pools leave headroom on CI PostgreSQL with max_connections=100.
     systemProperty("spring.test.context.cache.maxSize", "12")
 }
+
+apply(from = rootProject.file("gradle/catalog-integration.gradle.kts"))

@@ -7,6 +7,7 @@ import jakarta.validation.Valid
 import org.springframework.core.io.InputStreamResource
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -229,6 +230,17 @@ class ApplicationController(
         val claims = CurrentCaller.claims()
         val application = if (claims.isClient) service.clientReadView(original) else original
         val product = service.product(application)
+        val catalogPreview = if (application.status == ApplicationStatus.DRAFT || application.status == ApplicationStatus.PENDING_CLIENT_CONFIRMATION) {
+            try {
+                Result.success(service.currentProduct(product.code))
+            } catch (failure: ApiException) {
+                if (failure.httpStatus != HttpStatus.SERVICE_UNAVAILABLE) throw failure
+                Result.failure(failure)
+            }
+        } else {
+            Result.success(null)
+        }
+        val currentProduct = catalogPreview.getOrNull()
         val terms = application.terms
         val uploaded = documents.list(application)
         val isOwnClient = claims.isClient && claims.companyId == application.company.id
@@ -260,11 +272,7 @@ class ApplicationController(
             closeReason = application.closeReason,
             company = with(application.company) { CompanyView(id, inn, name, legalForm) },
             product = ProductView(product.code, product.name, product.revolving, product.version),
-            currentProduct = if (application.status in setOf(ApplicationStatus.DRAFT, ApplicationStatus.PENDING_CLIENT_CONFIRMATION)) {
-                service.currentProduct(product.code)
-            } else {
-                null
-            },
+            currentProduct = currentProduct,
             purpose = terms.purpose,
             purposeTitle = terms.purpose.title,
             purposeComment = terms.purposeComment,
@@ -285,11 +293,11 @@ class ApplicationController(
                 else -> false
             },
             submissionProblems = if (application.status == ApplicationStatus.DRAFT) {
-                val current = service.currentProduct(product.code)
                 when {
-                    current?.active != true -> listOf("Продукт выключен из каталога — выберите другой продукт")
-                    application.agentId != null -> application.agentSubmissionProblems(current)
-                    else -> application.submissionProblems(current)
+                    catalogPreview.isFailure -> listOf("Каталог временно недоступен — попробуйте позже")
+                    currentProduct?.active != true -> listOf("Продукт выключен из каталога — выберите другой продукт")
+                    application.agentId != null -> application.agentSubmissionProblems(currentProduct)
+                    else -> application.submissionProblems(currentProduct)
                 }
             } else {
                 emptyList()

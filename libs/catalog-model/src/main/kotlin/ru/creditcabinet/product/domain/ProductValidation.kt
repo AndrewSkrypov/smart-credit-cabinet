@@ -1,38 +1,8 @@
 package ru.creditcabinet.product.domain
 
-import java.time.Instant
-import java.util.UUID
+private val productCodePattern = Regex("[A-Z0-9_]{1,32}")
 
-data class ProductRevision(
-    val product: Product,
-    val authorId: UUID?,
-    val reason: String,
-    val createdAt: Instant,
-    val authorName: String? = null,
-    val authorRole: String? = null,
-)
-
-interface ProductVersions {
-    fun list(): List<Product>
-    fun history(code: String): List<ProductRevision>
-    fun create(
-        product: Product,
-        authorId: UUID,
-        reason: String,
-        now: Instant,
-        authorName: String? = null,
-        authorRole: String? = null,
-    ): ProductRevision
-    fun replace(
-        product: Product,
-        expectedVersion: Long,
-        authorId: UUID,
-        reason: String,
-        now: Instant,
-        authorName: String? = null,
-        authorRole: String? = null,
-    ): ProductRevision
-}
+fun validProductCode(code: String): Boolean = productCodePattern.matches(code)
 
 /** Invalid edits cannot enter a historical snapshot used for lending. */
 fun Product.problems(): List<String> = buildList {

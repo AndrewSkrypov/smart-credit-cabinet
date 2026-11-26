@@ -1,0 +1,35 @@
+# Apply after the base observability values. Override probe.targets to change the URL.
+prometheus-blackbox-exporter:
+  fullnameOverride: cabinet-blackbox
+  networkPolicy:
+    enabled: true
+    allowMonitoringNamespace: true
+    monitoringNamespaceName: monitoring
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      memory: 96Mi
+  config:
+    modules:
+      cabinet_https:
+        prober: http
+        timeout: 8s
+        http:
+          valid_status_codes: [200]
+          fail_if_not_ssl: true
+          follow_redirects: false
+          preferred_ip_protocol: ip4
+  probe:
+    enabled: true
+    defaults:
+      interval: 30s
+      scrapeTimeout: 10s
+      module: cabinet_https
+    targets:
+      - name: cabinet-public
+        url: https://credit-cabinet.ru/api/v1/products
+        additionalRelabeling:
+          - targetLabel: target
+            replacement: cabinet-public

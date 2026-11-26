@@ -1,0 +1,67 @@
+rule_files:
+  - cabinet-availability.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'probe_success{target="cabinet-public",instance="https://cabinet.test/api/v1/products"}'
+        values: '1 0 0 0 1'
+    alert_rule_test:
+      - alertname: CabinetHTTPSUnavailable
+        eval_time: 2m
+        exp_alerts: []
+      - alertname: CabinetHTTPSUnavailable
+        eval_time: 3m
+        exp_alerts:
+          - exp_labels:
+              target: cabinet-public
+              instance: https://cabinet.test/api/v1/products
+              severity: critical
+            exp_annotations:
+              summary: 'Публичный HTTPS-маршрут кабинета недоступен'
+              runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-https'
+      - alertname: CabinetHTTPSUnavailable
+        eval_time: 4m
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{service="credit",uri="/api/v1/products",status="500"}'
+        values: '0+3x12'
+      - series: 'http_server_requests_seconds_count{service="credit",uri="/api/v1/products",status="200"}'
+        values: '0+10x12'
+      - series: 'http_server_requests_seconds_count{service="engagement",uri="/api/v1/assistant/chat",status="500"}'
+        values: '0+1x12'
+    alert_rule_test:
+      - alertname: CabinetHTTPHighErrorRate
+        eval_time: 10m
+        exp_alerts:
+          - exp_labels:
+              service: credit
+              severity: critical
+            exp_annotations:
+              summary: 'Более 5% ответов HTTP API credit — 5xx'
+              runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-http'
+  - interval: 1m
+    input_series:
+      - series: 'cabinet_assistant_model_total{outcome="UNAVAILABLE"}'
+        values: '0+2x20'
+      - series: 'cabinet_assistant_model_total{outcome="ACCEPTED"}'
+        values: '0+1x20'
+      - series: 'cabinet_assistant_model_total{outcome="CACHE_HIT"}'
+        values: '0+100x20'
+      - series: 'cabinet_assistant_answer_seconds_count{outcome="RULES"}'
+        values: '0+100x20'
+      - series: 'cabinet_assistant_answer_seconds_count{outcome="ERROR"}'
+        values: '0+0x20'
+    alert_rule_test:
+      - alertname: CabinetAssistantFallbackElevated
+        eval_time: 15m
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: 'Более половины обращений к модели ушли на резервные правила'
+              runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-assistant'
+      - alertname: CabinetAssistantAnswerErrors
+        eval_time: 15m
+        exp_alerts: []

@@ -1,0 +1,584 @@
+{
+  "uid": "cabinet-platform",
+  "title": "Доступность и эксплуатация",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "Кабинет",
+    "Эксплуатация"
+  ],
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "API · запросы в секунду",
+      "description": "Маршруты приложения без запросов мониторинга и внутренних вызовов.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "sum by (application) (rate(http_server_requests_seconds_count{uri!~\"/actuator.*|/internal.*\"}[5m]))",
+          "legendFormat": "{{application}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "API · доля ответов 5xx",
+      "description": "При отсутствии запросов значение не определяется.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "((sum by (application) (rate(http_server_requests_seconds_count{status=~\"5..\",uri!~\"/actuator.*|/internal.*\"}[5m]))) or (0 * (sum by (application) (rate(http_server_requests_seconds_count{uri!~\"/actuator.*|/internal.*\"}[5m]))))) / (sum by (application) (rate(http_server_requests_seconds_count{uri!~\"/actuator.*|/internal.*\"}[5m])))",
+          "legendFormat": "{{application}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "API · p95 задержки",
+      "description": "Гистограммы экземпляров объединяются по сервису. Exemplars ведут в Tempo.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le, application) (rate(http_server_requests_seconds_bucket{uri!~\"/actuator.*|/internal.*\"}[5m])))",
+          "legendFormat": "{{application}}",
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Доступность · HTTPS и опрос сервисов",
+      "description": "Доля успешных проверок за час. HTTPS появится после подключения blackbox-exporter.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "avg_over_time(probe_success[1h])",
+          "legendFormat": "HTTPS {{instance}}",
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "expr": "avg_over_time(up{service=~\"credit|identity|engagement|external-sim\"}[1h])",
+          "legendFormat": "scrape {{service}} {{instance}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "CPU узлов · занятость",
+      "description": "Требует node-exporter. CPU процессов доступен отдельно.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
+          "legendFormat": "{{instance}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Память узлов · занятость",
+      "description": "Требует node-exporter.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
+          "legendFormat": "{{instance}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Диск узлов и PVC · занятость",
+      "description": "Диск узла от node-exporter. PVC от kubelet при поддержке драйвером хранилища.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "1 - node_filesystem_avail_bytes{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"}",
+          "legendFormat": "узел {{instance}}",
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "expr": "1 - (min by (namespace, persistentvolumeclaim) (kubelet_volume_stats_available_bytes) / max by (namespace, persistentvolumeclaim) (kubelet_volume_stats_capacity_bytes))",
+          "legendFormat": "{{namespace}}/{{persistentvolumeclaim}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "JVM · доля CPU",
+      "description": "Текущее использование CPU процессом.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "process_cpu_usage",
+          "legendFormat": "{{application}} {{instance}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "JVM · объём используемой памяти",
+      "description": "Сумма кучевых и некучевых областей памяти процесса.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "sum by (application, instance) (jvm_memory_used_bytes)",
+          "legendFormat": "{{application}} {{instance}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Диск процесса · занятость",
+      "description": "Файловая система, которую видит рабочий каталог JVM.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "1 - disk_free_bytes / disk_total_bytes",
+          "legendFormat": "{{application}} {{instance}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Пул БД · доля занятых соединений",
+      "description": "Отношение активных соединений к настроенному максимуму в каждом пуле.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "hikaricp_connections_active / hikaricp_connections_max",
+          "legendFormat": "{{application}} {{instance}} {{pool}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Очереди · возраст ожидания",
+      "description": "Снимки общей БД дедуплицируются между репликами.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "max(cabinet_pipeline_queue_oldest_due_seconds)",
+          "legendFormat": "конвейер, просроченная задача",
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "expr": "max by (application, channel) (cabinet_delivery_outbox_oldest_seconds)",
+          "legendFormat": "{{application}} {{channel}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Источники · сбои в секунду",
+      "description": "Таймауты, ошибки, отклонённые источником запросы и вызовы, остановленные circuit breaker.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "sum by (source, result) (rate(cabinet_source_call_seconds_count{result=~\"timeout|error|rejected|circuit_open\"}[5m]))",
+          "legendFormat": "{{source}} {{result}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Доставка · исходы попыток в минуту",
+      "description": "Повторные попытки считаются отдельно. Исходы DELIVERED, RETRY, FAILED и STALE разделены.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "60 * sum by (application, channel, outcome) (rate(cabinet_delivery_attempt_seconds_count[5m]))",
+          "legendFormat": "{{application}} {{channel}} {{outcome}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Outbox · сообщения по состояниям",
+      "description": "Снимки дедуплицируются между репликами сервиса и сохраняют разбивку по каналам.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "max by (application, channel, state) (cabinet_delivery_outbox_messages)",
+          "legendFormat": "{{application}} {{channel}} {{state}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Пул БД · ожидающие соединения",
+      "description": "Потоки, ожидающие свободное соединение.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 56,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "hikaricp_connections_pending",
+          "legendFormat": "{{application}} {{instance}} {{pool}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "logs",
+      "title": "Журналы сервисов",
+      "description": "Поле TraceID открывает трассу в Tempo. Поля traceId и requestId остаются в JSON.",
+      "datasource": {
+        "type": "loki",
+        "uid": "cabinet-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 64,
+        "h": 10,
+        "w": 24
+      },
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=~\"credit|identity|engagement|external-sim\"}",
+          "editorMode": "code",
+          "queryType": "range",
+          "maxLines": 50
+        }
+      ]
+    }
+  ]
+}

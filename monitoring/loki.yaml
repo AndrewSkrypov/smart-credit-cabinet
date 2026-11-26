@@ -32,6 +32,9 @@ compactor:
 
 limits_config:
   retention_period: 48h
+  ingestion_rate_mb: 2
+  ingestion_burst_size_mb: 4
+  max_line_size: 8KB
 
 analytics:
   reporting_enabled: false

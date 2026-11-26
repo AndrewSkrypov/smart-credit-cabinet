@@ -26,6 +26,8 @@ import ru.creditcabinet.financing.scenario.FinancingScenarios
 import ru.creditcabinet.preapproved.application.PreApprovedOfferService
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
+import ru.creditcabinet.product.domain.SubmissionProductCatalog
+import ru.creditcabinet.product.domain.SubmissionProductSnapshot
 import ru.creditcabinet.product.domain.forApplication
 import java.time.Clock
 import java.util.UUID
@@ -38,6 +40,7 @@ class ApplicationService(
     private val idempotencyKeys: IdempotencyKeys,
     private val companies: CompanyDirectory,
     private val products: ProductCatalog,
+    private val submissionCatalog: SubmissionProductCatalog,
     private val clock: Clock,
     private val transitions: Transitions,
     private val infoRequests: ru.creditcabinet.application.domain.InfoRequests,
@@ -94,16 +97,9 @@ class ApplicationService(
             if (previous == id) return application
             if (previous != null) throw ConflictException("Этот Idempotency-Key уже использован для другой заявки")
         }
-        // One statement sees a coherent catalogue; edits after it belong to later submissions.
-        val catalog = products.all()
-        val selected = catalog.firstOrNull { it.code == application.terms.productCode }
-            ?: throw ConflictException("Продукт выключен из каталога — выберите другой продукт и создайте новую заявку")
-        if ((acceptedProductVersion != null && acceptedProductVersion != selected.version) ||
-            (acceptedProductVersion == null && application.productVersion != selected.version)
-        ) {
-            throw ConflictException("Условия продукта изменились — обновите заявку, проверьте новые условия и подтвердите их перед отправкой")
-        }
-        val pinned = application.copy(productVersion = selected.version, productCatalogSnapshot = catalog.associate { it.code to it.version })
+        val snapshot = submissionSnapshot(application, acceptedProductVersion)
+        val selected = snapshot.selected
+        val pinned = application.copy(productVersion = selected.version, productCatalogSnapshot = snapshot.versions)
         val now = clock.instant()
         val saved = commit(pinned.submit(selected, actorOf(claims), now))
         jobs.enqueue(saved.id, PipelineStep.DATA_CHECK, now)
@@ -127,13 +123,9 @@ class ApplicationService(
             current
         }
         if (scenarios.confirm(application, acceptedScenarioRevision)) return current
-        val catalog = products.all()
-        val selected = catalog.firstOrNull { it.code == application.terms.productCode }
-            ?: throw ConflictException("Продукт выключен из каталога — выберите другой продукт и создайте новую заявку")
-        if ((acceptedScenarioRevision != null && selected.version != application.productVersion) ||
-            (acceptedProductVersion != null && acceptedProductVersion != selected.version) ||
-            (acceptedProductVersion == null && application.productVersion != selected.version)
-        ) {
+        val snapshot = submissionSnapshot(application, acceptedProductVersion)
+        val selected = snapshot.selected
+        if (acceptedScenarioRevision != null && selected.version != application.productVersion) {
             throw ConflictException("Условия продукта изменились — обновите заявку, проверьте новые условия и подтвердите их перед отправкой")
         }
         val commissionRateBps = if (application.agentId != null) selected.agentCommissionRateBps else application.agentCommissionRateBps
@@ -144,7 +136,7 @@ class ApplicationService(
         }
         val pinned = application.copy(
             productVersion = selected.version,
-            productCatalogSnapshot = catalog.associate { it.code to it.version },
+            productCatalogSnapshot = snapshot.versions,
             agentCommissionRateBps = commissionRateBps,
             agentCommissionAmount = commissionAmount,
         )
@@ -227,7 +219,7 @@ class ApplicationService(
 
     fun journal(id: UUID): List<JournalEntry> = journal.list(get(id).id)
 
-    fun product(code: String): Product = products.find(code) ?: throw NotFoundException("Продукт не найден")
+    fun product(code: String): Product = products.forDraft(code) ?: throw NotFoundException("Продукт не найден")
 
     fun product(application: LoanApplication, code: String = application.terms.productCode): Product = products.forApplication(application, code)
 
@@ -256,6 +248,15 @@ class ApplicationService(
         }
 
     fun commit(transition: Transition): LoanApplication = transitions.commit(transition)
+
+    private fun submissionSnapshot(application: LoanApplication, acceptedVersion: Long?): SubmissionProductSnapshot {
+        val snapshot = submissionCatalog.snapshotForSubmission(application.terms.productCode)
+            ?: throw ConflictException("Продукт выключен из каталога — выберите другой продукт и создайте новую заявку")
+        if ((acceptedVersion ?: application.productVersion) != snapshot.selected.version) {
+            throw ConflictException("Условия продукта изменились — обновите заявку, проверьте новые условия и подтвердите их перед отправкой")
+        }
+        return snapshot
+    }
 
     private fun actorOf(claims: TokenClaims) = claims.toActor() ?: throw ConflictException("Это действие недоступно для вашей роли")
 

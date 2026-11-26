@@ -107,7 +107,7 @@ class PreApprovedOfferService(
         if (!offer.isAvailable(now)) {
             throw ConflictException("Предодобренное предложение уже использовано или истекло")
         }
-        val product = products.find(offer.productCode)
+        val product = products.forDraft(offer.productCode)
             ?: throw ConflictException("Продукт по предложению недоступен")
         if (applications.hasActive(offer.companyId, product.code)) {
             throw activeExists(product)

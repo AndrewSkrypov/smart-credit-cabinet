@@ -63,6 +63,7 @@ data class Product(
 interface ProductCatalog {
     fun all(): List<Product>
     fun find(code: String): Product?
+    fun forDraft(code: String): Product? = find(code)
     fun version(code: String, version: Long): Product?
     fun latest(code: String): Product?
 }

@@ -16,10 +16,12 @@ dependencyResolutionManagement {
 rootProject.name = "smart-credit-cabinet"
 
 include(":libs:platform-common")
+include(":libs:catalog-model", ":libs:catalog-contracts", ":libs:catalog-client", ":libs:catalog-jdbc")
 
 // Deployable services, each built and started on its own (see docs/architecture.md).
 include(":services:identity")
 include(":services:credit")
+include(":services:catalog-grpc")
 include(":services:engagement")
 include(":services:external-sim")
 

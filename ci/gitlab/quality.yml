@@ -122,7 +122,7 @@ infrastructure-security:
   timeout: 25 minutes
   parallel:
     matrix:
-      - INFRA_NAME: [postgres, gateway, swagger, prometheus, grafana, caddy, mailpit, clamav, seaweedfs, valkey]
+      - INFRA_NAME: [postgres, gateway, swagger, prometheus, grafana, alertmanager, caddy, mailpit, clamav, seaweedfs, valkey]
   script:
     - bash ci/gitlab/quality/image-scan.sh infra
   after_script:

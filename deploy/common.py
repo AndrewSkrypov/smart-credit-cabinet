@@ -103,6 +103,8 @@ class Deployment:
             self.command.extend(["-f", str(ROOT / "deploy/compose.local.yaml")])
         if "monitoring" in self.profiles:
             self.command.extend(["-f", str(ROOT / "monitoring/compose.ops.yaml")])
+            if project == "cabinet-dev" and self.values.get("CABINET_ALERTMANAGER_PAGING_DIR"):
+                self.command.extend(["-f", str(ROOT / "monitoring/compose.paging.yml")])
         for profile in sorted(self.profiles):
             self.command.extend(["--profile", profile])
 

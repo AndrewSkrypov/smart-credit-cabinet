@@ -5,7 +5,8 @@ services:
       - ./monitoring/alerts/alertmanager-target.yml:/etc/prometheus/alertmanagers/dev.yml:ro
       - ${CABINET_ALERTMANAGER_RULES_DIR:-/etc/pump/monitoring/live-rules}:/etc/prometheus/live-rules:ro
   alertmanager:
-    image: prom/alertmanager:v0.33.0
+    image: prom/alertmanager:v0.33.0@sha256:af26fbe4dd1886ac0efd7bd55cd9027da262e105b137a376522b7c14c3626e4a
+    mem_limit: 128m
     profiles: [monitoring]
     user: "65534:65534"
     restart: unless-stopped

@@ -44,6 +44,10 @@ its host environment and Registry read-only login private. See
 [the Dev runbook](../../deploy/README.md) for initial setup and recovery.
 Enable monitoring in the host environment with `CABINET_OPTIONAL_PROFILES=monitoring`.
 The deployment applies `monitoring/compose.ops.yaml` after the runtime overlays.
+The dedicated Dev host can add `monitoring/compose.paging.yml` last by setting
+`CABINET_ALERTMANAGER_PAGING_DIR` in its private environment. Start with the
+inactive smoke rule and let the observability owner activate it in the agreed
+test window.
 After acceptance, check the synthetic journey and the Grafana dashboard from
 the Dev host's loopback monitoring endpoints.
 

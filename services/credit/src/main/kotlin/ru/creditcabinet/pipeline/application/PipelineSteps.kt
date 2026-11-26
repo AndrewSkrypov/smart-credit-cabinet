@@ -124,7 +124,7 @@ class PipelineSteps(
         }
         val product = products.forApplication(application)
         val now = clock.instant()
-        val uploaded = documents.list(application.id).map { it.type }.toSet()
+        val uploaded = documents.listForPacket(application.id, application.submittedAt).map { it.type }.toSet()
         val missing = DocumentRequirements.required(product, application.terms.amount, application.company.legalForm, bank.client)
             .filter { it.type !in uploaded }
         tx.executeWithoutResult {

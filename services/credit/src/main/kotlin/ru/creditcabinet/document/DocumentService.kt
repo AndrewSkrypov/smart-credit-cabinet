@@ -54,8 +54,12 @@ class DocumentService(
 
     override fun list(authorizedApplication: LoanApplication): List<ApplicationDocument> {
         val caller = CurrentCaller.claims()
-        return documents.list(authorizedApplication.id)
-            .filter { it.visibleTo(caller, authorizedApplication) }
+        val uploaded = if (caller.isAgent) {
+            documents.list(authorizedApplication.id)
+        } else {
+            documents.listForPacket(authorizedApplication.id, authorizedApplication.submittedAt)
+        }
+        return uploaded.filter { it.visibleTo(caller, authorizedApplication) }
     }
 
     override fun satisfiedDocumentTypes(request: InfoRequest): Set<DocumentType> =
@@ -142,11 +146,15 @@ class DocumentService(
                     if (privateToBank) JournalNote.PRIVATE_DOCUMENT_ADDED else JournalNote.DOCUMENT_ADDED,
                     claims.toActor()!!,
                     now,
-                    if (privateToBank) emptyMap() else mapOf(
-                        "documentId" to document.id,
-                        "type" to type.name,
-                        "fileName" to fileName,
-                    ),
+                    if (privateToBank) {
+                        emptyMap()
+                    } else {
+                        mapOf(
+                            "documentId" to document.id,
+                            "type" to type.name,
+                            "fileName" to fileName,
+                        )
+                    },
                 ),
             )
         }
@@ -197,7 +205,14 @@ class DocumentService(
     override fun open(applicationId: UUID, documentId: UUID): Pair<ApplicationDocument, StoredFile> {
         val application = applications.get(applicationId)
         val caller = CurrentCaller.claims()
-        val document = documents.find(application.id, documentId)?.takeIf { it.visibleTo(caller, application) }
+        val current = documents.find(application.id, documentId)
+        val readable = if (caller.isAgent || current?.context == DocumentContext.CHAT) {
+            current
+        } else {
+            documents.listForPacket(application.id, application.submittedAt, documentId).singleOrNull()
+        }
+        val shared = readable ?: current?.takeIf { documents.isChatAttached(documentId) }
+        val document = shared?.takeIf { it.visibleTo(caller, application) }
             ?: throw NotFoundException("Документ не найден")
         if (document.context == DocumentContext.CHAT && document.uploadedBy != caller.userId && !documents.isChatAttached(documentId)) {
             throw NotFoundException("Документ не найден")

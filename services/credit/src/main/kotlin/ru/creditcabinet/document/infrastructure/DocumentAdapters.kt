@@ -45,6 +45,30 @@ class JdbcDocumentRepository(private val jdbc: NamedParameterJdbcTemplate) : Doc
             mapper,
         )
 
+    override fun listForPacket(applicationId: UUID, submittedAt: Instant?, documentId: UUID?): List<ApplicationDocument> =
+        jdbc.query(
+            """
+            with latest_packet as (
+                select document_ids
+                from financing_scenario_publications
+                where application_id = :application and status = 'AWAITING_CLIENT'
+                order by revision desc
+                limit 1
+            )
+            select d.*
+            from documents d left join latest_packet p on true
+            where d.application_id = :application and d.context = 'BUSINESS'
+              and (cast(:document as uuid) is null or d.id = :document)
+              and (
+                (d.deleted_at is null and (p.document_ids is null or d.uploaded_at >= cast(:submittedAt as timestamptz)))
+                or jsonb_exists(p.document_ids, d.id::text)
+              )
+            order by d.uploaded_at
+            """.trimIndent(),
+            mapOf("application" to applicationId, "submittedAt" to submittedAt?.let(Timestamp::from), "document" to documentId),
+            mapper,
+        )
+
     override fun find(applicationId: UUID, documentId: UUID): ApplicationDocument? =
         jdbc.query(
             "select * from documents where id = :id and application_id = :application and deleted_at is null",

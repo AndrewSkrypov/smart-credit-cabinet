@@ -17,6 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
@@ -55,15 +56,25 @@ import kotlin.test.assertTrue
 @AutoConfigureMockMvc
 class FinancingScenarioIntegrationTest {
     @Autowired private lateinit var mvc: MockMvc
+
     @Autowired private lateinit var verifier: JwtVerifier
+
     @Autowired private lateinit var mapper: ObjectMapper
+
     @Autowired private lateinit var applications: ApplicationRepository
+
     @Autowired private lateinit var documents: DocumentRepository
+
     @Autowired private lateinit var files: FileStore
+
     @Autowired private lateinit var jdbc: JdbcTemplate
+
     @Autowired private lateinit var clock: Clock
+
     @Autowired private lateinit var products: ProductCatalog
+
     @MockitoBean private lateinit var mandates: AgentAccessPort
+
     @MockitoBean private lateinit var sources: CompanySources
 
     private val company = CompanySnapshot(UUID.randomUUID(), "000100000004", "Синтетическая компания", LegalForm.ENTREPRENEUR)
@@ -161,9 +172,18 @@ class FinancingScenarioIntegrationTest {
         val application = draft()
         val agentPath = agentPath(application.id)
         val clientPath = clientPath(application.id)
+        val handedDocument = document(application.id, privateToBank = false)
         assertEquals(200, putScenario(agentPath).status)
         assertEquals(200, post("$agentPath/request-confirmation", agent).status)
         assertEquals(200, post("$clientPath/return-to-agent", client).status)
+        val unhandedDocument = document(application.id, privateToBank = false)
+        val remove = mvc.delete("$agentPath/documents/$handedDocument") {
+            header("Authorization", "Bearer $agent")
+        }.andReturn().response
+        assertEquals(204, remove.status)
+        assertEquals(listOf(handedDocument.toString()), snapshot(get(clientPath, client))["documents"].map { it["id"].asText() })
+        assertEquals(200, get("$clientPath/documents/$handedDocument", client).status)
+        assertEquals(404, get("$clientPath/documents/$unhandedDocument", client).status)
         val changed = put(
             agentPath,
             """
@@ -187,7 +207,10 @@ class FinancingScenarioIntegrationTest {
         assertEquals(24, submitted["termMonths"].asInt())
         assertEquals("WORKING_CAPITAL", submitted["purpose"].asText())
         assertEquals(24_000_000L, submitted["declaredRevenue12m"].asLong())
+        assertEquals(listOf(handedDocument.toString()), submitted["documents"].map { it["id"].asText() })
         assertEquals("CONFIRMED", snapshot(get(bankPath(application.id), bank))["status"].asText())
+        assertEquals(200, get("$clientPath/documents/$handedDocument", bank).status)
+        assertEquals(404, get("$clientPath/documents/$unhandedDocument", bank).status)
         assertEquals(1, submissionCount(application.id))
     }
 
@@ -281,6 +304,7 @@ class FinancingScenarioIntegrationTest {
             uploadedAt = clock.instant(),
             privateToBank = privateToBank,
         )
+        files.put(document.storedName, byteArrayOf(1).inputStream(), document.sizeBytes)
         documents.save(document)
         return id
     }

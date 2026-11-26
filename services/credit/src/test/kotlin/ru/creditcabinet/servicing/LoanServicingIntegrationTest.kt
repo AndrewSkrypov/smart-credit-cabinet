@@ -182,6 +182,7 @@ class LoanServicingIntegrationTest {
                 createdAt = now,
                 updatedAt = now,
                 submittedAt = now,
+                productCatalogSnapshot = mapOf(productCode to 1L),
                 agentId = if (withAgent) agentId else null,
                 agentName = if (withAgent) "Агент Тест" else null,
             ),

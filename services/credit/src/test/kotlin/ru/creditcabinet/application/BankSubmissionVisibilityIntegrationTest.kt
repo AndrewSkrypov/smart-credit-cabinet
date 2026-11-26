@@ -135,9 +135,9 @@ class BankSubmissionVisibilityIntegrationTest {
             """
             insert into applications (id, company_id, company_inn, company_name, legal_form, created_by,
                 product_code, purpose, amount, term_months, status, created_at, updated_at, status_changed_at,
-                product_version, agent_id, submitted_at, client_handoff_at)
+                product_version, product_catalog_snapshot, agent_id, submitted_at, client_handoff_at)
             values (?, ?, '000000000000', ?, 'ENTREPRENEUR', ?, ?, 'WORKING_CAPITAL', 300000, 12, ?, now(), now(), now(),
-                1, ?, case when ? then now() end, case when ? then now() end)
+                1, jsonb_build_object(cast(? as text), 1), ?, case when ? then now() end, case when ? then now() end)
             """.trimIndent(),
             id,
             company,
@@ -145,6 +145,7 @@ class BankSubmissionVisibilityIntegrationTest {
             UUID.randomUUID(),
             product,
             status,
+            product,
             agent,
             submitted,
             handedOff,

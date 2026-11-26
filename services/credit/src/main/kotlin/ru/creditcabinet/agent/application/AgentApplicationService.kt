@@ -4,10 +4,10 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
+import ru.creditcabinet.agent.domain.ActionOwner
 import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.agent.domain.AgentPortfolioCalculator
 import ru.creditcabinet.agent.domain.AgentPortfolioSummary
-import ru.creditcabinet.agent.domain.ActionOwner
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationEvent
@@ -226,13 +226,13 @@ class AgentApplicationService(
 
     @Transactional
     fun uploadDocument(id: UUID, type: DocumentType, file: MultipartFile): ApplicationDocument {
-        val (caller, application) = ownAgentApplication(id)
+        val (caller, application) = ownAgentApplication(id, forUpdate = true)
         return documentService.uploadForAgent(application, caller, type, file)
     }
 
     @Transactional
     fun deleteDocument(id: UUID, documentId: UUID) {
-        val (caller, application) = ownAgentApplication(id)
+        val (caller, application) = ownAgentApplication(id, forUpdate = true)
         documentService.deleteForAgent(application, caller, documentId)
     }
 

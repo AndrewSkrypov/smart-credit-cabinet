@@ -5,6 +5,7 @@ import java.util.UUID
 
 interface ApplicationRepository {
     fun find(id: UUID): LoanApplication?
+
     /** Locks the current application until the caller's transaction completes. */
     fun findForUpdate(id: UUID): LoanApplication?
 

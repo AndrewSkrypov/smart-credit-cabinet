@@ -58,8 +58,11 @@ class FinancingScenarios(
         val selectedTerm = snapshot.inputs.selectedTermMonths
         val sameTerm = application.terms.termMonths == snapshot.options.first().termMonths ||
             (snapshot.status == FinancingScenarioStatus.AWAITING_CLIENT && application.terms.termMonths == selectedTerm)
-        if (application.status != ApplicationStatus.DRAFT || snapshot.status == FinancingScenarioStatus.CONFIRMED ||
-            !sameTerm || application.terms.amount != snapshot.loanAmount || product.version != latest.productVersion
+        if (application.status != ApplicationStatus.DRAFT ||
+            snapshot.status == FinancingScenarioStatus.CONFIRMED ||
+            !sameTerm ||
+            application.terms.amount != snapshot.loanAmount ||
+            product.version != latest.productVersion
         ) {
             throw ConflictException("Условия заявки изменились — пересчитайте сценарий перед передачей")
         }
@@ -102,7 +105,8 @@ class FinancingScenarios(
         if (snapshot.status == FinancingScenarioStatus.CONFIRMED && application.submittedAt != null) return true
         val canConfirm = application.status == ApplicationStatus.PENDING_CLIENT_CONFIRMATION ||
             (application.status == ApplicationStatus.DRAFT && application.clientManaged)
-        if (!canConfirm || snapshot.status != FinancingScenarioStatus.AWAITING_CLIENT ||
+        if (!canConfirm ||
+            snapshot.status != FinancingScenarioStatus.AWAITING_CLIENT ||
             application.terms != revision.handedTerms ||
             application.productVersion != revision.productVersion
         ) {

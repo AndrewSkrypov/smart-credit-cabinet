@@ -53,16 +53,27 @@ import kotlin.test.assertTrue
 @AutoConfigureMockMvc
 class PrivateBankStatementIntegrationTest {
     @Autowired private lateinit var mvc: MockMvc
+
     @Autowired private lateinit var verifier: JwtVerifier
+
     @Autowired private lateinit var mapper: ObjectMapper
+
     @Autowired private lateinit var applications: ApplicationRepository
+
     @Autowired private lateinit var infoRequests: InfoRequests
+
     @Autowired private lateinit var documents: DocumentRepository
+
     @Autowired private lateinit var journal: ApplicationJournal
+
     @Autowired private lateinit var jdbc: JdbcTemplate
+
     @Autowired private lateinit var clock: Clock
+
     @MockitoBean private lateinit var agentAccess: AgentAccessPort
+
     @MockitoBean private lateinit var scanner: DocumentScanner
+
     @MockitoBean private lateinit var sources: CompanySources
 
     private val customer = CompanySnapshot(UUID.randomUUID(), "000100000004", "Синтетическая компания", LegalForm.ENTREPRENEUR)
@@ -193,6 +204,7 @@ class PrivateBankStatementIntegrationTest {
                 ),
                 status = status,
                 submittedAt = now.minusSeconds(20).takeIf { status == ApplicationStatus.INFO_REQUESTED },
+                productCatalogSnapshot = mapOf("WORKING_CAPITAL" to 1L),
                 clientHandoffAt = now.minusSeconds(25),
                 createdAt = now.minusSeconds(30),
                 statusChangedAt = now.minusSeconds(10),

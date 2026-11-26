@@ -233,11 +233,12 @@ class ApplicationController(
         val uploaded = documents.list(application)
         val isOwnClient = claims.isClient && claims.companyId == application.company.id
         val isOwnAgent = claims.isAgent && application.activeAgentId == claims.userId
-        val canResume = isOwnClient && try {
-            service.canResumeIndependently(application)
-        } catch (_: ApiException) {
-            false
-        }
+        val canResume = isOwnClient &&
+            try {
+                service.canResumeIndependently(application)
+            } catch (_: ApiException) {
+                false
+            }
         val actions = claims.toActor()?.let { actor ->
             ApplicationStateMachine.eventsFrom(application.status, actor.type)
                 // Only a person with the right to sign may sign for the company.

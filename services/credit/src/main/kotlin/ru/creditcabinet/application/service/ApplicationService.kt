@@ -243,7 +243,8 @@ class ApplicationService(
 
     fun canResumeIndependently(application: LoanApplication): Boolean {
         val agentId = application.activeAgentId ?: return false
-        return application.status == ApplicationStatus.DRAFT && application.clientHandoffAt != null &&
+        return application.status == ApplicationStatus.DRAFT &&
+            application.clientHandoffAt != null &&
             !agentAccess.checkAccess(agentId, application.company.id).allowed
     }
 

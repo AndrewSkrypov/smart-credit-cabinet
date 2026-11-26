@@ -64,6 +64,7 @@ object DocumentRequirements {
 
 interface DocumentRepository {
     fun list(applicationId: UUID): List<ApplicationDocument>
+    fun listForPacket(applicationId: UUID, submittedAt: Instant?, documentId: UUID? = null): List<ApplicationDocument>
     fun find(applicationId: UUID, documentId: UUID): ApplicationDocument?
     fun save(document: ApplicationDocument)
     fun markDeleted(documentId: UUID, at: Instant)

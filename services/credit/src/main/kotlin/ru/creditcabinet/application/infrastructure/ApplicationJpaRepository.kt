@@ -4,6 +4,7 @@ import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Component
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
@@ -13,7 +14,7 @@ import java.util.UUID
 interface ApplicationJpaRepository : JpaRepository<ApplicationEntity, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from ApplicationEntity a where a.id = :id")
-    fun findForUpdate(id: UUID): ApplicationEntity?
+    fun findForUpdate(@Param("id") id: UUID): ApplicationEntity?
 
     fun findByCompanyIdOrderByCreatedAtDesc(companyId: UUID): List<ApplicationEntity>
     fun findByAgentIdOrderByCreatedAtDesc(agentId: UUID): List<ApplicationEntity>
@@ -46,5 +47,4 @@ class ApplicationJpaAdapter(private val repository: ApplicationJpaRepository) : 
 
     override fun hasActive(companyId: UUID, productCode: String): Boolean =
         repository.existsByCompanyIdAndProductCodeAndStatusNotIn(companyId, productCode, ApplicationStatus.entries.filter { it.terminal })
-
 }

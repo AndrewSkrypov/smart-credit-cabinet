@@ -1,0 +1,56 @@
+image:
+  tag: v3.7.20
+
+deployment:
+  kind: DaemonSet
+
+ingressClass:
+  name: cabinet-public
+  isDefaultClass: false
+
+providers:
+  kubernetesCRD:
+    enabled: false
+  kubernetesIngress:
+    ingressClass: cabinet-public
+    namespaces:
+      - cabinet-prod
+    publishedService:
+      enabled: false
+  kubernetesGateway:
+    enabled: false
+
+api:
+  dashboard: false
+  insecure: false
+
+service:
+  spec:
+    type: NodePort
+    externalTrafficPolicy: Local
+
+ports:
+  web:
+    nodePort: 30080
+    forwardedHeaders:
+      trustedIPs: []
+      insecure: false
+    proxyProtocol:
+      trustedIPs: []
+      insecure: false
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+          # Keep cert-manager's HTTP-01 solver route ahead of the catch-all.
+          priority: 1
+  websecure:
+    nodePort: 30443
+    forwardedHeaders:
+      trustedIPs: []
+      insecure: false
+    proxyProtocol:
+      trustedIPs: []
+      insecure: false

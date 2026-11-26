@@ -7,6 +7,10 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":libs:loan-math"))
+    implementation(project(":libs:documents-client"))
+    implementation(project(":libs:documents-storage"))
+    implementation(project(":libs:documents-renderer"))
     implementation(platform(libs.aws.sdk.bom))
     implementation(libs.aws.sdk.s3) {
         exclude(group = "software.amazon.awssdk", module = "apache-client")

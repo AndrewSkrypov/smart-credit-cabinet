@@ -27,3 +27,7 @@ include(":services:external-sim")
 if (providers.gradleProperty("alphaAnalytics").map { it.toBooleanStrict() }.getOrElse(false)) {
     include(":services:analytics")
 }
+
+// Documents retains local Credit behavior by default; its independent runtime has no shared DB.
+include(":libs:loan-math", ":libs:documents-model", ":libs:documents-contracts", ":libs:documents-client", ":libs:documents-storage", ":libs:documents-renderer")
+include(":services:documents")

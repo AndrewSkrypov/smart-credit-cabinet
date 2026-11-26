@@ -415,8 +415,14 @@ class DocumentsRuntimeTest {
         val creditPassword = env("DOCUMENTS_TEST_CREDIT_APP_PASSWORD")
         DriverManager.getConnection("$base/documents", "documents_app", documentsPassword).use { connection ->
             connection.createStatement().use { statement ->
-                statement.executeQuery("select public.assert_documents_writer(2)").use { rs -> rs.next(); assertTrue(rs.getBoolean(1)) }
-                statement.executeQuery("select current_user").use { rs -> rs.next(); assertEquals("documents_app", rs.getString(1)) }
+                statement.executeQuery("select public.assert_documents_writer(2)").use { rs ->
+                    rs.next()
+                    assertTrue(rs.getBoolean(1))
+                }
+                statement.executeQuery("select current_user").use { rs ->
+                    rs.next()
+                    assertEquals("documents_app", rs.getString(1))
+                }
                 val denied = assertFailsWith<java.sql.SQLException> { statement.executeUpdate("update document_ownership set epoch=epoch+1") }
                 assertEquals("42501", denied.sqlState)
             }

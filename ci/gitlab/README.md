@@ -10,7 +10,7 @@ needs the Docker buildx plugin and enough disk for image scanning. The protected
 deploy runner needs SSH, Git, Python, kubectl and a route to the new private API.
 
 Once the selected runners are online, start a pipeline on the protected
-`feat/final-platform-release` branch with `CABINET_RUNNER_CANARY=1`. Jobs run in
+`feat/final-runner-canary` branch with `CABINET_RUNNER_CANARY=1`. Jobs run in
 order. The CI runner builds and uploads a tiny image and emits
 `runner-canary-image.txt`. The release runner pulls this exact digest and checks
 the OCI revision. The deploy runner checks its local tools. Record the pipeline

@@ -36,6 +36,8 @@ with open(sys.argv[1]) as manifest:
     if json.load(manifest).get("revision") != sys.argv[2]:
         sys.exit("release revision does not match the requested checkout")
 PY
+        export DOCKER_CONFIG=/home/cabinet-deploy/.docker-pump
+        test -r "$DOCKER_CONFIG/config.json"
         cd "$release"
         if ! ln "$manifest" release.json 2>/dev/null; then
             cmp -s "$manifest" release.json || { echo "Stored release manifest differs" >&2; exit 2; }

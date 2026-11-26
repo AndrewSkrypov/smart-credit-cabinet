@@ -29,12 +29,7 @@ dev-deploy:
     url: $CABINET_DEV_URL
   dependencies: [release-images]
   script:
-    - |
-      case "${PUMP_VAULT_DEV_ENABLED:-0}" in
-        0) unset PUMP_VAULT_ID_TOKEN; bash ci/gitlab/deploy-dev.sh ;;
-        1) python3 ci/gitlab/vault/with-deploy-secrets.py dev -- bash ci/gitlab/deploy-dev.sh ;;
-        *) echo "Invalid Dev Vault mode" >&2; exit 1 ;;
-      esac
+    - python3 ci/gitlab/vault/with-deploy-secrets.py dev-release -- bash ci/gitlab/deploy-dev.sh
     - sha256sum release.json > dev-release.sha256
   artifacts:
     expire_in: 30 days

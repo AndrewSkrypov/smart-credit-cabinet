@@ -148,6 +148,33 @@ class HandoffTests(unittest.TestCase):
         self.assertEqual([call.args[2] for call in request.call_args_list],
                          ["auth/pump-gitlab/login", "auth/token/revoke-self"])
 
+    def test_dev_release_uses_legacy_only_without_the_root_activation_file(self):
+        with (patch.object(handoff, "verify_trust_path", side_effect=FileNotFoundError),
+              patch.dict(os.environ, self.env | {"PUMP_VAULT_DEV_ENABLED": "1"}, clear=True),
+              patch.object(handoff, "deploy") as deploy,
+              patch.object(handoff.subprocess, "run", return_value=handoff.subprocess.CompletedProcess([], 0)) as run):
+            self.assertEqual(handoff.dev_release(["fixture-command"]), 0)
+            self.assertNotIn(handoff.JWT_VAR, run.call_args.kwargs["env"])
+            deploy.assert_not_called()
+
+    def test_dev_release_rejects_activation_for_a_different_sha_and_keeps_root_authority(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory)
+            marker = config / "dev-active-sha"
+            marker.write_text(SHA + "\n")
+            with (patch.object(handoff, "CONFIG_DIR", config),
+                  patch.object(handoff, "verify_trust_path", return_value=None) as trust,
+                  patch.dict(os.environ, self.env | {"PUMP_VAULT_DEV_ENABLED": "0"}, clear=True),
+                  patch.object(handoff, "deploy", return_value=17) as deploy,
+                  patch.object(handoff.subprocess, "run") as run):
+                self.assertEqual(handoff.dev_release(["fixture-command"]), 17)
+                trust.assert_any_call(config, stat.S_ISDIR)
+                trust.assert_any_call(marker, stat.S_ISREG)
+                deploy.assert_called_once_with("dev", ["fixture-command"])
+                marker.write_text("b" * 40)
+                with self.assertRaisesRegex(handoff.HandoffError, "activation does not match"):
+                    handoff.dev_release(["fixture-command"])
+                run.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

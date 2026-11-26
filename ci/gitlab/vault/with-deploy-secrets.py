@@ -178,9 +178,25 @@ def deploy(profile, command):
         return subprocess.run(command, env=environment, check=False).returncode
 
 
+def dev_release(command):
+    marker = CONFIG_DIR / "dev-active-sha"
+    try:
+        verify_trust_path(CONFIG_DIR, stat.S_ISDIR)
+        verify_trust_path(marker, stat.S_ISREG)
+    except FileNotFoundError:
+        environment = os.environ.copy()
+        environment.pop(JWT_VAR, None)
+        return subprocess.run(command, env=environment, check=False).returncode
+    with marker.open(encoding="ascii") as active:
+        activated_sha = active.read(42).rstrip("\n")
+    if len(activated_sha) != 40 or activated_sha != os.environ.get("CI_COMMIT_SHA"):
+        raise HandoffError("The runner Vault activation does not match this Dev release")
+    return deploy("dev", command)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run a protected PUMP deployment with file secrets from Vault.")
-    parser.add_argument("profile", choices=(*PROFILES, "dev-canary"))
+    parser.add_argument("profile", choices=(*PROFILES, "dev-canary", "dev-release"))
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
@@ -191,6 +207,8 @@ def main():
     try:
         if args.profile == "dev-canary":
             return check_dev_parity()
+        if args.profile == "dev-release":
+            return dev_release(command)
         return deploy(args.profile, command)
     except HandoffError as error:
         print(str(error), file=sys.stderr)

@@ -54,6 +54,9 @@ class ServicingLiveGrpcTest {
                 assertEquals(2,current.tranches.size)
                 assertEquals(630_000L,current.disbursedAmount)
                 assertEquals(130_000L,client.reserve(current.id)!!.drawnAmount)
+                val latestPayment = mapper.readValue(directory.resolve("latest-payment-account.json").toFile(),LoanAccount::class.java)
+                assertEquals(latestPayment,current)
+                assertTrue(current.payments.any { it.status == LoanPaymentStatus.PAID })
                 return
             }
             val now = Instant.now()
@@ -101,6 +104,9 @@ class ServicingLiveGrpcTest {
                 assertFailsWith<ServicingUnavailable> { failed.draw(account.id,DrawCommand(actor,1_000)) }
             } finally { unavailable.shutdownNow() }
             assertEquals(beforeOutage,client.byApplication(command.applicationId))
+            val paid = client.payNext(account.id,actor)
+            assertTrue(paid.outstandingPrincipal < BigDecimal("630000.00"))
+            mapper.writeValue(directory.resolve("latest-payment-account.json").toFile(),client.byApplication(command.applicationId))
         } finally { channel.shutdownNow() }
     }
 }

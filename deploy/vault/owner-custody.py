@@ -13,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from configure import Vault, VaultError, configure, https_origin
+from configure import Vault, VaultError, configure, dev_approle_source, https_origin
 
 
 FRAMEWORKS = "/System/Library/Frameworks"
@@ -171,7 +171,10 @@ def main():
     parser.add_argument("--ca", type=Path, help="trusted PEM CA")
     parser.add_argument("--tunnel-port", type=int, help="optional local SSH forwarding port retaining SNI")
     parser.add_argument("--directory", type=Path, help="owner-only FileVault-protected emergency directory")
+    parser.add_argument("--dev-approle-source", type=dev_approle_source, help="verified public Dev egress IPv4 for configure")
     args = parser.parse_args()
+    if args.dev_approle_source is not None and args.operation != "configure":
+        parser.error("--dev-approle-source is only valid for configure")
     try:
         keychain = Keychain()
         if args.operation == "probe":
@@ -198,8 +201,8 @@ def main():
                 raise CustodyError("bootstrap custody missing or already revoked")
             vault.token = json.loads(stored)["root_token"]
             if args.operation == "configure":
-                configure(vault, args.address)
-                print("PUMP KV, JWT policies and audit configured from verified custody")
+                configure(vault, args.address, args.dev_approle_source)
+                print("PUMP KV, authentication and audit configured from verified custody")
             else:
                 if not keychain.find(name + "/shamir"):
                     raise CustodyError("Shamir custody missing; bootstrap token was not revoked")

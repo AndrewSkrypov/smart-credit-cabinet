@@ -1,6 +1,7 @@
+import argparse
 import unittest
 
-from configure import AUDIT_PATH, KUBERNETES_SECRETS, VaultError, configure, gitlab_role, policies
+from configure import AUDIT_PATH, KUBERNETES_SECRETS, VaultError, configure, dev_approle_source, gitlab_role, policies
 
 
 ORIGIN = "https://vault.pump.internal:8200"
@@ -19,13 +20,15 @@ class FakeVault:
         if method == "GET":
             data = {"sys/audit": self.audit, "sys/mounts": self.mounts,
                     "sys/auth": self.auth}.get(path, self.settings.get(path, {}))
+            if path == "auth/pump-dev-approle/role/cabinet-dev" and data:
+                data = {**data, "token_bound_cidrs": [cidr.removesuffix("/32") for cidr in data["token_bound_cidrs"]]}
             return {"data": data}
         if path == "sys/audit/pump-file":
             self.audit["pump-file/"] = payload
         elif path == "sys/mounts/pump":
             self.mounts["pump/"] = payload
-        elif path == "sys/auth/pump-gitlab":
-            self.auth["pump-gitlab/"] = payload
+        elif path.startswith("sys/auth/"):
+            self.auth[path.removeprefix("sys/auth/") + "/"] = payload
         else:
             self.settings[path] = payload
         return {}
@@ -41,6 +44,7 @@ class ConfigureTest(unittest.TestCase):
         for path in ("sys/audit/pump-file", "sys/mounts/pump", "sys/auth/pump-gitlab"):
             self.assertEqual(vault.calls.count(("POST", path)), 1)
         self.assertEqual(vault.settings["pump/config"], {"cas_required": True})
+        self.assertNotIn("pump-dev-approle/", vault.auth)
 
     def test_fails_closed_for_wrong_mount_or_wrong_audit_path(self):
         vault = FakeVault()
@@ -78,3 +82,23 @@ class ConfigureTest(unittest.TestCase):
         self.assertNotIn("sys/storage/raft/snapshot-force", rules["pump-raft-snapshot"])
         self.assertFalse(any("*" in path or "list" in actions or "delete" in actions
                              for policy in rules.values() for path, actions in policy.items()))
+
+    def test_dev_approle_pins_one_egress_and_accepts_equivalent_readback(self):
+        vault = FakeVault()
+        source = "85.92.111.168/32"
+        configure(vault, ORIGIN, source)
+        configure(vault, ORIGIN, source)
+        self.assertEqual(vault.calls.count(("POST", "sys/auth/pump-dev-approle")), 1)
+        role = vault.settings["auth/pump-dev-approle/role/cabinet-dev"]
+        self.assertEqual(role["token_policies"], ["pump-dev-compose"])
+        self.assertTrue(role["token_no_default_policy"])
+        self.assertEqual(role["secret_id_num_uses"], 1)
+        self.assertEqual(role["secret_id_ttl"], 300)
+        self.assertEqual(role["token_explicit_max_ttl"], 180)
+        self.assertEqual(role["secret_id_bound_cidrs"], [source])
+        self.assertEqual(role["token_bound_cidrs"], [source])
+
+    def test_dev_approle_rejects_private_or_broad_source(self):
+        for unsafe_source in ("85.92.111.0/24", "10.129.0.33", "0.0.0.0/0", "2001:db8::1"):
+            with self.subTest(source=unsafe_source), self.assertRaises(argparse.ArgumentTypeError):
+                dev_approle_source(unsafe_source)

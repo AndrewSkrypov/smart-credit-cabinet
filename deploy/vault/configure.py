@@ -3,6 +3,7 @@
 
 import argparse
 import http.client
+import ipaddress
 import json
 import os
 import re
@@ -17,6 +18,7 @@ from urllib.parse import urlsplit
 ISSUER = "https://gitlab.credit-cabinet.ru"
 RELEASE_REF = "feat/final-platform-release"
 GITLAB_AUTH = "pump-gitlab"
+DEV_APPROLE_AUTH = "pump-dev-approle"
 AUDIT_PATH = "/var/log/pump-vault/audit.jsonl"
 KUBERNETES_SECRETS = (
     "cabinet-secrets",
@@ -148,7 +150,51 @@ def gitlab_role(origin, environment, runner_id):
     }
 
 
-def configure(vault, origin):
+def dev_approle_source(value):
+    try:
+        source = ipaddress.IPv4Network(value)
+    except ValueError:
+        source = None
+    if source is None or source.prefixlen != 32 or not source.network_address.is_global or source.network_address.is_multicast:
+        raise argparse.ArgumentTypeError("Dev AppRole requires one verified public egress IPv4 address")
+    return str(source)
+
+
+def configure_dev_approle(vault, source):
+    source = dev_approle_source(source)
+    auth = vault.request("GET", "sys/auth").get("data", {}).get(f"{DEV_APPROLE_AUTH}/")
+    if auth is None:
+        vault.request("POST", f"sys/auth/{DEV_APPROLE_AUTH}", {"type": "approle"})
+    elif auth.get("type") != "approle":
+        raise VaultError("existing pump-dev-approle mount has a different auth method")
+
+    role = {
+        "bind_secret_id": True,
+        "secret_id_num_uses": 1,
+        "secret_id_ttl": 300,
+        "secret_id_bound_cidrs": [source],
+        "token_bound_cidrs": [source],
+        "token_policies": ["pump-dev-compose"],
+        "token_no_default_policy": True,
+        "token_type": "service",
+        "token_ttl": 120,
+        "token_max_ttl": 180,
+        "token_explicit_max_ttl": 180,
+    }
+    path = f"auth/{DEV_APPROLE_AUTH}/role/cabinet-dev"
+    vault.request("POST", path, role)
+    actual = vault.request("GET", path).get("data", {})
+    try:
+        for name in ("secret_id_bound_cidrs", "token_bound_cidrs"):
+            # Vault can return host routes without the /32 suffix.
+            actual[name] = [str(ipaddress.IPv4Network(cidr)) for cidr in actual[name]]
+    except (KeyError, TypeError, ValueError):
+        raise VaultError("Dev AppRole returned invalid address constraints") from None
+    if any(actual.get(name) != value for name, value in role.items()):
+        raise VaultError("Dev AppRole scope or expiry read-back mismatch")
+
+
+def configure(vault, origin, dev_client_source=None):
     # Enable audit before application data or external authentication is installed.
     auditors = vault.request("GET", "sys/audit").get("data", {})
     audit = auditors.get("pump-file/")
@@ -189,6 +235,8 @@ def configure(vault, origin):
             raise VaultError(f"role {name} read-back mismatch")
     if vault.request("GET", "pump/config").get("data", {}).get("cas_required") is not True:
         raise VaultError("PUMP KV v2 CAS is not enabled")
+    if dev_client_source is not None:
+        configure_dev_approle(vault, dev_client_source)
 
 
 def main():
@@ -197,12 +245,13 @@ def main():
     parser.add_argument("--ca", required=True, type=Path, help="trusted PEM CA")
     parser.add_argument("--token-file", required=True, type=Path, help="protected bootstrap token file (0600)")
     parser.add_argument("--tunnel-port", type=int, help="optional local SSH forwarding port, preserving HTTPS name")
+    parser.add_argument("--dev-approle-source", type=dev_approle_source, help="verified public Dev egress IPv4")
     args = parser.parse_args()
     if args.tunnel_port is not None and not 1 <= args.tunnel_port <= 65535:
         parser.error("invalid local tunnel port")
     try:
         vault = Vault(args.address, args.ca, read_token(args.token_file), args.tunnel_port)
-        configure(vault, args.address)
+        configure(vault, args.address, args.dev_approle_source)
     except (ValueError, OSError, VaultError, http.client.HTTPException) as error:
         message = str(error) if type(error) in (ValueError, VaultError) and not isinstance(error, json.JSONDecodeError) else type(error).__name__
         print(f"Vault configuration failed ({message})", file=sys.stderr)

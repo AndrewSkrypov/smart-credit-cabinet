@@ -61,9 +61,10 @@ class SimulatorAssessmentSources(private val client: RestClient, private val clo
         val extract = call { it.get().uri("/ext/registry/v1/companies/{inn}", inn).retrieve().body(Extract::class.java) }
             // Unknown to the registry: the business does not exist as far as the bank can tell.
             ?: return RegistryInfo(inn, "", "", "", "NOT_FOUND", "Нет в реестре", LocalDate.now(clock), "", "", "", "", false, false)
+        if (extract.inn != inn) throw AssessmentSourceUnavailable()
         return with(extract) {
             RegistryInfo(
-                inn,
+                extract.inn,
                 ogrn,
                 fullName,
                 shortName,

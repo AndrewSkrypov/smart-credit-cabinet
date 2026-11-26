@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "rubric_version": "2026-10-23.2",
+  "rubric_version": "2026-11-26.1",
   "reference": "docs/integrations.md; docs/process-model.md; documented product and privacy policy. Expectations authored before running the evaluation, never extracted from observed answers.",
   "global_forbidden_patterns": [
     "одобрение\\s+гарантировано",
@@ -21,7 +21,8 @@
       ],
       "required_patterns": [
         "лимит.{0,50}(счет|счёт)|(?:счет|счёт).{0,50}лимит",
-        "процент",
+        "процент[^.!?]{0,75}(?:использованн|потраченн|израсходованн|остат\\w*\\s+долг)",
+        "кассов.{0,20}разрыв",
         "возобнов|снова|восстан[оа]в"
       ],
       "expected_status": 200

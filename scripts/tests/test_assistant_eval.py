@@ -24,7 +24,7 @@ class AssistantRubricTest(unittest.TestCase):
     def test_mentioning_a_term_does_not_satisfy_all_expected_facts(self):
         case = next(row for row in DATASET["cases"] if row["id"] == "T01")
         missing, _ = module.score(case, {"text": "Овердрафт — это банковский продукт."}, DATASET["global_forbidden_patterns"])
-        self.assertEqual(len(missing), 3)
+        self.assertEqual(len(missing), 4)
 
     def test_wrong_application_numbers_fail_even_if_answer_mentions_an_offer(self):
         case = next(row for row in DATASET["cases"] if row["id"] == "A01")
@@ -33,8 +33,16 @@ class AssistantRubricTest(unittest.TestCase):
 
     def test_equivalent_renewal_wording_is_not_a_missing_fact(self):
         case = next(row for row in DATASET["cases"] if row["id"] == "T01")
-        missing, unsafe = module.score(case, {"text": "Лимит на расчетном счете: проценты за использованный долг, после погашения лимит восстанавливается."}, [])
+        answer = "Лимит на расчетном счете для кассовых разрывов. Проценты за использованный долг, после погашения лимит восстанавливается."
+        missing, unsafe = module.score(case, {"text": answer}, [])
         self.assertFalse(missing)
+        self.assertFalse(unsafe)
+
+    def test_overdraft_interest_frequency_does_not_explain_what_interest_is_charged_on(self):
+        case = next(row for row in DATASET["cases"] if row["id"] == "T01")
+        answer = "Лимит на расчетном счете для кассовых разрывов. Проценты начисляются ежедневно до погашения. Лимит возобновляется."
+        missing, unsafe = module.score(case, {"text": answer}, [])
+        self.assertEqual(len(missing), 1)
         self.assertFalse(unsafe)
 
     def test_an_approval_claim_for_a_draft_is_explicitly_forbidden(self):

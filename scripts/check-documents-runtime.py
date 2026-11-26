@@ -180,8 +180,8 @@ def main():
             if s3: s3.request('source','PUT',f'{identity}.pdf',body)
             else: (credit_files / f'{identity}.pdf').write_bytes(body)
         sql('credit', f"""
-insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,submitted_at,status_changed_at,agent_id,client_handoff_at,client_managed)
- values('{application}','{company}','000100000004','Документы','ENTREPRENEUR','{uuid.uuid4()}','WORKING_CAPITAL','CASH_GAP',123456,6,'SUBMITTED',now()-interval '2 days',now(),now()-interval '1 hour',now(),'{revoked_agent}',now()-interval '1 day',true);
+insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,submitted_at,status_changed_at,agent_id,client_handoff_at,client_managed,product_catalog_snapshot)
+ values('{application}','{company}','000100000004','Документы','ENTREPRENEUR','{uuid.uuid4()}','WORKING_CAPITAL','CASH_GAP',123456,6,'SUBMITTED',now()-interval '2 days',now(),now()-interval '1 hour',now(),'{revoked_agent}',now()-interval '1 day',true,'{{"WORKING_CAPITAL":1}}');
 insert into financing_scenario_revisions(application_id,revision,product_version,snapshot) values('{application}',1,1,'{{}}');
 insert into financing_scenario_publications(application_id,revision,status,document_ids,handed_terms) values('{application}',1,'AWAITING_CLIENT','["{visible}"]','{{}}');
 """, user='credit_owner', password=credit_password)

@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import shutil
 import subprocess
@@ -104,6 +105,21 @@ class PrivateStateTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "неизменяемую"):
             support.write_record(receipt, {**record, "mode": "local"}, immutable=True)
         self.assertEqual(support.read_record(receipt), record)
+
+    def test_concurrent_attempt_cannot_replace_receipt(self):
+        receipt = self.root / "shared-attempt.json"
+
+        def publish(mode):
+            try:
+                support.write_record(receipt, {"mode": mode}, immutable=True)
+                return mode
+            except RuntimeError:
+                return None
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            accepted = [result for result in executor.map(publish, ("local", "remote")) if result is not None]
+        self.assertEqual(len(accepted), 1)
+        self.assertEqual(support.read_record(receipt), {"mode": accepted[0]})
 
     def test_state_scopes_dev_and_separates_restore_projects(self):
         deployment = SimpleNamespace(project="cabinet-dev", path=self.root / "cabinet.env", local=False)

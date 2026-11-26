@@ -87,7 +87,7 @@ capture_read() {
 1. Перезапустите Credit с `ANALYTICS_STATUS_READ_ENABLED=true`, адресом Analytics и общим сервисным токеном. В Analytics включите `ANALYTICS_STATUS_READ_ENDPOINT_ENABLED=true`, consumer и параметры его старого поколения. Выполните `"${funnel[@]}" probe-private --url "$qa_analytics_url" --sha "$qa_sha" --expect ready --generation "$qa_old_topic" --snapshot "$qa_run/sql.json"`. Ожидаются `401` для обычного банковского JWT, отсутствующего и неверного токена, `200` для сервиса. Затем выполните `capture_read projected projected projection ready`.
 2. Остановите только Analytics, оставив Credit, PostgreSQL и Kafka работающими. Выполните `capture_read refused fallback sql remote_unavailable`. Для отдельной тестовой сетевой задержки ожидается `timeout` и используется отдельный снимок. Возобновите Analytics и повторите `capture_read recovered projected projection ready`. Убедитесь, что ответ Credit остаётся в пределах синтетического HTTP-бюджета, согласованного для кандидата.
 3. Оставьте Analytics готовым и перезапустите Credit с `ANALYTICS_STATUS_READ_ENABLED=false`. Выполните `capture_read off off sql disabled`. На тестовом шлюзе проверьте `404` для пути `/internal/v1/analytics/current-statuses` без передачи сервисного токена. Сохраните результат и конфигурацию границы сети.
-4. Дополните A09 отдельными снимками с текущим недоставленным outbox, контролируемым лагом и недоступностью Kafka. Для доступного, но неготового Analytics используйте `probe-private --expect unready --reason "$reason"`. Причины P5 включают `broker_unavailable`, `lag`, `offset_unavailable`, `snapshot_pending` и `dlq`. Недоставленный outbox текущего поколения проверяет Credit с причиной `outbox_pending`. Снимки сравнивайте со SQL той же фазы.
+4. Дополните A09 отдельными снимками с текущим недоставленным outbox, контролируемым лагом и недоступностью Kafka. Для доступного, но неготового Analytics используйте `probe-private --expect unready --reason "$reason"`. Сохраняйте исходные и повторные наблюдения в разных каталогах. Причины P5 включают `broker_unavailable`, `lag`, `offset_unavailable`, `snapshot_pending` и `dlq`. Недоставленный outbox текущего поколения проверяет Credit с причиной `outbox_pending`. Снимки сравнивайте со SQL той же фазы.
 
 ```bash
 "${funnel[@]}" verify --sql "$qa_run/sql.json" --baseline "$qa_run/baseline.json" \
@@ -135,6 +135,9 @@ CREDIT_SNAPSHOT_SERVICE=alpha-qa-restored ANALYTICS_SNAPSHOT_SERVICE=alpha-qa-ne
 "${recovery[@]}" withdraw --url "$qa_restored_url" --application recovered > "$qa_run/restore-http.json"
 "${recovery[@]}" wait-projection alpha_qa_analytics_new --checkpoint recovered > "$qa_run/new-final-projection.json"
 "${database[@]}" analytics-evidence alpha_qa_analytics_new > "$qa_run/new-final-receipts.json"
+CREDIT_SNAPSHOT_SERVICE=alpha-qa-restored ANALYTICS_SNAPSHOT_SERVICE=alpha-qa-new \
+    "${bootstrap[@]}" "$qa_new_topic" "$qa_run/restored.csv"
+"${database[@]}" projection alpha_qa_analytics_new | cmp "$qa_run/new-final-projection.json" -
 "${database[@]}" generation alpha_qa_analytics_new > "$qa_run/new-final-generation.json"
 "${database[@]}" credit alpha_qa_restored > "$qa_run/recovered-sql.json"
 "${database[@]}" credit-evidence alpha_qa_restored > "$qa_run/recovered-credit.json"
@@ -144,7 +147,7 @@ CREDIT_SNAPSHOT_SERVICE=alpha-qa-restored ANALYTICS_SNAPSHOT_SERVICE=alpha-qa-ne
   --old-group "$qa_old_group" --new-group "$qa_new_group"
 ```
 
-`verify` сверяет SHA-256 обоих снимков с маркерами, версии и счётчики, SQL с проекцией, журналы Credit, Kafka outbox, брокерные сообщения, receipt и позиции по партициям. Если capture пришёлся между коммитом проекции и ack/подтверждением outbox, дождитесь zero lag и `DELIVERED` в пределах дедлайна, сохраните повторные наблюдения и снова выполните `verify`. Для A06/A07 разрыв на границе commit/ack проверяется отдельно тестовым барьером.
+`verify` сверяет SHA-256 обоих снимков с маркерами, версии и счётчики, SQL с проекцией, журналы Credit, Kafka outbox, брокерные сообщения, receipt и позиции по партициям. Если capture пришёлся между коммитом проекции и ack/подтверждением outbox, дождитесь zero lag и `DELIVERED` в пределах дедлайна, сохраните повторные наблюдения и снова выполните `verify`. Повтор той же загрузки после применения `v2` должен сохранить новое значение. Для дополнительной проверки пересечения в отдельном прогоне сохраните CSV через `export-status-snapshot.sql`, выполните переход до импорта и затем примените тот же CSV и накопленное событие. Для A06/A07 разрыв на границе commit/ack проверяется отдельно тестовым барьером.
 
 ## Доказательства A01–A13
 

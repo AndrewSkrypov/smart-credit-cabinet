@@ -32,7 +32,7 @@ offsets() {
 case "$operation" in
   publish)
     [[ $# == 2 ]] || exit 2
-    kafka kafka-console-producer --topic "$topic" --property parse.key=true --property $'key.separator=\t'
+    kafka kafka-console-producer --topic "$topic" --reader-property parse.key=true --reader-property $'key.separator=\t'
     ;;
   offsets)
     [[ $# == 2 ]] || exit 2
@@ -49,7 +49,7 @@ case "$operation" in
     if (( count > 0 )); then
       # A fresh console consumer reads the complete synthetic topic without advancing the product group.
       kafka kafka-console-consumer --topic "$topic" --from-beginning --max-messages "$count" --timeout-ms 15000 \
-        --consumer-property enable.auto.commit=false --property print.key=true > "$prefix-topic.tsv"
+        --formatter-property print.key=true > "$prefix-topic.tsv"
       [[ $(wc -l < "$prefix-topic.tsv") == "$count" ]] || { echo "Incomplete broker capture for $topic" >&2; exit 1; }
     fi
     ;;

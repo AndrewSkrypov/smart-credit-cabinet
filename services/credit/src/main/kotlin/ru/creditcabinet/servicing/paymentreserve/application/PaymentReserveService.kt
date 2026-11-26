@@ -4,6 +4,7 @@ package ru.creditcabinet.servicing.paymentreserve.application
 
 import ru.creditcabinet.agent.application.AgentApplicationService
 import ru.creditcabinet.application.domain.ApplicationRepository
+import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.servicing.contract.v1.*
@@ -32,13 +33,15 @@ class PaymentReserveService(
         requireDemo()
         val (_, application) = agentApplications.ownAgentApplication(applicationId)
         if (!application.company.inn.startsWith("00")) throw missing()
+        if (application.status != ApplicationStatus.DISBURSED) return null
         return operations.agentSummary(applicationId)
     }
     private fun owned(id: UUID): LoanAccount {
         requireDemo()
         val current = actor()
         val account = operations.byId(id)?.takeIf { it.companyId == current.companyId } ?: throw missing()
-        if (applications.find(account.applicationId)?.company?.inn?.startsWith("00") != true) throw missing()
+        val application = applications.find(account.applicationId) ?: throw missing()
+        if (application.status != ApplicationStatus.DISBURSED || !application.company.inn.startsWith("00")) throw missing()
         return account
     }
     private fun actor(): ServicingActor {

@@ -418,3 +418,55 @@ python3 scripts/assistant-sse-latency.py --base "$base" --native-manifest "$mani
 кэша тот же процесс engagement вернул три свежих `MODEL` и три `RULES`
 после guard. Сводные данные и отдельные SSE-измерения сохранены в
 [assistant-h100-evidence.json](../scripts/assistant-h100-evidence.json).
+
+### Выделенный SSH-транспорт для engagement
+
+На gpu-vm3 подготовлена системная учётная запись `pump-model-forward` без
+привилегий и shell. `sshd` разрешает ей только public-key authentication
+и прямой TCP-проброс к `127.0.0.1:11434`. Тот же адрес ограничен на уровне
+авторизованного ключа. Запрещены SSH-сеансы, PTY, SFTP, обратные пробросы,
+проброс Unix-сокетов, agent и X11. Ollama по-прежнему слушает loopback.
+
+- Основной кандидат для проверки с Kubernetes-узла — `10.42.10.12:22` по
+  приватному маршруту. Если маршрут отсутствует, проверенный с Mac SSH-вход
+  доступен через `45.145.191.121:43423`. Доступность обоих маршрутов из
+  Kubernetes должен подтвердить CI/CD до настройки bridge и NetworkPolicy.
+- Проверенный ED25519-отпечаток сервера —
+  `SHA256:d+E5zEPdZyHp7D2PoRekxCnt43372dmVkIy1Ov5QJoA`. Запись
+  `known_hosts` с алиасом `gpu-vm3-pump-model` позволяет закрепить тот же
+  ключ для любого проверенного маршрута.
+- CI/CD нужен namespace-scoped Secret типа `Opaque`, например
+  `engagement-ollama-ssh`, с ключами `id_ed25519` и `known_hosts`.
+  Оба файла монтируются только в SSH bridge. Файл приватного ключа должен
+  иметь режим `0600` и принадлежать пользователю bridge. CI/CD создаёт
+  отдельную пару для релиза в своём контуре и передаёт GPU-оператору только
+  публичную часть для регистрации. Проверочная пара остаётся в изолированном
+  контуре локального прогона.
+- Bridge и engagement используют общий сетевой namespace. Bridge слушает
+  только `127.0.0.1:11434`. Kubernetes Service для этого порта не нужен.
+  Для engagement используется `OLLAMA_URL=http://127.0.0.1:11434` и
+  `ASSISTANT_MODEL=qwen2.5:7b-instruct-q4_K_M`. Значение `ASSISTANT_TIMEOUT`
+  для первого прогона соответствует проверенному `PT30S`.
+  CI/CD проверяет исходящее соединение с узлов и пода, затем добавляет
+  egress-правило NetworkPolicy для выбранного SSH-адреса и порта. Режим Dev/jury без модели
+  сохраняется при пустом `OLLAMA_URL`.
+
+Пример команды bridge для адреса и порта, проверенных владельцем CI/CD.
+
+```sh
+exec ssh -F /dev/null -NT -p "$ssh_port" -i /run/bridge/id_ed25519 \\
+  -o BatchMode=yes -o IdentitiesOnly=yes -o ExitOnForwardFailure=yes \\
+  -o StrictHostKeyChecking=yes -o HostKeyAlgorithms=ssh-ed25519 \\
+  -o HostKeyAlias=gpu-vm3-pump-model -o UserKnownHostsFile=/run/bridge/known_hosts \\
+  -o GlobalKnownHostsFile=/dev/null -o ConnectTimeout=6 \\
+  -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \\
+  -L 127.0.0.1:11434:127.0.0.1:11434 "pump-model-forward@$ssh_host"
+```
+
+
+В синтетическом прогоне подключение engagement заменили на выделенный
+SSH-туннель без перезапуска процесса. Получили 5 свежих `MODEL` и 3 `RULES`
+после guard из 8 SSE-запросов, без прироста `UNAVAILABLE`. p95 до справки
+составил 23,2 мс, до полного ответа 796,6 мс. Отдельно проверены отказы
+при неверном ключе хоста, открытии shell, PTY и SFTP, запросе обратного
+проброса и подключении к порту 22 внутри GPU-ВМ.

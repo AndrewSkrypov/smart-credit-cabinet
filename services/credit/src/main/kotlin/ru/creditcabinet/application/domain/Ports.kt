@@ -6,6 +6,9 @@ import java.util.UUID
 interface ApplicationRepository {
     fun find(id: UUID): LoanApplication?
 
+    /** Locks the current application until the caller's transaction completes. */
+    fun findForUpdate(id: UUID): LoanApplication?
+
     /** Saves and returns the stored state (number and version filled in). A stale version is a 409. */
     fun save(application: LoanApplication): LoanApplication
     fun listByCompany(companyId: UUID): List<LoanApplication>

@@ -36,10 +36,13 @@ import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.service.TransitionNotices
 import ru.creditcabinet.application.service.Transitions
+import ru.creditcabinet.assessment.domain.BankInfo
 import ru.creditcabinet.common.notifications.PlatformNotification
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
+import ru.creditcabinet.integration.CompanySources
+import ru.creditcabinet.integration.SourceUnavailableException
 import java.math.BigDecimal
 import java.sql.Timestamp
 import java.time.Instant
@@ -84,6 +87,9 @@ class AgentWorkflowIntegrationTest {
     @MockitoBean
     private lateinit var agentAccess: AgentAccessPort
 
+    @MockitoBean
+    private lateinit var sources: CompanySources
+
     private val agentId = UUID.randomUUID()
     private val agent2Id = UUID.randomUUID()
     private val kotovaCompanyId = UUID.randomUUID()
@@ -107,6 +113,7 @@ class AgentWorkflowIntegrationTest {
     @BeforeTest
     fun setUp() {
         kotovaMandateActive = true
+        whenever(sources.bank(any())).thenReturn(BankInfo(true, null, emptyList()))
         whenever(companies.find(any())).thenAnswer { inv ->
             when (inv.getArgument<UUID>(0)) {
                 kotovaCompanyId -> kotovaSnapshot
@@ -162,6 +169,38 @@ class AgentWorkflowIntegrationTest {
 
     private fun json(response: MockHttpServletResponse): JsonNode =
         mapper.readTree(response.getContentAsString(Charsets.UTF_8))
+
+    @Test
+    fun `agent notification access checks owner mandate and bank eligibility`() {
+        val draft = createAgentDraft()
+        assertEquals(201, draft.status)
+        val id = json(draft)["id"].asText()
+        fun access(token: String): Int = mockMvc.get("/api/v1/agent/applications/$id/notification-access") {
+            header("Authorization", "Bearer $token")
+        }.andReturn().response.status
+        assertEquals(204, access(agentToken))
+        assertEquals(404, access(agent2Token))
+        whenever(sources.bank(kotovaSnapshot.inn)).thenReturn(BankInfo(false, null, emptyList()))
+        assertEquals(404, access(agentToken))
+        whenever(sources.bank(kotovaSnapshot.inn)).thenThrow(SourceUnavailableException("Данные банка", "Синтетический отказ"))
+        assertEquals(503, access(agentToken))
+        kotovaMandateActive = false
+        assertEquals(404, access(agentToken))
+    }
+
+    @Test
+    fun `agent creation and pre-approved draft require active bank client`() {
+        whenever(sources.bank(kotovaSnapshot.inn)).thenReturn(BankInfo(false, null, emptyList()))
+        assertEquals(409, createAgentDraft().status)
+        val offerId = insertOffer(kotovaCompanyId)
+        assertEquals(
+            409,
+            mockMvc.post("/api/v1/agent/pre-approved-offers/$offerId/apply") {
+                header("Authorization", "Bearer $agentToken")
+            }.andReturn().response.status,
+        )
+        assertEquals("ACTIVE", jdbc.queryForObject("select status from pre_approved_offers where id = ?", String::class.java, offerId))
+    }
 
     private fun createAgentDraft(
         companyId: UUID = kotovaCompanyId,
@@ -459,7 +498,18 @@ class AgentWorkflowIntegrationTest {
         assertEquals(200, returnResp.status, returnResp.getContentAsString(Charsets.UTF_8))
         assertEquals("DRAFT", json(returnResp)["status"].asText())
 
-        // Once returned to agent's private DRAFT, client cannot mutate or withdraw it -> 404
+        // The first handoff keeps the application and return history visible to its own client.
+        val clientRead = mockMvc.get("/api/v1/applications/$appId") {
+            header("Authorization", "Bearer $kotovaClientToken")
+        }.andReturn().response
+        assertEquals(200, clientRead.status)
+        val agentHistory = mockMvc.get("/api/v1/agent/applications/$appId/events") {
+            header("Authorization", "Bearer $agentToken")
+        }.andReturn().response
+        assertEquals(200, agentHistory.status)
+        assertTrue(json(agentHistory).any { it["event"].asText() == "RETURN_TO_AGENT" && it["comment"].asText().contains("1.5") })
+
+        // The agent still owns changes to the returned draft while the mandate is active.
         assertEquals(
             404,
             mockMvc.put("/api/v1/applications/$appId") {

@@ -5,6 +5,7 @@ import { RoleGuard } from '../components/RoleGuard';
 import { SignInPage, SignUpPage } from '../pages/AuthPages';
 import { ProfilePage } from '../pages/ProfilePage';
 import { AcceptInvitationPage, PasswordRecoveryPage, PasswordResetPage } from '../pages/AccountAccessPages';
+import { AgentMandatesPage } from '../pages/client/AgentMandatesPage';
 import { EmployeesPage } from '../pages/client/EmployeesPage';
 import { AnalyticsPage } from '../pages/bank/AnalyticsPage';
 import { BankApplicationPage } from '../pages/bank/application/BankApplicationPage';
@@ -40,6 +41,7 @@ export function AppRoutes() {
           <Route path="/client" element={<ClientHomePage />} />
           <Route path="/client/new" element={<NeedsWizardPage />} />
           <Route path="/client/employees" element={<EmployeesPage />} />
+          <Route path="/client/agent-mandates" element={<AgentMandatesPage />} />
           <Route path="/client/applications/:id" element={<ApplicationPage />} />
         </Route>
       </Route>

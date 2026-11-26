@@ -19,3 +19,8 @@ dependencies {
     implementation("org.apache.kafka:kafka-clients")
     testImplementation(libs.mockito.kotlin)
 }
+
+tasks.test {
+    // Twelve cached pools leave headroom on CI PostgreSQL with max_connections=100.
+    systemProperty("spring.test.context.cache.maxSize", "12")
+}

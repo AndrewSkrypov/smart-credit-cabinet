@@ -32,6 +32,7 @@ import ru.creditcabinet.notification.application.PeopleDirectory
 import ru.creditcabinet.notification.infrastructure.MailRecipientDirectory
 import ru.creditcabinet.notification.infrastructure.NotificationEmailDelivery
 import ru.creditcabinet.notification.infrastructure.NotificationMailHandler
+import ru.creditcabinet.notification.infrastructure.NotificationMailJob
 import ru.creditcabinet.tokenFor
 import java.time.Clock
 import java.time.Instant
@@ -211,6 +212,20 @@ class NotificationMailTest {
                 jsonPath("$.emailEnabled") { value(false) }
             }
         mvc.get("/api/v1/notifications/settings").andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `agent application links suppress new and already queued email`() {
+        preferences.save(user, NotificationPreference(true))
+        whenever(recipients.email(user)).thenReturn("synthetic@example.test")
+        val agentLink = "/agent/applications/${UUID.randomUUID()}"
+        assertEquals(1, service.deliver(listOf(notification().copy(link = agentLink))))
+        assertEquals(null, state())
+
+        val pending = NotificationMailJob(user, NotificationEmail(NotificationEmailKind.OFFER_READY), agentLink, "legacy-$key")
+        handler.deliver(mapper.writeValueAsString(pending))
+        verify(recipients, never()).email(user)
+        verify(transport, never()).send(any())
     }
 
     @Test

@@ -153,6 +153,7 @@ export function explainStatus(application: Application): StatusExplanation {
 const eventTexts: Record<string, string> = {
   CREATED: 'Заявка создана',
   DOCUMENT_ADDED: 'Загружен документ',
+  PRIVATE_DOCUMENT_ADDED: 'Клиент передал документ банку',
   DOCUMENT_REMOVED: 'Удалён документ',
   SUBMIT: 'Заявка отправлена в банк',
   REQUEST_CLIENT_CONFIRMATION: 'Агент отправил заявку клиенту на подтверждение',

@@ -34,14 +34,19 @@ class LoanServicingJdbcStore(
         return hydrate(row)
     }
 
-    override fun findByIdForUpdate(id: UUID): LoanAccount? {
+    override fun findById(id: UUID): LoanAccount? = findById(id, forUpdate = false)
+
+    override fun findByIdForUpdate(id: UUID): LoanAccount? = findById(id, forUpdate = true)
+
+    private fun findById(id: UUID, forUpdate: Boolean): LoanAccount? {
+        val lock = if (forUpdate) "for update" else ""
         val row = jdbc.query(
             """
             select id, application_id, company_id, contract_number, approved_limit, disbursed_amount,
                    outstanding_principal, rate, term_months, revolving, status, disbursed_at, maturity_date, repaid_at
               from loan_accounts
              where id = ?
-               for update
+               $lock
             """.trimIndent(),
             { rs, _ -> mapAccount(rs) },
             id,

@@ -7,6 +7,9 @@ services:
   identity-migrate:
     environment:
       DEMO_ACCOUNTS: "true"
+  credit:
+    environment:
+      DEMO_ACCOUNTS: "true"
   engagement:
     environment:
       CABINET_MAIL_MODE: "off"

@@ -34,6 +34,7 @@ class JdbcDocumentRepository(private val jdbc: NamedParameterJdbcTemplate) : Doc
             context = DocumentContext.valueOf(rs.getString("context")),
             storageBackend = StorageBackend.valueOf(rs.getString("storage_backend")),
             checksumSha256 = rs.getString("checksum_sha256"),
+            privateToBank = rs.getBoolean("private_to_bank"),
         )
     }
 
@@ -41,6 +42,30 @@ class JdbcDocumentRepository(private val jdbc: NamedParameterJdbcTemplate) : Doc
         jdbc.query(
             "select * from documents where application_id = :application and context = 'BUSINESS' and deleted_at is null order by uploaded_at",
             mapOf("application" to applicationId),
+            mapper,
+        )
+
+    override fun listForPacket(applicationId: UUID, submittedAt: Instant?, documentId: UUID?): List<ApplicationDocument> =
+        jdbc.query(
+            """
+            with latest_packet as (
+                select document_ids
+                from financing_scenario_publications
+                where application_id = :application and status = 'AWAITING_CLIENT'
+                order by revision desc
+                limit 1
+            )
+            select d.*
+            from documents d left join latest_packet p on true
+            where d.application_id = :application and d.context = 'BUSINESS'
+              and (cast(:document as uuid) is null or d.id = :document)
+              and (
+                (d.deleted_at is null and (p.document_ids is null or d.uploaded_at >= cast(:submittedAt as timestamptz)))
+                or jsonb_exists(p.document_ids, d.id::text)
+              )
+            order by d.uploaded_at
+            """.trimIndent(),
+            mapOf("application" to applicationId, "submittedAt" to submittedAt?.let(Timestamp::from), "document" to documentId),
             mapper,
         )
 
@@ -54,8 +79,10 @@ class JdbcDocumentRepository(private val jdbc: NamedParameterJdbcTemplate) : Doc
     override fun save(document: ApplicationDocument) {
         jdbc.update(
             """
-            insert into documents (id, application_id, type, file_name, stored_name, size_bytes, uploaded_by, uploaded_at, context, storage_backend, checksum_sha256)
-            values (:id, :application, :type, :fileName, :storedName, :size, :uploadedBy, :uploadedAt, :context, :backend, :checksum)
+            insert into documents (
+                id, application_id, type, file_name, stored_name, size_bytes, uploaded_by, uploaded_at, context, storage_backend, checksum_sha256,
+                private_to_bank
+            ) values (:id, :application, :type, :fileName, :storedName, :size, :uploadedBy, :uploadedAt, :context, :backend, :checksum, :privateToBank)
             """.trimIndent(),
             mapOf(
                 "id" to document.id,
@@ -69,6 +96,7 @@ class JdbcDocumentRepository(private val jdbc: NamedParameterJdbcTemplate) : Doc
                 "context" to document.context.name,
                 "backend" to document.storageBackend.name,
                 "checksum" to document.checksumSha256,
+                "privateToBank" to document.privateToBank,
             ),
         )
     }

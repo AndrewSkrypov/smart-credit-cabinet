@@ -1,5 +1,6 @@
 package ru.creditcabinet.document.application
 
+import ru.creditcabinet.application.domain.InfoRequest
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentType
@@ -13,7 +14,9 @@ interface ApplicationDocuments {
 
     fun list(authorizedApplication: LoanApplication): List<ApplicationDocument>
 
-    fun upload(applicationId: UUID, type: DocumentType, file: DocumentUpload): ApplicationDocument
+    fun upload(applicationId: UUID, type: DocumentType, file: DocumentUpload, privateToBank: Boolean = false): ApplicationDocument
+
+    fun satisfiedDocumentTypes(request: InfoRequest): Set<DocumentType>
 
     fun delete(applicationId: UUID, documentId: UUID)
 

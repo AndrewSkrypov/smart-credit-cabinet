@@ -30,6 +30,7 @@ data class ApplicationDocument(
     val context: DocumentContext = DocumentContext.BUSINESS,
     val storageBackend: StorageBackend = StorageBackend.LOCAL,
     val checksumSha256: String? = null,
+    val privateToBank: Boolean = false,
 )
 
 /** A document the bank needs for this application, and why. */
@@ -63,6 +64,7 @@ object DocumentRequirements {
 
 interface DocumentRepository {
     fun list(applicationId: UUID): List<ApplicationDocument>
+    fun listForPacket(applicationId: UUID, submittedAt: Instant?, documentId: UUID? = null): List<ApplicationDocument>
     fun find(applicationId: UUID, documentId: UUID): ApplicationDocument?
     fun save(document: ApplicationDocument)
     fun markDeleted(documentId: UUID, at: Instant)

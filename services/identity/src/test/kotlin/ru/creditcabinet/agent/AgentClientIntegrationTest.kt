@@ -152,7 +152,7 @@ class AgentClientIntegrationTest {
 
         try {
             jdbc.update(
-                "update agent_clients set status = 'REVOKED', revoked_at = now() where agent_user_id = ? and company_id = ?",
+                "update agent_clients set status = 'REVOKED', revoked_at = now(), revoked_source = 'LEGACY' where agent_user_id = ? and company_id = ?",
                 agentId,
                 KOTOVA_COMPANY_ID,
             )
@@ -165,7 +165,7 @@ class AgentClientIntegrationTest {
                 }
         } finally {
             jdbc.update(
-                "update agent_clients set status = 'ACTIVE', revoked_at = null where agent_user_id = ? and company_id = ?",
+                "update agent_clients set status = 'ACTIVE', revoked_at = null, revoked_source = null where agent_user_id = ? and company_id = ?",
                 agentId,
                 KOTOVA_COMPANY_ID,
             )

@@ -23,7 +23,7 @@ interface ChatData {
 }
 
 interface ChatAttachments {
-    fun find(applicationId: UUID, documentId: UUID, callerId: UUID): ChatFile
+    fun find(application: LoanApplication, documentId: UUID, caller: TokenClaims): ChatFile
     fun upload(application: LoanApplication, caller: TokenClaims, upload: ChatUpload): ChatFile
 }
 

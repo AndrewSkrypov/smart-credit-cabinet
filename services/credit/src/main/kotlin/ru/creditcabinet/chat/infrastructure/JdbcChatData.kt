@@ -182,7 +182,7 @@ class JdbcChatData(private val jdbc: NamedParameterJdbcTemplate) : ChatData {
         val attachments = jdbc.query(
             """
             select a.message_id,d.id,d.file_name,d.size_bytes from message_attachments a join documents d on d.id=a.document_id
-            where a.message_id in (:ids) order by d.uploaded_at,d.id
+            where a.message_id in (:ids) and not d.private_to_bank order by d.uploaded_at,d.id
             """.trimIndent(),
             mapOf("ids" to messages.map { it.id }),
         ) { rs, _ ->

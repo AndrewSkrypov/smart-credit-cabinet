@@ -1,0 +1,26 @@
+# Opt-in public Grafana on the Dev HTTPS origin. Apply after monitoring overlays.
+services:
+  grafana:
+    environment:
+      GF_SERVER_ROOT_URL: "https://${CABINET_DOMAIN:?Dev origin required}/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_COOKIE_SAMESITE: lax
+      GF_SNAPSHOTS_ENABLED: "false"
+    networks:
+      cabinet: {}
+      grafana_edge: {}
+  caddy:
+    environment:
+      CABINET_GRAFANA_INCLUDE: import /etc/caddy/grafana-route.caddy
+    volumes:
+      - ${CABINET_GRAFANA_CADDYFILE:-./deploy/Caddyfile}:/etc/caddy/Caddyfile:ro
+      - ${CABINET_GRAFANA_ROUTE_FILE:-./monitoring/grafana/https/route.caddy}:/etc/caddy/grafana-route.caddy:ro
+    networks:
+      grafana_edge: {}
+
+networks:
+  grafana_edge:
+    internal: true

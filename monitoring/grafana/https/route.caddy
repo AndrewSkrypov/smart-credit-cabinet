@@ -1,0 +1,9 @@
+@grafana_root path /grafana
+redir @grafana_root /grafana/ 308
+
+@grafana_shared path /grafana/public-dashboards /grafana/public-dashboards/* /grafana/api/public/dashboards /grafana/api/public/dashboards/* /grafana/dashboard/snapshot /grafana/dashboard/snapshot/* /grafana/api/snapshots /grafana/api/snapshots/*
+respond @grafana_shared 404
+
+# Pass the prefix unchanged. Grafana validates its public root_url and serves it.
+@grafana path /grafana/*
+reverse_proxy @grafana grafana:3000

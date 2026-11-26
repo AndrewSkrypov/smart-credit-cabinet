@@ -3,8 +3,8 @@ package ru.creditcabinet.documents
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
+import org.mockito.kotlin.any
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.transaction.TransactionStatus
 import org.springframework.transaction.support.SimpleTransactionStatus
 import org.springframework.transaction.support.TransactionCallback
 import org.springframework.transaction.support.TransactionTemplate
@@ -22,7 +22,7 @@ import kotlin.test.assertEquals
 
 class DocumentsWorkerFenceTest {
     @Test
-    fun `failed workers cannot publish ERROR after freeze new epoch or expired lease`() {
+    fun `failed workers cannot publish ERROR after freeze or a new epoch`() {
         for (next in listOf("FROZEN" to 2L, "DOCUMENTS" to 2L, "DOCUMENTS" to 1L)) {
             val mapper = jacksonObjectMapper().findAndRegisterModules()
             val jdbc = Mockito.mock(JdbcTemplate::class.java)
@@ -30,7 +30,7 @@ class DocumentsWorkerFenceTest {
             val renderer = Mockito.mock(ArtifactRenderer::class.java)
             var gate = mapOf<String, Any>("owner" to "DOCUMENTS", "epoch" to 1L)
             Mockito.`when`(jdbc.queryForMap(anyString())).thenAnswer { gate }
-            Mockito.`when`(tx.execute(Mockito.any<TransactionCallback<Any>>())).thenAnswer { invocation ->
+            Mockito.`when`(tx.execute(any<TransactionCallback<Any>>())).thenAnswer { invocation ->
                 invocation.getArgument<TransactionCallback<Any>>(0).doInTransaction(SimpleTransactionStatus())
             }
             val scope = DocumentScope(UUID.randomUUID(), UUID.randomUUID())
@@ -43,11 +43,11 @@ class DocumentsWorkerFenceTest {
             Mockito.doAnswer {
                 gate = mapOf("owner" to next.first, "epoch" to next.second)
                 throw java.io.IOException("Synthetic renderer failure")
-            }.`when`(renderer).render(Mockito.any(), Mockito.any())
+            }.`when`(renderer).render(any(), any())
             val store = DocumentsStore(jdbc, mapper, tx, Mockito.mock(FileStore::class.java), DocumentScanner {}, renderer, JdbcDocumentMetadata(jdbc, mapper))
             store.generateOne()
             val errorWrites = Mockito.mockingDetails(jdbc).invocations.filter { it.method.name == "update" && it.arguments.first().toString().contains("status='ERROR'") }
-            assertEquals(if (next == "DOCUMENTS" to 1L) 1 else 0, errorWrites.size)
+            assertEquals(if (next == ("DOCUMENTS" to 1L)) 1 else 0, errorWrites.size)
             errorWrites.forEach { invocation ->
                 val sql = invocation.arguments.first().toString()
                 kotlin.test.assertTrue(sql.contains("lease_until>now()") && sql.contains("status<>'READY'"))

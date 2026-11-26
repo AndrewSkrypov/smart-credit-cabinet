@@ -8,6 +8,7 @@ dependencies {
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
     implementation("io.grpc:grpc-netty-shaded:1.85.1")
+    testImplementation(libs.mockito.kotlin)
 }
 
 val documentsRuntimeTest by tasks.registering(Test::class) {

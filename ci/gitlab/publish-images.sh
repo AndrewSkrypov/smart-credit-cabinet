@@ -30,7 +30,7 @@ printf '%s' "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER
 tag="$CI_COMMIT_SHA-$CI_JOB_ID"
 manifest="$DOCKER_CONFIG/images.tsv"
 
-components=(identity credit engagement external-sim frontend postgres swagger ssh-bridge)
+components=(identity credit engagement external-sim documents frontend postgres swagger ssh-bridge)
 if [[ -n "$analytics_jar_sha256" ]]; then
     components=(kafka "${components[@]}" analytics)
 fi

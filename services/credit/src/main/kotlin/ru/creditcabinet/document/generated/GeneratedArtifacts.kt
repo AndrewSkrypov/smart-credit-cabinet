@@ -69,6 +69,7 @@ class GeneratedArtifacts(
     private val tx: TransactionTemplate,
     private val clock: Clock,
     private val notifications: PlatformNotifications,
+    private val boundary: ru.creditcabinet.document.infrastructure.DocumentsBoundary? = null,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -76,6 +77,15 @@ class GeneratedArtifacts(
     fun list(applicationId: UUID): List<ArtifactView> = prepare(applications.get(applicationId))
 
     private fun prepare(application: LoanApplication): List<ArtifactView> {
+        if (boundary?.remote == true) {
+            val frozen = jdbc.query("select input_json from document_artifact_inputs where application_id=? and phase='FINAL' order by created_at limit 1", {
+                    rs,
+                    _,
+                ->
+                mapper.readValue<ArtifactInput>(rs.getString(1))
+            }, application.id).firstOrNull()
+            if (frozen != null) return prepareRemote(application, frozen)
+        }
         val offer = offers.current(application.id) ?: throw NotFoundException("Банк ещё не сделал предложение")
         val loan = loans.find(application.id)
         val product = products.version(offer.productCode, offer.productVersion)!!
@@ -94,6 +104,7 @@ class GeneratedArtifacts(
             loan != null && snapshot == null, if (loan == null) null else signing.latest(application.id)?.takeIf { it.offerId == offer.id }?.signedAt,
             loan?.contractNumber, snapshot?.createdAt ?: offer.createdAt,
         )
+        if (boundary?.remote == true) return prepareRemote(application, input)
         val inputJson = mapper.writeValueAsString(input)
         val hash = checksum(inputJson.toByteArray(Charsets.UTF_8))
         val now = Timestamp.from(clock.instant())
@@ -102,7 +113,22 @@ class GeneratedArtifacts(
             val id = UUID.randomUUID()
             jdbc.update(
                 """
-                insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,next_attempt_at,created_at,updated_at)
+                insert into generated_artifacts(id,
+                    application_id,
+                    offer_id,
+                    kind,
+                    phase,
+                    template_version,
+                    input_hash,
+                    input_json,
+                    title,
+                    file_name,
+                    content_type,
+                    stored_name,
+                    storage_backend,
+                    next_attempt_at,
+                    created_at,
+                    updated_at)
                 values(?,?,?,?,?,?,?,?::jsonb,?,?,?,?,?,?,?,?) on conflict(application_id,offer_id,kind,phase,template_version,input_hash) do nothing
                 """.trimIndent(),
                 id, application.id, offer.id, kind.name, phase.name, ArtifactRenderer.TEMPLATE_VERSION, hash, inputJson,
@@ -121,8 +147,88 @@ class GeneratedArtifacts(
         )
     }
 
+    private fun prepareRemote(application: LoanApplication, input: ArtifactInput): List<ArtifactView> {
+        val remote = boundary!!
+        val canonical = mapper.writeValueAsString(input)
+        val hash = checksum(canonical.toByteArray())
+        // Credit owns the immutable terms and durable command intent, never remote file metadata.
+        jdbc.update(
+            "insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json) values(?,?,?,?,?::jsonb) on conflict do nothing",
+            application.id,
+            input.offerId,
+            input.phase.name,
+            hash,
+            canonical,
+        )
+        val frozen = if (input.phase == ArtifactPhase.FINAL) {
+            jdbc.queryForObject(
+                "select input_json from document_artifact_inputs where application_id=? and offer_id=? and phase='FINAL'",
+                String::class.java,
+                application.id,
+                input.offerId,
+            )!!
+        } else {
+            jdbc.queryForObject(
+                "select input_json from document_artifact_inputs where application_id=? and offer_id=? and phase=? and input_hash=?",
+                String::class.java,
+                application.id,
+                input.offerId,
+                input.phase.name,
+                hash,
+            )!!
+        }
+        val stableInput = mapper.readValue<ArtifactInput>(frozen)
+        val stableJson = mapper.writeValueAsString(stableInput)
+        val stableHash = checksum(stableJson.toByteArray())
+        val scope = remote.scope(application.id)
+        val kinds = ArtifactKind.entries.filter { input.phase == ArtifactPhase.FINAL || it != ArtifactKind.CONTRACT_PDF }
+        return remote.rpc {
+            kinds.map { kind ->
+                val id = UUID.randomUUID()
+                remote.client().prepare(
+                    ru.creditcabinet.documents.ArtifactRecord(
+                        id, scope, input.offerId, kind.name, input.phase.name, ArtifactRenderer.TEMPLATE_VERSION,
+                        stableHash, stableJson, renderer.title(kind, stableInput),
+                        "application-${application.number}-${kind.name.lowercase()}.${kind.extension}", kind.contentType,
+                        "generated-$id.${kind.extension}", files.writeBackend.name, clock.instant(),
+                    ),
+                ).remoteView()
+            }
+        }
+    }
+
+    private fun ru.creditcabinet.documents.ArtifactRecord.remoteView(): ArtifactView = ArtifactView(
+        id, ArtifactKind.valueOf(kind), ArtifactPhase.valueOf(phase), title, fileName, contentType,
+        ArtifactStatus.valueOf(status), sizeBytes, checksum, createdAt, readyAt,
+        if (status == "ERROR") "Не удалось подготовить файл. Можно повторить создание." else null,
+        if (status == "READY") "/api/v1/applications/${scope.applicationId}/artifacts/$id/download" else null,
+    )
+
     /** Independent from issuing money: an unavailable renderer/store cannot roll back disbursement. */
     fun prepareFinalLoans() {
+        if (boundary?.remote == true) {
+            val ids = jdbc.query(
+                "select l.application_id from loans l where not exists(select 1 from document_artifact_inputs i where i.application_id=l.application_id and i.phase='FINAL' and i.delivered_at is not null) order by l.disbursed_at limit 5",
+                {
+                        rs,
+                        _,
+                    ->
+                    rs.getObject(1, UUID::class.java)
+                },
+            )
+            ids.forEach { id ->
+                runCatching {
+                    tx.executeWithoutResult {
+                        prepare(repository.find(id) ?: throw NotFoundException("Заявка не найдена"))
+                        jdbc.update(
+                            "update document_artifact_inputs set delivered_at=now() where application_id=? and phase='FINAL' and delivered_at is null",
+                            id,
+                        )
+                    }
+                }
+            }
+            return
+        }
         val ids = jdbc.query(
             """
             select l.application_id from loans l where
@@ -140,6 +246,7 @@ class GeneratedArtifacts(
 
     /** All files must be committed READY; claim and outbox write are one transaction. */
     fun notifyReadyGroups(): Int {
+        if (boundary?.remote == true) return notifyRemoteGroups()
         val groups = jdbc.queryForList(
             """
             select a.application_id,a.offer_id,a.template_version,a.input_hash
@@ -159,6 +266,7 @@ class GeneratedArtifacts(
                 val hash = group["input_hash"].toString()
                 val statuses = jdbc.queryForList(
                     "select status from generated_artifacts where application_id=? and offer_id=? and phase='FINAL' and template_version=? and input_hash=? order by kind for update",
+
                     String::class.java,
                     id,
                     offerId,
@@ -168,6 +276,7 @@ class GeneratedArtifacts(
                 if (statuses.size != 3 || statuses.any { it != "READY" }) return@execute false
                 val claimed = jdbc.update(
                     "insert into generated_artifact_notices(application_id,offer_id,template_version,input_hash,queued_at) values(?,?,?,?,?) on conflict do nothing",
+
                     id,
                     offerId,
                     ArtifactRenderer.TEMPLATE_VERSION,
@@ -194,44 +303,101 @@ class GeneratedArtifacts(
         }
     }
 
-    /** Row lock spans the bounded write; competing workers skip it, retries keep the same object name. */
-    fun generateOne(): Boolean = tx.execute {
-        val row = jdbc.queryForList(
-            "select * from generated_artifacts where template_version=? and status <> 'READY' and attempts < 5 and next_attempt_at <= ? order by next_attempt_at limit 1 for update skip locked",
+    private fun notifyRemoteGroups(): Int {
+        val remote = boundary!!
+        val ids = jdbc.query(
+            "select distinct i.application_id from document_artifact_inputs i where i.phase='FINAL' and i.delivered_at is not null and not exists(select 1 from generated_artifact_notices n where n.application_id=i.application_id and n.offer_id=i.offer_id and n.input_hash=i.input_hash and n.template_version=?) limit 10",
+            {
+                    rs,
+                    _,
+                ->
+                rs.getObject(1, UUID::class.java)
+            },
             ArtifactRenderer.TEMPLATE_VERSION,
-            Timestamp.from(clock.instant()),
-        ).firstOrNull() ?: return@execute false
-        val id = row["id"] as UUID
-        val now = clock.instant()
-        try {
-            val input = mapper.readValue<ArtifactInput>(row["input_json"].toString())
-            require(checksum(mapper.writeValueAsBytes(input)) == row["input_hash"].toString()) { "Generated input checksum mismatch" }
-            val bytes = renderer.render(ArtifactKind.valueOf(row["kind"].toString()), input)
-            require(bytes.isNotEmpty() && bytes.size <= MAX_BYTES) { "Generated file size is invalid" }
-            files.put(row["stored_name"].toString(), bytes.inputStream(), bytes.size.toLong(), StorageBackend.valueOf(row["storage_backend"].toString()))
-            jdbc.update(
-                "update generated_artifacts set status='READY',size_bytes=?,checksum=?,attempts=attempts+1,error_code=null,updated_at=?,ready_at=? where id=?",
-                bytes.size.toLong(),
-                checksum(bytes),
-                Timestamp.from(now),
-                Timestamp.from(now),
-                id,
-            )
-        } catch (failure: Exception) {
-            jdbc.update(
-                "update generated_artifacts set status='ERROR',attempts=attempts+1,error_code='GENERATION_FAILED',next_attempt_at=?,updated_at=? where id=?",
-                Timestamp.from(now.plusSeconds(15)),
-                Timestamp.from(now),
-                id,
-            )
-            log.warn("Artifact generation failed for {}: {}", id, failure.javaClass.simpleName)
+        )
+        return ids.count { id ->
+            val groups = remote.rpc { remote.client().artifacts(remote.scope(id)) }.filter {
+                it.phase == "FINAL" &&
+                    it.templateVersion == ArtifactRenderer.TEMPLATE_VERSION
+            }.groupBy { it.offerId to it.inputHash }
+            groups.any { (key, artifacts) ->
+                if (artifacts.size != 3 || artifacts.any { it.status != "READY" }) return@any false
+                tx.execute {
+                    val claimed = jdbc.update(
+                        "insert into generated_artifact_notices(application_id,offer_id,template_version,input_hash,queued_at) values(?,?,?,?,?) on conflict do nothing",
+
+                        id,
+                        key.first,
+                        ArtifactRenderer.TEMPLATE_VERSION,
+                        key.second,
+                        Timestamp.from(clock.instant()),
+                    )
+                    if (claimed == 0) return@execute false
+                    val application = repository.find(id) ?: throw NotFoundException("Заявка не найдена")
+                    notifications.send(
+                        listOf(
+                            PlatformNotification(
+                                recipientCompanyId = application.company.id,
+                                type = PlatformNotification.APPLICATION_STATUS,
+                                title = "Документы по кредиту готовы",
+                                body = "В кабинете доступны PDF сохранённых условий и график платежей в PDF и XLSX.",
+                                link = "/client/applications/$id",
+                                dedupKey = "generated-files:$id:${key.first}:${ArtifactRenderer.TEMPLATE_VERSION}:${key.second}",
+                                email = NotificationEmail(NotificationEmailKind.FILES_READY),
+                            ),
+                        ),
+                    )
+                    true
+                }!!
+            }
         }
-        true
-    }!!
+    }
+
+    /** Row lock spans the bounded write; competing workers skip it, retries keep the same object name. */
+    fun generateOne(): Boolean {
+        if (boundary?.remote == true) return false
+        return tx.execute {
+            val row = jdbc.queryForList(
+                "select * from generated_artifacts where template_version=? and status <> 'READY' and attempts < 5 and next_attempt_at <= ? order by next_attempt_at limit 1 for update skip locked",
+
+                ArtifactRenderer.TEMPLATE_VERSION,
+                Timestamp.from(clock.instant()),
+            ).firstOrNull() ?: return@execute false
+            val id = row["id"] as UUID
+            val now = clock.instant()
+            try {
+                val input = mapper.readValue<ArtifactInput>(row["input_json"].toString())
+                require(checksum(mapper.writeValueAsBytes(input)) == row["input_hash"].toString()) { "Generated input checksum mismatch" }
+                val bytes = renderer.render(ArtifactKind.valueOf(row["kind"].toString()), input)
+                require(bytes.isNotEmpty() && bytes.size <= MAX_BYTES) { "Generated file size is invalid" }
+                files.put(row["stored_name"].toString(), bytes.inputStream(), bytes.size.toLong(), StorageBackend.valueOf(row["storage_backend"].toString()))
+                jdbc.update(
+                    "update generated_artifacts set status='READY',size_bytes=?,checksum=?,attempts=attempts+1,error_code=null,updated_at=?,ready_at=? where id=?",
+
+                    bytes.size.toLong(),
+                    checksum(bytes),
+                    Timestamp.from(now),
+                    Timestamp.from(now),
+                    id,
+                )
+            } catch (failure: Exception) {
+                jdbc.update(
+                    "update generated_artifacts set status='ERROR',attempts=attempts+1,error_code='GENERATION_FAILED',next_attempt_at=?,updated_at=? where id=?",
+
+                    Timestamp.from(now.plusSeconds(15)),
+                    Timestamp.from(now),
+                    id,
+                )
+                log.warn("Artifact generation failed for {}: {}", id, failure.javaClass.simpleName)
+            }
+            true
+        }!!
+    }
 
     @Transactional
     fun retry(applicationId: UUID, artifactId: UUID): ArtifactView {
         applications.get(applicationId)
+        if (boundary?.remote == true) return boundary.rpc { boundary.client().retry(boundary.scope(applicationId), artifactId).remoteView() }
         val record =
             jdbc.query("select * from generated_artifacts where application_id=? and id=? for update", { rs, _ ->
                 view(rs)
@@ -248,7 +414,22 @@ class GeneratedArtifacts(
             // today's application would choose another phase and could lose its historic terms.
             jdbc.update(
                 """
-                insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,next_attempt_at,created_at,updated_at)
+                insert into generated_artifacts(id,
+                    application_id,
+                    offer_id,
+                    kind,
+                    phase,
+                    template_version,
+                    input_hash,
+                    input_json,
+                    title,
+                    file_name,
+                    content_type,
+                    stored_name,
+                    storage_backend,
+                    next_attempt_at,
+                    created_at,
+                    updated_at)
                 select ?,application_id,offer_id,kind,phase,?,input_hash,input_json,title,file_name,content_type,?,storage_backend,?,?,?
                 from generated_artifacts where id=?
                 on conflict(application_id,offer_id,kind,phase,template_version,input_hash) do nothing
@@ -285,6 +466,16 @@ class GeneratedArtifacts(
 
     fun download(applicationId: UUID, artifactId: UUID): ArtifactDownload {
         applications.get(applicationId)
+        if (boundary?.remote == true) {
+            return boundary.rpc {
+                val scope = boundary.scope(applicationId)
+                val record = boundary.client().artifacts(scope).firstOrNull { it.id == artifactId } ?: throw NotFoundException("Файл не найден")
+                if (record.status != "READY") throw ConflictException("Файл ещё не готов")
+                val bytes = boundary.client().artifactBytes(scope, artifactId)
+                require(bytes.size.toLong() == record.sizeBytes && checksum(bytes) == record.checksum)
+                ArtifactDownload(record.remoteView(), bytes)
+            }
+        }
         val metadata =
             jdbc.query("select * from generated_artifacts where application_id=? and id=?", { rs, _ -> view(rs) }, applicationId, artifactId).firstOrNull()
                 ?: throw NotFoundException("Файл не найден")

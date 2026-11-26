@@ -1,6 +1,6 @@
 package ru.creditcabinet.servicing.domain
 
-import ru.creditcabinet.servicing.math.LoanMath
+import ru.creditcabinet.product.domain.LoanMath
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant

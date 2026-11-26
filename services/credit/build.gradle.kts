@@ -14,6 +14,10 @@ dependencies {
     implementation(project(":libs:servicing-grpc"))
     implementation("io.grpc:grpc-netty-shaded:1.85.1")
     implementation(project(":libs:servicing-persistence"))
+    implementation(project(":libs:loan-math"))
+    implementation(project(":libs:documents-client"))
+    implementation(project(":libs:documents-storage"))
+    implementation(project(":libs:documents-renderer"))
     implementation(platform(libs.aws.sdk.bom))
     implementation(libs.aws.sdk.s3) {
         exclude(group = "software.amazon.awssdk", module = "apache-client")

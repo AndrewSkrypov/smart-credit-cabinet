@@ -7,7 +7,7 @@ import subprocess
 
 APP_SERVICES = ("identity", "credit", "engagement", "external-sim", "frontend")
 IMAGE_COMPONENTS = (*APP_SERVICES, "postgres", "swagger")
-OPTIONAL_IMAGES = {"ssh-bridge", "clamav"}
+OPTIONAL_IMAGES = {"ssh-bridge", "clamav", "documents"}
 REVISION = re.compile(r"[0-9a-f]{40}")
 SHA256 = re.compile(r"[0-9a-f]{64}")
 KAFKA_UPSTREAM_IMAGE = re.compile(r"apache/kafka:[0-9.]+@sha256:[0-9a-f]{64}")
@@ -22,6 +22,8 @@ SERVICE_COMPONENTS = {
     "identity-migrate": "identity",
     "credit-migrate": "credit",
     "engagement-migrate": "engagement",
+    "documents": "documents",
+    "documents-migrate": "documents",
     "analytics-db": "postgres",
     "analytics-kafka": "kafka",
     "analytics": "analytics",

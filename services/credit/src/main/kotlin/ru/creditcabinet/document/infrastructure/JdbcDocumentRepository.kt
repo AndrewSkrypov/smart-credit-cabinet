@@ -1,6 +1,5 @@
 package ru.creditcabinet.document.infrastructure
 
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Component
@@ -8,13 +7,7 @@ import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentContext
 import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.DocumentType
-import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.domain.StorageBackend
-import ru.creditcabinet.document.domain.StoredFile
-import java.io.InputStream
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
@@ -111,38 +104,4 @@ class JdbcDocumentRepository(private val jdbc: NamedParameterJdbcTemplate) : Doc
         mapOf("id" to documentId),
         Boolean::class.java,
     )!!
-}
-
-/** Files in a local directory (a docker volume). Names are random and never come from a request. */
-@Component
-class LocalFileStore(@Value("\${cabinet.storage.local-dir:./uploads}") directory: String) : FileStore {
-    private val root: Path = Path.of(directory).toAbsolutePath().normalize()
-
-    init {
-        Files.createDirectories(root)
-    }
-
-    override fun put(storedName: String, content: InputStream, sizeBytes: Long) {
-        val target = resolve(storedName)
-        val temporary = Files.createTempFile(root, ".upload-", ".tmp")
-        try {
-            Files.copy(content, temporary, StandardCopyOption.REPLACE_EXISTING)
-            if (Files.size(temporary) != sizeBytes) throw java.io.IOException("Incomplete document write")
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-        } finally {
-            Files.deleteIfExists(temporary)
-        }
-    }
-
-    override fun get(storedName: String): StoredFile? {
-        val path = resolve(storedName)
-        if (!Files.isRegularFile(path)) return null
-        return StoredFile(Files.size(path), Files.newInputStream(path))
-    }
-
-    private fun resolve(name: String): Path {
-        val path = root.resolve(name).normalize()
-        require(path.parent == root) { "Invalid stored name" }
-        return path
-    }
 }

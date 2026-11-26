@@ -49,6 +49,7 @@ class DocumentService(
     private val clock: Clock,
     @Value("\${cabinet.storage.max-size-bytes:20971520}") private val maxSizeBytes: Long,
     @Value("\${cabinet.storage.uploads-enabled:true}") private val uploadsEnabled: Boolean,
+    private val boundary: ru.creditcabinet.document.infrastructure.DocumentsBoundary? = null,
 ) : ApplicationDocuments {
     override fun list(applicationId: UUID): List<ApplicationDocument> = list(applications.get(applicationId))
 
@@ -138,8 +139,12 @@ class DocumentService(
             checksumSha256 = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) },
             privateToBank = privateToBank,
         )
-        store.put(document.storedName, bytes.inputStream(), document.sizeBytes)
-        documents.save(document)
+        if (boundary?.remote == true) {
+            boundary.put(document, bytes)
+        } else {
+            store.put(document.storedName, bytes.inputStream(), document.sizeBytes)
+            documents.save(document)
+        }
         if (context == DocumentContext.BUSINESS) {
             journal.append(
                 application.note(
@@ -188,7 +193,7 @@ class DocumentService(
         if (document.privateToBank) throw NotFoundException("Документ не найден")
         if (documents.isChatAttached(documentId)) throw ConflictException("Вложение отправленного сообщения изменить или удалить нельзя")
         val now = clock.instant()
-        documents.markDeleted(document.id, now)
+        documents.markDeleted(application.id, document.id, now)
         journal.append(
             application.note(
                 JournalNote.DOCUMENT_REMOVED,
@@ -205,7 +210,9 @@ class DocumentService(
     override fun open(applicationId: UUID, documentId: UUID): Pair<ApplicationDocument, StoredFile> {
         val application = applications.get(applicationId)
         val document = readableDocument(application, documentId, CurrentCaller.claims())
-        val file = store.get(document.storedName, document.storageBackend) ?: throw NotFoundException("Файл документа не найден в хранилище")
+        val file =
+            (if (boundary?.remote == true) boundary.bytes(document) else store.get(document.storedName, document.storageBackend))
+                ?: throw NotFoundException("Файл документа не найден в хранилище")
         return document to file
     }
 

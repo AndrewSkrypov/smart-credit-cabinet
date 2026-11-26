@@ -51,9 +51,13 @@ backend:
   stage: quality
   extends: .quality
   timeout: 45 minutes
+  variables:
+    RUNNER_SCRIPT_TIMEOUT: 40m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 5m
   script:
     - bash ci/gitlab/quality/backend.sh
   after_script:
+    - bash ci/gitlab/quality/documents-cleanup.sh
     - bash ci/gitlab/quality/cleanup.sh
   artifacts:
     when: always
@@ -68,11 +72,15 @@ backend:
       - security/reports/postgres-image.json
       - services/*/build/libs/app.jar
       - ci-artifacts/backend.sha256
+      - ci-artifacts/documents-r3/
+      - ci-artifacts/documents-r3-s3/
     reports:
       junit:
         - '**/build/test-results/test/TEST-*.xml'
         - 'services/assessment/build/test-results/assessmentKafkaTest/TEST-*.xml'
         - '**/build/test-results/catalogIntegrationTest/TEST-*.xml'
+        - 'ci-artifacts/documents-r3/TEST-*.xml'
+        - 'ci-artifacts/documents-r3-s3/TEST-*.xml'
 
 backend-template:
   stage: quality
@@ -193,6 +201,7 @@ image-security:
           - assessment
           - engagement
           - external-sim
+          - documents
           - frontend
           - ssh-bridge
   script:

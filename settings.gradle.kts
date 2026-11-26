@@ -43,3 +43,6 @@ include(":services:servicing")
 
 include(":libs:servicing-contracts")
 include(":libs:servicing-grpc")
+// Documents retains local Credit behavior by default; its independent runtime has no shared DB.
+include(":libs:loan-math", ":libs:documents-model", ":libs:documents-contracts", ":libs:documents-client", ":libs:documents-storage", ":libs:documents-renderer")
+include(":services:documents")

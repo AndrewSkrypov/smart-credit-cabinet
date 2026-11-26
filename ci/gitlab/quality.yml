@@ -59,9 +59,11 @@ backend:
       - security/reports/postgres-image.json
       - services/*/build/libs/app.jar
       - ci-artifacts/backend.sha256
+      - ci-artifacts/documents-r3/
     reports:
       junit:
         - '**/build/test-results/test/TEST-*.xml'
+        - '**/build/test-results/documentsRuntimeTest/TEST-*.xml'
 frontend:
   stage: quality
   extends: .quality
@@ -162,6 +164,7 @@ image-security:
           - credit
           - engagement
           - external-sim
+          - documents
           - frontend
           - ssh-bridge
   script:

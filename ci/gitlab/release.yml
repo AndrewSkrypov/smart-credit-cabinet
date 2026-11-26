@@ -19,20 +19,43 @@ release-images:
       - security/reports/
 
 dev-deploy:
-  extends: .release
+  extends: [.release, .pump-vault-job-identity]
   stage: dev
   tags: [cabinet-deploy]
   resource_group: cabinet-dev
   environment:
     name: dev
+    action: start
     url: $CABINET_DEV_URL
   dependencies: [release-images]
   script:
-    - bash ci/gitlab/deploy-dev.sh
+    - |
+      case "${PUMP_VAULT_DEV_ENABLED:-0}" in
+        0) unset PUMP_VAULT_ID_TOKEN; bash ci/gitlab/deploy-dev.sh ;;
+        1) python3 ci/gitlab/vault/with-deploy-secrets.py dev -- bash ci/gitlab/deploy-dev.sh ;;
+        *) echo "Invalid Dev Vault mode" >&2; exit 1 ;;
+      esac
     - sha256sum release.json > dev-release.sha256
   artifacts:
     expire_in: 30 days
     paths: [dev-release.sha256]
+
+dev-vault-canary:
+  extends: .pump-vault-job-identity
+  stage: dev
+  tags: [cabinet-deploy]
+  resource_group: cabinet-dev
+  timeout: 5m
+  environment:
+    name: dev
+    action: verify
+  needs: []
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "feat/final-platform-release" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE =~ /^(push|api|web)$/'
+      when: manual
+      allow_failure: true
+  script:
+    - python3 ci/gitlab/vault/with-deploy-secrets.py dev-canary
 
 prod-deploy:
   extends: .release

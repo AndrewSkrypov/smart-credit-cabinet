@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import base64
+import hmac
 import json
 import os
 import signal
@@ -18,6 +19,8 @@ from urllib.request import HTTPSHandler, HTTPRedirectHandler, ProxyHandler, Requ
 CONFIG_DIR = Path("/etc/pump-vault-ci")
 ISSUER = "https://gitlab.credit-cabinet.ru"
 RELEASE_BRANCH = "feat/final-platform-release"
+PROJECT_PATH = "pump/smart-credit-cabinet"
+VAULT_ORIGIN = "https://vault.pump.internal:8200"
 JWT_VAR = "PUMP_VAULT_ID_TOKEN"
 MAX_RESPONSE = 1024 * 1024
 PROFILES = {
@@ -61,15 +64,15 @@ def load_trust():
         raise HandoffError("Vault address must be an HTTPS origin")
     if address.path or address.query or address.fragment or address.geturl() != endpoint:
         raise HandoffError("Vault address must be an HTTPS origin without a trailing slash")
-    if address.port == 0:
-        raise HandoffError("Vault address must use a valid port")
+    if endpoint != VAULT_ORIGIN:
+        raise HandoffError("Vault address does not match the approved PUMP origin")
 
     tls = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     tls.load_verify_locations(cafile=ca)
     return endpoint, build_opener(ProxyHandler({}), RejectRedirects(), HTTPSHandler(context=tls))
 
 
-def validate_claims(jwt, endpoint, profile, runner_id, job_id):
+def validate_claims(jwt, endpoint, profile, runner_id, job_id, sha, action):
     try:
         _, encoded, _ = jwt.split(".")
         claims = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
@@ -78,13 +81,16 @@ def validate_claims(jwt, endpoint, profile, runner_id, job_id):
     expected = {
         "iss": ISSUER,
         "job_project_id": "1",
+        "job_project_path": PROJECT_PATH,
         "ref": RELEASE_BRANCH,
         "ref_path": f"refs/heads/{RELEASE_BRANCH}",
+        "ref_type": "branch",
         "ref_protected": "true",
         "environment": profile,
-        "environment_action": "start",
+        "environment_action": action,
         "runner_id": runner_id,
         "job_id": job_id,
+        "sha": sha,
     }
     if not isinstance(claims, dict) or any(claims.get(key) != value for key, value in expected.items()):
         raise HandoffError("GitLab token claims do not match this protected deployment")
@@ -112,47 +118,79 @@ def vault_request(opener, endpoint, path, *, body=None, token=None):
         raise HandoffError("Could not reach Vault over verified TLS") from None
     if len(content) > MAX_RESPONSE:
         raise HandoffError("Vault response exceeded the deployment handoff limit")
-    return json.loads(content)
+    return json.loads(content) if content else {}
 
 
-def deploy(profile, command):
+def read_values(profile, *, canary=False):
     if os.environ.get("CI_DEBUG_TRACE", "").lower() == "true":
         raise HandoffError("Vault handoff requires CI debug tracing to be disabled")
     jwt = os.environ.pop(JWT_VAR, "")
     job_id = os.environ.get("CI_JOB_ID", "")
-    if not jwt or not job_id.isdecimal():
+    sha = os.environ.get("CI_COMMIT_SHA", "")
+    if (not jwt or not job_id.isascii() or not job_id.isdecimal()
+            or len(sha) != 40 or any(c not in "0123456789abcdef" for c in sha)):
         raise HandoffError("Missing GitLab job identity")
     role, path, runner, keys = PROFILES[profile]
+    action = "verify" if canary else "start"
+    if canary:
+        role = "pump-ci-dev-canary"
     endpoint, opener = load_trust()
-    validate_claims(jwt, endpoint, profile, runner, job_id)
-    login = vault_request(opener, endpoint, "auth/pump-gitlab/login", body={"role": role, "jwt": jwt})
-    token = login["auth"]["client_token"]
+    validate_claims(jwt, endpoint, profile, runner, job_id, sha, action)
+    auth = vault_request(opener, endpoint, "auth/pump-gitlab/login", body={"role": role, "jwt": jwt})["auth"]
+    token = auth["client_token"]
     if not isinstance(token, str) or not token:
         raise HandoffError("Vault returned no scoped session")
-    values = vault_request(opener, endpoint, path, token=token)["data"]["data"]
-    if any(not isinstance(values.get(key), str) or not values[key] for key in keys):
-        raise HandoffError("Vault deployment record is missing a required file")
+    try:
+        if auth.get("policies") != ["pump-ci-dev" if profile == "dev" else "pump-ci-prod"]:
+            raise HandoffError("Vault session policies do not match the expected scope")
+        values = vault_request(opener, endpoint, path, token=token)["data"]["data"]
+        if set(values) != set(keys) or any(not isinstance(values[key], str) or not values[key] for key in keys):
+            raise HandoffError("Vault deployment record does not match the expected files")
+    finally:
+        vault_request(opener, endpoint, "auth/token/revoke-self", body={}, token=token)
+    return {key: values[key].encode() for key in keys}
 
+
+def check_dev_parity():
+    values = read_values("dev", canary=True)
+    for key, expected in values.items():
+        descriptor = os.open(os.environ[key], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(descriptor, "rb") as file:
+            if not stat.S_ISREG(os.fstat(file.fileno()).st_mode):
+                raise HandoffError("Legacy Dev file variable is not a regular file")
+            if not hmac.compare_digest(file.read(MAX_RESPONSE + 1), expected):
+                raise HandoffError("Vault and legacy Dev file variables differ")
+    print("Vault Dev canary: 2/2 file variables match, scoped session revoked")
+    return 0
+
+
+def deploy(profile, command):
+    values = read_values(profile)
     environment = os.environ.copy()
+    environment.pop("VAULT_TOKEN", None)
     with tempfile.TemporaryDirectory(prefix="pump-vault-deploy-", dir="/tmp") as temp:
-        for key in keys:
+        for key, value in values.items():
             target = Path(temp) / key
             descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(descriptor, "wb") as stream:
-                stream.write(values[key].encode())
+                stream.write(value)
             environment[key] = str(target)
         return subprocess.run(command, env=environment, check=False).returncode
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run a protected PUMP deployment with file secrets from Vault.")
-    parser.add_argument("profile", choices=PROFILES)
+    parser.add_argument("profile", choices=(*PROFILES, "dev-canary"))
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
-    if not command:
+    if args.profile == "dev-canary" and command:
+        parser.error("the read-only canary does not accept a command")
+    if args.profile != "dev-canary" and not command:
         parser.error("a deployment command is required")
     try:
+        if args.profile == "dev-canary":
+            return check_dev_parity()
         return deploy(args.profile, command)
     except HandoffError as error:
         print(str(error), file=sys.stderr)

@@ -1,4 +1,4 @@
 .pump-vault-job-identity:
   id_tokens:
     PUMP_VAULT_ID_TOKEN:
-      aud: $PUMP_VAULT_AUDIENCE
+      aud: https://vault.pump.internal:8200

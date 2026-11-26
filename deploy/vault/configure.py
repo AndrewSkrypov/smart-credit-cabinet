@@ -122,9 +122,9 @@ def render_policy(rules):
                      for path, capabilities in sorted(rules.items())) + "\n"
 
 
-def gitlab_role(origin, environment, runner_id):
+def gitlab_role(origin, environment, runner_id, *, action="start", sha=None):
     policy = "pump-ci-dev" if environment == "dev" else "pump-ci-prod"
-    return {
+    role = {
         "role_type": "jwt",
         "user_claim": "job_id",
         "bound_audiences": [origin],
@@ -139,7 +139,7 @@ def gitlab_role(origin, environment, runner_id):
             "pipeline_source": ["api", "push", "web"],
             "runner_id": runner_id,
             "environment": environment,
-            "environment_action": "start",
+            "environment_action": action,
         },
         "token_type": "service",
         "token_policies": [policy],
@@ -148,6 +148,14 @@ def gitlab_role(origin, environment, runner_id):
         "token_max_ttl": 180,
         "token_explicit_max_ttl": 180,
     }
+    if sha is not None:
+        if not re.fullmatch(r"[0-9a-f]{40}", sha):
+            raise ValueError("GitLab role requires the exact protected commit SHA")
+        role["bound_claims"]["sha"] = sha
+        role["clock_skew_leeway"] = 15
+        role["expiration_leeway"] = 15
+        role["not_before_leeway"] = 15
+    return role
 
 
 def dev_approle_source(value):

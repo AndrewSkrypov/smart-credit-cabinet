@@ -180,7 +180,7 @@ class PaymentReserveIntegrationTest {
             LoanApplication(
                 company = company,
                 createdBy = agentId,
-                terms = ApplicationTerms("OVERDRAFT", FinancingPurpose.CASH_GAP, limit, 12, bureauConsent = true),
+                terms = ApplicationTerms("OVERDRAFT", FinancingPurpose.CASH_GAP, amount = limit, termMonths = 12, bureauConsent = true),
                 status = ApplicationStatus.DISBURSED,
                 submittedAt = now,
                 productCatalogSnapshot = mapOf("OVERDRAFT" to 1L),

@@ -34,6 +34,8 @@
   before_script:
     - !reference [.verified, before_script]
     - source ci/gitlab/quality/allocate.sh
+    - CABINET_CI_CLAMAV_IMAGE=$(bash ci/gitlab/quality/clamav-runtime.sh)
+    - export CABINET_CI_CLAMAV_IMAGE
     - export COMPOSE_PROJECT_NAME="cabinet-e2e-${CI_JOB_ID}"
     - export COMPOSE_FILE="docker-compose.yml:ci/compose.yaml:ci/gitlab/quality/compose.yaml"
   after_script:

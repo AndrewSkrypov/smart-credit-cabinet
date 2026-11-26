@@ -56,3 +56,12 @@ interrupted job. The production-like
 restore test chooses separate random project names and records them in its JSON
 report. Use that report to identify any abandoned test volumes before removal, or
 replace the drained dedicated VM.
+
+If the official ClamAV CDN rejects FreshClam from a runner, an operator can
+temporarily set `CABINET_CI_CLAMAV_SEED_IMAGE` to an official
+`clamav/clamav@sha256:…` image containing a verified fresh daily database. Set
+`CABINET_CI_CLAMAV_SEED_SHA256` to the digest of its `daily.cvd` and
+`CABINET_CI_CLAMAV_SEED_SERIAL` to the matching numeric database version.
+The job verifies the digest, signature, version and age before seeding
+the pinned scanner runtime. The normal scanner health gate still checks
+the loaded database. Unset or refresh these values when the seed expires.

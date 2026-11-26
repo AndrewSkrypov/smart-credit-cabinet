@@ -29,7 +29,7 @@ if [[ "$CI_JOB_NAME" = backend || "$CI_JOB_NAME" = maintenance ]]; then
     docker image rm "cabinet-ci-$id-postgres:test" >/dev/null 2>&1 || true
 fi
 
-docker image rm "cabinet-ci-$id-scan:test" >/dev/null 2>&1 || true
+docker image rm "cabinet-ci-$id-scan:test" "cabinet-ci-$id-clamav:test" >/dev/null 2>&1 || true
 docker volume rm "cabinet-trivy-$id" >/dev/null 2>&1 || true
 for service in identity credit engagement external-sim frontend; do
     docker image rm "$e2e-$service:latest" "$demo-$service:latest" >/dev/null 2>&1 || true

@@ -27,3 +27,11 @@ include(":services:external-sim")
 if (providers.gradleProperty("alphaAnalytics").map { it.toBooleanStrict() }.getOrElse(false)) {
     include(":services:analytics")
 }
+
+include(":libs:servicing-model")
+include(":libs:servicing-core")
+include(":libs:servicing-persistence")
+include(":services:servicing")
+
+include(":libs:servicing-contracts")
+include(":libs:servicing-grpc")

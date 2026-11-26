@@ -1,6 +1,6 @@
 package ru.creditcabinet.servicing.paymentreserve.domain
 
-import ru.creditcabinet.common.exception.BadRequestException
+import ru.creditcabinet.servicing.domain.ServicingBadRequest as BadRequestException
 import ru.creditcabinet.servicing.domain.LoanAccount
 import java.time.Instant
 import java.time.LocalDate

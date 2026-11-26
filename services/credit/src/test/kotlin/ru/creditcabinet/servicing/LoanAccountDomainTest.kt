@@ -1,7 +1,7 @@
 package ru.creditcabinet.servicing
 
-import ru.creditcabinet.common.exception.BadRequestException
-import ru.creditcabinet.common.exception.ConflictException
+import ru.creditcabinet.servicing.domain.ServicingBadRequest as BadRequestException
+import ru.creditcabinet.servicing.domain.ServicingConflict as ConflictException
 import ru.creditcabinet.servicing.domain.LoanAccount
 import ru.creditcabinet.servicing.domain.LoanAccountStatus
 import ru.creditcabinet.servicing.domain.LoanPaymentStatus

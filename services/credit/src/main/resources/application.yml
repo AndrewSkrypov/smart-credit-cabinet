@@ -41,6 +41,14 @@ springdoc:
     path: /swagger-ui.html
 
 cabinet:
+  servicing:
+    mode: ${SERVICING_MODE:local}
+    grpc:
+      host: ${SERVICING_GRPC_HOST:}
+      port: ${SERVICING_GRPC_PORT:9095}
+      certificate: ${SERVICING_CLIENT_CERTIFICATE:}
+      key: ${SERVICING_CLIENT_KEY:}
+      server-ca: ${SERVICING_SERVER_CA:}
   outbox:
     enabled: true
     worker-enabled: ${OUTBOX_WORKER_ENABLED:true}
@@ -99,3 +107,5 @@ cabinet:
     info-request-ttl: ${INFO_REQUEST_TTL:P14D}
     offer-ttl: ${OFFER_TTL:P5D}
     source-timeout: ${SOURCE_TIMEOUT:PT1H}
+
+# Local remains the default until the fenced migration has been accepted.

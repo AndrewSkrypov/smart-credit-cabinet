@@ -1,0 +1,154 @@
+@file:Suppress("ktlint:standard:no-wildcard-imports")
+
+package ru.creditcabinet.servicing.infrastructure
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.junit.jupiter.api.Test
+import org.mockito.kotlin.*
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.transaction.support.TransactionTemplate
+import ru.creditcabinet.application.domain.*
+import ru.creditcabinet.offer.*
+import ru.creditcabinet.offer.application.ContractTextStore
+import ru.creditcabinet.pipeline.PipelineFakesConfig
+import ru.creditcabinet.product.domain.FinancingPurpose
+import ru.creditcabinet.servicing.application.LoanServicingService
+import ru.creditcabinet.servicing.contract.v1.*
+import ru.creditcabinet.servicing.domain.ServicingConflict
+import java.math.BigDecimal
+import java.time.Clock
+import java.time.LocalDate
+import java.util.UUID
+import kotlin.test.*
+
+/** Real Credit PostgreSQL transactions; transport loss is injected explicitly, never claimed as live RPC. */
+@SpringBootTest
+@Import(PipelineFakesConfig::class)
+class LoanOpeningAtomicityIntegrationTest {
+    @Autowired private lateinit var jdbc: JdbcTemplate
+    @Autowired private lateinit var tx: TransactionTemplate
+    @Autowired private lateinit var mapper: ObjectMapper
+    @Autowired private lateinit var applications: ApplicationRepository
+    @Autowired private lateinit var operations: ServicingOperations
+    @Autowired private lateinit var localOpening: LoanServicingService
+    @Autowired private lateinit var clock: Clock
+    @Autowired private lateinit var loans: Loans
+
+    @Autowired private lateinit var transitions: ru.creditcabinet.application.service.Transitions
+    @Autowired private lateinit var jobs: PipelineJobs
+    @Autowired private lateinit var products: ru.creditcabinet.product.domain.ProductCatalog
+    private val created = mutableListOf<UUID>()
+    @org.junit.jupiter.api.AfterEach fun cleanup() {
+        created.forEach { id -> jdbc.update("delete from servicing_open_outbox where application_id=?",id); jdbc.update("delete from loan_accounts where application_id=?",id) }
+        created.clear()
+    }
+
+    private data class Fixture(val app: LoanApplication,val cycle: UUID,val loan: Loan,val outbox: LoanOpeningOutbox,val signed: SigningSessionRecord)
+    private fun fixture(): Fixture {
+        val app = applications.save(LoanApplication(company=CompanySnapshot(UUID.randomUUID(),"0012345678","Synthetic",LegalForm.LEGAL_ENTITY),
+            createdBy=UUID.randomUUID(),terms=ApplicationTerms("OVERDRAFT",FinancingPurpose.CASH_GAP,amount=1_000_000,termMonths=12),
+            status=ApplicationStatus.DISBURSING,createdAt=clock.instant(),submittedAt=clock.instant(),productCatalogSnapshot=mapOf("OVERDRAFT" to 1L)))
+        val cycle = UUID.randomUUID()
+        val text = "Immutable signed terms $cycle"
+        val snapshot = ContractTextSnapshot(UUID.randomUUID(),app.id,cycle,1,text,ContractTexts.sha256(text),clock.instant())
+        val snapshots = mock<ContractTextStore> { on { find(cycle) } doReturn snapshot }
+        val signed = SigningSessionRecord(applicationId=app.id,offerId=cycle,externalSessionId=UUID.randomUUID(),code="123456",expiresAt=clock.instant().plusSeconds(600),signatureId=UUID.randomUUID(),signedAt=clock.instant(),createdAt=clock.instant(),contractSnapshotId=snapshot.id)
+        val sessions = mock<SigningSessions> { on { latest(app.id) } doReturn signed }
+        val loan = Loan(app.id,"AT-${app.id.toString().take(8)}","45206810000000000001","40702810000000000001",1_000_000,12,BigDecimal("20.00"),true,clock.instant(),LocalDate.parse("2027-10-01"))
+        created += app.id
+        return Fixture(app,cycle,loan,LoanOpeningOutbox(jdbc,mapper,snapshots,sessions,operations,localOpening,tx,clock,"remote"),signed)
+    }
+    private fun command(appId: UUID): OpenLoanCommand = mapper.readValue(jdbc.queryForObject("select command_json::text from servicing_open_outbox where application_id=?",String::class.java,appId),OpenLoanCommand::class.java)
+
+    @Test fun `Credit rollback removes opening command and leaves no visible issued loan`() {
+        val fixture = fixture()
+        assertFailsWith<IllegalStateException> {
+            tx.executeWithoutResult { assertFalse(fixture.outbox.prepareOrConfirmed(fixture.app,fixture.loan,fixture.cycle)); error("rollback after append") }
+        }
+        assertEquals(0,jdbc.queryForObject("select count(*) from servicing_open_outbox where application_id=?",Int::class.java,fixture.app.id))
+        assertNull(loans.find(fixture.app.id))
+        assertNull(operations.byApplication(fixture.app.id))
+    }
+
+    @Test fun `response loss before Credit ack commit and restart replays same account receipt`() {
+        val fixture = fixture()
+        fixture.outbox.requireSignedSnapshot(fixture.app.id,fixture.cycle)
+        tx.executeWithoutResult { assertFalse(fixture.outbox.prepareOrConfirmed(fixture.app,fixture.loan,fixture.cycle)) }
+        assertEquals(fixture.loan,fixture.outbox.bookedLoan(fixture.app.id))
+        assertNull(loans.find(fixture.app.id))
+        assertEquals(ApplicationStatus.DISBURSING,applications.find(fixture.app.id)!!.status)
+        val command = command(fixture.app.id)
+        val accepted = operations.open(command) // remote side commits; producer dies before its ack transaction commits
+        assertFailsWith<IllegalStateException> { tx.executeWithoutResult { fixture.outbox.acknowledge(command,accepted); error("crash before producer commit") } }
+        assertEquals("PENDING",jdbc.queryForObject("select state from servicing_open_outbox where application_id=?",String::class.java,fixture.app.id))
+        assertEquals(accepted,operations.open(command)) // reconstructed adapter sees durable target receipt
+        tx.executeWithoutResult { fixture.outbox.acknowledge(command,accepted) }
+        tx.executeWithoutResult { fixture.outbox.acknowledge(command,accepted) } // duplicate ack is harmless
+        tx.executeWithoutResult { assertTrue(fixture.outbox.prepareOrConfirmed(fixture.app,fixture.loan,fixture.cycle)) }
+        assertEquals(1,jdbc.queryForObject("select count(*) from loan_accounts where application_id=?",Int::class.java,fixture.app.id))
+        assertEquals(1,jdbc.queryForObject("select count(*) from loan_tranches where loan_account_id=?",Int::class.java,accepted.accountId))
+    }
+
+    @Test fun `late cycle version or payload acknowledgment cannot confirm current command`() {
+        val fixture = fixture()
+        tx.executeWithoutResult { fixture.outbox.prepareOrConfirmed(fixture.app,fixture.loan,fixture.cycle) }
+        val command = command(fixture.app.id)
+        val receipt = operations.open(command)
+        for(stale in listOf(receipt.copy(cycleId=UUID.randomUUID()),receipt.copy(applicationVersion=receipt.applicationVersion-1),receipt.copy(commandId=UUID.randomUUID()),receipt.copy(payloadSha256="b".repeat(64)))) {
+            assertFailsWith<ServicingConflict> { tx.executeWithoutResult { fixture.outbox.acknowledge(command,stale) } }
+        }
+        assertEquals("PENDING",jdbc.queryForObject("select state from servicing_open_outbox where application_id=?",String::class.java,fixture.app.id))
+        assertFailsWith<ServicingConflict> { tx.executeWithoutResult { fixture.outbox.prepareOrConfirmed(fixture.app,fixture.loan.copy(amount=900_000),fixture.cycle) } }
+        assertFailsWith<ServicingConflict> { tx.executeWithoutResult { fixture.outbox.prepareOrConfirmed(fixture.app,fixture.loan,UUID.randomUUID()) } }
+        assertEquals(receipt,operations.open(command))
+    }
+
+    @Test fun `waiting receipt parks job without spending failure budget`() {
+        val fixture = fixture()
+        val jobId = UUID.randomUUID()
+        jdbc.update("insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at) values(?,?,'DISBURSEMENT','RUNNING',1,now(),now(),now())",jobId,fixture.app.id)
+        tx.executeWithoutResult { fixture.outbox.awaitReceipt(jobId,clock.instant().plusSeconds(2)) }
+        assertEquals(0,jdbc.queryForObject("select attempts from pipeline_jobs where id=?",Int::class.java,jobId))
+        assertEquals("PENDING",jdbc.queryForObject("select status from pipeline_jobs where id=?",String::class.java,jobId))
+        assertNull(loans.find(fixture.app.id))
+    }
+    @Test fun `pipeline waits durable receipt without second core booking and completes only after acknowledgment`() {
+        val fixture = fixture()
+        val offer = Offer(id=fixture.cycle,applicationId=fixture.app.id,decisionId=UUID.randomUUID(),kind=OfferKind.APPROVED,
+            productCode="OVERDRAFT",amount=fixture.loan.amount,termMonths=12,rate=fixture.loan.rate,
+            monthlyPayment=BigDecimal("100000.00"),totalPayment=BigDecimal("1200000.00"),validUntil=clock.instant().plusSeconds(600),
+            status=OfferStatus.ACCEPTED,createdAt=clock.instant())
+        val offerStore = mock<OfferRepository> { on { current(fixture.app.id) } doReturn offer }
+        val sessions = mock<SigningSessions> { on { latest(fixture.app.id) } doReturn fixture.signed }
+        val core = mock<ru.creditcabinet.integration.CoreBanking> { on { disburse(any()) } doReturn ru.creditcabinet.integration.LoanBooked(
+            fixture.loan.contractNumber,fixture.loan.loanAccount,fixture.loan.settlementAccount,fixture.loan.disbursedAt,fixture.loan.maturityDate) }
+        val pinned = mock<ru.creditcabinet.product.domain.ProductCatalog>()
+        whenever(pinned.version("OVERDRAFT",1)).thenReturn(products.version("OVERDRAFT",1)).thenThrow(IllegalStateException("Catalog unavailable after booked command"))
+        val steps = ru.creditcabinet.pipeline.application.PipelineSteps(applications,transitions,jobs,mock(),core,mock(),mock(),offerStore,sessions,mock(),loans,mock(),mock(),pinned,mock(),mock(),fixture.outbox,ru.creditcabinet.pipeline.PipelineSettings(),tx,clock)
+        val id = UUID.randomUUID()
+        jdbc.update("insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at) values(?,?,'DISBURSEMENT','RUNNING',1,now(),now(),now())",id,fixture.app.id)
+        val job = PipelineJob(id,fixture.app.id,PipelineStep.DISBURSEMENT,1)
+        steps.run(job)
+        assertEquals(ApplicationStatus.DISBURSING,applications.find(fixture.app.id)!!.status)
+        assertNull(loans.find(fixture.app.id))
+        assertNull(operations.byApplication(fixture.app.id))
+        jdbc.update("update pipeline_jobs set status='RUNNING',attempts=1 where id=?",id)
+        steps.run(job) // pending receipt survives another job execution without another core call
+        verify(core,times(1)).disburse(any())
+        verify(pinned,times(1)).version("OVERDRAFT",1)
+        assertEquals(0,jdbc.queryForObject("select attempts from pipeline_jobs where id=?",Int::class.java,id))
+        assertTrue(fixture.outbox.deliverOne())
+        jdbc.update("update pipeline_jobs set status='RUNNING',attempts=1 where id=?",id)
+        steps.run(job)
+        assertEquals(ApplicationStatus.DISBURSED,applications.find(fixture.app.id)!!.status)
+        assertNotNull(loans.find(fixture.app.id))
+        assertEquals("DONE",jdbc.queryForObject("select status from pipeline_jobs where id=?",String::class.java,id))
+        assertEquals(1,operations.byApplication(fixture.app.id)!!.tranches.size)
+        verify(core,times(1)).disburse(any())
+        verify(pinned,times(1)).version("OVERDRAFT",1)
+    }
+
+}

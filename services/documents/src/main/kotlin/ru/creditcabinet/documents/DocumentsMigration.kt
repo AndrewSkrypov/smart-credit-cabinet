@@ -79,7 +79,7 @@ class DocumentsMigration(
             documents++
         })
         var artifacts = 0
-        credit.query("select g.*,a.company_id from generated_artifacts g join applications a on a.id=g.application_id order by g.id", org.springframework.jdbc.core.RowCallbackHandler { rs ->
+        credit.query("select g.*,a.company_id from generated_artifacts g join applications a on a.id=g.application_id order by g.created_at,g.id", org.springframework.jdbc.core.RowCallbackHandler { rs ->
             val input = mapper.readValue<ArtifactInput>(rs.getString("input_json"))
             val frozen = mapper.writeValueAsString(input)
             check(sha256(frozen.toByteArray()) == rs.getString("input_hash"))

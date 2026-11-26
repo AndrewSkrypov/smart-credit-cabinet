@@ -95,7 +95,9 @@ class DocumentsRuntimeTest {
             }
             for (kind in listOf("SCHEDULE_PDF", "SCHEDULE_XLSX")) {
                 val nextId = UUID.randomUUID()
-                remote.prepare(record.copy(id = nextId, kind = kind, storedName = "generated-$nextId.${if (kind.endsWith("XLSX")) "xlsx" else "pdf"}"))
+                val typedKind = ru.creditcabinet.document.generated.ArtifactKind.valueOf(kind)
+                remote.prepare(record.copy(id = nextId, kind = kind, fileName = "schedule.${typedKind.extension}", contentType = typedKind.contentType,
+                    storedName = "generated-$nextId.${typedKind.extension}"))
             }
             db("credit") { connection -> connection.prepareStatement("insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json,delivered_at) values(?,?,'FINAL',?,?::jsonb,now())").use { statement ->
                 statement.setObject(1, scope.applicationId); statement.setObject(2, offer); statement.setString(3, record.inputHash); statement.setString(4, frozen); statement.executeUpdate()

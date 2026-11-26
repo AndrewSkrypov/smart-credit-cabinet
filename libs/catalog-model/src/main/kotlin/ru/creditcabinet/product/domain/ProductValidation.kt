@@ -1,5 +1,9 @@
 package ru.creditcabinet.product.domain
 
+private val productCodePattern = Regex("[A-Z0-9_]{1,32}")
+
+fun validProductCode(code: String): Boolean = productCodePattern.matches(code)
+
 /** Invalid edits cannot enter a historical snapshot used for lending. */
 fun Product.problems(): List<String> = buildList {
     if (name.isBlank() || name.length > 255) add("Название — от 1 до 255 символов")

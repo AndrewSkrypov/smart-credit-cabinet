@@ -20,6 +20,10 @@ import org.springframework.core.env.Environment
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.datasource.DataSourceTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
+import ru.creditcabinet.catalog.application.CatalogUseCases
+import ru.creditcabinet.catalog.infrastructure.JdbcCatalogAuthority
+import ru.creditcabinet.catalog.infrastructure.JdbcCatalogReader
+import ru.creditcabinet.catalog.infrastructure.TransactionalCatalogWriter
 import ru.creditcabinet.catalogjdbc.JdbcProductCatalog
 import ru.creditcabinet.common.security.JwtVerifier
 import java.io.File
@@ -71,13 +75,12 @@ internal class CatalogGrpcServerConfiguration {
         )
         check(ownDatabase == true) { "Catalog requires a restricted runtime role in its own database" }
         val clock = Clock.systemUTC()
-        val service = CatalogGrpcService(
-            JdbcProductCatalog(jdbc, clock),
-            jdbc,
-            TransactionTemplate(DataSourceTransactionManager(dataSource)),
-            JwtVerifier(jwtSecret, environment),
-            clock,
-        )
+        val catalog = JdbcProductCatalog(jdbc, clock)
+        val authority = JdbcCatalogAuthority(jdbc)
+        val reader = JdbcCatalogReader(catalog)
+        val writer = TransactionalCatalogWriter(catalog, authority, TransactionTemplate(DataSourceTransactionManager(dataSource)))
+        val useCases = CatalogUseCases(reader, writer, authority, clock)
+        val service = CatalogGrpcService(useCases, JwtVerifier(jwtSecret, environment))
         val credentials = TlsServerCredentials.newBuilder()
             .keyManager(certificate, key)
             .trustManager(clientCa)

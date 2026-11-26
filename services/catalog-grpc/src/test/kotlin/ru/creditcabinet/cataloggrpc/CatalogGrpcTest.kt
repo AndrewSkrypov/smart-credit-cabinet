@@ -11,10 +11,9 @@ import org.junit.jupiter.api.Timeout
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.springframework.http.HttpStatus
-import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.mock.env.MockEnvironment
-import org.springframework.transaction.support.TransactionTemplate
-import ru.creditcabinet.catalogjdbc.JdbcProductCatalog
+import ru.creditcabinet.catalog.application.CatalogUseCases
+import ru.creditcabinet.catalog.domain.CatalogReader
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.contracts.catalog.v1.CatalogServiceGrpc
@@ -116,20 +115,15 @@ class CatalogGrpcTest {
     }
 
     private fun catalogService(): CatalogGrpcService {
-        val catalog = mock<JdbcProductCatalog>()
-        val jdbc = mock<JdbcTemplate>()
+        val catalog = mock<CatalogReader>()
         val eligible = listOf(current, alternative).map { ProductRevision(it, null, "Синтетика", at) }
         val previous = ProductRevision(archived, null, "Предыдущая редакция", at)
-        whenever(jdbc.queryForObject("select writable from catalog_cutover.authority where singleton", Boolean::class.java)).thenReturn(true)
         whenever(catalog.snapshotForSubmission(current.code))
             .thenReturn(SubmissionProductSnapshot(at, current, eligible.map(ProductRevision::product), eligible))
-        whenever(catalog.revision(archived.code, archived.version)).thenReturn(previous)
+        whenever(catalog.version(archived.code, archived.version)).thenReturn(previous)
         return CatalogGrpcService(
-            catalog,
-            jdbc,
-            TransactionTemplate(),
+            CatalogUseCases(catalog, mock(), {}, Clock.fixed(at, ZoneOffset.UTC)),
             JwtVerifier(JwtVerifier.DEV_DEFAULT_SECRET, MockEnvironment()),
-            Clock.fixed(at, ZoneOffset.UTC),
         )
     }
 

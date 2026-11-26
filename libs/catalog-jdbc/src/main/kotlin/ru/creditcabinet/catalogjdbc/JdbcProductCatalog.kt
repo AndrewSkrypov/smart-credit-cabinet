@@ -15,6 +15,7 @@ import ru.creditcabinet.product.domain.SubmissionProductSnapshot
 import java.sql.Timestamp
 import java.time.Clock
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 class JdbcProductCatalog(
@@ -58,7 +59,7 @@ class JdbcProductCatalog(
 
     override fun all(): List<Product> = currentRevisions(effectiveAt = clock.instant()).map(ProductRevision::product)
 
-    override fun find(code: String): Product? = latest(code)?.takeIf { it.active && it.isEffectiveAt(clock.instant()) }
+    override fun find(code: String): Product? = currentRevisions(code, clock.instant()).singleOrNull()?.product
 
     override fun latest(code: String): Product? = currentRevisions(code).singleOrNull()?.product
 
@@ -80,15 +81,16 @@ class JdbcProductCatalog(
             sql.append(" and v.lifecycle_status = 'ACTIVE'")
             sql.append(" and (v.effective_from is null or v.effective_from <= ?)")
             sql.append(" and (v.effective_to is null or v.effective_to >= ?)")
-            values.add(Timestamp.from(effectiveAt))
-            values.add(Timestamp.from(effectiveAt))
+            val bound = Timestamp.from(effectiveAt.truncatedTo(ChronoUnit.MICROS))
+            values.add(bound)
+            values.add(bound)
         }
         sql.append(" order by p.display_order, p.code")
         return jdbc.query(sql.toString(), revisionMapper, *values.toTypedArray())
     }
 
     override fun snapshotForSubmission(selectedProductCode: String): SubmissionProductSnapshot? {
-        val at = clock.instant()
+        val at = clock.instant().truncatedTo(ChronoUnit.MICROS)
         val revisions = currentRevisions(effectiveAt = at)
         val selected = revisions.firstOrNull { it.product.code == selectedProductCode } ?: return null
         return SubmissionProductSnapshot(at, selected.product, revisions.map(ProductRevision::product), revisions)

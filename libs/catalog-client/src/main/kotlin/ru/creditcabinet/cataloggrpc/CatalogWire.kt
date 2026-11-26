@@ -11,15 +11,12 @@ import ru.creditcabinet.product.domain.ProductLifecycleStatus
 import ru.creditcabinet.product.domain.ProductRevision
 import ru.creditcabinet.product.domain.SubmissionProductSnapshot
 import ru.creditcabinet.product.domain.problems
+import ru.creditcabinet.product.domain.validProductCode
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
 import ru.creditcabinet.contracts.catalog.v1.FinancingPurpose as WirePurpose
 import ru.creditcabinet.contracts.catalog.v1.ProductLifecycleStatus as WireLifecycleStatus
-
-private val productCodePattern = Regex("[A-Z0-9_]{1,32}")
-
-fun validProductCode(code: String) = productCodePattern.matches(code)
 
 fun productRef(code: String, version: Long): ProductVersionRef =
     ProductVersionRef.newBuilder().setCode(code).setVersion(version).build()

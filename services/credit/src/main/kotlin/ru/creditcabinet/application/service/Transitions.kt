@@ -1,6 +1,7 @@
 package ru.creditcabinet.application.service
 
 import org.springframework.stereotype.Component
+import ru.creditcabinet.advice.ManualReviewEvents
 import ru.creditcabinet.application.application.CommitTransition
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
@@ -12,7 +13,7 @@ import ru.creditcabinet.product.domain.forApplication
 
 /**
  * Saves a moved application together with its journal entry, in the caller's transaction, and
- * persists its notifications in the same transaction for independent delivery.
+ * persists its notifications and manual-review warmup events in the same transaction for independent delivery.
  */
 @Component
 class Transitions(
@@ -20,12 +21,14 @@ class Transitions(
     private val journal: ApplicationJournal,
     private val notifications: PlatformNotifications,
     private val products: ProductCatalog,
+    private val manualReviewEvents: ManualReviewEvents = ManualReviewEvents { _, _ -> },
 ) : CommitTransition {
     override fun commit(transition: Transition): LoanApplication {
         val saved = applications.save(transition.application)
         journal.append(transition.entry)
         val productName = products.forApplication(saved).name
         notifications.send(TransitionNotices.of(saved, transition.entry, productName))
+        manualReviewEvents.onTransition(saved, transition.entry)
         return saved
     }
 }

@@ -26,7 +26,9 @@
 
 ## Релизная ветка
 
-[MR !2](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/merge_requests/2) принят после успешного [pipeline №32](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/32). Source `1dfa7506856622249068bf6937a1f98e3ba95ff3` и merge `dffea358123d5b9f810ada628954fc698b7d5beb` имеют одинаковый Git tree `9822d4ad135715555b3f5c3761b00265cff5f3a0`. Ветка `main` по-прежнему указывает на исходный GitHub SHA. Релизные задания и артефакты публикуются из [защищённого pipeline №33](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/33).
+[MR !2](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/merge_requests/2) принят после успешного [pipeline №32](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/32). Source `1dfa7506856622249068bf6937a1f98e3ba95ff3` и merge `dffea358123d5b9f810ada628954fc698b7d5beb` имеют одинаковый Git tree `9822d4ad135715555b3f5c3761b00265cff5f3a0`. Ветка `main` по-прежнему указывает на исходный GitHub SHA. Обязательные проверки первого [защищённого pipeline №33](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/33) выявили несовместимость аргумента shared-state и нехватку памяти контейнера Credit в E2E.
+
+Поправки приняты в [MR !3](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/merge_requests/3) после успешного [pipeline №36](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/36). Source `c0870f86ca1005dfcfbdd1a0312e8c7d3e1997ee` и merge `833a6f818f2efb90b8fbf5bb568170a67285c4a6` имеют одинаковый Git tree `70283daa58d15af72b58084ea7c5a751f7a9efb3`. Текущая цепочка сборки и Dev проходит через [защищённый pipeline №37](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/37).
 
 ## Проверка и откат
 

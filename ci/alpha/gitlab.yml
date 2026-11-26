@@ -1,4 +1,4 @@
-# Pilot checks run on the pilot MR and on explicitly selected Dev pipelines.
+# Pilot checks run on Alpha MRs and on explicitly selected Dev pipelines.
 .alpha-pilot-verify:
   extends: .quality
   stage: verify
@@ -6,7 +6,8 @@
     - if: '$CABINET_ALPHA_PILOT == "1"'
     - if: >-
         $CI_PIPELINE_SOURCE == "merge_request_event" &&
-        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-analytics-pilot" &&
+        ($CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-analytics-pilot" ||
+        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-dev-provisioning") &&
         $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "feat/final-platform-release"
 
 alpha-pilot-infrastructure:

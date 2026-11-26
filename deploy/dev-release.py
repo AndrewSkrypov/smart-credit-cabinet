@@ -5,11 +5,13 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import secrets
+import stat
 import subprocess
 import sys
 import tempfile
 
-from alpha_dev import PROJECT, stop_alpha
+from alpha_dev import PROJECT, SECRET_KEYS, stop_alpha
 from common import Deployment, ROOT
 from jury import COMPANY, provision, read_credentials, verify
 from registry_release import RegistryRelease, REVISION
@@ -20,6 +22,44 @@ def write_state(path, value):
         json.dump(value, stream)
         temporary = Path(stream.name)
     temporary.replace(path)
+
+
+def with_alpha_config(contents):
+    values = {
+        "CABINET_ALPHA_DEV_ENABLED": "true",
+        "CABINET_ALPHA_DEV_GENERATION": "g" + secrets.token_hex(8),
+        "CABINET_ALPHA_DEV_READ_ENABLED": "false",
+        **{key: secrets.token_hex(32) for key in SECRET_KEYS},
+    }
+    newline = b"\r\n" if b"\r\n" in contents else b"\n"
+    separator = newline if contents and not contents.endswith((b"\n", b"\r")) else b""
+    return contents + separator + b"".join(f"{key}={value}".encode("ascii") + newline for key, value in values.items())
+
+
+def replace_env(path, original, contents):
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".cabinet.env.", delete=False) as stream:
+            temporary = Path(stream.name)
+            created = os.fstat(stream.fileno())
+            if (created.st_uid, created.st_gid) != (original.st_uid, original.st_gid):
+                os.fchown(stream.fileno(), original.st_uid, original.st_gid)
+            os.fchmod(stream.fileno(), stat.S_IMODE(original.st_mode))
+            stream.write(contents)
+            stream.flush()
+            os.fsync(stream.fileno())
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            current = path.lstat()
+            if not os.path.samestat(current, original) or current.st_ctime_ns != original.st_ctime_ns:
+                raise RuntimeError("cabinet.env изменился во время выкладки. Повторите запуск.")
+            temporary.replace(path)
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def run(root, script, *arguments, capture=False):
@@ -71,16 +111,29 @@ def resumes_pending_in_shadow(pending, desired):
 def deploy(args, state_dir, release):
     current_file, pending_file = (state_dir / name for name in ("current.json", "pending.json"))
     env_file = state_dir / "cabinet.env"
-    if env_file.stat().st_mode & 0o077:
+    env_stat = env_file.stat()
+    if env_stat.st_mode & 0o077:
         raise ValueError("cabinet.env должен иметь права 0600")
     env_args = ["--project", PROJECT, "--env-file", str(env_file)]
     release_args = ["--release-manifest", str(release.path)]
-    deployment = Deployment(PROJECT, env_file, release_manifest=release.path)
+    may_initialize = not args.verify_only and release.alpha_dev is not None
+    if may_initialize and not stat.S_ISREG(env_stat.st_mode):
+        raise ValueError("Для настройки Analytics нужен обычный файл cabinet.env")
+    env_contents = env_file.read_bytes() if may_initialize else None
+    deployment = Deployment(PROJECT, env_file, release_manifest=release.path, env_contents=env_contents)
     status = json.loads(current_file.read_text()) if current_file.exists() else {}
     pending = json.loads(pending_file.read_text()) if pending_file.exists() else {}
-    desired, history_file, history = rollout_metadata(deployment, state_dir, release, status, pending)
     if status.get("revision") == release.revision and status.get("manifest_sha256") != release.checksum:
         raise ValueError("Manifest для уже применённой ревизии изменился")
+    initialized_env = None
+    if may_initialize and not any(key.startswith("CABINET_ALPHA_DEV_") for key in deployment.values):
+        if status.get("alpha_dev") or pending.get("alpha_dev"):
+            raise ValueError("В cabinet.env отсутствуют настройки записанного поколения Analytics")
+        if not stat.S_ISREG(env_file.lstat().st_mode):
+            raise ValueError("Для настройки Analytics нужен обычный файл cabinet.env")
+        initialized_env = with_alpha_config(env_contents)
+        deployment = Deployment(PROJECT, env_file, release_manifest=release.path, env_contents=initialized_env)
+    desired, history_file, history = rollout_metadata(deployment, state_dir, release, status, pending)
     if pending and pending != desired and not resumes_pending_in_shadow(pending, desired):
         raise RuntimeError("Есть незавершённый выпуск. Повторите тот же manifest или восстановите отдельную копию.")
     if args.verify_only and (desired != status or pending):
@@ -97,6 +150,9 @@ def deploy(args, state_dir, release):
             resume_options = ["--resume-existing"] if status.get("alpha_dev") else []
             run(old_root, "backup.py", *env_args, "--release-manifest", str(old_release.path),
                 "--output", str(directory / "backup"), *resume_options)
+        if initialized_env is not None:
+            # Keep the generation and credentials for retry before starting any Alpha service.
+            replace_env(env_file, env_stat, initialized_env)
         write_state(pending_file, desired)
         if history is not None:
             write_state(history_file, sorted(history))

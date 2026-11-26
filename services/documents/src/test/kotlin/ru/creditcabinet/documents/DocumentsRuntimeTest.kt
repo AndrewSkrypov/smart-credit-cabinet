@@ -35,7 +35,7 @@ import kotlin.test.assertTrue
 
 /** Required gate: missing infrastructure is a failure, never a skipped test. */
 class DocumentsRuntimeTest {
-    private val mapper = jacksonObjectMapper().findAndRegisterModules()
+    private val mapper = jacksonObjectMapper().findAndRegisterModules().disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
     private val certs = File(env("DOCUMENTS_TEST_CERTS"))
     private val port = env("DOCUMENTS_TEST_GRPC_PORT").toInt()
     private val scope = DocumentScope(UUID.fromString(env("DOCUMENTS_TEST_COMPANY")), UUID.fromString(env("DOCUMENTS_TEST_APPLICATION")))

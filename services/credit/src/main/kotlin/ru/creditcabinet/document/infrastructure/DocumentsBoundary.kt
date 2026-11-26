@@ -38,12 +38,17 @@ class DocumentsBoundary(
     @Value("\${cabinet.documents.grpc.certificate:}") private val certificate: String,
     @Value("\${cabinet.documents.grpc.key:}") private val key: String,
     @Value("\${cabinet.documents.grpc.ca:}") private val ca: String,
+    @Value("\${cabinet.documents.grpc.deadline-ms:30000}") private val deadlineMs: Long,
 ) : DocumentRepository {
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent::class)
+    fun verifyOwnership() {
+        if (remote) client // Validate required TLS files/channel settings before admitting traffic.
+    }
     private var channel: ManagedChannel? = null
     private val client by lazy {
         require(mode == "remote" && listOf(certificate, key, ca).all { it.isNotBlank() })
         channel = documentsTlsChannel(host, port, File(certificate), File(key), File(ca))
-        DocumentsGrpcClient(channel!!, mapper, epoch)
+        DocumentsGrpcClient(channel!!, mapper, epoch, deadlineMs)
     }
     val remote: Boolean get() {
         val gate = jdbc.queryForMap("select owner,epoch from document_ownership where singleton")
@@ -77,7 +82,9 @@ class DocumentsBoundary(
         rpc { client().delete(scope(applicationId), documentId, document.context.name, at) }
     }
     override fun isChatAttached(documentId: UUID): Boolean = local.isChatAttached(documentId)
-    fun <T> rpc(action: () -> T): T = try { action() } catch (_: io.grpc.StatusRuntimeException) { unavailable() }
+    fun <T> rpc(action: () -> T): T = try { action() }
+        catch (_: io.grpc.StatusRuntimeException) { unavailable() }
+        catch (_: IllegalArgumentException) { unavailable() }
     private fun unavailable(): Nothing = throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Документы временно недоступны")
     @PreDestroy fun close() { channel?.shutdownNow() }
 }

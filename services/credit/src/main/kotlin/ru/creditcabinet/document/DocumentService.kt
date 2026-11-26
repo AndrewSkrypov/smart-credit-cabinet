@@ -49,6 +49,7 @@ class DocumentService(
     private val clock: Clock,
     @Value("\${cabinet.storage.max-size-bytes:20971520}") private val maxSizeBytes: Long,
     @Value("\${cabinet.storage.uploads-enabled:true}") private val uploadsEnabled: Boolean,
+    private val boundary: ru.creditcabinet.document.infrastructure.DocumentsBoundary? = null,
 ) : ApplicationDocuments {
     override fun list(applicationId: UUID): List<ApplicationDocument> = list(applications.get(applicationId))
 

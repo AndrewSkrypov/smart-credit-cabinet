@@ -44,7 +44,7 @@ class DocumentsRpc(private val store: DocumentsStore, private val mapper: Object
     private fun scope(scope: Scope): DocumentScope = DocumentScope(UUID.fromString(scope.companyId), UUID.fromString(scope.applicationId))
     private fun record(scope: Scope, value: Any): Record = Record.newBuilder().setScope(scope).setMetadataJson(mapper.writeValueAsString(value)).build()
     private fun <T> reply(scope: Scope, observer: StreamObserver<T>, action: () -> T) {
-        try { val result = store.owned(scope.epoch) { scope(scope); action() }; observer.onNext(result); observer.onCompleted() }
+        try { val result = store.owned(scope.epoch) { scope(scope); action().also { check(!io.grpc.Context.current().isCancelled) } }; observer.onNext(result); observer.onCompleted() }
         catch (_: IllegalArgumentException) { observer.onError(Status.INVALID_ARGUMENT.asRuntimeException()) }
         catch (_: NoSuchElementException) { observer.onError(Status.NOT_FOUND.asRuntimeException()) }
         catch (_: Exception) { observer.onError(Status.FAILED_PRECONDITION.asRuntimeException()) }
@@ -91,7 +91,7 @@ class DocumentsGrpcServer(
     override fun start() {
         val credentials = TlsServerCredentials.newBuilder().keyManager(certificate, key).trustManager(ca).clientAuth(TlsServerCredentials.ClientAuth.REQUIRE).build()
         executor = java.util.concurrent.ThreadPoolExecutor(2, 2, 0, java.util.concurrent.TimeUnit.SECONDS, java.util.concurrent.ArrayBlockingQueue(8))
-        server = NettyServerBuilder.forPort(port, credentials).maxInboundMessageSize(MAX_DOCUMENT_BYTES + 1024 * 1024)
+        server = NettyServerBuilder.forPort(port, credentials).maxInboundMessageSize(MAX_DOCUMENT_BYTES + 1024 * 1024).maxConcurrentCallsPerConnection(2)
             .executor(executor)
             .addService(ServerInterceptors.intercept(service, peer)).build().start()
     }

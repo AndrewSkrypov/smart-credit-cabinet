@@ -26,9 +26,9 @@ fun documentsTlsChannel(host: String, port: Int, certificate: File, key: File, c
     NettyChannelBuilder.forAddress(host, port, TlsChannelCredentials.newBuilder().keyManager(certificate, key).trustManager(ca).build())
         .maxInboundMessageSize(MAX_DOCUMENT_BYTES + 1024 * 1024).disableRetry().build()
 
-class DocumentsGrpcClient(channel: Channel, private val mapper: ObjectMapper, private val epoch: Long, private val deadlineMs: Long = 15000) : DocumentsPort {
+class DocumentsGrpcClient(channel: Channel, private val mapper: ObjectMapper, private val epoch: Long, private val deadlineMs: Long = 30000) : DocumentsPort {
     private val stub = DocumentsServiceGrpc.newBlockingStub(channel)
-    init { require(epoch > 0 && deadlineMs in 1..60000) }
+    init { require(epoch > 0 && deadlineMs in 1..180000) }
     private fun stub() = stub.withDeadlineAfter(deadlineMs, TimeUnit.MILLISECONDS)
     private fun scope(scope: DocumentScope): Scope = Scope.newBuilder().setCompanyId(scope.companyId.toString()).setApplicationId(scope.applicationId.toString()).setEpoch(epoch).build()
     private fun objectRequest(scope: DocumentScope, id: UUID, context: String = "", at: Instant? = null): ObjectRequest =

@@ -14,6 +14,7 @@ SERVICE_COMPONENTS = {
     **{name: name for name in (*APP_SERVICES, "postgres")},
     "swagger-ui": "swagger",
     "clamav": "clamav",
+    "ollama-ssh-bridge": "ssh-bridge",
     "db-init": "postgres",
     "identity-migrate": "identity",
     "credit-migrate": "credit",
@@ -43,11 +44,10 @@ class RegistryRelease:
         self.checksum = sha256(raw).hexdigest()
 
     def environment(self):
-        components = (*IMAGE_COMPONENTS, "clamav") if "clamav" in self.images else IMAGE_COMPONENTS
         return {
             "CABINET_RELEASE": self.revision,
             **{"CABINET_IMAGE_" + component.upper().replace("-", "_"): self.images[component]
-               for component in components},
+               for component in self.images},
         }
 
     def pull_and_verify(self, services):

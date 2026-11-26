@@ -11,7 +11,7 @@ from urllib.error import URLError
 from urllib.request import HTTPSHandler, HTTPRedirectHandler, build_opener
 
 from common import Deployment
-from registry_release import APP_SERVICES, REVISION
+from registry_release import APP_SERVICES, REVISION, SERVICE_COMPONENTS
 
 
 IMAGE_ID = re.compile(r"sha256:[0-9a-f]{64}")
@@ -60,6 +60,8 @@ def verify(deployment, expected_revision):
     services = (*APP_SERVICES, "postgres") if deployment.release else APP_SERVICES
     if deployment.release and "clamav" in deployment.release.images:
         services = (*services, "clamav")
+    if deployment.ollama_ssh:
+        services = (*services, "ollama-ssh-bridge")
     containers = {service: deployment.container(service) for service in services}
     images = {}
     for service, container in containers.items():
@@ -71,13 +73,14 @@ def verify(deployment, expected_revision):
         revision = docker(
             "image", "inspect", "--format", '{{index .Config.Labels "org.opencontainers.image.revision"}}', image_id,
         ).decode("ascii").strip()
-        if deployment.release and deployment.release.local_image_id(service) != image_id:
+        component = SERVICE_COMPONENTS[service]
+        if deployment.release and deployment.release.local_image_id(component) != image_id:
             raise RuntimeError(f"Работающий образ {service} отличается от digest выпуска")
         if revision != expected_revision:
             raise RuntimeError(f"OCI revision работающего образа {service} отличается от ожидаемой")
         images[service] = {"container": container, "image_id": image_id, "revision": revision}
         if deployment.release:
-            images[service]["registry_ref"] = deployment.release.images[service]
+            images[service]["registry_ref"] = deployment.release.images[component]
 
     frontend = containers["frontend"]
     entry = frontend_entry(docker("exec", frontend, "cat", FRONTEND_ROOT + "/index.html"))

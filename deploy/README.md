@@ -90,3 +90,42 @@ python3 deploy/verify-release.py --project cabinet-prod-restore-dev --env-file /
 можно запустить защищённую операцию с предыдущим каталогом и manifest. Если миграция оборвалась
 или схема несовместима, сначала проверьте восстановление старой копии в отдельном проекте,
 затем планируйте перенос трафика. Сохраняйте исходные тома.
+
+### Необязательный GPU bridge в Dev
+
+CI/CD включает `CABINET_DEV_OLLAMA_SSH=true` в защищённом Dev env после
+приёмки Grafana, отдельным выпуском под `resource_group: cabinet-dev`.
+Флаг по умолчанию выключен. Включение доступно для `cabinet-dev` с Registry
+manifest и без локального профиля `ai`. В manifest нужен `ssh-bridge`
+с OCI digest. Wrapper проверяет OCI revision и запущенный образ так же,
+как для engagement. Для существующего SHA повторный запуск `dev-release.py`
+выполняет проверку и сам по себе не применяет смену флага.
+
+Dev-оператор готовит `/etc/pump/engagement-ollama-ssh`, который монтируется
+только в bridge. Владелец каталога и файлов — root, группа — 10002, режимы
+каталога — 0750, файлов `id_ed25519` и `known_hosts` — 0440. Скрипт
+копирует файлы в свой tmpfs с режимом 0600. Используется отдельный Dev-ключ,
+разрешённый на GPU с исходного IP Dev. Prod Secret в Dev не монтируется.
+
+SSH bridge устанавливает исходящий TCP-сеанс к `45.145.191.121:43423`.
+`known_hosts` закрепляет ED25519 под алиасом `gpu-vm3-pump-model`; проверенный
+отпечаток `SHA256:d+E5zEPdZyHp7D2PoRekxCnt43372dmVkIy1Ov5QJoA`.
+На GPU разрешён только прямой проброс в `127.0.0.1:11434`.
+В Compose bridge использует сетевой namespace engagement и слушает только
+loopback. Порты наружу не публикуются. Для запуска процесса engagement
+доступность GPU не требуется.
+
+Перед включением в Dev на изолированном проекте проверьте ожидаемый digest
+через `/api/tags`, реальный ответ `MODEL` через `/api/v1/assistant/messages/stream`
+с синтетическим клиентом и ответ `RULES` на вопрос о персональном решении
+банка. На том же изолированном проекте остановите только bridge, подтвердите
+переход на правила и восстановление модели без рестарта engagement.
+После защищённого rollout проверьте Dev, Grafana и метрики assistant.
+
+При откате под тем же lock сначала удалите только `ollama-ssh-bridge` через
+`docker compose rm --stop --force ollama-ssh-bridge` с текущим набором
+Compose-файлов, включая GPU overlay. Установите `CABINET_DEV_OLLAMA_SSH=false`
+и `OLLAMA_URL=` в защищённом Dev env и примените ранее проверенный выпуск
+своим штатным rollback job. Смена флага на той же ревизии требует явного
+пересоздания engagement под тем же lock. Проверьте ответ `RULES` и HTTPS
+Grafana.

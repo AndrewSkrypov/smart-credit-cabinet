@@ -39,6 +39,9 @@ if not args.check_only:
     if "ollama-pull" in active:
         deployment.compose("up", "-d", "--wait", "--wait-timeout", "90", "ollama")
         deployment.compose("run", "--rm", "--no-deps", "ollama-pull")
+    if deployment.ollama_ssh:
+        # Remove the old bridge before changing the engagement network namespace.
+        deployment.compose("rm", "--stop", "--force", "ollama-ssh-bridge")
     # Stop existing writers before bootstrap changes ownership and the owners migrate.
     deployment.compose("stop", "caddy", "identity", "credit", "engagement")
     arguments = ["up", "-d", "--wait", "--wait-timeout", "300", "--no-build" if args.no_build else "--build"]

@@ -21,7 +21,7 @@ permissions:
 jobs:
   own-database-mtls-credit:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -30,6 +30,7 @@ jobs:
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
       - name: Prepare private native fixtures
+        timeout-minutes: 4
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-16 postgresql-client-16
@@ -42,18 +43,21 @@ jobs:
               output.write('DOCUMENTS_TEST_S3_BINARY_SHA256='+manifest['binarySha256']+'\n')
           PY
       - name: Build source-bound standalone JARs
+        timeout-minutes: 12
         run: |
           ./gradlew --no-daemon --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process \
             :services:documents:bootJar :services:credit:bootJar :services:documents:testClasses
       - name: Run required LOCAL and S3 profiles
+        timeout-minutes: 18
         run: |
-          timeout --signal=TERM 22m python3 scripts/check-documents-runtime.py \
+          timeout --signal=TERM 8m python3 scripts/check-documents-runtime.py \
             --pg-bin /usr/lib/postgresql/16/bin --skip-build \
             --report-dir ci-artifacts/documents-r3
-          timeout --signal=TERM 22m python3 scripts/check-documents-runtime.py \
+          timeout --signal=TERM 8m python3 scripts/check-documents-runtime.py \
             --pg-bin /usr/lib/postgresql/16/bin --skip-build --storage-backend s3 \
             --report-dir ci-artifacts/documents-r3-s3
       - name: Clean only recorded fixture processes
+        timeout-minutes: 3
         if: always()
         run: |
           python3 - "$GITHUB_SHA" <<'PY'

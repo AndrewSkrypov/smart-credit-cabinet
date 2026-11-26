@@ -3,7 +3,6 @@
 import argparse
 from contextlib import contextmanager
 import fcntl
-import getpass
 from hashlib import sha256
 import importlib.util
 import json
@@ -18,6 +17,8 @@ import time
 import urllib.request
 import uuid
 import xml.etree.ElementTree as ET
+
+from postgres_backend import CiPostgres, tool_environment
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -51,12 +52,17 @@ class Acceptance:
         self.args = args
         self.root = args.artifacts.resolve()
         self.root.mkdir(mode=0o700)
-        self.env = os.environ.copy()
+        (self.root / "home").mkdir(mode=0o700)
+        self.env = tool_environment(os.environ, self.root / "home", args.inherit_proxy_env)
         self.env.update(JAVA_HOME=str(args.java_home), GRADLE_USER_HOME=str(args.gradle_user_home))
         if args.read_only_dependency_cache:
             self.env["GRADLE_RO_DEP_CACHE"] = str(args.read_only_dependency_cache)
-        self.pg_bin = args.pg_root / "usr/lib/postgresql" / args.pg_version / "bin"
-        self.env["LD_LIBRARY_PATH"] = str(args.pg_root / "usr/lib/x86_64-linux-gnu")
+        self.pg_bin = args.pg_bin if args.ci_postgres_image else args.pg_root / "usr/lib/postgresql" / args.pg_version / "bin"
+        if not args.ci_postgres_image:
+            self.env["LD_LIBRARY_PATH"] = str(args.pg_root / "usr/lib/x86_64-linux-gnu")
+        self.ci_postgres = None
+        self.bootstrap_user = "r3_bootstrap"
+        self.passwords = {role: secrets.token_hex(24) for role in (self.bootstrap_user, "credit_owner", "credit_app", "servicing_owner", "servicing_app")}
         self.env["PSQL"] = str(self.pg_bin / "psql")
         self.pg_port = port()
         self.grpc_port, self.http_port = port(), port()
@@ -65,9 +71,9 @@ class Acceptance:
         self.stage = "setup"
         self.receipt = {"status": "RUNNING", "checks": {}, "commands": [], "sourceSha": self.git("rev-parse", "HEAD"),
                         "sourceTree": self.git("rev-parse", "HEAD^{tree}"), "dirty": bool(self.git("status", "--porcelain")),
-                        "environment": {"nativePostgres": True, "docker": False, "grpcPort": self.grpc_port}}
+                        "environment": {"nativePostgres": not bool(args.ci_postgres_image), "docker": bool(args.ci_postgres_image), "grpcPort": self.grpc_port}}
         self.jwt = secrets.token_hex(32)
-        self.db_password = secrets.token_hex(24)
+        self.db_password = self.passwords["credit_app"]
         self.env.update(DB_HOST="127.0.0.1", DB_PORT=str(self.pg_port), DB_PASSWORD=self.db_password,
                         JWT_SECRET=self.jwt, SPRING_FLYWAY_ENABLED="false", PIPELINE_ENABLED="false", OUTBOX_WORKER_ENABLED="false",
                         SERVICING_MODE="local", CABINET_SERVICING_MODE="local", APPLICATION_STATUS_EVENTS_ENABLED="false", IDENTITY_URL="", ENGAGEMENT_URL="", UPLOAD_DIR=str(self.root / "credit-uploads"),
@@ -123,27 +129,55 @@ class Acceptance:
 
     def sql(self, database, role, query, failure=False):
         result = subprocess.run([self.pg_bin / "psql", "-XAtq", "-v", "ON_ERROR_STOP=1", "-h", "127.0.0.1", "-p", str(self.pg_port), "-U", role, database],
-                                input=query, text=True, capture_output=True, env=self.env, close_fds=True)
+                                input=query, text=True, capture_output=True, env={**self.env, "PGPASSWORD": self.passwords[role]}, close_fds=True)
         if (result.returncode == 0) == failure:
             raise RuntimeError("Unexpected PostgreSQL result in " + self.stage)
         return result.stdout.strip()
 
     def start_pg(self):
-        self.run("pg-init", [self.pg_bin / "initdb", "-D", self.root / "pg-data", "-A", "trust", "--no-locale", "-E", "UTF8"])
-        self.run("pg-start", [self.pg_bin / "pg_ctl", "-D", self.root / "pg-data", "-l", self.root / "postgres.log", "-o",
-                 f"-h 127.0.0.1 -p {self.pg_port} -k {self.root} -c shared_buffers=16MB -c max_connections=40 -c wal_level=minimal -c max_wal_senders=0 -c max_wal_size=128MB -c min_wal_size=32MB", "-w", "start"])
-        self.pg_started = True
-        bootstrap = "create role credit_owner login; create role credit_app login; create role servicing_owner login; create role servicing_app login; create database credit owner credit_owner; create database servicing owner servicing_owner;"
-        self.sql("postgres", getpass.getuser(), bootstrap)
+        if self.args.ci_postgres_image:
+            self.ci_postgres = CiPostgres(self.args.ci_postgres_image, self.root, self.env)
+            self.pg_port = self.ci_postgres.start(self.bootstrap_user, self.passwords[self.bootstrap_user])
+        else:
+            password_file = self.root / "bootstrap-password"
+            password_file.write_text(self.passwords[self.bootstrap_user])
+            password_file.chmod(0o600)
+            self.run("pg-init", [self.pg_bin / "initdb", "-D", self.root / "pg-data", "-U", self.bootstrap_user, "-A", "scram-sha-256", "--pwfile", password_file, "--no-locale", "-E", "UTF8"])
+            self.run("pg-start", [self.pg_bin / "pg_ctl", "-D", self.root / "pg-data", "-l", self.root / "postgres.log", "-o",
+                     f"-h 127.0.0.1 -p {self.pg_port} -k {self.root} -c shared_buffers=16MB -c max_connections=40 -c wal_level=minimal -c max_wal_senders=0 -c max_wal_size=128MB -c min_wal_size=32MB -c password_encryption=scram-sha-256", "-w", "start"])
+            self.pg_started = True
+        self.env["DB_PORT"] = str(self.pg_port)
+        until = time.monotonic() + 60
+        while True:
+            try:
+                self.sql("postgres", self.bootstrap_user, "select 1;")
+                break
+            except RuntimeError:
+                if time.monotonic() >= until:
+                    raise RuntimeError("Owned PostgreSQL readiness timeout")
+                time.sleep(0.5)
+        bootstrap = ";".join("create role " + role + " login password '" + password + "'" for role, password in self.passwords.items() if role != self.bootstrap_user)
+        self.sql("postgres", self.bootstrap_user, bootstrap + ";create database credit owner credit_owner;create database servicing owner servicing_owner;")
         for db in ("postgres", "template0", "template1", "credit", "servicing"):
-            self.sql("postgres", getpass.getuser(), f"revoke connect,temporary on database {db} from public;")
+            self.sql("postgres", self.bootstrap_user, f"revoke connect,temporary on database {db} from public;")
         service_file = ""
         for db in ("credit", "servicing"):
-            self.sql("postgres", getpass.getuser(), f"grant connect on database {db} to {db}_owner,{db}_app; revoke create,temporary on database {db} from {db}_app;")
+            self.sql("postgres", self.bootstrap_user, f"grant connect on database {db} to {db}_owner,{db}_app;revoke create,temporary on database {db} from {db}_app;")
             for role in ("owner", "app"):
-                service_file += f"[{db}_{role}]\nhost=127.0.0.1\nport={self.pg_port}\ndbname={db}\nuser={db}_{role}\n\n"
+                user = db + "_" + role
+                service_file += f"[{user}]\nhost=127.0.0.1\nport={self.pg_port}\ndbname={db}\nuser={user}\npassword={self.passwords[user]}\n\n"
         (self.root / "pg_service.conf").write_text(service_file)
+        (self.root / "pg_service.conf").chmod(0o600)
         self.env["PGSERVICEFILE"] = str(self.root / "pg_service.conf")
+        hashes = self.sql("postgres", self.bootstrap_user, "select bool_and(rolpassword like 'SCRAM-SHA-256$%') from pg_authid where rolname in ('credit_owner','credit_app','servicing_owner','servicing_app');")
+        if hashes != "t":
+            raise RuntimeError("Owned database roles must use SCRAM credentials")
+        wrong = subprocess.run([self.pg_bin / "psql", "-XAtq", "-h", "127.0.0.1", "-p", str(self.pg_port), "-U", "credit_app", "credit", "-c", "select 1"],
+                               env={**self.env, "PGPASSWORD": secrets.token_hex(24)}, capture_output=True, close_fds=True)
+        if wrong.returncode == 0:
+            raise RuntimeError("Owned PostgreSQL accepted an incorrect runtime password")
+        self.receipt["checks"]["owned-scram-roles"] = True
+        self.receipt["checks"]["owned-scram-auth-required"] = True
 
     def tls(self):
         directory = self.root / "tls"
@@ -159,7 +193,7 @@ class Acceptance:
 
     def migrate(self, db):
         env = self.env.copy()
-        env.update(MIGRATION_ONLY="true", DB_NAME=db, DB_USER=db + "_owner")
+        env.update(MIGRATION_ONLY="true", DB_NAME=db, DB_USER=db + "_owner", DB_PASSWORD=self.passwords[db + "_owner"])
         jar = self.output(":services:" + db) / "libs/app.jar"
         self.run("migration-" + db, [self.args.java_home / "bin/java", "-Xmx192m", "-jar", jar], env)
         self.receipt["checks"]["flyway-" + db] = self.sql(db, db + "_owner", "select string_agg(version,',' order by installed_rank) from flyway_schema_history where success;")
@@ -171,7 +205,7 @@ class Acceptance:
 
     def start_stand(self, label):
         env = self.env.copy()
-        env.update(SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{self.pg_port}/servicing", SPRING_DATASOURCE_USERNAME="servicing_app", SPRING_DATASOURCE_PASSWORD=self.db_password, DB_NAME="servicing", DB_USER="servicing_app", SERVER_PORT=str(self.http_port), CABINET_DATABASE_GUARD_ENABLED="true",
+        env.update(SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{self.pg_port}/servicing", SPRING_DATASOURCE_USERNAME="servicing_app", SPRING_DATASOURCE_PASSWORD=self.passwords["servicing_app"], DB_PASSWORD=self.passwords["servicing_app"], DB_NAME="servicing", DB_USER="servicing_app", SERVER_PORT=str(self.http_port), CABINET_DATABASE_GUARD_ENABLED="true",
                    SERVICING_GRPC_HOST="127.0.0.1", SERVICING_GRPC_PORT=str(self.grpc_port), SERVICING_SERVER_CERTIFICATE=str(self.root / "tls/server.crt"),
                    SERVICING_SERVER_KEY=str(self.root / "tls/server.key"), SERVICING_CLIENT_CA=str(self.root / "tls/ca.crt"))
         log = (self.root / (label + ".log")).open("wb")
@@ -224,15 +258,15 @@ class Acceptance:
         self.migrate("credit")
         self.migrate("servicing")
         local = {"DB_NAME": "credit", "DB_USER": "credit_app", "SPRING_DATASOURCE_URL": f"jdbc:postgresql://127.0.0.1:{self.pg_port}/credit", "SPRING_DATASOURCE_USERNAME": "credit_app", "SPRING_DATASOURCE_PASSWORD": self.db_password}
-        filters = ["*LoanAccountDomainTest", "*LoanServicingIntegrationTest", "*PaymentReserveIntegrationTest", "*LoanOpeningAtomicityIntegrationTest", "*ServicingLegacyExportFixtureTest"]
+        filters = ["*LoanAccountDomainTest", "*LoanServicingIntegrationTest", "*PaymentReserveIntegrationTest", "*LoanOpeningAtomicityIntegrationTest", "*ServicingLegacyExportFixtureTest", "*LoanServicingVisibilityTest"]
         self.gradle("credit-local", [":services:credit:test", *sum((["--tests", name] for name in filters), [])], local)
         self.tests(":services:credit", "credit-local", 10)
         self.transfer("remote", "forward")
         self.sql("credit", "credit_app", "select * from loan_accounts;", failure=True)
         self.sql("credit", "credit_app", "update servicing_writer_fence set writer='LOCAL';", failure=True)
-        pg = {"ALPHA_SERVICING_TEST_JDBC_URL": f"jdbc:postgresql://127.0.0.1:{self.pg_port}/servicing", "ALPHA_SERVICING_TEST_DB_USER": "servicing_app"}
-        self.gradle("servicing-postgres", [":services:servicing:test", "--tests", "*ServicingPostgresIntegrationTest"], pg)
-        self.tests(":services:servicing", "servicing-postgres", 3)
+        pg = {"ALPHA_SERVICING_TEST_JDBC_URL": f"jdbc:postgresql://127.0.0.1:{self.pg_port}/servicing", "ALPHA_SERVICING_TEST_DB_USER": "servicing_app", "ALPHA_SERVICING_TEST_DB_PASSWORD": self.passwords["servicing_app"]}
+        self.gradle("servicing-postgres", [":services:servicing:test", "--tests", "*ServicingPostgresIntegrationTest", "--tests", "*ServicingWireTest"], pg)
+        self.tests(":services:servicing", "servicing-postgres", 4)
         self.start_stand("runtime-first")
         self.gradle("live-open", [":services:servicing:test", "--tests", "*ServicingLiveGrpcTest"], {"ALPHA_SERVICING_LIVE_PHASE": "open"})
         self.tests(":services:servicing", "live-open")
@@ -267,6 +301,8 @@ class Acceptance:
 
     def close(self):
         self.stop_stand()
+        if self.ci_postgres is not None:
+            self.ci_postgres.close()
         if self.pg_started:
             with (self.root / "pg-stop.log").open("wb") as log:
                 subprocess.run([self.pg_bin / "pg_ctl", "-D", self.root / "pg-data", "-m", "fast", "-w", "stop"], env=self.env, stdout=log, stderr=subprocess.STDOUT, close_fds=True)
@@ -275,7 +311,10 @@ class Acceptance:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pg-root", type=Path, required=True)
+    parser.add_argument("--pg-root", type=Path)
+    parser.add_argument("--pg-bin", type=Path, help="PostgreSQL client directory for the CI container adapter")
+    parser.add_argument("--ci-postgres-image")
+    parser.add_argument("--inherit-proxy-env", action="store_true")
     parser.add_argument("--pg-version", default="16")
     parser.add_argument("--java-home", type=Path, required=True)
     parser.add_argument("--gradle", type=Path, required=True)
@@ -288,6 +327,10 @@ def main():
     parser.add_argument("--receipt-copy", type=Path, help="Optional small receipt outside tmpfs artifacts")
     parser.add_argument("--lock-timeout", type=int, default=30)
     args = parser.parse_args()
+    if args.ci_postgres_image and (args.pg_root or args.pg_bin is None):
+        parser.error("CI adapter requires --pg-bin and forbids --pg-root")
+    if not args.ci_postgres_image and args.pg_root is None:
+        parser.error("Native local adapter requires --pg-root")
     if not 0 <= args.lock_timeout <= 60:
         parser.error("lock timeout must be between 0 and 60 seconds")
     with heavy_lock(args.lock_timeout):

@@ -46,14 +46,14 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def fetch(opener, url, token=None, *, service_token=None, include_readiness=False):
+def fetch(opener, url, token=None, *, service_token=None, include_readiness=False, method="GET"):
     headers = {"Accept": "application/json"}
     if token is not None:
         headers["Authorization"] = f"Bearer {token}"
     if service_token is not None:
         headers["X-Analytics-Read-Token"] = service_token
     try:
-        response = opener.open(Request(url, headers=headers), timeout=10)
+        response = opener.open(Request(url, headers=headers, method=method), timeout=10)
     except HTTPError as error:
         response = error
     with response:

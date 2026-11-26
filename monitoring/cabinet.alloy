@@ -1,5 +1,5 @@
 local.file_match "cabinet" {
-  path_targets = [{ "__path__" = "/var/log/cabinet/*/*.jsonl" }]
+  path_targets = [{ "__path__" = "/var/log/cabinet/*/*.jsonl", environment = "dev" }]
 }
 
 loki.source.file "cabinet" {
@@ -11,11 +11,51 @@ loki.process "cabinet" {
   forward_to = [loki.write.cabinet.receiver]
 
   stage.json {
-    expressions = { service = "service" }
+    expressions = {
+      service = "service", level = "level", traceId = "traceId",
+      spanId = "spanId", requestId = "requestId",
+    }
+    drop_malformed = true
   }
 
   stage.labels {
     values = { service = "service" }
+  }
+
+  stage.match {
+    selector = "{environment=\"dev\", service!~\"credit|identity|engagement|external-sim\"}"
+    action = "drop"
+    drop_counter_reason = "unrecognized_service"
+  }
+
+  // Retain only normalized fields with bounded values.
+  stage.regex {
+    source = "traceId"
+    expression = "^(?P<safe_traceId>[0-9a-f]{16}([0-9a-f]{16})?)$"
+  }
+
+  stage.regex {
+    source = "spanId"
+    expression = "^(?P<safe_spanId>[0-9a-f]{16})$"
+  }
+
+  stage.regex {
+    source = "requestId"
+    expression = "^(?P<safe_requestId>[0-9a-f]{16}([0-9a-f]{16})?)$"
+  }
+
+  stage.regex {
+    source = "level"
+    expression = "^(?P<safe_level>TRACE|DEBUG|INFO|WARN|ERROR)$"
+  }
+
+  stage.template {
+    source = "safe_log"
+    template = "{\"service\":\"{{ .service }}\",\"environment\":\"dev\"{{ if .safe_traceId }},\"traceId\":\"{{ .safe_traceId }}\"{{ end }}{{ if .safe_spanId }},\"spanId\":\"{{ .safe_spanId }}\"{{ end }}{{ if .safe_requestId }},\"requestId\":\"{{ .safe_requestId }}\"{{ end }}{{ if .safe_level }},\"level\":\"{{ .safe_level }}\"{{ end }}}"
+  }
+
+  stage.output {
+    source = "safe_log"
   }
 
   stage.label_drop {

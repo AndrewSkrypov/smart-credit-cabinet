@@ -1,0 +1,85 @@
+{{- range $name, $backend := .Values.cabinet.backends }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-config
+data:
+  config.yaml: |
+    {{- required (printf "run helm/observability/prepare.sh to stage %s" $backend.config) ($.Files.Get (printf "files/%s" $backend.config)) | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+spec:
+  selector:
+    cabinet-observability: {{ $name }}
+  ports:
+    {{- range $port, $number := $backend.ports }}
+    - name: {{ $port }}
+      port: {{ $number }}
+      targetPort: {{ $port }}
+    {{- end }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      cabinet-observability: {{ $name }}
+  template:
+    metadata:
+      labels:
+        cabinet-observability: {{ $name }}
+      annotations:
+        checksum/config: {{ $.Files.Get (printf "files/%s" $backend.config) | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: {{ $name }}
+          image: {{ $backend.image }}
+          args: ["-config.file=/etc/backend/config.yaml"]
+          ports:
+            {{- range $port, $number := $backend.ports }}
+            - name: {{ $port }}
+              containerPort: {{ $number }}
+            {{- end }}
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+          resources:
+            requests: {cpu: 150m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - {name: config, mountPath: /etc/backend, readOnly: true}
+            - {name: data, mountPath: {{ $backend.path }}}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $name }}-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with $.Values.cabinet.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $backend.disk }}
+{{- end }}

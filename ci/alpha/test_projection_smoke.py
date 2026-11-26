@@ -218,6 +218,31 @@ class KafkaCacheTest(unittest.TestCase):
         return {"id": "sha256:" + "c" * 64, "os": "linux", "arch": architecture,
                 "digests": [digest or ("apache/kafka@sha256:" + "a" * 64)]}
 
+    def test_cache_interruption_stops_before_mirror_or_pull(self):
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            with self.subTest(signum=signum):
+                client = MagicMock()
+                def stop(*_args, **_kwargs):
+                    smoke.interrupted(signum, None)
+                client.inspect.side_effect = stop
+                with self.assertRaises(smoke.InterruptedProjection):
+                    smoke.select_pinned_kafka(client, self.pin)
+                self.assertEqual(client.inspect.call_count, 1)
+                client.run.assert_not_called()
+
+    def test_pull_interruption_stops_before_origin_fallback(self):
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            with self.subTest(signum=signum):
+                client = MagicMock()
+                client.inspect.side_effect = smoke.ProjectionError("object_inspection: failed")
+                def stop(*_args, **_kwargs):
+                    smoke.interrupted(signum, None)
+                client.run.side_effect = stop
+                with self.assertRaises(smoke.InterruptedProjection):
+                    smoke.select_pinned_kafka(client, self.pin)
+                self.assertEqual(client.inspect.call_count, 2)
+                self.assertEqual([call.args[-1] for call in client.run.call_args_list], [self.mirror])
+
     def test_valid_local_original_or_mirror_needs_no_pull(self):
         for selected in (self.pin, self.mirror):
             with self.subTest(selected=selected):

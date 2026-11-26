@@ -173,6 +173,7 @@ spec:
             - {name: ENGAGEMENT_URL, value: "http://engagement:8080"}
             {{- include "cabinet.secret" (list $root "IDENTITY_LINK_KEY" "IDENTITY_LINK_KEY") | nindent 12 }}
             {{- else if eq $name "credit" }}
+            - {name: DEMO_ACCOUNTS, value: {{ $root.Values.app.demoAccounts | quote }}}
             - {name: STORAGE_BACKEND, value: s3}
             {{- $s3Endpoint := $root.Values.s3.endpoint }}
             {{- $s3Secret := $root.Values.secrets.existingSecret }}

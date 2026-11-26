@@ -97,8 +97,7 @@ class AssistantService(
             "гарант" in normalized -> "approval"
             articles.any { it.id == "bureau" } && listOf("соглас", "тайком").any { it in normalized } -> "bureau"
             "контрпредлож" in normalized && listOf("отказ", "отклон", "приня").any { it in normalized } -> "counter-offer"
-            articles.firstOrNull()?.id == "overdraft" ||
-                ("овердрафт" in normalized && listOf("бесплат", "свои деньги", "мои деньги").any { it in normalized }) -> "overdraft"
+            "овердрафт" in normalized && listOf("бесплат", "свои деньги", "мои деньги").any { it in normalized } -> "overdraft"
             normalized.startsWith("на что") && "пополнени" in normalized && "оборот" in normalized -> "working-capital"
             normalized.startsWith("что финансирует") && "инвестицион" in normalized -> "investment"
             else -> null
@@ -109,7 +108,9 @@ class AssistantService(
             val reference = articles.filter { it.exact } + articles.filterNot { it.exact }
             return Answer(RuleAnswers.answer(question, facts, reference), AnswerMode.RULES, sources)
         }
-        if (articles.isEmpty()) return Answer(RuleAnswers.answer(question, facts, articles), AnswerMode.RULES, sources)
+        if (articles.isEmpty() || articles.first().id == "overdraft") {
+            return Answer(RuleAnswers.answer(question, facts, articles), AnswerMode.RULES, sources)
+        }
         val primaryReference = articles.first()
         val trusted = (articles.map { it.text } + listOfNotNull(facts?.asText())).joinToString("\n")
         // Only public, fixed prompts qualify, with no user history or application context.

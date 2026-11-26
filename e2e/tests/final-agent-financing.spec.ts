@@ -372,6 +372,13 @@ async function transferRevisedPackage(
   await status(await request.get(clientPath, { headers: headers(client) }), 404);
   await status(await request.get(bankPath, { headers: headers(bank) }), 404);
   const source = await extract(request, agent, draft.id, info);
+  const packetDocument = syntheticInvoicePdf();
+  const { id: packetDocumentId } = await json<{ id: string }>(
+    await request.post(`${agentApplication(draft.id)}/documents?type=TAX_RETURN`, {
+      headers: headers(agent), multipart: { file: packetDocument },
+    }), 201,
+  );
+  const clientDocumentPath = `${application(draft.id)}/documents/${packetDocumentId}`;
   const originalInputs = { ...scenarioInput, source };
   await status(await request.put(agentPath, {
     headers: headers(agent), data: { ...originalInputs, selectedTermMonths: 36 },
@@ -396,6 +403,12 @@ async function transferRevisedPackage(
   await status(await request.post(`${application(draft.id)}/return-to-agent`, {
     headers: headers(client), data: { comment: 'Сравните изменившуюся задержку и выберите 24 месяца' },
   }), 200);
+  await status(await request.delete(`${agentApplication(draft.id)}/documents/${packetDocumentId}`, {
+    headers: headers(agent),
+  }), 204);
+  const handedDocument = await request.get(clientDocumentPath, { headers: headers(client) });
+  await status(handedDocument, 200);
+  expect(await handedDocument.body()).toEqual(packetDocument.buffer);
   const revisedInputs = { ...originalInputs, delayDays: fixture.offer.delayDays + 1, selectedTermMonths: 24 };
   await status(await request.put(agentPath, { headers: headers(agent), data: revisedInputs }), 200);
   const duringEdit = await json<Scenario>(await request.get(clientPath, { headers: headers(client) }), 200);

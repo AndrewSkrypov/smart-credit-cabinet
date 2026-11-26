@@ -7,6 +7,7 @@ plugins {
 val libs = versionCatalogs.named("libs")
 
 dependencies {
+    api(project(":libs:starter-observability"))
     api("org.springframework.boot:spring-boot-starter-web")
     api("org.springframework.boot:spring-boot-starter-security")
     api(libs.findLibrary("springdoc-webmvc-ui").get())

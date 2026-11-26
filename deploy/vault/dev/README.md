@@ -12,10 +12,15 @@
 - Обязательны `POSTGRES_PASSWORD`, `JWT_SECRET`, `SIM_API_KEY`,
   `IDENTITY_LINK_KEY`, `VALKEY_PASSWORD` и пары
   `{IDENTITY,CREDIT,ENGAGEMENT}_{DB,MIGRATION}_PASSWORD`.
-- При наличии мигрируют `GRAFANA_PASSWORD`, `S3_ACCESS_KEY`,
-  `S3_SECRET_KEY`, `S3_ADMIN_ACCESS_KEY` и `S3_ADMIN_SECRET_KEY`.
-  Для активного S3 обязательны обе пары. Для публичной Grafana обязателен её
-  пароль.
+- При наличии мигрируют `S3_ACCESS_KEY`, `S3_SECRET_KEY`,
+  `S3_ADMIN_ACCESS_KEY` и `S3_ADMIN_SECRET_KEY`. Для активного S3 обязательны
+  обе пары. Пароль для входа администратора Grafana остаётся вне этого KV.
+- `GRAFANA_PASSWORD` учтён отдельно. Compose передаёт его в
+  `GF_SECURITY_ADMIN_PASSWORD` для первоначальной настройки Grafana. Для
+  согласованного отдельного переноса выделите `pump/dev/observability/grafana-admin`
+  с доступом только у оператора наблюдаемости. Проверяйте доступ и ротацию через
+  Grafana после сохранения существующей базы. Этот адаптер не создаёт такой KV
+  и не копирует туда пароль.
 - `SMTP_USERNAME` и `SMTP_PASSWORD` входят в перенос только с
   `--include-service-smtp` для отдельно согласованной сервисной учётки PUMP.
   Передавайте тот же флаг при чтении этого KV. Личные SMTP-учётки туда не входят.

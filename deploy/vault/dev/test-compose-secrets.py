@@ -67,7 +67,8 @@ class DevEnvTests(unittest.TestCase):
 
     def test_seed_excludes_alpha_and_unknown_fields_also_during_alpha(self):
         with self.path.open("ab") as stream:
-            stream.write(b"SMTP_USERNAME=synthetic_mail_user\r\nSMTP_PASSWORD=synthetic_mail_secret\r\n")
+            stream.write(b"SMTP_USERNAME=synthetic_mail_user\r\nSMTP_PASSWORD=synthetic_mail_secret\r\n"
+                         b"CABINET_GRAFANA_HTTPS=true\r\nGRAFANA_PASSWORD=synthetic_grafana_login\r\n")
         raw = self.path.read_bytes().replace(b"DEV_ENABLED=false", b"DEV_ENABLED=true")
         self.path.write_bytes(raw)
         self.call("seed")

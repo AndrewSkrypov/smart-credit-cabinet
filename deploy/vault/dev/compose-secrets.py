@@ -35,7 +35,7 @@ REQUIRED = {
 }
 S3_KEYS = {"S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_ADMIN_ACCESS_KEY", "S3_ADMIN_SECRET_KEY"}
 SMTP_KEYS = {"SMTP_USERNAME", "SMTP_PASSWORD"}
-OPTIONAL = S3_KEYS | {"GRAFANA_PASSWORD"}
+OPTIONAL = S3_KEYS
 ROLLBACK_NAME = re.compile(r"vault-rollback-[a-z0-9_]+\.json")
 ENV_ASSIGNMENT = re.compile(r"([A-Z_][A-Z_0-9]*)=([^\r\n]*)")
 
@@ -170,10 +170,6 @@ def validate_secrets(secrets, settings, include_smtp):
     storage_enabled = settings.get("STORAGE_BACKEND") == "s3" or settings.get("STORAGE_ENABLED") == "true"
     if storage_enabled and not S3_KEYS <= secrets.keys():
         raise MigrationError("The enabled storage profile requires both S3 credential pairs.")
-    if settings.get("CABINET_GRAFANA_HTTPS") == "true":
-        password = secrets.get("GRAFANA_PASSWORD", "")
-        if len(password) < 16 or password == "local-monitoring-change-me":
-            raise MigrationError("Public Dev Grafana requires its dedicated credential.")
     if include_smtp and SMTP_KEYS & secrets.keys() and not SMTP_KEYS <= secrets.keys():
         raise MigrationError("Platform SMTP requires a complete service credential pair.")
 

@@ -21,6 +21,7 @@ class FinancingScenarios(
     private val documents: DocumentRepository,
     private val files: FileStore,
     private val store: FinancingScenarioStore,
+    private val content: ru.creditcabinet.document.domain.DocumentContent? = null,
 ) {
     fun forAgent(application: LoanApplication): FinancingScenarioSnapshot? {
         if (application.status == ApplicationStatus.DRAFT) {
@@ -122,7 +123,7 @@ class FinancingScenarios(
         val source = inputs.source ?: return
         val documentId = source.documentId ?: return
         val document = requireInvoiceDocument(applicationId, documentId)
-        val file = files.get(document.storedName, document.storageBackend)
+        val file = (if (content == null) files.get(document.storedName, document.storageBackend) else content.open(document))
             ?: throw ConflictException("Счёт недоступен — приложите его заново")
         val bytes = file.content.use { it.readNBytes(InvoicePdfReader.MAX_FILE_BYTES.toInt() + 1) }
         require(bytes.size <= InvoicePdfReader.MAX_FILE_BYTES) { "Счёт превышает допустимый размер" }

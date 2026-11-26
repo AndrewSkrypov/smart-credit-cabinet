@@ -373,6 +373,7 @@ class DocumentsRuntimeTest {
         val base = "/api/v1/applications/${scope.applicationId}"
         val client = token(actor, "CLIENT", scope.companyId)
         assertEquals(200, http("$base/documents/$visible", client).statusCode())
+        assertEquals(404, http("$base/artifacts/${UUID.randomUUID()}/retry", client, "{}").statusCode())
         for (id in listOf(hidden, privateId)) {
             if (id == hidden) assertEquals(404, http("$base/documents/$id", client).statusCode())
             val body = """{"idempotencyKey":"${UUID.randomUUID()}","text":"Проверка доступа","documentIds":["$id"]}"""

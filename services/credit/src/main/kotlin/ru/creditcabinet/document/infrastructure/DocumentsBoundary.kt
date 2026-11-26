@@ -123,7 +123,8 @@ class DocumentsBoundary(
         action: () -> T,
     ): T = try {
         action()
-    } catch (_: io.grpc.StatusRuntimeException) {
+    } catch (failure: io.grpc.StatusRuntimeException) {
+        if (failure.status.code == io.grpc.Status.Code.NOT_FOUND) throw ru.creditcabinet.common.exception.NotFoundException("Файл не найден")
         unavailable()
     } catch (_: IllegalArgumentException) {
         unavailable()

@@ -64,7 +64,8 @@ backend:
     reports:
       junit:
         - '**/build/test-results/test/TEST-*.xml'
-        - '**/build/test-results/documentsRuntimeTest/TEST-*.xml'
+        - 'ci-artifacts/documents-r3/TEST-*.xml'
+        - 'ci-artifacts/documents-r3-s3/TEST-*.xml'
 frontend:
   stage: quality
   extends: .quality

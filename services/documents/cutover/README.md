@@ -41,3 +41,18 @@ cutover автоматически и не получает права меня�
 реальные Documents и Credit JAR, mTLS и HTTP negative-проверки. Квитанции CI
 и Dev требуются отдельно от локальной. S3 миграция поддержана кодом, но её
 приёмка требует доступного S3 endpoint; LOCAL gate не является S3-доказательством.
+
+
+## Обязательный S3 профиль
+
+`--storage-backend s3` требует изолированный SeaweedFS 4.55. В cabinet-ci
+запускается закреплённый digest образа, локально обязательны
+`DOCUMENTS_TEST_S3_BINARY` и `DOCUMENTS_TEST_S3_BINARY_SHA256`. При отсутствии
+fixture профиль завершается ошибкой, а не skip. Случайные bucket/credentials
+источника и цели различаются. Каждый объект после forward и reverse получает
+HEAD (size) и GET (вычисленный SHA-256); квитанция хранит per-file backend map,
+размер и SHA, включая новый latest document и READY artifact.
+Используемые флаги сверены с [исходником SeaweedFS 4.55](https://github.com/seaweedfs/seaweedfs/blob/4.55/weed/command/mini.go).
+LOCAL квитанция всегда явно оставляет S3 непроверенным. Синтетический clamd
+в gate проверяет протокол и fail-closed пути; эффективность антивируса
+остаётся отдельной проверкой существующего ClamAV regression suite.

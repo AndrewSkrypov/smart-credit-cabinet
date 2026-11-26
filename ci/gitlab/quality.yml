@@ -60,6 +60,7 @@ backend:
       - services/*/build/libs/app.jar
       - ci-artifacts/backend.sha256
       - ci-artifacts/documents-r3/
+      - ci-artifacts/documents-r3-s3/
     reports:
       junit:
         - '**/build/test-results/test/TEST-*.xml'

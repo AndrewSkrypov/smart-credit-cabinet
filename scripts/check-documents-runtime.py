@@ -5,6 +5,7 @@ from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
 import json
+import importlib.util
 import os
 from pathlib import Path
 import secrets
@@ -31,6 +32,10 @@ def main():
     parser.add_argument('--postgres-image', default=os.environ.get('DOCUMENTS_TEST_POSTGRES_IMAGE'))
     parser.add_argument('--report-dir', default='ci-artifacts/documents-r3')
     parser.add_argument('--skip-build', action='store_true')
+    parser.add_argument('--storage-backend', choices=('local','s3'), default='local')
+    parser.add_argument('--s3-binary', default=os.environ.get('DOCUMENTS_TEST_S3_BINARY'))
+    parser.add_argument('--s3-sha256', default=os.environ.get('DOCUMENTS_TEST_S3_BINARY_SHA256'))
+    parser.add_argument('--s3-image', default=os.environ.get('DOCUMENTS_TEST_S3_IMAGE'))
     args = parser.parse_args()
     report = (ROOT / args.report_dir).resolve()
     report.mkdir(parents=True, exist_ok=True)
@@ -39,6 +44,7 @@ def main():
     handles = []
     container = None
     pg_started = False
+    s3 = None
     scanner_stop = threading.Event()
     admin = 'documents_it_admin'
     admin_password = secrets.token_hex(24)
@@ -80,7 +86,21 @@ def main():
             process.terminate()
             try: process.wait(timeout=15)
             except subprocess.TimeoutExpired: process.kill(); process.wait(timeout=5)
+    def object_inventory(identity, db):
+        if not s3: return []
+        if db == 'documents': query = "select json_build_object('storedName',metadata->>'storedName','sizeBytes',metadata->'sizeBytes','checksum',metadata->>'checksum','backend',metadata->>'backend') from document_records union all select json_build_object('storedName',metadata->>'storedName','sizeBytes',metadata->'sizeBytes','checksum',metadata->>'checksum','backend',metadata->>'backend') from artifact_records where status='READY'"
+        else: query = "select json_build_object('storedName',stored_name,'sizeBytes',size_bytes,'checksum',checksum_sha256,'backend',storage_backend) from documents union all select json_build_object('storedName',stored_name,'sizeBytes',size_bytes,'checksum',checksum,'backend',storage_backend) from generated_artifacts where status='READY'"
+        output = subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d',db,'-c',query],env=base_env|{'PGPASSWORD':admin_password})
+        records=[json.loads(line) for line in output.splitlines() if line]
+        for record in records:
+            assert record['backend']=='S3'
+            s3.verify(identity,record['storedName'],record['sizeBytes'],record['checksum'])
+        return records
     try:
+        if args.storage_backend == 's3':
+            spec=importlib.util.spec_from_file_location('documents_s3_fixture',ROOT/'scripts/documents-s3-fixture.py')
+            module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+            s3=module.S3Fixture(scratch,report,free_port,binary=args.s3_binary,binary_sha256=args.s3_sha256,image=args.s3_image)
         if not args.skip_build:
             run([gradle, '--no-daemon', '--max-workers=1', ':services:documents:bootJar', ':services:credit:bootJar', ':services:documents:testClasses'], 'build')
         if args.postgres_image:
@@ -121,7 +141,9 @@ def main():
         credit_files.mkdir(); target_files.mkdir()
         body = b'%PDF-1.4\nMigration gate\n%%EOF'
         checksum = hashlib.sha256(body).hexdigest()
-        for identity in (hidden, visible, private): (credit_files / f'{identity}.pdf').write_bytes(body)
+        for identity in (hidden, visible, private):
+            if s3: s3.request('source','PUT',f'{identity}.pdf',body)
+            else: (credit_files / f'{identity}.pdf').write_bytes(body)
         sql('credit', f"""
 insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,submitted_at,status_changed_at,agent_id,client_handoff_at,client_managed)
  values('{application}','{company}','000100000004','Документы','ENTREPRENEUR','{uuid.uuid4()}','WORKING_CAPITAL','CASH_GAP',123456,6,'SUBMITTED',now()-interval '2 days',now(),now()-interval '1 hour',now(),'{uuid.uuid4()}',now()-interval '1 day',true);
@@ -131,13 +153,16 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         for identity in (hidden, visible, private):
             private_flag = identity == private
             uploaded = "now()" if private_flag else "now()-interval '1 day'"
-            sql('credit', f"insert into documents(id,application_id,type,file_name,stored_name,size_bytes,uploaded_by,uploaded_at,context,storage_backend,checksum_sha256,private_to_bank) values('{identity}','{application}','{'BANK_STATEMENT' if private_flag else 'OTHER'}','proof.pdf','{identity}.pdf',{len(body)},'{uuid.uuid4()}',{uploaded},'BUSINESS','LOCAL',{'null' if identity == hidden else chr(39)+checksum+chr(39)},{str(private_flag).lower()});", user='credit_owner', password=credit_password)
+            sql('credit', f"insert into documents(id,application_id,type,file_name,stored_name,size_bytes,uploaded_by,uploaded_at,context,storage_backend,checksum_sha256,private_to_bank) values('{identity}','{application}','{'BANK_STATEMENT' if private_flag else 'OTHER'}','proof.pdf','{identity}.pdf',{len(body)},'{uuid.uuid4()}',{uploaded},'BUSINESS','{args.storage_backend.upper()}',{'null' if identity == hidden else chr(39)+checksum+chr(39)},{str(private_flag).lower()});", user='credit_owner', password=credit_password)
         # Freeze the old writer before copying any bytes; migration itself cannot activate either writer.
         sql('credit', "update document_ownership set owner='FROZEN',epoch=2;", user='credit_owner', password=credit_password)
         sql('documents', 'update document_ownership set epoch=2;', user='documents_owner', password=own_password)
         migration_env = base_env | {'DOCUMENTS_DATABASE_URL': f'jdbc:postgresql://127.0.0.1:{pg_port}/documents', 'DOCUMENTS_DATABASE_USER': 'documents_owner', 'DOCUMENTS_DATABASE_PASSWORD': own_password,
             'DOCUMENTS_CREDIT_DATABASE_URL': f'jdbc:postgresql://127.0.0.1:{pg_port}/credit', 'DOCUMENTS_CREDIT_DATABASE_USER': 'credit_owner', 'DOCUMENTS_CREDIT_DATABASE_PASSWORD': credit_password,
             'DOCUMENTS_CREDIT_LOCAL_DIR': str(credit_files), 'DOCUMENTS_MIGRATION_DIRECTION': 'forward', 'DOCUMENTS_TLS_CERTIFICATE': '', 'DOCUMENTS_TLS_KEY': '', 'DOCUMENTS_TLS_CA': ''}
+        if s3:
+            migration_env |= {'SPRING_APPLICATION_JSON':json.dumps({'cabinet':{'storage':{'s3':s3.configuration('target')}}})}
+            migration_env |= {'DOCUMENTS_CREDIT_S3_'+key.upper().replace('-','_'):value for key,value in s3.configuration('source').items()}
         migration_command = [java, '-Xmx192m', '-jar', 'services/documents/build/libs/app.jar', '--spring.flyway.enabled=false', '--cabinet.documents.grpc.enabled=false', '--cabinet.documents.migration.enabled=true', f'--cabinet.storage.local-dir={target_files}']
         run(migration_command, 'migration-forward', env=migration_env)
         run(migration_command, 'migration-forward-repeat', env=migration_env)
@@ -181,12 +206,13 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         sql('credit', "update document_ownership set owner='REMOTE';", user='credit_owner', password=credit_password)
         own_env = base_env | {'DOCUMENTS_DATABASE_URL': f'jdbc:postgresql://127.0.0.1:{pg_port}/documents', 'DOCUMENTS_DATABASE_USER':'documents_app','DOCUMENTS_DATABASE_PASSWORD':own_password,
             'DOCUMENTS_GRPC_PORT':str(grpc_port),'DOCUMENTS_TLS_CERTIFICATE':str(certs/'server.crt'),'DOCUMENTS_TLS_KEY':str(certs/'server.key'),'DOCUMENTS_TLS_CA':str(certs/'ca.crt')}
-        own = start([java,'-Xmx256m','-jar','services/documents/build/libs/app.jar','--spring.flyway.enabled=false',f'--cabinet.storage.local-dir={target_files}',f'--cabinet.antivirus.port={scanner_port}'], 'documents', own_env)
+        if s3: own_env['SPRING_APPLICATION_JSON']=json.dumps({'cabinet':{'storage':{'s3':s3.configuration('target')}}})
+        own = start([java,'-Xmx256m','-jar','services/documents/build/libs/app.jar','--spring.flyway.enabled=false',f'--cabinet.storage.local-dir={target_files}',f'--cabinet.antivirus.port={scanner_port}',f'--cabinet.storage.mode={args.storage_backend}'], 'documents', own_env)
         wait_port(grpc_port, own)
-        credit_env = base_env | {'DB_HOST':'127.0.0.1','DB_PORT':str(pg_port),'DB_NAME':'credit','DB_USER':'credit_app','DB_PASSWORD':credit_password,'SERVER_PORT':str(http_port),'JWT_SECRET':jwt,'PIPELINE_ENABLED':'false','OUTBOX_WORKER_ENABLED':'false','IDENTITY_URL':'','ANTIVIRUS_ENABLED':'false','UPLOAD_DIR':str(credit_files)}
+        credit_env = base_env | {'DB_HOST':'127.0.0.1','DB_PORT':str(pg_port),'DB_NAME':'credit','DB_USER':'credit_app','DB_PASSWORD':credit_password,'SERVER_PORT':str(http_port),'JWT_SECRET':jwt,'PIPELINE_ENABLED':'false','OUTBOX_WORKER_ENABLED':'false','IDENTITY_URL':'','ANTIVIRUS_ENABLED':'false','STORAGE_BACKEND':args.storage_backend,'UPLOAD_DIR':str(credit_files)}
         credit = start([java,'-Xmx320m','-jar','services/credit/build/libs/app.jar','--spring.flyway.enabled=false','--cabinet.documents.mode=remote','--cabinet.documents.epoch=2','--cabinet.documents.grpc.host=127.0.0.1',f'--cabinet.documents.grpc.port={grpc_port}',f'--cabinet.documents.grpc.certificate={certs/"credit.crt"}',f'--cabinet.documents.grpc.key={certs/"credit.key"}',f'--cabinet.documents.grpc.ca={certs/"ca.crt"}'], 'credit', credit_env)
         wait_port(http_port, credit)
-        test_env = base_env | {'DOCUMENTS_TEST_CERTS':str(certs),'DOCUMENTS_TEST_GRPC_PORT':str(grpc_port),'DOCUMENTS_TEST_APPLICATION':application,'DOCUMENTS_TEST_COMPANY':company,'DOCUMENTS_TEST_HIDDEN':hidden,'DOCUMENTS_TEST_VISIBLE':visible,'DOCUMENTS_TEST_PRIVATE':private,
+        test_env = base_env | {'DOCUMENTS_TEST_STORAGE_BACKEND':args.storage_backend.upper(),'DOCUMENTS_TEST_CERTS':str(certs),'DOCUMENTS_TEST_GRPC_PORT':str(grpc_port),'DOCUMENTS_TEST_APPLICATION':application,'DOCUMENTS_TEST_COMPANY':company,'DOCUMENTS_TEST_HIDDEN':hidden,'DOCUMENTS_TEST_VISIBLE':visible,'DOCUMENTS_TEST_PRIVATE':private,
             'DOCUMENTS_TEST_CREDIT_URL':f'http://127.0.0.1:{http_port}','DOCUMENTS_TEST_JWT_SECRET':jwt,'DOCUMENTS_TEST_DATABASE_BASE':f'jdbc:postgresql://127.0.0.1:{pg_port}','DOCUMENTS_TEST_ADMIN_USER':admin,'DOCUMENTS_TEST_ADMIN_PASSWORD':admin_password}
         run([gradle,'--no-daemon','--max-workers=1',':services:documents:documentsRuntimeTest','--rerun-tasks'], 'tests', env=test_env)
         xml_paths = sorted((ROOT/'services/documents/build/test-results/documentsRuntimeTest').glob('TEST-*.xml'))
@@ -194,12 +220,15 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         totals = {key: sum(int(ET.parse(path).getroot().get(key,0)) for path in xml_paths) for key in ('tests','failures','errors','skipped')}
         assert totals['tests'] >= 3 and all(totals[key] == 0 for key in ('failures','errors','skipped')), totals
         for path in xml_paths: shutil.copy2(path, report/path.name)
+        target_inventory = object_inventory('target','documents')
         stop(credit); stop(own)
         sql('documents', "update document_ownership set owner='FROZEN',epoch=3;", user='documents_owner', password=own_password)
         sql('credit', "update document_ownership set owner='FROZEN',epoch=3;", user='credit_owner', password=credit_password)
         # Prove current readers cannot return local data after remote ownership.
         sql('credit', "do $$ begin if not exists(select 1 from document_ownership where owner='FROZEN') then raise exception 'Reader fence absent'; end if; end $$;", user='credit_owner', password=credit_password)
         run(migration_command, 'migration-reverse', env=migration_env | {'DOCUMENTS_MIGRATION_DIRECTION':'reverse'})
+        source_inventory = object_inventory('source','credit')
+        assert not s3 or sorted(source_inventory,key=lambda row:row['storedName']) == sorted(target_inventory,key=lambda row:row['storedName'])
         sql('credit', "update document_ownership set owner='LOCAL';", user='credit_owner', password=credit_password)
         sql('credit', (ROOT/'db/rollback/credit/U26__documents_boundary.sql').read_text(), user='credit_owner', password=credit_password, name='rollback-compatibility')
         # V26 remains additive: all pre-existing metadata and attachment references survive.
@@ -207,9 +236,10 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         revision = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()
         tree = subprocess.check_output(['git','rev-parse','HEAD^{tree}'],cwd=ROOT).decode().strip()
         jars = {service:hashlib.sha256((ROOT/f'services/{service}/build/libs/app.jar').read_bytes()).hexdigest() for service in ('documents','credit')}
-        (report/'receipt.json').write_text(json.dumps({'sourceSha':revision,'sourceTree':tree,'jars':jars,'tests':totals,'migration':['forward','repeat','reverse','U26-data-preserving'],'scanner':'synthetic fresh clamd protocol; clean+reject; not AV efficacy evidence','environment':'native private PostgreSQL + actual standalone Documents/Credit JARs + mTLS'},ensure_ascii=False,indent=2)+'\n')
+        (report/'receipt.json').write_text(json.dumps({'sourceSha':revision,'sourceTree':tree,'jars':jars,'tests':totals,'migration':['forward','repeat','reverse','U26-data-preserving'],'storageBackend':args.storage_backend,'s3':({'provenance':s3.provenance,'targetPerFile':target_inventory,'reversePerFile':source_inventory} if s3 else {'status':'not-tested-in-LOCAL-profile'}),'scanner':'synthetic fresh clamd protocol; clean+reject; not AV efficacy evidence','environment':'native private PostgreSQL + actual standalone Documents/Credit JARs + mTLS'},ensure_ascii=False,indent=2)+'\n')
     finally:
         scanner_stop.set()
+        if s3: s3.close()
         for process in reversed(processes): stop(process)
         for handle in handles: handle.close()
         if container: subprocess.run(['docker','rm','-fv',container],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)

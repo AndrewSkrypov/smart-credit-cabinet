@@ -102,4 +102,8 @@ python3 deploy/check-migration-restore.py --pg-bin "$(pg_config --bindir)" --jav
     --port "$DB_PORT" --user cabinet --output ci-artifacts/migration-restore.json
 
 DOCUMENTS_TEST_POSTGRES_IMAGE="$image" python3 scripts/check-documents-runtime.py --pg-bin "$(pg_config --bindir)" --skip-build
+DOCUMENTS_TEST_POSTGRES_IMAGE="$image" \
+    DOCUMENTS_TEST_S3_IMAGE="chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9" \
+    python3 scripts/check-documents-runtime.py --pg-bin "$(pg_config --bindir)" --skip-build \
+    --storage-backend s3 --report-dir ci-artifacts/documents-r3-s3
 bash ci/gitlab/quality/backend-artifacts.sh

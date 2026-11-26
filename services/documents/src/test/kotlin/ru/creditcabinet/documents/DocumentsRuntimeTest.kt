@@ -47,7 +47,7 @@ class DocumentsRuntimeTest {
     fun `mTLS scope epoch immutable bytes and scanner rejection are enforced by separate runtime`() {
         val bytes = "%PDF-1.4\nDocuments gate\n%%EOF".toByteArray()
         val id = UUID.randomUUID()
-        val record = DocumentRecord(id, scope, "OTHER", "proof.pdf", "$id.pdf", bytes.size.toLong(), UUID.randomUUID(), Instant.now(), "BUSINESS", "LOCAL", sha256(bytes), false)
+        val record = DocumentRecord(id, scope, "OTHER", "proof.pdf", "$id.pdf", bytes.size.toLong(), UUID.randomUUID(), Instant.now(), "BUSINESS", env("DOCUMENTS_TEST_STORAGE_BACKEND"), sha256(bytes), false)
         client { remote ->
             remote.put(record, bytes)
             remote.put(record, bytes)
@@ -80,7 +80,7 @@ class DocumentsRuntimeTest {
             val frozen = mapper.writeValueAsString(input)
             val id = UUID.randomUUID()
             val record = ArtifactRecord(id, scope, offer, "CONTRACT_PDF", "FINAL", 2, sha256(frozen.toByteArray()), frozen,
-                "Сохранённые условия", "contract.pdf", "application/pdf", "generated-$id.pdf", "LOCAL", Instant.now())
+                "Сохранённые условия", "contract.pdf", "application/pdf", "generated-$id.pdf", env("DOCUMENTS_TEST_STORAGE_BACKEND"), Instant.now())
             val first = remote.prepare(record)
             assertEquals(first.id, remote.prepare(record.copy(id = UUID.randomUUID(), storedName = "generated-${UUID.randomUUID()}.pdf")).id)
             assertFailsWith<StatusRuntimeException> { remote.prepare(record.copy(id = UUID.randomUUID(), inputJson = frozen.replace("123456", "999999"))) }

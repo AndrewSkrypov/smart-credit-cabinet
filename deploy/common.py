@@ -8,6 +8,7 @@ import subprocess
 from urllib.parse import urlparse
 
 from alpha_dev import AlphaDev
+from dev_diagnostics import error_category
 from registry_release import RegistryRelease
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -168,7 +169,8 @@ class Deployment:
                                 text=True, encoding="utf-8", capture_output=capture or self.release is not None)
         if result.returncode:
             # Expanded configuration and command errors can contain credentials, so callers get only the stage.
-            raise RuntimeError(f"Compose {arguments[0]} не завершён, код {result.returncode}")
+            category = error_category(result.stderr)
+            raise RuntimeError(f"Compose {arguments[0]} не завершён, код {result.returncode}, категория {category}")
         return result.stdout if capture else None
 
     def container(self, service, include_stopped=False):

@@ -11,8 +11,13 @@ import subprocess
 import sys
 import tempfile
 
+# The forced wrapper runs this file without -B. Keep diagnostic imports read-only.
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
+
 from alpha_dev import PROJECT, SECRET_KEYS, stop_alpha
 from common import Deployment, ROOT
+from dev_diagnostics import diagnose, read_request
 from jury import COMPANY, provision, read_credentials, verify
 from registry_release import RegistryRelease, REVISION
 
@@ -182,6 +187,12 @@ def main():
     parser.add_argument("--verify-only", action="store_true")
     args = parser.parse_args()
     try:
+        request = read_request(args.release_manifest)
+        if request is not None:
+            if args.verify_only:
+                raise ValueError("verify-only неприменим к диагностическому запросу")
+            print(diagnose(ROOT, args.release_manifest, args.state_dir, request))
+            return
         release = RegistryRelease(args.release_manifest)
         if ROOT.name != release.revision or release.path != ROOT / "release.json":
             raise ValueError("Код и release.json должны находиться в одном каталоге <SHA>")

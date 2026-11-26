@@ -20,6 +20,7 @@ SERVICE_COMPONENTS = {
     "identity-migrate": "identity",
     "credit-migrate": "credit",
     "engagement-migrate": "engagement",
+    "analytics-db": "postgres",
     "analytics": "analytics",
     "analytics-migrate": "analytics",
 }

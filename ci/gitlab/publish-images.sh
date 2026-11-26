@@ -15,6 +15,8 @@ if [[ "${CABINET_ALPHA_PILOT:-0}" == 1 ]]; then
     [[ "$analytics_jar_sha256" =~ ^[a-f0-9]{64}$ && "$filename" == app.jar && -z "$extra" ]]
     printf '%s  %s\n' "$analytics_jar_sha256" "$artifacts/app.jar" | sha256sum -c -
     install -D -m 0644 "$artifacts/app.jar" services/analytics/build/libs/app.jar
+    kafka_image=$(cat ci/alpha/kafka-image.txt)
+    python3 security/scan.py --remote --image "$kafka_image" --report-name release-alpha-kafka
 fi
 
 export DOCKER_CONFIG

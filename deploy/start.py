@@ -3,6 +3,7 @@
 import argparse
 import subprocess
 import sys
+from alpha_dev import bootstrap, prepare
 from common import Deployment, ROOT
 
 parser = argparse.ArgumentParser(description="Проверить настройки и запустить prod-профиль")
@@ -42,9 +43,12 @@ if not args.check_only:
     if deployment.ollama_ssh:
         # Remove the old bridge before changing the engagement network namespace.
         deployment.compose("rm", "--stop", "--force", "ollama-ssh-bridge")
+    arguments = ["up", "-d", "--wait", "--wait-timeout", "300", "--no-build" if args.no_build else "--build"]
+    alpha_bootstrap = deployment.alpha_dev is not None and prepare(deployment, arguments)
     # Stop existing writers before bootstrap changes ownership and the owners migrate.
     deployment.compose("stop", "caddy", "identity", "credit", "engagement")
-    arguments = ["up", "-d", "--wait", "--wait-timeout", "300", "--no-build" if args.no_build else "--build"]
+    if alpha_bootstrap:
+        bootstrap(deployment, arguments)
     deployment.compose(*arguments, *[name for name in active if name not in {"caddy", "ollama-pull"}])
     count = 0 if deployment.isolated_demo else deployment.block_demo_accounts()
     deployment.compose("up", "-d", "--no-deps", "caddy")

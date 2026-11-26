@@ -7,6 +7,7 @@ import re
 import subprocess
 from urllib.parse import urlparse
 
+from alpha_dev import AlphaDev
 from registry_release import RegistryRelease
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -125,6 +126,7 @@ class Deployment:
             raise ValueError("Gateway должен иметь другой адрес внутри EDGE_SUBNET")
         if local and self.values["CABINET_DOMAIN"] != "localhost":
             raise ValueError("Локальная проверка допускает только localhost и внутренний CA")
+        self.alpha_dev = AlphaDev.from_config(project, local, self.values, self.release)
         self.environment = {**os.environ, **self.values, "COMPOSE_PROFILES": ""}
         if "ai" in self.profiles:
             self.environment.setdefault("ASSISTANT_MODEL", "qwen2.5:1.5b")
@@ -139,6 +141,9 @@ class Deployment:
         if self.release:
             self.environment.update(self.release.environment())
             self.command.extend(["-f", str(ROOT / "deploy/compose.registry.yaml")])
+        if self.alpha_dev:
+            self.environment.update(self.alpha_dev.environment(self.release))
+            self.command.extend(["-f", str(ROOT / "deploy/compose.dev-alpha.yaml")])
         if local:
             self.command.extend(["-f", str(ROOT / "deploy/compose.local.yaml")])
         if "monitoring" in self.profiles:

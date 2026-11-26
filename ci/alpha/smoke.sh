@@ -11,7 +11,8 @@ if [[ -n "$(git status --porcelain --untracked-files=all -- ci/alpha)" ]]; then
     echo "Commit ci/alpha changes before collecting revision-bound evidence" >&2
     exit 2
 fi
-if [[ ! "${ALPHA_PILOT_KAFKA_IMAGE:-}" =~ ^apache/kafka(:[a-zA-Z0-9._-]+)?@sha256:[a-f0-9]{64}$ ]]; then
+export ALPHA_PILOT_KAFKA_IMAGE="${ALPHA_PILOT_KAFKA_IMAGE:-$(cat ci/alpha/kafka-image.txt)}"
+if [[ ! "$ALPHA_PILOT_KAFKA_IMAGE" =~ ^apache/kafka(:[a-zA-Z0-9._-]+)?@sha256:[a-f0-9]{64}$ ]]; then
     echo "Set ALPHA_PILOT_KAFKA_IMAGE to an apache/kafka JVM image pinned by SHA-256 digest" >&2
     exit 2
 fi

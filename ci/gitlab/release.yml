@@ -46,3 +46,22 @@ prod-deploy:
   script:
     - sha256sum -c dev-release.sha256
     - bash ci/gitlab/deploy-prod.sh
+
+dev-diagnostics:
+  stage: dev
+  tags: [cabinet-deploy]
+  resource_group: cabinet-dev
+  environment:
+    name: dev
+    action: verify
+  needs: []
+  timeout: 5 minutes
+  rules:
+    - if: '$CABINET_DEV_DIAGNOSTICS == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE != "merge_request_event" && $CI_PIPELINE_SOURCE != "schedule"'
+      when: manual
+      allow_failure: false
+  script:
+    - bash ci/gitlab/diagnose-dev.sh
+  artifacts:
+    expire_in: 14 days
+    paths: [dev-diagnostics.json]

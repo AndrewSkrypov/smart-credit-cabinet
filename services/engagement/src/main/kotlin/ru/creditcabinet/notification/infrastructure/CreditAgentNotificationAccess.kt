@@ -15,7 +15,7 @@ import java.util.UUID
 
 @Component
 class CreditAgentNotificationAccess(
-    @Value("${cabinet.credit.url:}") creditUrl: String,
+    @Value("\${cabinet.credit.url:}") creditUrl: String,
     builder: RestClient.Builder,
 ) : AgentNotificationAccessPort {
     private val client = creditUrl.takeIf { it.isNotBlank() }?.let {

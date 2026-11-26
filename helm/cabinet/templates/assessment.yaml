@@ -1,0 +1,317 @@
+{{- $cfg := .Values.assessment | default dict }}
+{{- $enabled := dig "enabled" false $cfg }}
+{{- if not (kindIs "bool" $enabled) }}{{ fail "assessment.enabled must be boolean" }}{{ end }}
+{{- if $enabled }}
+{{- $root := . }}
+{{- if not (regexMatch "^cabinet-dev(-restore-[a-z0-9-]+)?$" .Release.Namespace) }}
+{{- fail "Assessment is scoped to cabinet-dev and its isolated restores" }}
+{{- end }}
+{{- if not .Values.app.enabled }}
+{{- fail "Assessment requires the cabinet Dev application" }}
+{{- end }}
+{{- $revision := required "release.revision is required" .Values.release.revision }}
+{{- $generation := required "assessment.generation is required" $cfg.generation }}
+{{- $cluster := required "assessment.clusterId is required" $cfg.clusterId }}
+{{- $mode := $cfg.creditMode | default "local" }}
+{{- $dbSecret := required "assessment.databaseSecret is required" $cfg.databaseSecret }}
+{{- $image := include "cabinet.image" (list . "assessment") }}
+{{- $kafka := include "cabinet.image" (list . "assessment-kafka") }}
+{{- $postgres := include "cabinet.image" (list . "postgres") }}
+{{- $credit := include "cabinet.image" (list . "credit") }}
+{{- $repository := regexReplaceAll "/credit@sha256:[a-f0-9]{64}$" $credit "" }}
+{{- if or (eq $repository $credit) (not (hasPrefix (printf "%s/assessment@sha256:" $repository) $image)) (not (hasPrefix (printf "%s/kafka@sha256:" $repository) $kafka)) }}
+{{- fail "Assessment and Kafka must use the published images of the Credit release repository" }}
+{{- end }}
+{{- $bootstrap := $cfg.bootstrapTopics | default false }}
+{{- if not (kindIs "bool" $bootstrap) }}{{ fail "assessment.bootstrapTopics must be boolean" }}{{ end }}
+{{- if or (not (regexMatch "^[a-f0-9]{40}$" $revision)) (not (regexMatch "^g[a-f0-9]{16}$" $generation)) (not (regexMatch "^[A-Za-z0-9_-]{21}[AQgw]$" $cluster)) }}
+{{- fail "Assessment requires a full revision and stable generation and cluster identifiers" }}
+{{- end }}
+{{- if not (has $mode (list "local" "remote")) }}
+{{- fail "assessment.creditMode must be local or remote" }}
+{{- end }}
+{{- if eq $mode "remote" }}
+{{- $receipt := $cfg.receipt | default dict }}
+{{- if or $bootstrap (ne (dig "revision" "" $receipt) $revision) (ne (dig "generation" "" $receipt) $generation) (not (regexMatch "^[a-f0-9]{64}$" (dig "sha256" "" $receipt))) }}
+{{- fail "Assessment remote requires the verified readiness receipt of this revision and generation" }}
+{{- end }}
+{{- end }}
+{{- $files := dict "launch.sh" "launch.sh" "database.sh" "database.sh" "topics.sh" "topics.sh" "bootstrap.sql" "bootstrap.sql" "identity.sql" "identity.sql" "grants.sql" "grants.sql" "check.sql" "check.sql" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: assessment-ops
+data:
+  {{- range $name, $file := $files }}
+  {{ $name }}: |
+    {{- $root.Files.Get (printf "files/assessment/%s" $file) | nindent 4 }}
+  {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: assessment-credit-transport
+  annotations:
+    cabinet.release/revision: {{ $revision | quote }}
+    {{- if eq $mode "remote" }}
+    cabinet.assessment/receipt-sha256: {{ $cfg.receipt.sha256 | quote }}
+    {{- end }}
+data:
+  CABINET_ASSESSMENT_KAFKA_ENABLED: {{ eq $mode "remote" | quote }}
+  CABINET_ASSESSMENT_KAFKA_BOOTSTRAP_SERVERS: "assessment-kafka:9092"
+  CABINET_ASSESSMENT_KAFKA_ENVIRONMENT: "dev"
+  CABINET_ASSESSMENT_KAFKA_GENERATION: {{ $generation | quote }}
+{{- $services := dict
+    "assessment-db" (dict "port" 5432 "image" $postgres "mount" "/var/lib/postgresql/data" "storage" ($cfg.databaseStorage | default "12Gi"))
+    "assessment-kafka" (dict "port" 9092 "image" $kafka "mount" "/var/lib/kafka/data" "storage" ($cfg.kafkaStorage | default "24Gi")) }}
+{{- range $name, $service := $services }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+spec:
+  selector:
+    {{- include "cabinet.selector" (list $root $name) | nindent 4 }}
+  ports:
+    - {name: service, port: {{ $service.port }}, targetPort: service}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+  selector:
+    matchLabels:
+      {{- include "cabinet.selector" (list $root $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list $root $name) | nindent 8 }}
+    spec:
+      {{- include "cabinet.pod" $root | nindent 6 }}
+      {{- if eq $name "assessment-kafka" }}
+      nodeSelector: {kubernetes.io/arch: amd64}
+      securityContext: {fsGroup: 1000}
+      {{- end }}
+      containers:
+        - name: {{ $name }}
+          image: {{ $service.image | quote }}
+          ports:
+            - {name: service, containerPort: {{ $service.port }}}
+          volumeMounts:
+            - {name: data, mountPath: {{ $service.mount }}}
+          {{- if eq $name "assessment-db" }}
+          resources: {requests: {cpu: 100m, memory: 128Mi}, limits: {cpu: "1", memory: 384Mi}}
+          args: [postgres, -c, shared_buffers=48MB, -c, max_connections=32]
+          env:
+            - {name: POSTGRES_USER, value: assessment_admin}
+            - {name: POSTGRES_DB, value: postgres}
+            - {name: POSTGRES_INITDB_ARGS, value: --auth-host=scram-sha-256}
+            {{- include "cabinet.secretFrom" (list $dbSecret "POSTGRES_PASSWORD" "ASSESSMENT_ADMIN_PASSWORD") | nindent 12 }}
+          readinessProbe:
+            exec: {command: [pg_isready, -h, 127.0.0.1, -U, assessment_admin, -d, postgres]}
+          {{- else }}
+          resources: {requests: {cpu: 150m, memory: 384Mi}, limits: {cpu: "1", memory: 768Mi}}
+          env:
+            - {name: CLUSTER_ID, value: {{ $cluster | quote }}}
+            - {name: KAFKA_NODE_ID, value: "1"}
+            - {name: KAFKA_PROCESS_ROLES, value: "broker,controller"}
+            - {name: KAFKA_CONTROLLER_QUORUM_VOTERS, value: "1@127.0.0.1:9093"}
+            - {name: KAFKA_CONTROLLER_LISTENER_NAMES, value: CONTROLLER}
+            - {name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP, value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"}
+            - {name: KAFKA_LISTENERS, value: "PLAINTEXT://:9092,CONTROLLER://127.0.0.1:9093"}
+            - {name: KAFKA_ADVERTISED_LISTENERS, value: "PLAINTEXT://assessment-kafka:9092"}
+            - {name: KAFKA_INTER_BROKER_LISTENER_NAME, value: PLAINTEXT}
+            - {name: KAFKA_LOG_DIRS, value: /var/lib/kafka/data}
+            - {name: KAFKA_LOG_RETENTION_MS, value: "-1"}
+            - {name: KAFKA_LOG_RETENTION_BYTES, value: "-1"}
+            - {name: KAFKA_AUTO_CREATE_TOPICS_ENABLE, value: "false"}
+            - {name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR, value: "1"}
+            - {name: KAFKA_OFFSETS_RETENTION_MINUTES, value: "2147483647"}
+            - {name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR, value: "1"}
+            - {name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR, value: "1"}
+            - {name: KAFKA_HEAP_OPTS, value: "-Xms128m -Xmx384m"}
+          readinessProbe:
+            tcpSocket: {port: service}
+          {{- end }}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- include "cabinet.storageClass" $root | nindent 8 }}
+        resources: {requests: {storage: {{ $service.storage | quote }}}}
+{{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: assessment-prepare-{{ substr 0 12 $revision }}-{{ substr 0 8 (sha256sum (printf "%s/%s/%v" $generation $cluster $bootstrap)) }}
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list $root "assessment-prepare") | nindent 8 }}
+    spec:
+      {{- include "cabinet.pod" $root | nindent 6 }}
+      restartPolicy: Never
+      nodeSelector: {kubernetes.io/arch: amd64}
+      volumes:
+        - name: ops
+          configMap: {name: assessment-ops}
+      initContainers:
+        - name: database
+          image: {{ $postgres | quote }}
+          command: [sh, /run/assessment/database.sh, bootstrap]
+          env:
+            - {name: ASSESSMENT_GENERATION, value: {{ $generation | quote }}}
+            {{- range $key := list "ASSESSMENT_ADMIN_PASSWORD" "ASSESSMENT_MIGRATION_PASSWORD" "ASSESSMENT_DB_PASSWORD" }}
+            {{- include "cabinet.secretFrom" (list $dbSecret $key $key) | nindent 12 }}
+            {{- end }}
+          volumeMounts: [{name: ops, mountPath: /run/assessment, readOnly: true}]
+        - name: migrate
+          image: {{ $image | quote }}
+          command: [bash, /run/assessment/launch.sh, migrate]
+          env:
+            - {name: ASSESSMENT_DB_URL, value: "jdbc:postgresql://assessment-db:5432/assessment"}
+            - {name: ASSESSMENT_DB_USER, value: assessment_owner}
+            - {name: SPRING_FLYWAY_ENABLED, value: "true"}
+            - {name: CABINET_ASSESSMENT_KAFKA_ENABLED, value: "false"}
+            {{- include "cabinet.secretFrom" (list $dbSecret "ASSESSMENT_DB_PASSWORD" "ASSESSMENT_MIGRATION_PASSWORD") | nindent 12 }}
+          volumeMounts: [{name: ops, mountPath: /run/assessment, readOnly: true}]
+        - name: runtime-grants
+          image: {{ $postgres | quote }}
+          command: [sh, /run/assessment/database.sh, grant]
+          env:
+            {{- include "cabinet.secretFrom" (list $dbSecret "ASSESSMENT_MIGRATION_PASSWORD" "ASSESSMENT_MIGRATION_PASSWORD") | nindent 12 }}
+          volumeMounts: [{name: ops, mountPath: /run/assessment, readOnly: true}]
+      containers:
+        - name: topics
+          image: {{ $kafka | quote }}
+          command: [sh, /run/assessment/topics.sh]
+          env:
+            - {name: ASSESSMENT_BOOTSTRAP_TOPICS, value: {{ $bootstrap | quote }}}
+            - {name: ASSESSMENT_GENERATION, value: {{ $generation | quote }}}
+            - {name: ASSESSMENT_CLUSTER_ID, value: {{ $cluster | quote }}}
+            - {name: KAFKA_HEAP_OPTS, value: "-Xms64m -Xmx128m"}
+          volumeMounts: [{name: ops, mountPath: /run/assessment, readOnly: true}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: assessment
+  annotations:
+    cabinet.release/revision: {{ $revision | quote }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      {{- include "cabinet.selector" (list $root "assessment") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list $root "assessment") | nindent 8 }}
+      annotations:
+        cabinet.release/revision: {{ $revision | quote }}
+    spec:
+      {{- include "cabinet.pod" $root | nindent 6 }}
+      terminationGracePeriodSeconds: 60
+      volumes:
+        - name: ops
+          configMap: {name: assessment-ops}
+      initContainers:
+        - name: database-role
+          image: {{ $postgres | quote }}
+          command: [sh, /run/assessment/database.sh, check]
+          env:
+            {{- include "cabinet.secretFrom" (list $dbSecret "ASSESSMENT_DB_PASSWORD" "ASSESSMENT_DB_PASSWORD") | nindent 12 }}
+          volumeMounts: [{name: ops, mountPath: /run/assessment, readOnly: true}]
+      containers:
+        - name: assessment
+          image: {{ $image | quote }}
+          command: [bash, /run/assessment/launch.sh, runtime]
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities: {drop: [ALL]}
+          resources: {requests: {cpu: 150m, memory: 256Mi}, limits: {cpu: "1", memory: 512Mi}}
+          volumeMounts: [{name: ops, mountPath: /run/assessment, readOnly: true}]
+          env:
+            - {name: ASSESSMENT_DB_URL, value: "jdbc:postgresql://assessment-db:5432/assessment"}
+            - {name: ASSESSMENT_DB_USER, value: assessment_app}
+            - {name: SPRING_FLYWAY_ENABLED, value: "false"}
+            - {name: CABINET_VALKEY_ENABLED, value: "true"}
+            - {name: CABINET_VALKEY_HOST, value: valkey}
+            - {name: CABINET_ASSESSMENT_SOURCES_URL, value: "http://external-sim:8080"}
+            - {name: CABINET_ASSESSMENT_KAFKA_ENABLED, value: "true"}
+            - {name: CABINET_ASSESSMENT_KAFKA_BOOTSTRAP_SERVERS, value: "assessment-kafka:9092"}
+            - {name: CABINET_ASSESSMENT_KAFKA_ENVIRONMENT, value: dev}
+            - {name: CABINET_ASSESSMENT_KAFKA_GENERATION, value: {{ $generation | quote }}}
+            {{- include "cabinet.secret" (list $root "CABINET_VALKEY_PASSWORD" "VALKEY_PASSWORD") | nindent 12 }}
+            {{- include "cabinet.secret" (list $root "CABINET_ASSESSMENT_SOURCES_API_KEY" "SIM_API_KEY") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $dbSecret "ASSESSMENT_DB_PASSWORD" "ASSESSMENT_DB_PASSWORD") | nindent 12 }}
+          startupProbe:
+            exec: {command: [bash, /run/assessment/launch.sh, health]}
+            failureThreshold: 30
+            periodSeconds: 5
+            timeoutSeconds: 4
+          readinessProbe:
+            exec: {command: [bash, /run/assessment/launch.sh, health]}
+            periodSeconds: 5
+            timeoutSeconds: 4
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: assessment-private-workers
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list $root "assessment") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    {{- range $name, $port := dict "assessment-db" 5432 "assessment-kafka" 9092 "external-sim" 8080 "valkey" 6379 }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list $root $name) | nindent 14 }}
+      ports: [{protocol: TCP, port: {{ $port }}}]
+    {{- end }}
+{{- range $target, $rule := dict
+    "assessment-db" (dict "port" 5432 "sources" (list "assessment" "assessment-prepare"))
+    "assessment-kafka" (dict "port" 9092 "sources" (list "assessment" "assessment-prepare" "assessment-kafka" "credit"))
+    "external-sim" (dict "port" 8080 "sources" (list "assessment"))
+    "valkey" (dict "port" 6379 "sources" (list "assessment")) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: assessment-to-{{ $target }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list $root $target) | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports: [{protocol: TCP, port: {{ $rule.port }}}]
+      from:
+        {{- range $source := $rule.sources }}
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list $root $source) | nindent 14 }}
+        {{- end }}
+{{- end }}
+{{- end }}

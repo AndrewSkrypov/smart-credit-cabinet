@@ -106,17 +106,12 @@ def import_snapshot(service, data):
     statements.append(guard(f"not exists(select 1 from loan_accounts where not (id=any(array[{ids}]::uuid[])))", "Snapshot would lose a target account"))
     for table in TABLES:
         statements.append(f"lock table {table} in access exclusive mode; alter table {table} disable trigger user;")
-    for table, keys in TABLES.items():
-        rows = data[table]
-        if rows:
-            columns = list(rows[0])
-            if any(not re.fullmatch(r"[a-z_]+", col) for col in columns):
-                raise SystemExit("Invalid snapshot column")
-            updates = ",".join(f"{col}=excluded.{col}" for col in columns if col not in keys)
-            document = literal(json.dumps(rows, ensure_ascii=False))
-            statements.append(f"insert into {table} select * from jsonb_populate_recordset(null::{table},{document}::jsonb) "
-                              f"on conflict ({','.join(keys)}) do update set {updates};")
-    # Child identifiers change when schedules are recalculated. Retain exactly the authoritative set.
+    # Detach only obsolete reserve FKs before removing superseded tranche identities.
+    # The authoritative reserve (including its confirmation) is restored in this same transaction.
+    tranche_ids = literal(json.dumps(data["loan_tranches"], ensure_ascii=False))
+    statements.append("update payment_reserves set confirmed_version=null,drawn_tranche_id=null,drawn_amount=null,confirmed_by=null,confirmed_at=null "
+                      "where drawn_tranche_id is not null and not exists(select 1 from jsonb_populate_recordset(null::loan_tranches," + tranche_ids + "::jsonb) source where source.id=drawn_tranche_id);")
+    # Delete superseded child identities BEFORE insertion: payment number is also unique.
     for table in reversed(TABLES):
         if table == "loan_accounts":
             continue
@@ -124,6 +119,16 @@ def import_snapshot(service, data):
         document = literal(json.dumps(data[table], ensure_ascii=False))
         matches = " and ".join(f"source.{key}=target.{key}" for key in keys)
         statements.append(f"delete from {table} target where not exists(select 1 from jsonb_populate_recordset(null::{table},{document}::jsonb) source where {matches});")
+    for table, keys in TABLES.items():
+        rows = data[table]
+        if rows:
+            columns = list(rows[0])
+            if any(not re.fullmatch(r"[a-z_][a-z0-9_]*", col) for col in columns):
+                raise SystemExit("Invalid snapshot column")
+            updates = ",".join(f"{col}=excluded.{col}" for col in columns if col not in keys)
+            document = literal(json.dumps(rows, ensure_ascii=False))
+            statements.append(f"insert into {table} select * from jsonb_populate_recordset(null::{table},{document}::jsonb) "
+                              f"on conflict ({','.join(keys)}) do update set {updates};")
     for table in TABLES:
         statements.append(f"alter table {table} enable trigger user;")
     statements.append("commit;")
@@ -147,6 +152,31 @@ def load_manifest(path):
     return document["tables"]
 
 
+def fence_info(service):
+    return json.loads(sql(service, "select row_to_json(f) from servicing_writer_fence f where singleton;"))
+
+
+def require_grants(service, active):
+    database = sql(service, "select current_database();")
+    role = database + "_app"
+    privileges = [f"has_table_privilege('{role}','public.{table}','{privilege}')" for table in TABLES for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE")]
+    condition = " and ".join(privileges) if active else "not (" + " or ".join(privileges) + ")"
+    condition += f" and has_table_privilege('{role}','public.servicing_writer_fence','SELECT') and not has_table_privilege('{role}','public.servicing_writer_fence','UPDATE')"
+    if sql(service, "select " + condition + ";") != "t":
+        raise SystemExit("Writer grants do not match the recorded authority")
+
+
+def finish_credit_marker(credit, direction, digest):
+    if direction != "remote":
+        return
+    info = fence_info(credit)
+    if info["writer"] == "REMOTE" and info["manifest_sha256"] == digest:
+        return
+    if info["writer"] != "FENCED":
+        raise SystemExit("Unexpected Credit authority during completion")
+    sql(credit, "update servicing_writer_fence set writer='REMOTE',manifest_sha256=" + literal(digest) + ",epoch=epoch+1,changed_at=now() where singleton and writer='FENCED';")
+
+
 def recover(credit, servicing, direction, manifest, abort):
     validate_databases(credit, servicing)
     source, target = (credit, servicing) if direction == "remote" else (servicing, credit)
@@ -156,27 +186,43 @@ def recover(credit, servicing, direction, manifest, abort):
     with control_lock(credit):
         if sql(credit, "select count(*) from servicing_open_outbox where state <> 'CONFIRMED';") != "0":
             raise SystemExit("Unconfirmed commands prevent recovery")
-        if sql(source, "select writer from servicing_writer_fence where singleton;") != "FENCED":
-            raise SystemExit("Recovery requires the source to remain fenced")
-        if sql(target, "select writer from servicing_writer_fence where singleton;") != "FENCED":
-            raise SystemExit("Recovery requires the target to remain fenced")
-        if checksum(snapshot(source)) != digest:
-            raise SystemExit("Source no longer matches the fenced snapshot; do not activate any writer")
-        if abort:
-            activate(source, source_writer, digest)
-            if direction == "local":
-                sql(credit, "update servicing_writer_fence set writer='REMOTE',manifest_sha256=" + literal(digest) + ",changed_at=now() where singleton and writer='FENCED';")
+        source_info, target_info = fence_info(source), fence_info(target)
+        source_is_retired = source_info["writer"] == "FENCED" or (direction == "remote" and source_info["writer"] == "REMOTE" and source_info["manifest_sha256"] == digest)
+        if not source_is_retired or checksum(snapshot(source)) != digest:
+            raise SystemExit("Source is not fenced and unchanged at the recorded snapshot")
+        require_grants(source, False)
+        if target_info["writer"] == target_writer:
+            if abort:
+                raise SystemExit("Target is already active; abort requires a full reverse of its latest state")
+            if target_info["manifest_sha256"] != digest:
+                raise SystemExit("Active target belongs to another accepted manifest")
+            require_grants(target, True)
+            # Never import over an active target: it may already contain later legitimate payments.
+            finish_credit_marker(credit, direction, digest)
+            outcome = "completed-after-activation"
+        elif target_info["writer"] == "FENCED":
+            require_grants(target, False)
+            backup = load_manifest(manifest.parent / "target-before.json")
+            if checksum(snapshot(target)) not in (digest, checksum(backup)):
+                raise SystemExit("Fenced target contains later changes; use a full reverse of its latest state")
+            if abort:
+                activate(source, source_writer, digest)
+                if direction == "local":
+                    finish_credit_marker(credit, "remote", digest)
+                outcome = "aborted"
+            else:
+                import_snapshot(target, data)
+                if checksum(snapshot(target)) != digest:
+                    raise SystemExit("Target checksum mismatch; both writers remain fenced")
+                activate(target, target_writer, digest)
+                finish_credit_marker(credit, direction, digest)
+                outcome = "resumed"
         else:
-            import_snapshot(target, data)
-            if checksum(snapshot(target)) != digest:
-                raise SystemExit("Target checksum mismatch; both writers remain fenced")
-            activate(target, target_writer, digest)
-            if direction == "remote":
-                sql(credit, "update servicing_writer_fence set writer='REMOTE',manifest_sha256=" + literal(digest) + ",changed_at=now() where singleton and writer='FENCED';")
-    print(json.dumps({"recovery": "aborted" if abort else "resumed", "direction": direction, "sha256": digest}, sort_keys=True))
+            raise SystemExit("Unexpected target authority")
+    print(json.dumps({"recovery": outcome, "direction": direction, "sha256": digest}, sort_keys=True))
 
 
-def transfer(credit, servicing, direction, directory):
+def transfer(credit, servicing, direction, directory, fail_after_activation=False):
     source, target = (credit, servicing) if direction == "remote" else (servicing, credit)
     source_writer, target_writer = ("LOCAL", "REMOTE") if direction == "remote" else ("REMOTE", "LOCAL")
     validate_databases(credit, servicing)
@@ -200,8 +246,9 @@ def transfer(credit, servicing, direction, directory):
         digest = checksum(data)
         # Runtime cannot enable itself: fence UPDATE is owner-only.
         activate(target, target_writer, digest)
-        if direction == "remote":
-            sql(credit, "update servicing_writer_fence set writer='REMOTE',manifest_sha256=" + literal(digest) + ",changed_at=now() where singleton and writer='FENCED';")
+        if fail_after_activation:
+            raise RuntimeError("INJECTED_AFTER_TARGET_ACTIVATION")
+        finish_credit_marker(credit, direction, digest)
         print(json.dumps({"direction": direction, "manifest": str(manifest.resolve()), "sha256": digest,
                           "sourceFenced": True, "targetWriter": target_writer, "counts": {t: len(data[t]) for t in TABLES}}, sort_keys=True))
 
@@ -213,6 +260,7 @@ def main():
     parser.add_argument("--servicing-service", required=True)
     parser.add_argument("--artifacts", type=Path)
     parser.add_argument("--recover-manifest", type=Path)
+    parser.add_argument("--test-fail-after-target-activation", action="store_true", help="Acceptance-only crash checkpoint; leaves an active verified target")
     parser.add_argument("--abort", action="store_true", help="Reactivate the unchanged fenced source after an incomplete transfer")
     args = parser.parse_args()
     try:
@@ -221,7 +269,7 @@ def main():
         else:
             if args.artifacts is None or args.abort:
                 parser.error("Normal transfer requires --artifacts; --abort requires --recover-manifest")
-            transfer(args.credit_service, args.servicing_service, args.direction, args.artifacts)
+            transfer(args.credit_service, args.servicing_service, args.direction, args.artifacts, args.test_fail_after_target_activation)
     except subprocess.CalledProcessError as error:
         # Do not print DSNs, credentials or full SQL containing financial snapshots.
         raise SystemExit("PostgreSQL cutover operation failed; keep writers fenced and inspect local operator logs") from error

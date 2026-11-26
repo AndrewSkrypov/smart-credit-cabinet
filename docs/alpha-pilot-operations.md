@@ -17,7 +17,7 @@ bash ci/alpha/smoke.sh > ci-artifacts/alpha-infrastructure.tsv
 ```
 
 Скрипт выделяет новый проект Compose, создаёт временные пароли, проверяет
-DDL от `analytics_owner`, права `analytics_app`, Kafka с двумя topic/group
+DDL от `analytics_owner`, права `analytics_app`, два поколения Kafka с отдельными DLQ
 и соответствие запущенных образов закреплённым ссылкам. При завершении
 скрипт удаляет ресурсы этого прогона. Результат подтверждает зависимости
 для A10 и их идентичность для A11. Для полной приёмки нужен интегрированный
@@ -46,18 +46,9 @@ alpha_compose=(docker compose --env-file /dev/null -f ci/alpha/compose.yaml
 
 ## Подключение к GitLab CI
 
-После интеграции добавьте на согласованной ветке элемент в корневой список
-`include`. Исключение сохраняет отдельный pipeline runner-canary.
-
-```yaml
-- local: ci/alpha/gitlab.yml
-  rules:
-    - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-      when: never
-    - if: '$CABINET_ALPHA_PILOT == "1"'
-```
-
-В изолированном CI задайте `CABINET_ALPHA_PILOT=1` и тот же
+Корневой pipeline подключает `ci/alpha/gitlab.yml` при `CABINET_ALPHA_PILOT=1`.
+Выделенный pipeline runner-canary выполняется отдельно. В изолированном CI
+задайте `CABINET_ALPHA_PILOT=1` и тот же
 `ALPHA_PILOT_KAFKA_IMAGE`. Оба задания используют существующий `.quality`.
 Инфраструктурное задание запускает зависимости, отдельное задание
 `alpha-pilot-analytics-jar` собирает Analytics на интегрированном SHA.
@@ -94,20 +85,25 @@ bash ci/alpha/build-analytics.sh
    возвращает конфигурацию и образы, а восстановление PostgreSQL
    выполняется отдельной процедурой. [Инструкция Helm](../helm/cabinet/README.md)
 3. Выделите новую пустую БД Analytics в отдельном проекте и примените
-   миграции. Создайте topic и group с идентификатором поколения, ранее
-   не применявшимся к текущему источнику. Пример создания topic:
+   миграции. Выделите topic, DLQ и group с идентификатором поколения,
+   ранее не применявшимся к текущему источнику:
 
    ```bash
    generation="g$(python3 -c 'import secrets; print(secrets.token_hex(8))')"
    topic="alpha.synthetic.credit.application-status-changed.v1.$generation"
+   dlq="$topic.dlq"
    group="alpha-synthetic-analytics-$generation"
-   "${alpha_compose[@]}" exec -T kafka /opt/kafka/bin/kafka-topics.sh \
-     --bootstrap-server kafka:9092 --create --topic "$topic" \
-     --partitions 3 --replication-factor 1
+   for generation_topic in "$topic" "$dlq"; do
+     "${alpha_compose[@]}" exec -T kafka /opt/kafka/bin/kafka-topics.sh \
+       --bootstrap-server kafka:9092 --create --topic "$generation_topic" \
+       --partitions 3 --replication-factor 1
+   done
    ```
 
-   Укажите одно поколение у публикатора и потребителя. Consumer подписывается
-   на точный topic и начинает с начала нового потока. Готовность привяжите
+   Передайте `APPLICATION_STATUS_KAFKA_TOPIC=$topic` обеим сторонам,
+   `ANALYTICS_KAFKA_GROUP_ID=$group` и `ANALYTICS_KAFKA_DLQ_TOPIC=$dlq`
+   потребителю. Consumer подписывается на точный topic и начинает с начала
+   нового потока. Готовность привяжите
    к текущему поколению. Оставьте offsets и том старой проекции как
    доказательство. Проверьте восстановленные записи Kafka-outbox на
    принадлежность поколению до включения публикатора. Если реализация

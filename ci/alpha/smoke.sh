@@ -75,6 +75,7 @@ DO $check$
 BEGIN
     IF current_database() <> 'analytics' OR current_user <> 'analytics_app'
         OR has_database_privilege(current_user, 'postgres', 'CONNECT')
+        OR has_database_privilege(current_user, current_database(), 'CREATE,TEMP')
         OR has_schema_privilege(current_user, 'public', 'CREATE')
         OR EXISTS (SELECT FROM pg_database WHERE datname = 'credit')
         OR EXISTS (
@@ -101,6 +102,8 @@ for generation in old new; do
     group="$topic-consumer"
     "${compose[@]}" exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
         --create --topic "$topic" --partitions 3 --replication-factor 1 >&2
+    "${compose[@]}" exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
+        --create --topic "$topic.dlq" --partitions 3 --replication-factor 1 >&2
     printf 'key:%s\n' "$generation" |
         "${compose[@]}" exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
             --bootstrap-server kafka:9092 --topic "$topic" \

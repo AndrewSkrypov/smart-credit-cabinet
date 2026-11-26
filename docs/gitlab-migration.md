@@ -4,7 +4,7 @@
 - Registry проекта: `registry.credit-cabinet.ru/pump/smart-credit-cabinet`.
 - Исходный репозиторий: [GitHub](https://github.com/AndrewSkrypov/smart-credit-cabinet). Историческая ветка по умолчанию — `main`. Стартовый SHA защищённой ветки для проверки релиза `feat/final-platform-release` — `1ae8ab1ad08692745cd5c680a08b6d1d54ab7490`.
 - GitLab CE установлен пакетом Omnibus на `gitlab-alfa`. TLS завершается на встроенном NGINX. Для работы нужны TCP 443 и 22; TCP 80 используется для HTTP-01 и перенаправления на HTTPS.
-- Для обоих имён выпущен общий сертификат Let’s Encrypt с автоматическим продлением. При диагностике проверьте публичные A-записи, входящий TCP 80 и доступность HTTP-01 webroot для обоих имён. Раннеры используют публичный DNS и системное доверие.
+- Для обоих имён выпущен общий сертификат Let’s Encrypt с автоматическим продлением. Сертификат и ключ управляются Omnibus в `/etc/gitlab/ssl/gitlab.credit-cabinet.ru.crt` и `/etc/gitlab/ssl/gitlab.credit-cabinet.ru.key`. При диагностике проверьте публичные A-записи, входящий TCP 80 и доступность HTTP-01 webroot для обоих имён. Раннеры используют публичный DNS и системное доверие.
 - Fingerprint SSH ED25519 для `gitlab-alfa`: `SHA256:SRrQvG9iQ3MI2ZFxGw0CwPlZRQuAQ4ZLCpujVMp+nvs`.
 
 ## Раннеры
@@ -23,6 +23,10 @@
 - [Pipeline №21](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/21) прошёл после перехода на публичный TLS. Проверены теги `cabinet-ci`, `cabinet-release` и `cabinet-deploy` и Registry push/pull по digest `sha256:707de62cb290e440435183eac2f283a6f88b888c3fb319f4d180e7e8c50c046b`.
 - Лимит CI-артефактов — 512 МБ, срок хранения по умолчанию — 14 дней. Политика Registry ежедневно рассматривает только теги форматов `ci-<число>` и `pipeline-<число>`, сохраняет десять новых тегов и исключает теги релизов из очистки.
 - Для dev используются защищённые переменные окружения `dev`. Read-only credential Registry находится в отдельном Docker config пользователя `cabinet-deploy`.
+
+## Релизная ветка
+
+[MR !2](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/merge_requests/2) принят после успешного [pipeline №32](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/32). Source `1dfa7506856622249068bf6937a1f98e3ba95ff3` и merge `dffea358123d5b9f810ada628954fc698b7d5beb` имеют одинаковый Git tree `9822d4ad135715555b3f5c3761b00265cff5f3a0`. Ветка `main` по-прежнему указывает на исходный GitHub SHA. Релизные задания и артефакты публикуются из [защищённого pipeline №33](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/33).
 
 ## Проверка и откат
 

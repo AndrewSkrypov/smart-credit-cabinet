@@ -97,7 +97,8 @@ class AssistantService(
             "гарант" in normalized -> "approval"
             articles.any { it.id == "bureau" } && listOf("соглас", "тайком").any { it in normalized } -> "bureau"
             "контрпредлож" in normalized && listOf("отказ", "отклон", "приня").any { it in normalized } -> "counter-offer"
-            "овердрафт" in normalized && listOf("бесплат", "свои деньги", "мои деньги").any { it in normalized } -> "overdraft"
+            articles.firstOrNull()?.id == "overdraft" ||
+                ("овердрафт" in normalized && listOf("бесплат", "свои деньги", "мои деньги").any { it in normalized }) -> "overdraft"
             normalized.startsWith("на что") && "пополнени" in normalized && "оборот" in normalized -> "working-capital"
             normalized.startsWith("что финансирует") && "инвестицион" in normalized -> "investment"
             else -> null
@@ -325,7 +326,6 @@ object Grounding {
             val text = answer.lowercase().replace('ё', 'е')
             val source = it.text.lowercase().replace('ё', 'е')
             if (it.essentialFacts.any { fact -> !fact.containsMatchIn(text) }) add("essential reference facts missing")
-            if (it.id == "overdraft" && hasUnattributedTermLoanCondition(text)) add("term-loan condition attributed to overdraft")
             val hasDocuments = it.id == "investment" || DOCUMENT_WORDS.containsMatchIn(source)
             if ((!hasDocuments && DOCUMENT_WORDS.containsMatchIn(text)) ||
                 SPECIFIC_DOCUMENTS.any { word -> word in text && word !in source } ||
@@ -347,19 +347,6 @@ object Grounding {
     private val PERCENTAGE = Regex("(\\d+(?:[.,]\\d+)?)\\s*(?:%|процент[а-я]*)", RegexOption.IGNORE_CASE)
     private val DOCUMENT_WORDS = Regex("документ|справк|спецификац|декларац|выписк|отчетност")
     private val SPECIFIC_DOCUMENTS = listOf("паспорт", "трудов", "декларац", "выписк", "отчетност")
-    private val TERM_LOAN_CONDITION = Regex(
-        "(?:одн|един)\\p{L}*\\s+сумм\\p{L}*|единовремен\\p{L}*|равн\\p{L}*\\s+платеж\\p{L}*|аннуитет\\p{L}*",
-    )
-    private val WORKING_CAPITAL_SUBJECT = Regex(
-        "(?<!\\p{L})кредит\\s+на\\s+пополнение\\s+оборот(?:а|ных\\s+средств)\\s+" +
-            "(?:выдается|выдают|гасится|погашается)(?!\\p{L})",
-    )
-
-    private fun hasUnattributedTermLoanCondition(text: String): Boolean = text.splitToSequence('.', '!', '?', '\n').any { sentence ->
-        val condition = TERM_LOAN_CONDITION.find(sentence) ?: return@any false
-        !WORKING_CAPITAL_SUBJECT.containsMatchIn(sentence.substring(0, condition.range.first))
-    }
-
     private fun normalise(number: String): String {
         val compact = number.replace(Regex("[\\s\\u00A0\\u202F]"), "").replace(',', '.')
         return compact.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: compact

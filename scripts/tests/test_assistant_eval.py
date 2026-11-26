@@ -51,6 +51,7 @@ class AssistantRubricTest(unittest.TestCase):
         for interest in (
             "Проценты начисляются на весь доступный лимит, а не только на использованную часть.",
             "Проценты начисляются на неиспользованную часть и на использованную часть лимита.",
+            "Проценты начисляются на использованную и неиспользованную части лимита.",
         ):
             with self.subTest(interest=interest):
                 missing, unsafe = module.score(case, {"text": definition + interest}, [])

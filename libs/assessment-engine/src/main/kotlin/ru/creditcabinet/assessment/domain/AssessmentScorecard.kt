@@ -104,12 +104,14 @@ class AssessmentScorecard(private val payments: AssessmentPaymentCalculator) {
     }
 
     /** Revenue by the tax service; without reports — by turnover on the account; otherwise what the client declared. */
-    fun revenue(data: SourceData, terms: AssessmentTerms): Pair<Long, RevenueSource> =
-        when {
-            data.tax.hasReports && data.tax.revenue != null && data.tax.revenue > 0 -> data.tax.revenue to RevenueSource.TAX
+    fun revenue(data: SourceData, terms: AssessmentTerms): Pair<Long, RevenueSource> {
+        val taxRevenue = data.tax.revenue
+        return when {
+            data.tax.hasReports && taxRevenue != null && taxRevenue > 0 -> taxRevenue to RevenueSource.TAX
             data.bank.monthlyInflows.size >= 12 -> data.bank.monthlyInflows.sum() to RevenueSource.TURNOVER
             else -> (terms.declaredRevenue12m ?: 0L) to RevenueSource.DECLARED
         }
+    }
 
     fun coefficientOfVariation(values: List<Long>): Double? {
         if (values.size < 12) return null

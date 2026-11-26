@@ -53,8 +53,12 @@ class AssessmentOutbox(private val jdbc: NamedParameterJdbcTemplate, private val
             mapOf("stream" to stream, "now" to Timestamp.from(now), "token" to UUID.randomUUID(), "until" to Timestamp.from(now.plusSeconds(30))),
         ) { row, _ ->
             Claim(
-                row.getString(1), row.getObject(2, UUID::class.java), row.getObject(3, UUID::class.java),
-                row.getString(4), row.getObject(5, UUID::class.java), row.getInt(6),
+                row.getString(1),
+                row.getObject(2, UUID::class.java),
+                row.getObject(3, UUID::class.java),
+                row.getString(4),
+                row.getObject(5, UUID::class.java),
+                row.getInt(6),
             )
         }.singleOrNull()
     }

@@ -223,7 +223,9 @@ class PipelineSteps(
             } else {
                 val saved = transitions.commit(
                     application.move(
-                        ApplicationEvent.ENRICHMENT_DONE, Actor.SYSTEM, now,
+                        ApplicationEvent.ENRICHMENT_DONE,
+                        Actor.SYSTEM,
+                        now,
                         payload = mapOf("sources" to result.receipts.keys.map { it.name }),
                     ),
                 )
@@ -344,8 +346,14 @@ class PipelineSteps(
         }
         return AssessmentRequestedV1(
             cycle = AssessmentCycleV1(
-                assessmentRouting.stream, job.id, application.id, checkNotNull(application.version), rules.version,
-                product.ref, catalog.map(ProductSnapshotV1::ref), application.preApprovedOfferId,
+                assessmentRouting.stream,
+                job.id,
+                application.id,
+                checkNotNull(application.version),
+                rules.version,
+                product.ref,
+                catalog.map(ProductSnapshotV1::ref),
+                application.preApprovedOfferId,
             ),
             inn = application.company.inn,
             terms = application.terms.let { AssessmentTermsV1(it.productCode, it.amount, it.termMonths, it.declaredRevenue12m) },
@@ -365,7 +373,8 @@ class PipelineSteps(
         val known = enrichment.load(application.id)
         val fetched = mutableMapOf<SourceKind, Any>()
         val failures = mutableMapOf<SourceKind, String>()
-        for (kind in SourceKind.entries.filter { it !in known }) {
+        if (!application.terms.bureauConsent) failures[SourceKind.BUREAU] = "Согласие на запрос БКИ отсутствует"
+        for (kind in SourceKind.entries.filter { it !in known && it !in failures }) {
             try {
                 // The application id identifies the client's consent to the bureau request.
                 fetched[kind] = sources.fetch(kind, application.company.inn, application.id.toString())
@@ -427,6 +436,24 @@ class PipelineSteps(
 
     /** T10/T11/T12: the scorecard and the credit policy; the decision is stored with all its inputs. */
     private fun score(job: PipelineJob, application: LoanApplication) {
+        if (!application.terms.bureauConsent) {
+            tx.executeWithoutResult {
+                if (!canApplyLocal(job, application)) return@executeWithoutResult
+                val now = clock.instant()
+                decisions.save(manualWithoutScore(application, setOf(SourceKind.BUREAU), now))
+                transitions.commit(
+                    application.move(
+                        ApplicationEvent.TO_MANUAL_REVIEW,
+                        Actor.SYSTEM,
+                        now,
+                        reasonCode = ManualReason.SOURCE_UNAVAILABLE.name,
+                        payload = mapOf("sources" to listOf(SourceKind.BUREAU.name)),
+                    ),
+                )
+                assessmentStore.finishJob(job)
+            }
+            return
+        }
         val stored = enrichment.load(application.id)
         val data = SourceData(
             registry = stored[SourceKind.REGISTRY] as RegistryInfo,

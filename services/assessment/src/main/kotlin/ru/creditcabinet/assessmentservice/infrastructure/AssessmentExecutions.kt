@@ -36,12 +36,15 @@ class AssessmentExecutions(
                 """.trimIndent(),
                 parameters,
             )
-            if (inserted == 0 && jdbc.queryForObject(
+            if (inserted == 0 &&
+                jdbc.queryForObject(
                     "select request=cast(:request as jsonb) from assessment_execution where stream=:stream and cycle_id=:id",
                     parameters,
                     Boolean::class.java,
                 ) != true
-            ) throw InvalidAssessmentEnvelope()
+            ) {
+                throw InvalidAssessmentEnvelope()
+            }
         }
     }
 
@@ -97,7 +100,13 @@ class AssessmentExecutions(
                 "result" to resultJson,
                 "completed" to result?.let { Timestamp.from(it.completedAt) },
                 "retry" to Timestamp.from(retryAt),
-                "error" to if (progress == null) "EXECUTION_FAILED" else if (result == null) "SOURCES_PENDING" else null,
+                "error" to if (progress == null) {
+                    "EXECUTION_FAILED"
+                } else if (result == null) {
+                    "SOURCES_PENDING"
+                } else {
+                    null
+                },
             ),
         )
         check(updated == 1)

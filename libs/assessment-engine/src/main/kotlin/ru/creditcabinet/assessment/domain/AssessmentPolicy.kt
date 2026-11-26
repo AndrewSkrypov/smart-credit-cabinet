@@ -96,7 +96,13 @@ class AssessmentPolicy(private val payments: AssessmentPaymentCalculator) {
         return abs(declared - assessment.annualRevenue).toDouble() / assessment.annualRevenue > rules.revenueMismatch
     }
 
-    private fun byRating(terms: AssessmentTerms, product: AssessmentProduct, products: List<AssessmentProduct>, assessment: Assessment, rules: RuleSet): AssessmentPolicyDecision {
+    private fun byRating(
+        terms: AssessmentTerms,
+        product: AssessmentProduct,
+        products: List<AssessmentProduct>,
+        assessment: Assessment,
+        rules: RuleSet,
+    ): AssessmentPolicyDecision {
         val rating = if (assessment.rating == Rating.C) Rating.B else assessment.rating
         val rate = rate(product, assessment.rating, rules)
         val budget = rules.maxLoad * assessment.monthlyRevenue - assessment.existingMonthlyPayments

@@ -10,6 +10,7 @@ import ru.creditcabinet.assessment.contract.v1.AssessmentCompletedV1
 import ru.creditcabinet.assessment.contract.v1.AssessmentRequestedV1
 import ru.creditcabinet.assessment.messaging.AssessmentJson
 import ru.creditcabinet.assessment.messaging.AssessmentOutbox
+import ru.creditcabinet.assessment.messaging.InvalidAssessmentEnvelope
 import ru.creditcabinet.assessment.messaging.validateAssessmentEnvelope
 import java.sql.Timestamp
 import java.time.Clock
@@ -93,15 +94,12 @@ class JdbcCreditAssessmentStore(
         }
         val parameters = mapOf("id" to cycle.id, "payload" to payload, "now" to Timestamp.from(now))
         if (cycle.result != null) {
-            validateAssessmentEnvelope {
-                require(
-                    jdbc.queryForObject(
-                        "select result=cast(:payload as jsonb) from credit_assessment_cycle where cycle_id=:id",
-                        parameters,
-                        Boolean::class.java,
-                    ) == true,
-                )
-            }
+            val duplicate = jdbc.queryForObject(
+                "select result=cast(:payload as jsonb) from credit_assessment_cycle where cycle_id=:id",
+                parameters,
+                Boolean::class.java,
+            )
+            if (duplicate != true) throw InvalidAssessmentEnvelope()
             return@executeWithoutResult
         }
         jdbc.update(
@@ -111,17 +109,21 @@ class JdbcCreditAssessmentStore(
     }
 
     override fun markScoring(id: UUID, version: Long) {
-        check(jdbc.update(
-            "update credit_assessment_cycle set score_version=:version where cycle_id=:id and result is not null and closed_at is null",
-            mapOf("id" to id, "version" to version),
-        ) == 1)
+        check(
+            jdbc.update(
+                "update credit_assessment_cycle set score_version=:version where cycle_id=:id and result is not null and closed_at is null",
+                mapOf("id" to id, "version" to version),
+            ) == 1,
+        )
     }
 
     override fun close(id: UUID, at: Instant) {
-        check(jdbc.update(
-            "update credit_assessment_cycle set closed_at=:at where cycle_id=:id and closed_at is null",
-            mapOf("id" to id, "at" to Timestamp.from(at)),
-        ) == 1)
+        check(
+            jdbc.update(
+                "update credit_assessment_cycle set closed_at=:at where cycle_id=:id and closed_at is null",
+                mapOf("id" to id, "at" to Timestamp.from(at)),
+            ) == 1,
+        )
     }
 
     override fun finishJob(job: PipelineJob) {

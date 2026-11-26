@@ -5,19 +5,23 @@ import java.time.Duration
 
 @ConfigurationProperties("cabinet.assessment.kafka")
 class AssessmentKafkaSettings(
-    val enabled: Boolean = false,
+    enabled: String = "false",
     val bootstrapServers: String = "",
     val environment: String = "",
     val generation: String = "",
     val resultGrace: Duration = Duration.ofSeconds(30),
 ) {
+    val enabled: Boolean = enabled.toBooleanStrict()
+
     init {
-        if (enabled) {
+        if (this.enabled) {
             require(environment.matches(NAME) && generation.matches(NAME)) { "Assessment Kafka environment and generation are required" }
-            require(bootstrapServers.split(',').all { address ->
-                val host = address.trim()
-                host.matches(BROKER) && host.substringAfterLast(':').toInt() in 1..65535
-            }) { "Assessment Kafka requires explicit broker addresses" }
+            require(
+                bootstrapServers.split(',').all { address ->
+                    val host = address.trim()
+                    host.matches(BROKER) && host.substringAfterLast(':').toInt() in 1..65535
+                },
+            ) { "Assessment Kafka requires explicit broker addresses" }
             require(resultGrace in Duration.ofSeconds(5)..Duration.ofMinutes(5)) { "Invalid assessment result grace" }
         }
     }

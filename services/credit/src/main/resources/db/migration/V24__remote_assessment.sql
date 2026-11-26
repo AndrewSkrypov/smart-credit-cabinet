@@ -17,6 +17,11 @@ create table credit_assessment_cycle (
 create unique index credit_assessment_open_score on credit_assessment_cycle(application_id)
     where score_version is not null and closed_at is null;
 
+insert into credit_assessment_cycle(cycle_id, application_id, application_version)
+select j.id, a.id, a.version
+from pipeline_jobs j join applications a on a.id = j.application_id
+where j.step = 'ENRICHMENT' and j.status in ('PENDING', 'RUNNING') and a.status = 'ENRICHMENT';
+
 create table assessment_exchange_outbox (
     stream varchar(65) not null,
     cycle_id uuid not null,

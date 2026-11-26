@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.MapperFeature
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.cfg.JsonNodeFeature
 
 class InvalidAssessmentEnvelope : RuntimeException()
 
@@ -25,9 +26,11 @@ class AssessmentJson(mapper: ObjectMapper) {
             DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES,
             DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS,
             DeserializationFeature.FAIL_ON_TRAILING_TOKENS,
+            DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS,
         )
         .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
         .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
+        .configure(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES, false)
 
     fun write(value: Any): String = strict.writeValueAsString(value)
 

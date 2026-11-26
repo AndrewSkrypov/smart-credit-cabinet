@@ -11,3 +11,15 @@ spring:
     url: ${ASSESSMENT_DB_URL:jdbc:postgresql://localhost:5432/assessment}
     username: ${ASSESSMENT_DB_USER:assessment}
     password: ${ASSESSMENT_DB_PASSWORD:}
+
+cabinet:
+  assessment:
+    kafka:
+      enabled: ${CABINET_ASSESSMENT_KAFKA_ENABLED:false}
+      bootstrap-servers: ${CABINET_ASSESSMENT_KAFKA_BOOTSTRAP_SERVERS:}
+      environment: ${CABINET_ASSESSMENT_KAFKA_ENVIRONMENT:}
+      generation: ${CABINET_ASSESSMENT_KAFKA_GENERATION:}
+      result-grace: ${CABINET_ASSESSMENT_KAFKA_RESULT_GRACE:PT30S}
+    sources:
+      url: ${CABINET_ASSESSMENT_SOURCES_URL:}
+      api-key: ${CABINET_ASSESSMENT_SOURCES_API_KEY:}

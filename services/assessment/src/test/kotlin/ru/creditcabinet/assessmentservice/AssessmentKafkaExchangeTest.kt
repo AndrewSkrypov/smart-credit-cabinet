@@ -17,17 +17,18 @@ import org.springframework.transaction.support.TransactionTemplate
 import ru.creditcabinet.assessment.contract.v1.AssessmentCompletedV1
 import ru.creditcabinet.assessment.contract.v1.AssessmentOutcomeV1
 import ru.creditcabinet.assessment.contract.v1.AssessmentRequestedV1
+import ru.creditcabinet.assessment.domain.SnapshotEvaluation
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.assessment.messaging.AssessmentJson
 import ru.creditcabinet.assessment.messaging.AssessmentKafka
 import ru.creditcabinet.assessment.messaging.AssessmentKafkaSettings
 import ru.creditcabinet.assessment.messaging.AssessmentOutbox
-import ru.creditcabinet.assessmentservice.application.ExecutionProgress
+import ru.creditcabinet.assessmentservice.application.AssessmentExecution
+import ru.creditcabinet.assessmentservice.application.AssessmentSources
 import ru.creditcabinet.assessmentservice.infrastructure.AssessmentExecutions
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Clock
-import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
@@ -49,13 +50,23 @@ class AssessmentKafkaExchangeTest {
     @Test
     fun `native broker retries a rolled back command and publishes one durable result`() {
         val address = checkNotNull(System.getenv("R2_KAFKA_BOOTSTRAP"))
-        val settings = AssessmentKafkaSettings(true, address, "synthetic", UUID.randomUUID().toString().take(15))
+        val settings = AssessmentKafkaSettings("true", address, "synthetic", UUID.randomUUID().toString().take(15))
         val clock = Clock.systemUTC()
         val json = AssessmentJson(mapper)
         val outbox = AssessmentOutbox(namedJdbc, tx)
         val store = AssessmentExecutions(namedJdbc, tx, json, outbox, clock, settings.stream)
         val fixturePath = Path.of("../../contracts/events/credit/assessment/fixtures/assessment-requested.json")
         val fixture = json.read(Files.readString(fixturePath), AssessmentRequestedV1::class.java)
+        val factsPath = fixturePath.resolveSibling("assessment-completed.json")
+        val facts = json.read(Files.readString(factsPath), AssessmentCompletedV1::class.java).facts
+        val sources = object : AssessmentSources {
+            override fun bank(inn: String) = error("The bank snapshot is already frozen")
+            override fun registry(inn: String) = checkNotNull(facts.registry)
+            override fun tax(inn: String) = checkNotNull(facts.tax)
+            override fun bureau(inn: String, consentId: UUID) = error("Bureau must not be queried without consent")
+        }
+        val evaluation = SnapshotEvaluation { _, _, _, _ -> error("Incomplete facts must not reach scoring") }
+        val execution = AssessmentExecution(sources, evaluation, clock)
         val id = UUID.randomUUID()
         val start = clock.instant()
         val request = fixture.copy(
@@ -98,30 +109,31 @@ class AssessmentKafkaExchangeTest {
                                 producer.send(ProducerRecord(topics[0], key, json.write(request))).get(10, TimeUnit.SECONDS)
                             }
                         }
-                        pollUntil { executor.consume(); deliveries >= 1 }
+                        pollUntil {
+                            executor.consume()
+                            deliveries >= 1
+                        }
                         val committed = admin.listConsumerGroupOffsets(group).partitionsToOffsetAndMetadata().get(10, TimeUnit.SECONDS)
                         assertTrue(committed.values.all { it.offset() == 0L })
                         assertEquals(0, count("assessment_execution", id))
-                        pollUntil { executor.consume(); deliveries >= 3 }
+                        pollUntil {
+                            executor.consume()
+                            deliveries >= 3
+                        }
                         assertEquals(1, count("assessment_execution", id))
 
                         val claim = assertNotNull(store.claim())
-                        val collection = claim.collection
-                        val completed = AssessmentCompletedV1(
-                            request.cycle,
-                            collection.receipts,
-                            collection.facts,
-                            AssessmentOutcomeV1.INCOMPLETE,
-                            SourceKind.entries.toSet() - collection.receipts.keys,
-                            clock.instant(),
-                            null,
-                            null,
-                            null,
-                        )
-                        assertTrue(store.finish(claim, ExecutionProgress(collection, completed)))
+                        val progress = execution.process(claim.request, claim.collection)
+                        val completed = assertNotNull(progress.result)
+                        assertEquals(AssessmentOutcomeV1.INCOMPLETE, completed.outcome)
+                        assertEquals(setOf(SourceKind.BUREAU), completed.missingSources)
+                        assertTrue(store.finish(claim, progress))
                         assertEquals(1, count("assessment_exchange_outbox", id))
                         executor.publish()
-                        pollUntil { recipient.consume(); result != null }
+                        pollUntil {
+                            recipient.consume()
+                            result != null
+                        }
                         assertNotNull(result).validateAgainst(request)
                     }
                 }

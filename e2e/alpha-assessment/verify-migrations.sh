@@ -75,13 +75,25 @@ psql -d alpha_qa_assessment --single-transaction -f "$root/services/assessment/s
 echo 'Applied Credit V1–V24 and Assessment V1 in separate databases'
 
 psql -d alpha_qa_credit --single-transaction -f - <<'SQL'
+do $$
+begin
+    if (select count(*) from credit_assessment_cycle where request is null and stream is null) <> 1 then
+        raise exception 'V24 did not pin the pending legacy task to local assessment';
+    end if;
+end $$;
+
+update pipeline_jobs set status = 'DONE', updated_at = now();
+insert into pipeline_jobs (id, application_id, step, run_at, created_at, updated_at)
+select '40000000-0000-4000-8000-000000000002', id, 'ENRICHMENT', now(), now(), now()
+from applications where status = 'ENRICHMENT';
+
 insert into credit_assessment_cycle (cycle_id, application_id, application_version, stream, request, accept_until)
 select j.id, a.id, a.version, 'synthetic.migrations', '{}', now() + interval '1 minute'
 from pipeline_jobs j join applications a on a.id = j.application_id
-where j.step = 'ENRICHMENT' and a.status = 'ENRICHMENT';
+where j.step = 'ENRICHMENT' and j.status = 'PENDING' and a.status = 'ENRICHMENT';
 
 insert into assessment_exchange_outbox (stream, cycle_id, application_id, payload)
-select stream, cycle_id, application_id, request from credit_assessment_cycle;
+select stream, cycle_id, application_id, request from credit_assessment_cycle where request is not null;
 SQL
 
 undo=$root/db/rollback/credit/U24__remote_assessment.sql
@@ -118,8 +130,8 @@ begin
         raise exception 'U24 left assessment transport tables in Credit';
     end if;
     if (select count(*) from applications where status = 'MANUAL_REVIEW') <> 1
-       or (select count(*) from pipeline_jobs where step = 'ENRICHMENT' and status = 'DONE') <> 1 then
-        raise exception 'U24 changed the existing Credit application or job';
+       or (select count(*) from pipeline_jobs where step = 'ENRICHMENT' and status = 'DONE') <> 2 then
+        raise exception 'U24 changed the existing Credit application or jobs';
     end if;
 end $$;
 SQL

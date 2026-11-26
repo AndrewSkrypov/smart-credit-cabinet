@@ -1,6 +1,5 @@
 plugins {
-    id("cabinet.kotlin-conventions")
-    `java-library`
+    id("cabinet.library-conventions")
 }
 
 dependencies {

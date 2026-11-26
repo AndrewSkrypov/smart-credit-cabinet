@@ -1,8 +1,9 @@
 # Production ingress controller
 
 Use Traefik chart 42.4.3 and Kubernetes Ingress resources with the
-`cabinet-public` class in `cabinet-prod`. The application Ingress references
-`cabinet-prod-tls` in that namespace. Configure the cert-manager HTTP-01 solver
+`cabinet-public` class in `cabinet-prod` and `monitoring`. The application
+Ingress references `cabinet-prod-tls` in `cabinet-prod`, and the Grafana
+Ingress references `grafana-prod-tls` in `monitoring`. Configure the cert-manager HTTP-01 solver
 with `ingressClassName: cabinet-public`. The solver route takes precedence over
 the HTTP-to-HTTPS redirect.
 
@@ -13,9 +14,10 @@ helm template cabinet-edge traefik --repo https://traefik.github.io/charts \
   --version 42.4.3 --namespace cabinet-prod --skip-crds -f helm/edge/values.yaml
 ```
 
-Install from an authenticated context for the target cluster. The chart
-installs the IngressClass and controller RBAC, so use the cluster bootstrap identity.
-The controller reads Secrets only in `cabinet-prod`.
+Install from an authenticated context for the target cluster. Create the
+`monitoring` namespace before installing or upgrading the chart. The chart
+installs the IngressClass and controller RBAC, so use the cluster bootstrap
+identity. The controller reads Secrets in `cabinet-prod` and `monitoring`.
 
 ```sh
 helm upgrade --install cabinet-edge traefik --repo https://traefik.github.io/charts \
@@ -53,7 +55,7 @@ not already have a cert-manager installation before installing it.
 ```sh
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --version v1.21.3 --namespace cert-manager --create-namespace \
-  --set crds.enabled=true --set global.leaderElection.namespace=cert-manager \
+  -f helm/edge/cert-manager-values.yaml \
   --wait --timeout 5m
 ```
 
@@ -69,6 +71,17 @@ kubectl -n cabinet-prod get certificate cabinet-prod \
   -o 'custom-columns=NAME:.metadata.name,EXPIRES:.status.notAfter,RENEWAL:.status.renewalTime'
 ```
 
+When `grafana.credit-cabinet.ru` resolves to the same LB and port 80 reaches
+Traefik, apply the separate Grafana Issuer and Certificate:
+
+```sh
+kubectl apply -f helm/edge/acme/grafana.yaml
+kubectl -n monitoring wait certificate/grafana-prod --for=condition=Ready --timeout=5m
+kubectl -n monitoring get certificate grafana-prod \
+  -o 'custom-columns=NAME:.metadata.name,EXPIRES:.status.notAfter,RENEWAL:.status.renewalTime'
+curl --silent --show-error --head https://grafana.credit-cabinet.ru/
+```
+
 If a temporary, publicly trusted DNS-01 certificate already populates
 `cabinet-prod-tls`, leave the Secret in place while bringing up the HTTP-01
 path. A manual DNS-01 certificate has no automated renewal. After applying
@@ -76,3 +89,14 @@ the Issuer and Certificate, verify a successful cert-manager
 `CertificateRequest` and a populated renewal time. If the existing certificate
 continues to be served, check the presented certificate serial and the
 CertificateRequest status before declaring the handover complete.
+
+## Canonical hostname
+
+After `cabinet-prod-tls` is ready, apply the redirect for
+`www.credit-cabinet.ru`. The redirect keeps the original path and query.
+
+```sh
+kubectl apply -f helm/edge/routing/www.yaml
+kubectl -n cabinet-prod rollout status deployment/cabinet-www-redirect
+curl -I 'https://www.credit-cabinet.ru/?probe=redirect'
+```

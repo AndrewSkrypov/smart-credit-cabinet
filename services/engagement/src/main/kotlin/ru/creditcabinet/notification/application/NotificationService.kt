@@ -117,10 +117,9 @@ class NotificationService(
         val caller = CurrentCaller.claims()
         val notification = store.find(id)?.takeIf { it.recipientId == caller.userId } ?: notFound()
         if (notification.link.isAgentApplicationLink()) {
+            if (!caller.isAgent || authorization == null) notFound()
             val application = notification.link?.agentApplicationId() ?: notFound()
-            if (!caller.isAgent || authorization == null ||
-                agentAccess.check(application, authorization) != AgentNotificationAccess.ALLOWED
-            ) notFound()
+            if (agentAccess.check(application, authorization) != AgentNotificationAccess.ALLOWED) notFound()
         }
         store.markRead(notification.id, caller.userId, clock.instant())
     }

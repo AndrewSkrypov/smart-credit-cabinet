@@ -30,16 +30,17 @@ class CreditAgentNotificationAccessTest {
         server.start()
         try {
             val adapter = CreditAgentNotificationAccess("http://127.0.0.1:${server.address.port}", RestClient.builder())
-            for ((status, expected) in mapOf(
+            val statuses = mapOf(
                 204 to AgentNotificationAccess.ALLOWED,
                 404 to AgentNotificationAccess.DENIED,
                 503 to AgentNotificationAccess.UNAVAILABLE,
                 302 to AgentNotificationAccess.UNAVAILABLE,
-            )) {
+            )
+            for ((status, expected) in statuses) {
                 response.set(status)
                 assertEquals(expected, adapter.check(app, authorization))
             }
-            assertEquals(List(4) { path to authorization }, requests.toList())
+            assertEquals(List<Pair<String, String?>>(statuses.size) { path to authorization }, requests.toList())
         } finally {
             server.stop(0)
         }

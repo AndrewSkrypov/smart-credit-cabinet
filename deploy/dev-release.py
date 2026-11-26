@@ -61,6 +61,13 @@ def rollout_metadata(deployment, state_dir, release, status, pending):
     return desired, history_file, history
 
 
+def resumes_pending_in_shadow(pending, desired):
+    alpha = pending.get("alpha_dev", {})
+    return alpha.get("read_enabled") is True and desired == {
+        **pending, "alpha_dev": {**alpha, "read_enabled": False},
+    }
+
+
 def deploy(args, state_dir, release):
     current_file, pending_file = (state_dir / name for name in ("current.json", "pending.json"))
     env_file = state_dir / "cabinet.env"
@@ -74,12 +81,13 @@ def deploy(args, state_dir, release):
     desired, history_file, history = rollout_metadata(deployment, state_dir, release, status, pending)
     if status.get("revision") == release.revision and status.get("manifest_sha256") != release.checksum:
         raise ValueError("Manifest для уже применённой ревизии изменился")
-    if pending and pending != desired:
+    if pending and pending != desired and not resumes_pending_in_shadow(pending, desired):
         raise RuntimeError("Есть незавершённый выпуск. Повторите тот же manifest или восстановите отдельную копию.")
-    if args.verify_only and desired != status:
+    if args.verify_only and (desired != status or (pending and pending != status)):
         raise RuntimeError("Указанный выпуск не записан как текущий")
 
-    if not args.verify_only and desired != status:
+    apply = not args.verify_only and (desired != status or (pending and pending != desired))
+    if apply:
         if status and not pending and status["revision"] != release.revision:
             old_root, old_release = release_at(ROOT.parent, status["revision"])
             if status["manifest_sha256"] != old_release.checksum:
@@ -97,10 +105,6 @@ def deploy(args, state_dir, release):
             "--host-memory-gib", str(args.host_memory_gib))
         if status.get("alpha_dev") and deployment.alpha_dev is None:
             stop_alpha()
-        write_state(current_file, desired)
-        pending_file.unlink()
-    elif not args.verify_only and pending:
-        pending_file.unlink()
 
     credentials = read_credentials(state_dir / "jury.json", create=not args.verify_only)
     if not args.verify_only:
@@ -109,6 +113,9 @@ def deploy(args, state_dir, release):
     report = {"manifest_sha256": release.checksum, "role_checks": verify(origin, credentials, expected_company=COMPANY)}
     report["release"] = json.loads(run(ROOT, "verify-release.py", *env_args, *release_args,
                                        "--expected-revision", release.revision, capture=True))
+    if not args.verify_only and pending_file.exists():
+        write_state(current_file, desired)
+        pending_file.unlink()
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
 

@@ -55,7 +55,7 @@ def fetch(opener, origin, path, limit):
     return body
 
 
-def verify_alpha(deployment, origin, ca, containers):
+def verify_alpha(deployment, opener, origin, containers):
     alpha = deployment.alpha_dev
     kafka = containers["analytics-kafka"]
     running, image_id = docker(
@@ -76,12 +76,14 @@ def verify_alpha(deployment, origin, ca, containers):
     if denied != "401" or authorized not in {"200", "503"}:
         raise RuntimeError("Внутренний HTTP Analytics не подтвердил проверку токена")
     try:
-        fetch(opener(ca), origin.rstrip("/"), ALPHA_ROUTE, 1024)
+        with opener.open(origin + ALPHA_ROUTE, timeout=15):
+            raise RuntimeError("Внешний gateway допускает доступ к пути Analytics")
     except HTTPError as error:
-        if error.code != 404:
-            raise RuntimeError("Внешний gateway не подтвердил закрытие пути Analytics") from None
-    else:
-        raise RuntimeError("Внешний gateway допускает доступ к пути Analytics")
+        with error:
+            if error.code != 404:
+                raise RuntimeError("Внешний gateway не подтвердил закрытие пути Analytics") from None
+    except URLError:
+        raise RuntimeError("HTTPS-проверка внешнего пути Analytics не завершена") from None
 
     marker = analytics_owner(
         deployment, "-qtA", "-c",
@@ -143,7 +145,7 @@ def verify(deployment, expected_revision):
     public_entry = frontend_entry(fetch(opener, origin, "/", 1024 * 1024))
     if public_entry != entry or sha256(fetch(opener, origin, entry, 16 * 1024 * 1024)).hexdigest() != image_hash:
         raise RuntimeError("JavaScript по HTTPS отличается от работающего контейнера frontend")
-    alpha_report = verify_alpha(deployment, origin, ca, containers) if deployment.alpha_dev else None
+    alpha_report = verify_alpha(deployment, opener, origin, containers) if deployment.alpha_dev else None
     if any(deployment.container(service) != container for service, container in containers.items()):
         raise RuntimeError("Состав контейнеров изменился во время проверки")
     return {

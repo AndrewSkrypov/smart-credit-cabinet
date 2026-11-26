@@ -1,5 +1,6 @@
 """Regression checks for the Dev release boundary without Docker or the registry."""
 import importlib.util
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -7,7 +8,8 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+from urllib.error import HTTPError, URLError
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "deploy"))
@@ -17,6 +19,9 @@ from registry_release import IMAGE_COMPONENTS, RegistryRelease
 spec = importlib.util.spec_from_file_location("dev_release", ROOT / "deploy/dev-release.py")
 dev_release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(dev_release)
+spec = importlib.util.spec_from_file_location("verify_release", ROOT / "deploy/verify-release.py")
+verify_release = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(verify_release)
 
 
 class DevRolloutTest(unittest.TestCase):
@@ -99,6 +104,93 @@ class DevRolloutTest(unittest.TestCase):
             dev_release.rollout_metadata(deployment, self.state, release, {}, desired)
         activated, _, _ = dev_release.rollout_metadata(deployment, self.state, release, desired, {})
         self.assertTrue(activated["alpha_dev"]["read_enabled"])
+
+    def test_alpha_gateway_requires_a_definitive_not_found(self):
+        deployment = SimpleNamespace(alpha_dev=self.alpha, release=self.manifest(alpha_dev=self.alpha_metadata))
+        containers = {"credit": "credit", "analytics-kafka": "kafka"}
+        origin = "https://dev.example.invalid"
+        url = origin + verify_release.ALPHA_ROUTE
+        image = b"sha256:" + b"e" * 64
+        for status in (404, 200, 302, 401, None):
+            opener = MagicMock()
+            if status is None:
+                opener.open.side_effect = URLError("unavailable")
+            elif status != 200:
+                opener.open.side_effect = HTTPError(url, status, "probe", {}, None)
+            with (
+                self.subTest(status=status),
+                patch.object(verify_release, "docker", side_effect=[b"true " + image, image, b"401", b"503"]),
+                patch.object(verify_release, "analytics_owner", return_value=f"{self.alpha.topic} " + "f" * 64),
+            ):
+                if status == 404:
+                    report = verify_release.verify_alpha(deployment, opener, origin, containers)
+                    self.assertEqual(report["public_http"], 404)
+                    self.assertEqual(report["http_with_token"], 503)
+                else:
+                    with self.assertRaises(RuntimeError):
+                        verify_release.verify_alpha(deployment, opener, origin, containers)
+                opener.open.assert_called_once_with(url, timeout=15)
+
+    def test_failed_shadow_verification_blocks_promotion_until_retry(self):
+        release = self.manifest(alpha_dev=self.alpha_metadata)
+        (self.state / "cabinet.env").touch(mode=0o600)
+        args = SimpleNamespace(verify_only=False, host_memory_gib=8)
+        config = self.config(PUBLIC_CABINET_URL="https://dev.example.invalid")
+        deployment = SimpleNamespace(alpha_dev=self.alpha, values=config)
+        current_file = self.state / "current.json"
+        pending_file = self.state / "pending.json"
+        verified = {"passed": True}
+        with (
+            patch.object(dev_release, "Deployment", return_value=deployment),
+            patch.object(dev_release, "read_credentials", return_value={}),
+            patch.object(dev_release, "provision"),
+            patch.object(dev_release, "verify", return_value={}),
+            patch.object(dev_release, "run", side_effect=[None, RuntimeError("failed shadow probe"), None, json.dumps(verified)]),
+            patch("sys.stdout", new_callable=io.StringIO),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "failed shadow probe"):
+                dev_release.deploy(args, self.state, release)
+            self.assertFalse(current_file.exists())
+            self.assertEqual(json.loads(pending_file.read_text())["alpha_dev"], self.alpha.state())
+
+            deployment.alpha_dev = AlphaDev(self.alpha.generation, True)
+            with self.assertRaisesRegex(ValueError, "в теневом режиме"):
+                dev_release.deploy(args, self.state, release)
+            deployment.alpha_dev = self.alpha
+            dev_release.deploy(args, self.state, release)
+
+        self.assertEqual(json.loads(current_file.read_text())["alpha_dev"], self.alpha.state())
+        self.assertFalse(pending_file.exists())
+
+    def test_failed_activation_can_resume_the_same_release_in_shadow(self):
+        release = self.manifest(alpha_dev=self.alpha_metadata)
+        (self.state / "cabinet.env").touch(mode=0o600)
+        args = SimpleNamespace(verify_only=False, host_memory_gib=8)
+        config = self.config(PUBLIC_CABINET_URL="https://dev.example.invalid")
+        deployment = SimpleNamespace(alpha_dev=self.alpha, values=config)
+        state, _, _ = dev_release.rollout_metadata(deployment, self.state, release, {}, {})
+        current_file = self.state / "current.json"
+        pending_file = self.state / "pending.json"
+        dev_release.write_state(current_file, state)
+        deployment.alpha_dev = AlphaDev(self.alpha.generation, True)
+        active, _, _ = dev_release.rollout_metadata(deployment, self.state, release, state, {})
+        dev_release.write_state(pending_file, active)
+        deployment.alpha_dev = self.alpha
+        with (
+            patch.object(dev_release, "Deployment", return_value=deployment),
+            patch.object(dev_release, "read_credentials", return_value={}),
+            patch.object(dev_release, "provision"),
+            patch.object(dev_release, "verify", return_value={}),
+            patch.object(dev_release, "run", side_effect=[None, '{"passed":true}']) as run,
+            patch("sys.stdout", new_callable=io.StringIO),
+        ):
+            with self.assertRaises(RuntimeError):
+                dev_release.deploy(SimpleNamespace(verify_only=True), self.state, release)
+            dev_release.deploy(args, self.state, release)
+
+        self.assertEqual([call.args[1] for call in run.call_args_list], ["start.py", "verify-release.py"])
+        self.assertEqual(json.loads(current_file.read_text()), state)
+        self.assertFalse(pending_file.exists())
 
 
 if __name__ == "__main__":

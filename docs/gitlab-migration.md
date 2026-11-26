@@ -13,14 +13,14 @@
 - `cabinet-release` — защищённый раннер на `ci-build-node-01` с собственным Docker Rootless под `pump-release`.
 - `cabinet-deploy` — защищённый CD. `cd-deploy-node-01` выполняет задания dev под `pump-cd`. `cd-deploy-node-02` зарегистрирован и стоит на паузе как запасной.
 - `cabinet-deploy-prod` — защищённый тег на `cd-deploy-node-03`. Для production требуется отдельная ограниченная учётная запись Kubernetes или GitLab Agent.
-- Служба `gitlab-runner-alfa` и конфигурация `/etc/gitlab-runner-alfa/config.toml` принадлежат PUMP. Существующие `gitlab-runner.service` и `gitlab-runner-main.service` обслуживают другие проекты. Лимит параллелизма — один job на службу. Для Compose используйте `COMPOSE_PROJECT_NAME=pump-${CI_PIPELINE_ID}-${CI_JOB_ID}`.
+- Служба `gitlab-runner-alfa` и конфигурация `/etc/gitlab-runner-alfa/config.toml` принадлежат PUMP. Существующие `gitlab-runner.service` и `gitlab-runner-main.service` обслуживают другие проекты. Лимит параллелизма — один job на службу. CI использует Java 21, Node.js 20, PostgreSQL client 16 и Helm 3.19. Docker работает в пользовательском systemd scope с делегированием cgroup v2. CI `TMPDIR=/var/lib/pump-ci/tmp` доступен заданию и выделенному daemon при включённом `PrivateTmp`. Для Compose используйте уникальное имя проекта на каждый job.
 
 ## Подтверждённые проверки
 
 - Импортировано 26 веток и один аннотированный тег. `main` и `feat/final-platform-release` защищены. Прямой push и force push отключены, merge требует зелёный pipeline и закрытые обсуждения. Создание тегов `v*` доступно Maintainer.
 - Четыре учётные записи — `dmitriy`, `igor`, `daniel`, `andrew` — имеют роль Developer. Открытая регистрация, legacy runner registration tokens и email отключены. Первый вход требует смены пароля.
 - [Pipeline №21](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/21) прошёл после перехода на публичный TLS. Проверены теги `cabinet-ci`, `cabinet-release` и `cabinet-deploy` и Registry push/pull по digest `sha256:707de62cb290e440435183eac2f283a6f88b888c3fb319f4d180e7e8c50c046b`.
-- Лимит CI-артефактов — 512 МБ, срок хранения по умолчанию — 14 дней. Политика Registry ежедневно рассматривает только теги формата `ci-<число>`, сохраняет десять новых тегов и исключает теги релизов из очистки.
+- Лимит CI-артефактов — 512 МБ, срок хранения по умолчанию — 14 дней. Политика Registry ежедневно рассматривает только теги форматов `ci-<число>` и `pipeline-<число>`, сохраняет десять новых тегов и исключает теги релизов из очистки.
 - Для dev используются защищённые переменные окружения `dev`. Read-only credential Registry находится в отдельном Docker config пользователя `cabinet-deploy`.
 
 ## Проверка и откат

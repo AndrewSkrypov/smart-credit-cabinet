@@ -155,6 +155,27 @@ def run_projection(compose, project, env):
             time.sleep(2)
         print(f"revision\t{revision}\nproject\t{project}\nanalytics_prod_startup\tpassed\n"
               "synthetic_kafka_sql_receipt_and_projection\tpassed")
+    except Exception:
+        log = subprocess.run([*compose, "logs", "--no-color", "--tail", "120", "analytics"],
+                             cwd=ROOT, env=env, capture_output=True, text=True, timeout=10).stdout
+        classes = sorted(set(re.findall(r"\b(?:[A-Za-z0-9_$]+\.)+(?:[A-Za-z0-9_$]*Exception|[A-Za-z0-9_$]*Error)\b", log)))
+        if classes:
+            print("Analytics exception types:", ", ".join(classes), file=sys.stderr)
+        known = {
+            "Production requires enabled Valkey": "production Valkey guard",
+            "Initialize the Analytics database": "generation marker guard",
+            "Runtime database role is not isolated": "runtime database role isolation guard",
+            "ClassNotFoundException": "runtime class missing",
+            "UnsatisfiedDependencyException": "Spring dependency initialization",
+            "Connection refused": "connection refused",
+            "password authentication failed": "database authentication refused",
+            'WebServerException': 'HTTP server startup failure',
+            'Application run failed': 'Spring startup failure',
+        }
+        for marker, description in known.items():
+            if marker in log:
+                print(f"Analytics diagnostic: {description}", file=sys.stderr)
+        raise
     finally:
         try:
             run("isolated cleanup", "down", "--volumes", timeout=75)

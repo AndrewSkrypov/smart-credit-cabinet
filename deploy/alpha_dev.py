@@ -116,6 +116,14 @@ def prepare(deployment, up):
             raise ValueError("В выпуске отсутствуют SQL-файлы bootstrap Analytics")
     deployment.compose("stop", "analytics")
     deployment.compose(*up, "analytics-db", "analytics-kafka")
+    # The first Alpha volume was initialized before template0 was included
+    # in the public CONNECT revocations. Narrow that ACL on existing volumes.
+    deployment.compose(
+        "exec", "-T", "analytics-db", "sh", "-eu", "-c",
+        'export PGPASSWORD="$POSTGRES_PASSWORD"; '
+        "exec psql -X -w -h 127.0.0.1 -U postgres -d analytics -v ON_ERROR_STOP=1 "
+        "-c 'REVOKE CONNECT ON DATABASE template0 FROM PUBLIC'",
+    )
     deployment.compose("run", "--rm", "--no-deps", "analytics-migrate")
     marker = analytics_owner(deployment, "-qtA", "-c",
                              "SELECT generation FROM application_status_generation WHERE singleton")

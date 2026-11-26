@@ -93,13 +93,16 @@ services:
 
   analytics:
     <<: *analytics-image
-    networks: [alpha-stream, alpha-store, alpha-read]
+    networks: [cabinet, alpha-stream, alpha-store, alpha-read]
     restart: unless-stopped
     environment:
       <<: *analytics-db
       DB_USER: analytics_app
       DB_PASSWORD: ${CABINET_ALPHA_DEV_PG_APP_PASSWORD:?Нужен пароль приложения Analytics}
       SPRING_PROFILES_ACTIVE: prod
+      CABINET_VALKEY_ENABLED: "true"
+      CABINET_VALKEY_HOST: valkey
+      CABINET_VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Задайте VALKEY_PASSWORD в deploy/.env}
       JWT_SECRET: ${CABINET_ALPHA_DEV_JWT_SECRET:?Нужен отдельный ключ Analytics}
       SPRING_FLYWAY_ENABLED: "false"
       ANALYTICS_KAFKA_ENABLED: "true"
@@ -112,6 +115,8 @@ services:
       ANALYTICS_STATUS_READ_MAX_LAG_RECORDS: "0"
       ANALYTICS_STATUS_READ_KAFKA_TIMEOUT_MS: "250"
     depends_on:
+      valkey:
+        condition: service_healthy
       analytics-db:
         condition: service_healthy
     healthcheck:

@@ -1,13 +1,16 @@
 import importlib.util
 import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location("deployment_common", Path(__file__).resolve().parents[2] / "deploy/common.py")
+deploy_dir = Path(__file__).resolve().parents[2] / "deploy"
+spec = importlib.util.spec_from_file_location("deployment_common", deploy_dir / "common.py")
 module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
+with patch.object(sys, "path", [str(deploy_dir), *sys.path]):
+    spec.loader.exec_module(module)
 
 
 class DeploymentStorageTest(unittest.TestCase):

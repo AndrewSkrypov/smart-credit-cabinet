@@ -23,4 +23,4 @@ _, verified_repo_digest, image_id = sys.argv
 print(json.dumps({"verified_repo_digest": verified_repo_digest, "image_id": image_id, "platform": "linux/amd64"}))
 PY
 python3 security/scan.py --image "$image" --report-name infra-ollama \
-    --cache-volume "cabinet-trivy-${CI_JOB_ID:?}" --timeout-minutes 30
+    --cache-volume "cabinet-trivy-${CI_JOB_ID:?}" --timeout-minutes 30 --save-platform linux/amd64

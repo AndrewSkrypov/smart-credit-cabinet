@@ -18,11 +18,14 @@ parser.add_argument("--remote", action="store_true", help="Проверять о
 parser.add_argument("--report-name", default="filesystem", help="Имя группы отчётов, буквы/цифры/_/-")
 parser.add_argument("--cache-volume", default="cabinet-submission-trivy-cache")
 parser.add_argument("--timeout-minutes", type=int, default=15)
+parser.add_argument("--save-platform", help="Платформа для локального docker save")
 parser.add_argument("--keep-archives", action="store_true", help="Сохранить входные tar; по умолчанию после отчёта они удаляются")
 args = parser.parse_args()
 if not 1 <= args.timeout_minutes <= 60:
     parser.error("--timeout-minutes должен быть от 1 до 60")
 scan_timeout = f"{args.timeout_minutes}m"
+if args.save_platform and (args.remote or not args.image):
+    parser.error("--save-platform поддерживается только для локальных образов")
 if args.remote and (not args.image or any(not re.fullmatch(r"[a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}", value) for value in args.image)):
     parser.error("Для удалённого сканирования каждый образ должен быть закреплён sha256 digest")
 if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", args.report_name) or not re.fullmatch(r"cabinet-[a-z0-9-]{1,100}", args.cache_volume):
@@ -85,7 +88,12 @@ try:
                 continue
             image = json.loads(subprocess.check_output(["docker", "image", "inspect", reference], text=True, encoding="utf-8"))[0]
             archive = directory / f"image-{index}.tar"
-            execute(["docker", "save", "-o", str(archive), image["Id"]])
+            save = ["docker", "save", "-o", str(archive)]
+            if args.save_platform:
+                save.extend(["--platform", args.save_platform, reference])
+            else:
+                save.append(image["Id"])
+            execute(save)
             started = time.monotonic()
             execute(["docker", "run", "--rm", *mounts, "-v", f"{ROOT / '.trivyignore'}:/policy/ignore:ro", SCANNER,
                      "image", "--no-progress", "--timeout", scan_timeout, "--scanners", "vuln,secret", "--show-suppressed",

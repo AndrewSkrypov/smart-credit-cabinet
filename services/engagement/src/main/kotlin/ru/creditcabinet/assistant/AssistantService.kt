@@ -103,8 +103,8 @@ class AssistantService(
             else -> null
         }?.let { id -> Knowledge.articles.single { it.id == id } }
         if (procedure != null) return Answer(procedure.text, AnswerMode.RULES, listOf(procedure.title) + listOfNotNull(facts?.let { "Заявка № ${it.number}" }))
-        if (articles.any { it.exact }) {
-            // A product match must not push authoritative rates/steps behind a generative article.
+        if (articles.any { it.exact } || articles.firstOrNull()?.id == "registry") {
+            // Keep exact conditions and the attribution of data to official registries verbatim.
             val reference = articles.filter { it.exact } + articles.filterNot { it.exact }
             return Answer(RuleAnswers.answer(question, facts, reference), AnswerMode.RULES, sources)
         }

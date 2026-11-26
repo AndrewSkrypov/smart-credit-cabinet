@@ -45,6 +45,8 @@ interface DecisionRepository {
 }
 
 interface EnrichmentStore {
+    fun clearNonBank(applicationId: UUID)
+
     fun save(applicationId: UUID, kind: SourceKind, data: Any, at: Instant)
 
     /** What has been fetched for the application so far, by source. */

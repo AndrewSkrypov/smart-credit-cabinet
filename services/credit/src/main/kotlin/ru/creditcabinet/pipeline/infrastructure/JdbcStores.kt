@@ -135,6 +135,13 @@ class JdbcRuleSets(private val jdbc: NamedParameterJdbcTemplate, private val map
 
 @Component
 class JdbcEnrichmentStore(private val jdbc: NamedParameterJdbcTemplate, private val mapper: ObjectMapper) : EnrichmentStore {
+    override fun clearNonBank(applicationId: UUID) {
+        jdbc.update(
+            "delete from enrichment_results where application_id=:id and source<>'BANK'",
+            mapOf("id" to applicationId),
+        )
+    }
+
     override fun fetchedAt(applicationId: UUID): Map<SourceKind, Instant> =
         jdbc.query(
             "select source, fetched_at from enrichment_results where application_id = :application",

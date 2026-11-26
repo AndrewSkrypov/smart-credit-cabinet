@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: assessment
+  main:
+    web-application-type: none
+    keep-alive: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  datasource:
+    url: ${ASSESSMENT_DB_URL:jdbc:postgresql://localhost:5432/assessment}
+    username: ${ASSESSMENT_DB_USER:assessment}
+    password: ${ASSESSMENT_DB_PASSWORD:}

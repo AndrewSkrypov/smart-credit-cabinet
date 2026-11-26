@@ -367,7 +367,18 @@ object Grounding {
     /** Numbers of [answer] that appear nowhere in [context]. Staff summaries can number their points. */
     fun unknownNumbers(answer: String, context: String, allowSmall: Boolean = true): Set<String> {
         val known = numbers(context)
-        return numbers(answer).filter { it !in known && (!allowSmall || (it.toBigDecimalOrNull()?.let { value -> value > java.math.BigDecimal(SMALL) } ?: true)) }.toSet()
+        return numbers(answer)
+            .filter {
+                it !in known &&
+                    (
+                        !allowSmall ||
+                            (
+                                it.toBigDecimalOrNull()?.let { value ->
+                                    value > java.math.BigDecimal(SMALL)
+                                } ?: true
+                                )
+                        )
+            }.toSet()
     }
 
     private const val SMALL = 10

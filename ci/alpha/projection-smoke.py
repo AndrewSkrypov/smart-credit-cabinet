@@ -36,8 +36,8 @@ class ProjectionError(RuntimeError):
     """Only constant operation names and error categories may leave the fixture."""
 
 
-class InterruptedProjection(ProjectionError):
-    pass
+class InterruptedProjection(BaseException):
+    """Job cancellation must bypass operational-error fallbacks."""
 
 
 def job_project(job_id):

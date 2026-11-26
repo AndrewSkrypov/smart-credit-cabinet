@@ -82,6 +82,7 @@ class DocumentsGrpcServer(
     private val service: DocumentsRpc,
     private val peer: CreditPeer,
     @Value("\${cabinet.documents.grpc.port}") private val port: Int,
+    @Value("\${cabinet.documents.grpc.host:127.0.0.1}") private val host: String,
     @Value("\${cabinet.documents.grpc.certificate}") private val certificate: File,
     @Value("\${cabinet.documents.grpc.key}") private val key: File,
     @Value("\${cabinet.documents.grpc.ca}") private val ca: File,
@@ -91,7 +92,7 @@ class DocumentsGrpcServer(
     override fun start() {
         val credentials = TlsServerCredentials.newBuilder().keyManager(certificate, key).trustManager(ca).clientAuth(TlsServerCredentials.ClientAuth.REQUIRE).build()
         executor = java.util.concurrent.ThreadPoolExecutor(2, 2, 0, java.util.concurrent.TimeUnit.SECONDS, java.util.concurrent.ArrayBlockingQueue(8))
-        server = NettyServerBuilder.forPort(port, credentials).maxInboundMessageSize(MAX_DOCUMENT_BYTES + 1024 * 1024).maxConcurrentCallsPerConnection(2)
+        server = NettyServerBuilder.forAddress(java.net.InetSocketAddress(host, port), credentials).maxInboundMessageSize(MAX_DOCUMENT_BYTES + 1024 * 1024).maxConcurrentCallsPerConnection(2)
             .executor(executor)
             .addService(ServerInterceptors.intercept(service, peer)).build().start()
     }

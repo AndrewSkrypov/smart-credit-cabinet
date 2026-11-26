@@ -105,6 +105,14 @@ class DocumentsMigration(
         target.query("select metadata from document_records order by id", org.springframework.jdbc.core.RowCallbackHandler { rs ->
             val d = mapper.readValue<DocumentRecord>(rs.getString(1))
             check(credit.queryForObject("select company_id from applications where id=?", UUID::class.java, d.scope.applicationId) == d.scope.companyId)
+            val previous = credit.query("select d.*,a.company_id from documents d join applications a on a.id=d.application_id where d.id=? for update of d", { row, _ ->
+                DocumentRecord(uuid(row,"id"), DocumentScope(uuid(row,"company_id"),uuid(row,"application_id")),row.getString("type"),row.getString("file_name"),row.getString("stored_name"),row.getLong("size_bytes"),uuid(row,"uploaded_by"),row.getTimestamp("uploaded_at").toInstant(),row.getString("context"),row.getString("storage_backend"),row.getString("checksum_sha256") ?: d.checksum,row.getBoolean("private_to_bank"),row.getTimestamp("deleted_at")?.toInstant())
+            },d.id).firstOrNull()
+            val expected = d.copy(uploadedAt=pgInstant(credit,d.uploadedAt),deletedAt=d.deletedAt?.let { pgInstant(credit,it) })
+            if (previous != null) {
+                check(previous.copy(deletedAt=expected.deletedAt)==expected) { "Immutable document metadata conflict" }
+                check(previous.deletedAt==null || previous.deletedAt==expected.deletedAt)
+            }
             copy(creditStore(d.backend), d.storedName, d.backend, read(files, d.storedName, d.backend, d.sizeBytes, d.checksum))
             credit.update("""insert into documents(id,application_id,type,file_name,stored_name,size_bytes,uploaded_by,uploaded_at,context,storage_backend,checksum_sha256,private_to_bank,deleted_at)
                 values(?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict(id) do update set deleted_at=excluded.deleted_at,checksum_sha256=excluded.checksum_sha256""",
@@ -112,6 +120,15 @@ class DocumentsMigration(
         })
         target.query("select metadata from artifact_records order by id", org.springframework.jdbc.core.RowCallbackHandler { rs ->
             val a = mapper.readValue<ArtifactRecord>(rs.getString(1))
+            check(credit.queryForObject("select company_id from applications where id=?", UUID::class.java, a.scope.applicationId)==a.scope.companyId)
+            val previous = credit.query("select g.*,a.company_id from generated_artifacts g join applications a on a.id=g.application_id where g.id=? for update of g", { row, _ ->
+                ArtifactRecord(uuid(row,"id"),DocumentScope(uuid(row,"company_id"),uuid(row,"application_id")),uuid(row,"offer_id"),row.getString("kind"),row.getString("phase"),row.getInt("template_version"),row.getString("input_hash"),mapper.writeValueAsString(mapper.readValue<ArtifactInput>(row.getString("input_json"))),row.getString("title"),row.getString("file_name"),row.getString("content_type"),row.getString("stored_name"),row.getString("storage_backend"),row.getTimestamp("created_at").toInstant(),row.getString("status"),row.getObject("size_bytes",java.lang.Long::class.java)?.toLong(),row.getString("checksum"),row.getTimestamp("ready_at")?.toInstant())
+            },a.id).firstOrNull()
+            val expected = a.copy(createdAt=pgInstant(credit,a.createdAt),readyAt=a.readyAt?.let { pgInstant(credit,it) })
+            if (previous != null) {
+                check(previous.copy(status=expected.status,sizeBytes=expected.sizeBytes,checksum=expected.checksum,readyAt=expected.readyAt)==expected) { "Immutable artifact metadata conflict" }
+                if (previous.status=="READY") check(previous==expected)
+            }
             if (a.status == "READY") copy(creditStore(a.backend), a.storedName, a.backend, read(files, a.storedName, a.backend, a.sizeBytes!!, a.checksum))
             credit.update("""insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,status,size_bytes,checksum,created_at,updated_at,ready_at,next_attempt_at)
                 values(?,?,?,?,?,?,?,?::jsonb,?,?,?,?,?,?,?,?,?,now(),?,now()) on conflict(id) do update set status=excluded.status,size_bytes=excluded.size_bytes,checksum=excluded.checksum,ready_at=excluded.ready_at""",
@@ -121,6 +138,10 @@ class DocumentsMigration(
         credit.execute("alter table generated_artifacts enable trigger artifacts_owner_fence")
         println("documents_migration direction=reverse checksums=verified owner=FROZEN")
     }
+
+    // Compare file metadata at PostgreSQL's actual timestamptz precision. Frozen
+    // ArtifactInput JSON and its hash are compared verbatim and never normalized here.
+    private fun pgInstant(credit: JdbcTemplate, instant: Instant): Instant = credit.queryForObject("select cast(? as timestamptz)", { rs, _ -> rs.getTimestamp(1).toInstant() }, Timestamp.from(instant))!!
 
     private fun bindScope(scope: DocumentScope) {
         target.update("insert into document_application_scopes(application_id,company_id) values(?,?) on conflict do nothing", scope.applicationId, scope.companyId)

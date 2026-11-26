@@ -15,6 +15,7 @@ spring:
 cabinet:
   documents:
     grpc:
+      host: ${DOCUMENTS_GRPC_HOST:127.0.0.1}
       port: ${DOCUMENTS_GRPC_PORT:9096}
       certificate: ${DOCUMENTS_TLS_CERTIFICATE}
       key: ${DOCUMENTS_TLS_KEY}

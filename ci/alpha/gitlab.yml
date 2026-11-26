@@ -1,10 +1,17 @@
-# Optional local include from .gitlab-ci.yml. See docs/alpha-pilot-operations.md.
-alpha-pilot-infrastructure:
+# Pilot checks run on the pilot MR and on explicitly selected Dev pipelines.
+.alpha-pilot-verify:
   extends: .quality
   stage: verify
-  timeout: 10 minutes
   rules:
     - if: '$CABINET_ALPHA_PILOT == "1"'
+    - if: >-
+        $CI_PIPELINE_SOURCE == "merge_request_event" &&
+        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-analytics-pilot" &&
+        $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "feat/final-platform-release"
+
+alpha-pilot-infrastructure:
+  extends: .alpha-pilot-verify
+  timeout: 10 minutes
   script:
     - mkdir -p ci-artifacts
     - bash ci/alpha/smoke.sh > ci-artifacts/alpha-infrastructure.tsv
@@ -14,19 +21,12 @@ alpha-pilot-infrastructure:
       - ci-artifacts/alpha-infrastructure.tsv
 
 alpha-pilot-analytics-jar:
-  extends: .quality
-  stage: verify
+  extends: .alpha-pilot-verify
   timeout: 30 minutes
   dependencies: []
-  rules:
-    - if: '$CABINET_ALPHA_PILOT == "1"'
   script:
     - bash ci/alpha/build-analytics.sh
   artifacts:
     expire_in: 14 days
     paths:
       - ci-artifacts/alpha-analytics/
-
-# Merge only the artifact dependencies into the existing protected release job.
-release-images:
-  dependencies: [backend, frontend, alpha-pilot-analytics-jar]

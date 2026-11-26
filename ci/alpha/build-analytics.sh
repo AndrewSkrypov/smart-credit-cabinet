@@ -9,7 +9,8 @@ if [[ "$revision" != "${CI_COMMIT_SHA:-$revision}" ||
     exit 2
 fi
 
-./gradlew --no-daemon -PalphaAnalytics=true :services:analytics:bootJar
+./gradlew --no-daemon -PalphaAnalytics=true \
+    :services:analytics:test :services:analytics:ktlintCheck :services:analytics:bootJar
 
 artifacts=ci-artifacts/alpha-analytics
 mkdir -p "$artifacts"

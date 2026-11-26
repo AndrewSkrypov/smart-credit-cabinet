@@ -26,4 +26,9 @@ include:
     rules:
       - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
         when: never
-      - if: '$CABINET_ALPHA_PILOT == "1"'
+      - when: always
+  - local: ci/alpha/release.yml
+    rules:
+      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
+        when: never
+      - if: '$CABINET_ALPHA_PILOT == "1" && $CI_COMMIT_REF_PROTECTED == "true"'

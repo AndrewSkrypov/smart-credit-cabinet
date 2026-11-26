@@ -130,7 +130,8 @@ bash ci/alpha/build-analytics.sh
 На изолированном стенде для повтора в том же поколении выполните следующий
 запрос в операторской сессии PostgreSQL. Передайте переменные psql
 `failed_outbox_id` и `journal_event_id` с UUID из квитанции. Операция затрагивает
-только одну запись в `FAILED`, сохраняя ключ, payload и UUID события.
+только одну запись в `FAILED` текущего поколения, заданного переменной
+psql `generation`, и сохраняет ключ, payload и UUID события.
 
 ```sql
 UPDATE application_status_outbox
@@ -140,6 +141,7 @@ SET state = 'PENDING',
     updated_at = statement_timestamp()
 WHERE id = :'failed_outbox_id'::uuid
   AND event_key = :'journal_event_id'
+  AND stream_generation = :'generation'
   AND state = 'FAILED'
 RETURNING id, event_key, state;
 ```

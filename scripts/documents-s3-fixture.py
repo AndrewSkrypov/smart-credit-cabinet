@@ -35,6 +35,8 @@ class S3Fixture:
         configuration.write_text(json.dumps(config))
         configuration.chmod(0o600)
         data = self.scratch / 'data'; data.mkdir()
+        # A native process must not discover a host/user filer.toml with external storage.
+        (self.scratch/'filer.toml').write_text('[leveldb2]\nenabled = true\ndir = '+json.dumps(str(data/'filerldb2'))+'\n')
         common = ['mini', '-ip=127.0.0.1', '-admin.ui=false', '-webdav=false', '-s3.iam=false', '-s3.port.iceberg=0', '-s3.port.lance=0', '-s3.autoCreateBucket=false', '-s3.allowDeleteBucketNotEmpty=false', '-s3.concurrentUploadLimitMB=16', '-s3.readerCacheSizeMB=16', '-master.telemetry=false', '-master.volumeSizeLimitMB=64', '-volume.max=4', '-bucket=' + ','.join(self.buckets.values())]
         if image:
             if image != PINNED_IMAGE or docker_env is None or scope is None or labels is None:

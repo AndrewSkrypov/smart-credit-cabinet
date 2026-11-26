@@ -306,7 +306,7 @@ def main():
             result = capture(args) if args.command == "capture" else probe_private(args)
             json.dump(result, sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
             print()
-    except (ValueError, KeyError, StopIteration, TypeError, OSError) as error:
+    except (ValueError, KeyError, IndexError, StopIteration, TypeError, OSError, ArithmeticError) as error:
         print(f"Alpha QA: {error}", file=sys.stderr)
         return 1
     return 0

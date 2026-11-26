@@ -12,6 +12,10 @@ if [[ ! "$database" =~ ^alpha_qa_[a-z0-9_]+$ ]]; then
   echo "Use an isolated alpha_qa_* database" >&2
   exit 2
 fi
+if [[ "${PGHOST:-}" == *,* ]]; then
+  echo "Supply one isolated PostgreSQL host" >&2
+  exit 2
+fi
 case "${PGHOST:-}" in
   127.0.0.1|::1|/*) ;;
   *) echo "PGHOST must be the isolated stack's loopback address or private Unix socket directory" >&2; exit 2 ;;

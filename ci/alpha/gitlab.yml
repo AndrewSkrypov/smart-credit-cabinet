@@ -13,6 +13,7 @@ alpha-pilot-infrastructure:
   extends: .alpha-pilot-verify
   timeout: 10 minutes
   script:
+    - python3 ci/alpha/test_dev_rollout.py
     - mkdir -p ci-artifacts
     - bash ci/alpha/smoke.sh > ci-artifacts/alpha-infrastructure.tsv
   artifacts:

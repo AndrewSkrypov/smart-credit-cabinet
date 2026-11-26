@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import ru.creditcabinet.auth.application.JwtService
+import ru.creditcabinet.common.model.Inn
 import ru.creditcabinet.user.domain.User
 import ru.creditcabinet.user.domain.UserRole
 import ru.creditcabinet.user.domain.UserStatus
@@ -120,15 +121,24 @@ class CompanyAgentMandatesIntegrationTest {
         assertEquals(expected, json(clients).size())
     }
 
-    private fun internalCompanyIds(agent: User): JsonNode = json(mvc.get("/internal/v1/agents/${agent.id}/companies")
-        .andExpect { status { isOk() } }.andReturn().response)
+    private fun internalCompanyIds(agent: User): JsonNode {
+        val response = mvc.get("/internal/v1/agents/${agent.id}/companies")
+            .andExpect { status { isOk() } }.andReturn().response
+        return json(response)
+    }
 
-    private fun access(agent: User, signer: User): JsonNode = json(mvc.get("/internal/v1/agents/${agent.id}/companies/${signer.companyId}/access")
-        .andExpect { status { isOk() } }.andReturn().response)
+    private fun access(agent: User, signer: User): JsonNode {
+        val response = mvc.get("/internal/v1/agents/${agent.id}/companies/${signer.companyId}/access")
+            .andExpect { status { isOk() } }.andReturn().response
+        return json(response)
+    }
 
-    private fun list(signer: User): JsonNode = json(mvc.get(PATH) {
-        header("Authorization", "Bearer ${jwt.issue(signer)}")
-    }.andExpect { status { isOk() } }.andReturn().response)
+    private fun list(signer: User): JsonNode {
+        val response = mvc.get(PATH) {
+            header("Authorization", "Bearer ${jwt.issue(signer)}")
+        }.andExpect { status { isOk() } }.andReturn().response
+        return json(response)
+    }
 
     private fun issue(signer: User, agentId: UUID, expiry: Instant): MockHttpServletResponse = mvc.post(PATH) {
         contentType = MediaType.APPLICATION_JSON
@@ -143,10 +153,12 @@ class CompanyAgentMandatesIntegrationTest {
     private fun json(response: MockHttpServletResponse): JsonNode = mapper.readTree(response.getContentAsString(Charsets.UTF_8))
 
     private fun client(companyId: UUID = UUID.randomUUID(), canSign: Boolean = true): User {
+        val prefix = companyId.toString().filter(Char::isDigit).take(9).padEnd(9, '0')
+        val inn = (0..9).map { "$prefix$it" }.first(Inn::isValid)
         jdbc.update(
             "insert into companies (id,inn,name) values (?,?,?) on conflict (id) do nothing",
             companyId,
-            companyId.toString().filter(Char::isDigit).take(12).padEnd(12, '0'),
+            inn,
             "Тестовая компания",
         )
         return user(UserRole.CLIENT, companyId, canSign)

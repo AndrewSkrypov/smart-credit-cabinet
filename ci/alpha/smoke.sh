@@ -33,6 +33,16 @@ fi
 docker compose version >&2
 docker info --format '{{.ServerVersion}}' >&2
 
+# Use the same immutable Kafka artifact when Docker Hub's layer CDN is unavailable.
+kafka_mirror="mirror.gcr.io/$ALPHA_PILOT_KAFKA_IMAGE"
+if ! docker image inspect "$ALPHA_PILOT_KAFKA_IMAGE" >/dev/null 2>&1; then
+    if docker image inspect "$kafka_mirror" >/dev/null 2>&1 || timeout 120s docker pull "$kafka_mirror" >&2; then
+        export ALPHA_PILOT_KAFKA_IMAGE="$kafka_mirror"
+    else
+        timeout 120s docker pull "$ALPHA_PILOT_KAFKA_IMAGE" >&2
+    fi
+fi
+
 read -r run_id ALPHA_PILOT_PG_ADMIN_PASSWORD ALPHA_PILOT_PG_OWNER_PASSWORD ALPHA_PILOT_PG_APP_PASSWORD < <(
     python3 - <<'PY'
 import secrets

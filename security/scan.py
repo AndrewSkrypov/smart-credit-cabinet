@@ -36,8 +36,8 @@ revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=
 dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
 mounts = ["-v", f"{directory}:/reports", "-v", f"{args.cache_volume}:/root/.cache"]
 database_sources = [
-    "--db-repository", "ghcr.io/aquasecurity/trivy-db:2,mirror.gcr.io/aquasec/trivy-db:2",
-    "--java-db-repository", "ghcr.io/aquasecurity/trivy-java-db:1,mirror.gcr.io/aquasec/trivy-java-db:1",
+    "--db-repository", "mirror.gcr.io/aquasec/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2",
+    "--java-db-repository", "mirror.gcr.io/aquasec/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1",
 ]
 summary = {"checked_at": datetime.now(timezone.utc).isoformat(), "source_commit": revision, "working_tree_dirty": dirty,
            "scanner": SCANNER, "inputs": [], "passed": False}

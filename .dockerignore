@@ -28,12 +28,7 @@ frontend/coverage
 ci-artifacts
 contracts/*
 !contracts/proto/
-contracts/proto/*
-!contracts/proto/catalog/
-contracts/proto/catalog/*
-!contracts/proto/catalog/v1/
-contracts/proto/catalog/v1/*
-!contracts/proto/catalog/v1/*.proto
+!contracts/proto/**
 **/__pycache__
 scripts/license-tools/node_modules
 docs

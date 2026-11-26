@@ -16,14 +16,16 @@ DEMO_DOMAIN = "demo.dev.credit-cabinet.ru"
 
 
 class Deployment:
-    def __init__(self, project, env_file="deploy/.env", local=False, release_manifest=None):
+    def __init__(self, project, env_file="deploy/.env", local=False, release_manifest=None, *, env_contents=None):
         if not re.fullmatch(r"cabinet-(?:dev|prod)[a-z0-9-]{0,50}", project):
             raise ValueError("Имя проекта должно начинаться с cabinet-dev или cabinet-prod")
         self.project = project
         self.local = local
         self.path = Path(env_file).resolve()
         self.values = {}
-        for line in self.path.read_text(encoding="utf-8").splitlines():
+        if env_contents is None:
+            env_contents = self.path.read_bytes()
+        for line in env_contents.decode("utf-8").splitlines():
             if not line.strip() or line.lstrip().startswith("#"):
                 continue
             match = re.fullmatch(r"([A-Z_][A-Z_0-9]*)=([^\r\n]*)", line)

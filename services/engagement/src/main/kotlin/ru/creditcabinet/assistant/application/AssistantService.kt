@@ -1,7 +1,19 @@
-package ru.creditcabinet.assistant
+package ru.creditcabinet.assistant.application
 
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import ru.creditcabinet.assistant.domain.AnswerLink
+import ru.creditcabinet.assistant.domain.ApplicationFacts
+import ru.creditcabinet.assistant.domain.Article
+import ru.creditcabinet.assistant.domain.ChatMessage
+import ru.creditcabinet.assistant.domain.FinancingNeed
+import ru.creditcabinet.assistant.domain.Knowledge
+import ru.creditcabinet.assistant.domain.LanguageModel
+import ru.creditcabinet.assistant.domain.NeedParser
+import ru.creditcabinet.assistant.infrastructure.AssistantMetrics
+import ru.creditcabinet.assistant.infrastructure.AssistantReferenceCache
+import ru.creditcabinet.assistant.infrastructure.CreditApplications
+import ru.creditcabinet.assistant.infrastructure.CreditProducts
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.security.CurrentCaller
 import java.time.Clock

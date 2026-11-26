@@ -1,5 +1,8 @@
 package ru.creditcabinet.assistant
 
+import ru.creditcabinet.assistant.domain.Knowledge
+import ru.creditcabinet.assistant.infrastructure.AssistantReferenceCache
+import ru.creditcabinet.assistant.infrastructure.ManualReviewSummaryCache
 import ru.creditcabinet.common.limits.ValkeyProperties
 import ru.creditcabinet.common.limits.ValkeyState
 import java.util.UUID

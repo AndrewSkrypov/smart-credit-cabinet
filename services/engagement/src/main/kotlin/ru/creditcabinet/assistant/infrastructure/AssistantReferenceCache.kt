@@ -1,6 +1,7 @@
-package ru.creditcabinet.assistant
+package ru.creditcabinet.assistant.infrastructure
 
 import org.springframework.stereotype.Component
+import ru.creditcabinet.assistant.domain.Article
 import ru.creditcabinet.common.limits.ValkeyState
 
 /** A few public, context-free reference questions shared by all replicas. */

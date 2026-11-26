@@ -14,6 +14,12 @@ import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
+import ru.creditcabinet.assistant.application.ProductAdvice
+import ru.creditcabinet.assistant.domain.FinancingNeed
+import ru.creditcabinet.assistant.domain.LanguageModel
+import ru.creditcabinet.assistant.domain.NeedParser
+import ru.creditcabinet.assistant.infrastructure.CreditApplications
+import ru.creditcabinet.assistant.infrastructure.CreditProducts
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.tokenFor
 import java.util.UUID

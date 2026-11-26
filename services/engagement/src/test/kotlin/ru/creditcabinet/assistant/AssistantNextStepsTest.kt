@@ -2,6 +2,9 @@ package ru.creditcabinet.assistant
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.mockito.kotlin.mock
+import ru.creditcabinet.assistant.application.AssistantHint
+import ru.creditcabinet.assistant.application.AssistantNextSteps
+import ru.creditcabinet.assistant.application.HintType
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant

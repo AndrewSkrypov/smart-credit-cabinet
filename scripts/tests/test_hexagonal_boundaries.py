@@ -30,12 +30,22 @@ class HexagonalBoundariesTest(unittest.TestCase):
         source.write_text(source.read_text() + "\nval transport = io.grpc.Status.OK\n")
         self.assertTrue(boundaries.check(self.root)["errors"])
 
-    def test_multiline_dependency_on_application_fails(self):
-        build = self.root / "libs/loan-math/build.gradle.kts"
-        build.write_text(build.read_text() + '\ndependencies {\n implementation(\n project(":services:credit")\n )\n}\n')
+    def test_url_literal_does_not_hide_following_reference(self):
+        source = next((self.root / "libs/loan-math/src/main/kotlin").rglob("*.kt"))
+        source.write_text(source.read_text() + '\nval url="https://example.invalid"; val transport=io.grpc.Status.OK\n')
         self.assertTrue(boundaries.check(self.root)["errors"])
 
-    def test_multiline_framework_dependency_fails(self):
-        build = self.root / "libs/loan-math/build.gradle.kts"
-        build.write_text(build.read_text() + '\ndependencies {\n api(\n "org.springframework:spring-core:6.2.15"\n )\n}\n')
+    def test_spaced_and_commented_qualification_fails(self):
+        source = next((self.root / "libs/loan-math/src/main/kotlin").rglob("*.kt"))
+        source.write_text(source.read_text() + '\nval transport: org /* comment */ .springframework .context.ApplicationContext? = null\n')
+        self.assertTrue(boundaries.check(self.root)["errors"])
+
+    def test_comments_do_not_create_false_references(self):
+        source = next((self.root / "libs/loan-math/src/main/kotlin").rglob("*.kt"))
+        source.write_text(source.read_text() + '\n/* org.springframework .context /* nested */ .ApplicationContext */\n// io.grpc.Status.OK\n')
+        self.assertEqual([], boundaries.check(self.root)["errors"])
+
+    def test_string_interpolation_is_checked(self):
+        source = next((self.root / "libs/loan-math/src/main/kotlin").rglob("*.kt"))
+        source.write_text(source.read_text() + '\nval transport="${io.grpc.Status.OK}"\n')
         self.assertTrue(boundaries.check(self.root)["errors"])

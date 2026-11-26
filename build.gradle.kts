@@ -1,4 +1,6 @@
 import com.github.jk1.license.render.JsonReportRenderer
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
 import org.gradle.testing.jacoco.tasks.JacocoReport
 
@@ -59,8 +61,31 @@ tasks.register<JacocoCoverageVerification>("domainCoverage") {
     }
 }
 
+val pureCorePaths = setOf(
+    ":libs:assessment-contracts", ":libs:assessment-engine", ":libs:catalog-model",
+    ":libs:documents-model", ":libs:loan-math", ":libs:servicing-model", ":libs:servicing-core",
+)
+tasks.register("checkHexagonalDependencies") {
+    group = "verification"
+    description = "Reject infrastructure in resolved production dependencies of pure cores"
+    doLast {
+        pureCorePaths.forEach { path ->
+            listOf("compileClasspath", "runtimeClasspath").forEach { configuration ->
+                project(path).configurations.getByName(configuration).incoming.resolutionResult.allComponents.forEach { component ->
+                    val id = component.id
+                    val allowed = when (id) {
+                        is ProjectComponentIdentifier -> id.projectPath in pureCorePaths
+                        is ModuleComponentIdentifier -> id.group == "org.jetbrains.kotlin" || (id.group == "org.jetbrains" && id.module == "annotations")
+                        else -> false
+                    }
+                    require(allowed) { "Infrastructure dependency in $path/$configuration: ${id.displayName}" }
+                }
+            }
+        }
+    }
+}
 tasks.named("check") {
-    dependsOn("domainCoverage")
+    dependsOn("domainCoverage", "checkHexagonalDependencies")
 }
 
 allprojects {

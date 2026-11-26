@@ -68,3 +68,8 @@ interface DocumentRepository {
     fun markDeleted(applicationId: UUID, documentId: UUID, at: Instant) = markDeleted(documentId, at)
     fun isChatAttached(documentId: UUID): Boolean
 }
+
+/** Bytes for an already authorized metadata record, from its current sole owner. */
+fun interface DocumentContent {
+    fun open(document: ApplicationDocument): StoredFile?
+}

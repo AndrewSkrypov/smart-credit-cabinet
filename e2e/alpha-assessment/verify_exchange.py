@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 from threading import Thread
 import time
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import UUID, uuid4
 
@@ -125,16 +126,19 @@ def sign_client(secret):
     return (message + b"." + encode(hmac.digest(secret.encode(), message, hashlib.sha256))).decode()
 
 
-def submit(port, token):
-    headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
+def submit(port, secret):
+    headers = {"Authorization": "Bearer " + sign_client(secret), "Content-Type": "application/json"}
     terms = {"productCode": "WORKING_CAPITAL", "purpose": "WORKING_CAPITAL", "amount": 1000000, "termMonths": 12,
              "declaredRevenue12m": 14400000, "declaredMonthlyDebtPayments": 30000, "bureauConsent": True}
     base = f"http://127.0.0.1:{port}/api/v1/applications"
-    with urlopen(Request(base, json.dumps(terms).encode(), headers, method="POST"), timeout=10) as response:
-        assert response.status == 201
-        app_id = UUID(json.load(response)["id"])
-    with urlopen(Request(f"{base}/{app_id}/submit", headers=headers, method="POST"), timeout=10) as response:
-        assert response.status == 200
+    try:
+        with urlopen(Request(base, json.dumps(terms).encode(), headers, method="POST"), timeout=10) as response:
+            assert response.status == 201
+            app_id = UUID(json.load(response)["id"])
+        with urlopen(Request(f"{base}/{app_id}/submit", headers=headers, method="POST"), timeout=10) as response:
+            assert response.status == 200
+    except HTTPError as error:
+        raise AssertionError(f"Credit returned HTTP {error.code}: {error.read(500).decode(errors='replace')}") from error
     return app_id
 
 
@@ -152,7 +156,6 @@ def verify(args, run_dir, cleanup):
     stream = "synthetic.proof"
     bootstrap = f"127.0.0.1:{broker_port}"
     secret = secrets.token_hex(16)
-    token = sign_client(secret)
     host_env = {key: os.environ[key] for key in ("JAVA_HOME", "PATH", "LD_LIBRARY_PATH", "LANG", "TZ") if key in os.environ}
 
     def pg(command, *arguments):
@@ -257,7 +260,7 @@ num.network.threads=2
              "Assessment never started", timeout=55)
     print(f"Started Credit PID {credit.pid}, Assessment PID {assessment.pid}, Kafka PID {broker.pid}")
 
-    first = submit(credit_port, token)
+    first = submit(credit_port, secret)
     wait_for(lambda: query("assessment", f"""
         select count(*) from assessment_execution where application_id='{first}' and completed_at is null
               and progress->'facts'->'registry' <> 'null' and progress->'facts'->'bureau' <> 'null'
@@ -281,7 +284,7 @@ num.network.threads=2
     print(f"Assessment restarted as PID {restarted.pid}; reused persisted registry and bureau facts; one decision and offer")
 
     stop(broker)
-    second = submit(credit_port, token)
+    second = submit(credit_port, secret)
     wait_for(lambda: query("credit", f"""
         select count(*) from assessment_exchange_outbox where application_id='{second}'
               and last_error is not null and sent_at is null
@@ -294,7 +297,7 @@ num.network.threads=2
     print(f"Kafka restarted as PID {new_broker.pid}; Credit retried its persisted command and issued one offer")
 
     source.tax_available = False
-    third = submit(credit_port, token)
+    third = submit(credit_port, secret)
     wait_for(lambda: app_status(third) == "MANUAL_REVIEW", "Incomplete source did not reach manual review", timeout=50)
     assert applied(third) == "1|0|1"
     assert query("credit", f"""
@@ -305,7 +308,7 @@ num.network.threads=2
     print("Tax remained unavailable; Credit kept the partial facts and recorded one manual decision")
 
     stop(restarted)
-    fourth = submit(credit_port, token)
+    fourth = submit(credit_port, secret)
     wait_for(lambda: app_status(fourth) == "MANUAL_REVIEW", "Credit did not close an unavailable Assessment cycle", timeout=55)
     assert applied(fourth) == "1|0|1"
     final_assessment = start_assessment()

@@ -7,7 +7,11 @@ case "$region" in ''|*[!a-z0-9-]*) echo 'Invalid region' >&2; exit 2;; esac
 for value in "${S3_ACCESS_KEY:?}" "${S3_SECRET_KEY:?}"; do
   case "$value" in ''|*[!a-zA-Z0-9_./+=-]*) echo 'Invalid credential encoding' >&2; exit 2;; esac
 done
-endpoint="${S3_SMOKE_ENDPOINT:?}/$bucket"
+origin=${S3_SMOKE_ENDPOINT:?}
+authority=${origin#http://}
+signature_host=${authority%%:*}
+case "$signature_host" in ''|*[!a-zA-Z0-9.-]*) echo 'Invalid S3 smoke host' >&2; exit 2;; esac
+endpoint="$origin/$bucket"
 object="documents/.cabinet-smoke-${S3_SMOKE_ID:-$(openssl rand -hex 16)}"
 work=$(mktemp -d)
 written=false
@@ -15,6 +19,7 @@ request() {
   printf 'user = "%s:%s"\n' "$S3_ACCESS_KEY" "$S3_SECRET_KEY" |
     curl --disable --config - --noproxy '*' --proto '=http' --silent --show-error \
       --connect-timeout 5 --max-time 15 --aws-sigv4 "aws:amz:$region:s3" \
+      --header "Host: $signature_host" \
       --output "$work/response" --write-out '%{http_code}' "$@"
 }
 expect() {
@@ -37,11 +42,19 @@ trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 
 printf 'Cabinet S3 smoke fixture\n' > "$work/payload"
-expect 200 put --upload-file "$work/payload" "$endpoint/$object"
+# The release's curl 7.81 signs the hostname without the port and only hashes
+# buffered request data. Use the same Host on the wire and sign the exact PUT body.
+payload_hash=$(sha256sum "$work/payload")
+payload_hash=${payload_hash%% *}
+put() {
+  expect "$1" "$2" --request PUT --data-binary "@$work/payload" \
+    --header "X-Amz-Content-Sha256: $payload_hash" "$3"
+}
+put 200 put "$endpoint/$object"
 written=true
 expect 200 get "$endpoint/$object"
 cmp -s "$work/payload" "$work/response"
-expect 403 write-outside-documents --upload-file "$work/payload" "$endpoint/${object#documents/}"
+put 403 write-outside-documents "$endpoint/${object#documents/}"
 status=$(curl --disable --noproxy '*' --proto '=http' --silent --show-error --connect-timeout 5 \
   --max-time 15 --output /dev/null --write-out '%{http_code}' "$endpoint/$object")
 if [ "$status" != 403 ]; then

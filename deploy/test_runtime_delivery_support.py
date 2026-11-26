@@ -6,8 +6,11 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+import yaml
+
 import runtime_delivery_support as support
 
+ROOT = Path(__file__).resolve().parents[1]
 REVISION = "1" * 40
 MANIFEST = "2" * 64
 JAR = "3" * 64
@@ -138,6 +141,35 @@ class PrivateStateTest(unittest.TestCase):
         directory.chmod(0o555)
         with self.assertRaises(RuntimeError):
             support.ensure_tls(self.root / "documents", "documents", support.TLS_IDENTITIES["documents"])
+
+
+class ComposeConformanceTest(unittest.TestCase):
+    def test_credit_can_use_both_private_overlays_without_conflicting_env_or_mounts(self):
+        overlays = {
+            name: yaml.safe_load((ROOT / "deploy" / f"compose.{name}.yaml").read_text())
+            for name in support.COMPONENTS
+        }
+        environments, targets = {}, set()
+        for name, overlay in overlays.items():
+            services = overlay["services"]
+            self.assertTrue(all(network["internal"] for network in overlay["networks"].values()))
+            self.assertNotIn("ports", services[name])
+            self.assertTrue(set(services[name]["networks"]).issubset(overlay["networks"]))
+            rpc = f"{name}-rpc"
+            self.assertIn(rpc, services[name]["networks"])
+            self.assertIn(rpc, services["credit"]["networks"])
+            self.assertNotIn(f"{name}-store", services["credit"]["networks"])
+            for setting, value in services["credit"]["environment"].items():
+                self.assertEqual(environments.setdefault(setting, value), value)
+            for mount in services["credit"]["volumes"]:
+                if isinstance(mount, dict):
+                    self.assertTrue(mount["read_only"])
+                    target = mount["target"]
+                else:
+                    _, target, access = mount.rsplit(":", 2)
+                    self.assertEqual(access, "ro")
+                self.assertNotIn(target, targets)
+                targets.add(target)
 
 
 if __name__ == "__main__":

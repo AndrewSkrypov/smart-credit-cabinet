@@ -4,6 +4,7 @@ from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+import tarfile
 from unittest.mock import Mock, patch
 import os
 import subprocess
@@ -13,7 +14,7 @@ from documents_dev import (
     DocumentsDev, FILES, ROOT, SECRET_KEYS, compare_parity, object_requests, rpc_body,
     stable_digest, stable_gates, transition_gates, validate_intents,
 )
-from runtime_delivery_support import Descriptor, ensure_private, read_record, write_record
+from runtime_delivery_support import Descriptor, ensure_private, ensure_tls, load_secrets, read_record, write_record
 
 SHA = "a" * 64
 REVISION = "1" * 40
@@ -207,6 +208,42 @@ class DocumentsDeliveryTest(unittest.TestCase):
             deployment.release = SimpleNamespace(images={})
             with self.assertRaises(RuntimeError):
                 DocumentsDev.open(deployment)
+
+    def test_restore_stages_exact_ca_and_credentials_from_verified_backup(self):
+        state = self.dev.state
+        tls = ensure_tls(state, service="documents", client_uri="spiffe://credit-cabinet/credit")
+        credentials = state / "credentials.env"
+        load_secrets(credentials, SECRET_KEYS)
+        identity = {**IDENTITY, "ca_sha256": sha256((tls / "ca.crt").read_bytes()).hexdigest(),
+                    "credentials_sha256": sha256(credentials.read_bytes()).hexdigest()}
+        write_record(state / "identity.json", identity)
+        archive = self.root / "backup"
+        archive.mkdir(mode=0o700)
+        paths = {"db": "documents-runtime.dump", "local": "documents-runtime-local.tar.gz",
+                 "state": "documents-runtime-state.tar.gz"}
+        with self.dev.private_file(archive / paths["db"]) as output:
+            output.write(b"dummy-dump")
+        with self.dev.private_file(archive / paths["local"]) as output:
+            with tarfile.open(fileobj=output, mode="w:gz"):
+                pass
+        with self.dev.private_file(archive / paths["state"]) as output:
+            with tarfile.open(fileobj=output, mode="w:gz") as packaged:
+                for path in state.rglob("*"):
+                    if path.is_file():
+                        packaged.add(path, arcname=str(path.relative_to(state)))
+        backup = {"format": 1, "identity": identity, "current": self.dev.current(), "snapshot": {},
+                  "volumes": {"local": {}}, "paths": paths,
+                  "files": {path: self.dev.file_stamp(archive / path) for path in paths.values()}}
+        target = self.root / "restore"
+        DocumentsDev.stage_restore(target, archive, backup)
+        self.assertEqual(identity, read_record(target / "identity.json"))
+        self.assertTrue((tls / "ca.crt").read_bytes() == (target / "tls" / "ca.crt").read_bytes())
+        self.assertTrue(credentials.read_bytes() == (target / "credentials.env").read_bytes())
+        self.assertEqual(0o600, (target / "credentials.env").stat().st_mode & 0o777)
+        with (archive / paths["db"]).open("ab") as stream:
+            stream.write(b"changed")
+        with self.assertRaisesRegex(RuntimeError, "SHA-256"):
+            DocumentsDev.verify_backup(archive, backup)
 
     def test_request_objects_rejects_traversal_and_wrong_sizes(self):
         known = {"storedName": "generated-1.pdf", "sizeBytes": 8, "backend": "S3"}

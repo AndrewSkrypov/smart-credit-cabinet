@@ -47,6 +47,11 @@ jobs:
         run: |
           ./gradlew --no-daemon --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process \
             :services:documents:bootJar :services:credit:bootJar :services:documents:testClasses
+      - name: Verify native PostgreSQL startup cancellation
+        timeout-minutes: 2
+        run: |
+          python3 scripts/check-documents-startup-cancel.py --pg-bin /usr/lib/postgresql/16/bin \
+            --report-dir ci-artifacts/documents-startup-cancel
       - name: Run required LOCAL and S3 profiles
         timeout-minutes: 18
         run: |
@@ -74,4 +79,5 @@ jobs:
           path: |
             ci-artifacts/documents-r3/
             ci-artifacts/documents-r3-s3/
+            ci-artifacts/documents-startup-cancel/
             services/documents/build/test-results/documentsRuntimeTest/

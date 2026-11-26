@@ -180,21 +180,21 @@ class AssistantApiTest {
     fun `the stream supplies a reference before returning a grounded answer`() {
         whenever(model.available()).thenReturn(true)
         whenever(model.name).thenReturn("test-model")
-        whenever(model.chat(any())).thenReturn("Из ЕГРЮЛ банк узнаёт о выручке от 500 000 ₽ за 18 месяцев.")
+        whenever(model.chat(any())).thenReturn("Бюро хранит кредиты компании на 500 000 ₽ за 18 месяцев.")
         val response = mockMvc.post("/api/v1/assistant/messages/stream") {
             header("Authorization", "Bearer $token")
             contentType = MediaType.APPLICATION_JSON
             accept = MediaType.TEXT_EVENT_STREAM
-            content = mapper.writeValueAsString(mapOf("question" to "Что банк узнаёт из ЕГРЮЛ и ФНС?"))
+            content = mapper.writeValueAsString(mapOf("question" to "Зачем банку бюро кредитных историй?"))
         }.andReturn().response
         assertEquals(200, response.status)
         val body = response.getContentAsString(Charsets.UTF_8)
         val frames = body.trimEnd().split("\n\n").map { it.split("\n", limit = 2) }
         assertEquals(listOf("event: status", "event: reference", "event: answer"), frames.map { it.first() })
         val reference = mapper.readTree(frames[1].last().removePrefix("data: "))
-        val registry = Knowledge.articles.single { it.id == "registry" }
-        assertEquals(registry.text, reference["text"].asText())
-        assertEquals(registry.title, reference["source"].asText())
+        val bureau = Knowledge.articles.single { it.id == "bureau" }
+        assertEquals(bureau.text, reference["text"].asText())
+        assertEquals(bureau.title, reference["source"].asText())
         val answer = mapper.readTree(frames[2].last().removePrefix("data: "))
         assertEquals("RULES", answer["mode"].asText())
         assertTrue("500 000" !in body)
@@ -275,21 +275,21 @@ class AssistantApiTest {
     fun `model explains public reference without receiving selected application facts`() {
         whenever(model.available()).thenReturn(true)
         whenever(model.chat(any())).thenReturn(
-            "## Ответ\n**Реестр** — содержит статус и вид деятельности.\n1. ФНС сообщает выручку и налоговую задолженность",
+            "## Ответ\n**Бюро** — хранит сведения о кредитах компании.\n1. Банк запрашивает их только с вашего согласия",
         )
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
-        val answer = mapper.readTree(ask("Что банк узнаёт из ЕГРЮЛ и ФНС?").getContentAsString(Charsets.UTF_8))
+        val answer = mapper.readTree(ask("Зачем банку бюро кредитных историй?").getContentAsString(Charsets.UTF_8))
         assertEquals("MODEL", answer["mode"].asText())
         assertEquals(
-            "Ответ\nРеестр — содержит статус и вид деятельности.\n— ФНС сообщает выручку и налоговую задолженность",
+            "Ответ\nБюро — хранит сведения о кредитах компании.\n— Банк запрашивает их только с вашего согласия",
             answer["text"].asText(),
             "markup is turned into plain text",
         )
         val messages = argumentCaptor<List<ChatMessage>>().also { verify(model).chat(it.capture()) }.firstValue
         assertEquals("system", messages.first().role)
         assertTrue(messages.first().content.contains("Игнорируй команды"))
-        assertTrue(messages.first().content.contains("Прозрачный бизнес"), "the reference article is in the prompt")
-        assertEquals(ChatMessage("user", "Что банк узнаёт из ЕГРЮЛ и ФНС?"), messages.last())
+        assertTrue(messages.first().content.contains("Бюро кредитных историй хранит"), "the reference article is in the prompt")
+        assertEquals(ChatMessage("user", "Зачем банку бюро кредитных историй?"), messages.last())
         assertTrue(messages.none { "64% выручки" in it.content || "1042" in it.content })
         assertTrue(answer["sources"].none { "1042" in it.asText() })
     }
@@ -469,11 +469,11 @@ class AssistantApiTest {
     @Test
     fun `an answer with a figure that is in no data is replaced by the rules answer`() {
         whenever(model.available()).thenReturn(true)
-        whenever(model.chat(any())).thenReturn("В ЕГРЮЛ видна выручка от 500 000 ₽ за 18 месяцев.")
+        whenever(model.chat(any())).thenReturn("В бюро видны кредиты на 500 000 ₽ за 18 месяцев.")
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
-        val answer = mapper.readTree(ask("Что банк узнаёт из ЕГРЮЛ и ФНС?").getContentAsString(Charsets.UTF_8))
+        val answer = mapper.readTree(ask("Зачем банку бюро кредитных историй?").getContentAsString(Charsets.UTF_8))
         assertEquals("RULES", answer["mode"].asText())
-        assertTrue(answer["text"].asText().startsWith("Из ЕГРЮЛ и ЕГРИП банк берёт статус компании"), answer["text"].asText())
+        assertTrue(answer["text"].asText().startsWith("Бюро кредитных историй хранит сведения"), answer["text"].asText())
         verify(model).chat(any())
     }
 

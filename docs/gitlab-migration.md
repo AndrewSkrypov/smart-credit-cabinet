@@ -10,6 +10,7 @@
 ## Раннеры
 
 - `cabinet-ci` — сборка, без доступа к production. На `ci-build-node-03`, `ci-build-node-04` и `ci-build-node-05` используются отдельные Docker Rootless и рабочие каталоги под `pump-ci`.
+- `cabinet-ollama-cache` — дополнительный тег `ci-build-node-05` для обязательного сканирования Ollama. На раннере проверен upstream RepoDigest `sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8` для Linux AMD64.
 - `cabinet-release` — защищённый раннер на `ci-build-node-01` с собственным Docker Rootless под `pump-release`.
 - `cabinet-deploy` — защищённый CD. `cd-deploy-node-01` выполняет задания dev под `pump-cd`. `cd-deploy-node-02` зарегистрирован и стоит на паузе как запасной.
 - `cabinet-deploy-prod` — защищённый тег на `cd-deploy-node-03`. Для production требуется отдельная ограниченная учётная запись Kubernetes или GitLab Agent.

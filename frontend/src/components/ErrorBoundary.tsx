@@ -2,8 +2,9 @@ import { Box, Button, Stack, Typography } from '@mui/material';
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { DocumentSurface } from './DocumentSurface';
 import { useLocation } from 'react-router-dom';
+import { demoAccess } from '../auth/demoAccess';
 
-const RELOADED_FOR_NEW_VERSION = 'cabinet.reloadedForNewVersion';
+const RELOADED_FOR_NEW_VERSION = demoAccess.basename ? 'cabinet.demo.reloadedForNewVersion' : 'cabinet.reloadedForNewVersion';
 
 // After a release the old page asks for code chunks that no longer exist on the server.
 function isStaleChunk(error: Error): boolean {

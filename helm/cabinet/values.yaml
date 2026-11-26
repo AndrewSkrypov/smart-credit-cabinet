@@ -74,6 +74,9 @@ workloads:
     resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {cpu: "1", memory: 512Mi}}
 monitoring:
   namespaces: []
+publicDemo:
+  enabled: false
+  upstreamIPv4: ""
 ingress:
   enabled: false
   className: ""

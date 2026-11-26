@@ -1,8 +1,9 @@
 import { Alert, Box, Button, Checkbox, FormControlLabel, Link, Paper, Stack, TextField, Typography, useMediaQuery } from '@mui/material';
-import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Link as RouterLink, Navigate, useSearchParams, useLocation } from 'react-router-dom';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { Link as RouterLink, Navigate, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/client';
 import { roleHome, useAuth } from '../auth/AuthProvider';
+import { DEMO_BASE, demoAccess } from '../auth/demoAccess';
 import { BrandMark } from '../components/BrandMark';
 import { DocumentSurface } from '../components/DocumentSurface';
 import { BulletItem } from '../components/BulletItem';
@@ -15,13 +16,18 @@ import { emailError, nameError, passwordError, passwordHint, requiredError, useF
 
 const DEMO_PASSWORD = 'Demo2026';
 
-const demoAccounts = [
-  { email: 'client@demo.test', label: 'Предприниматель' },
+const demoRoles = [
+  { hint: 'client', email: 'client@demo.test', role: 'CLIENT', label: 'Предприниматель' },
+  { hint: 'manager', email: 'manager@demo.test', role: 'MANAGER', label: 'Кредитный менеджер' },
+  { hint: 'underwriter', email: 'underwriter@demo.test', role: 'UNDERWRITER', label: 'Андеррайтер' },
+  { hint: 'risk', email: 'risk@demo.test', role: 'RISK_ADMIN', label: 'Риск-администратор' }
+] as const;
+
+const standaloneDemoAccounts = [
+  demoRoles[0],
   { email: 'agent@demo.test', label: 'Агент — Соколов Артём (4 клиента)' },
   { email: 'agent2@demo.test', label: 'Агент 2 — Морозова Елена (1 клиент)' },
-  { email: 'manager@demo.test', label: 'Кредитный менеджер' },
-  { email: 'underwriter@demo.test', label: 'Андеррайтер' },
-  { email: 'risk@demo.test', label: 'Риск-администратор' }
+  ...demoRoles.slice(1)
 ];
 
 const promises = [
@@ -70,15 +76,26 @@ export function AuthFrame({ title, children }: { title: string; children: React.
 }
 
 export function SignInPage() {
-  const { session, signIn } = useAuth();
+  const { session, signIn, updateSession } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [demo, setDemo] = useState(false);
-  const [demoLink, setDemoLink] = useState(false);
+  const [demo, setDemo] = useState<boolean | null>(null);
+  const [demoReady, setDemoReady] = useState(false);
+  const inDemo = Boolean(demoAccess.basename);
+  const { showPicker } = demoAccess;
+  const roleHints = params.getAll('demoRole');
+  const requestedDemo = inDemo && roleHints.length === 1
+    ? demoRoles.find((account) => account.hint === roleHints[0])
+    : undefined;
+  const autoAttempted = useRef(false);
+  const [switchingDemo, setSwitchingDemo] = useState(false);
+  const pendingDemo = switchingDemo || Boolean(requestedDemo && demo !== false);
+  const visibleError = error ?? (requestedDemo && demo === false ? 'Демо-вход временно недоступен.' : null);
   const submitting = useRef(false);
   const errors = { email: emailError(email), password: password ? '' : requiredError };
   const feedback = useFieldFeedback(errors);
@@ -86,65 +103,106 @@ export function SignInPage() {
   const mobile = useMediaQuery('(max-width: 599.95px)');
 
   useEffect(() => {
-    authApi.options().then((options) => setDemo(options.demoAccounts)).catch(() => setDemo(false));
-  }, []);
+    if (!showPicker) authApi.options().then((options) => setDemo(options.demoAccounts === true)).catch(() => setDemo(false));
+  }, [showPicker]);
 
   useEffect(() => {
+    if (!showPicker || session) return;
     const controller = new AbortController();
-    fetch('/_dev/demo-enabled', {
+    fetch(`${DEMO_BASE}/__ready`, {
       method: 'GET',
       mode: 'same-origin',
       credentials: 'omit',
       redirect: 'error',
       cache: 'no-store',
       signal: controller.signal
-    }).then(({ status }) => setDemoLink(status === 204)).catch(() => {});
+    }).then(async (response) => {
+      if (response.status !== 200) return;
+      const readiness = await response.json();
+      if (!controller.signal.aborted && readiness?.demoAccounts === true) setDemoReady(true);
+    }).catch(() => {});
     return () => controller.abort();
-  }, []);
+  }, [showPicker, session]);
 
-  if (session) return <Navigate to={roleDestination(session.user.role, location.search, roleHome[session.user.role])} replace />;
-
-  const submit = async (event: FormEvent, credentials?: { email: string; password: string }) => {
-    event.preventDefault();
+  const authenticate = useCallback(async (email: string, password: string) => {
     if (submitting.current) return;
-    if (!credentials && !ready) { feedback.visitAll(); return; }
     submitting.current = true;
     setBusy(true);
     setError(null);
     try {
-      await signIn(credentials?.email ?? email.trim(), credentials?.password ?? password);
+      await signIn(email, password);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Не удалось войти');
       setBusy(false);
     } finally {
       submitting.current = false;
     }
+  }, [signIn]);
+
+  useEffect(() => {
+    if (demo !== true || !requestedDemo || autoAttempted.current || submitting.current) return;
+    autoAttempted.current = true;
+    submitting.current = true;
+    setSwitchingDemo(true);
+    setBusy(true);
+    setError(null);
+    navigate('/sign-in', { replace: true });
+    void authApi.signIn(requestedDemo.email, DEMO_PASSWORD).then((next) => {
+      if (next.user.role !== requestedDemo.role) throw new Error('Демо-роль недоступна');
+      updateSession(next);
+      navigate(roleHome[next.user.role], { replace: true });
+    }).catch((nextError: unknown) => {
+      setError(nextError instanceof Error ? nextError.message : 'Не удалось войти');
+    }).finally(() => {
+      submitting.current = false;
+      setSwitchingDemo(false);
+      setBusy(false);
+    });
+  }, [demo, navigate, requestedDemo, updateSession]);
+
+  if (session && !pendingDemo && !visibleError) {
+    return <Navigate to={roleDestination(session.user.role, location.search, roleHome[session.user.role])} replace />;
+  }
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (pendingDemo) return;
+    if (!ready) { feedback.visitAll(); return; }
+    void authenticate(email.trim(), password);
   };
 
   return (
-    <AuthFrame title="Вход">
+    <AuthFrame title={inDemo ? 'Вход в демо-кабинет' : 'Вход'}>
       <Stack component="form" spacing={2} onSubmit={submit} noValidate>
         {params.get('expired') && <Alert severity="info">Сессия истекла — войдите снова.</Alert>}
         {params.get('security') && <Alert severity="success">Все сессии завершены. Войдите заново.</Alert>}
-        {error && <Alert severity="error">{error}</Alert>}
+        {visibleError && <Alert severity="error">{visibleError}</Alert>}
         <TextField {...feedback.field('email')} label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         <TextField {...feedback.field('password')} label="Пароль" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
         <Typography id="signin-readiness" variant="body2" color="text.secondary">{ready ? 'Данные заполнены — можно войти.' : 'Для входа укажите корректный email и пароль.'}</Typography>
-        <Button type="submit" variant="contained" size="large" disabled={busy || !ready} aria-describedby="signin-readiness">Войти</Button>
+        <Button type="submit" variant="contained" size="large" disabled={busy || pendingDemo || !ready} aria-describedby="signin-readiness">Войти</Button>
+        {inDemo && <Link href="/sign-in">Вернуться к обычному входу</Link>}
+        {inDemo && session && visibleError && <Link component={RouterLink} to={roleHome[session.user.role]}>Продолжить в прежней демо-роли</Link>}
         <Link component={RouterLink} to="/password-recovery">Забыли пароль?</Link>
-        {demoLink && !demo && <Link href="/_dev/demo">Открыть демо-кабинет</Link>}
         <Typography variant="body2">
           Нет кабинета? <Link component={RouterLink} to={authPath('/sign-up', location.search)}>Подключите компанию</Link>
         </Typography>
       </Stack>
-      {demo && (
-        <Box component={mobile ? 'details' : 'div'} sx={{ mt: 3, pt: { xs: 1, sm: 3 }, borderTop: 1, borderColor: 'divider' }}>
-          <Typography component={mobile ? 'summary' : 'p'} variant="subtitle2" gutterBottom sx={mobile ? { cursor: 'pointer', minHeight: 44, py: 1.5 } : {}}>Демо-доступ</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>Синтетические учётные записи для проверки сценария.</Typography>
+      {(showPicker ? demoReady : demo) && (
+        <Box component={mobile && !showPicker ? 'details' : 'div'} sx={{ mt: 3, pt: { xs: 1, sm: 3 }, borderTop: 1, borderColor: 'divider' }}>
+          <Typography component={mobile && !showPicker ? 'summary' : 'p'} variant="subtitle2" gutterBottom sx={mobile && !showPicker ? { cursor: 'pointer', minHeight: 44, py: 1.5 } : {}}>Демо-доступ</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {showPicker ? 'Демо-кабинет с синтетическими данными.' : 'Синтетические учётные записи для проверки сценария.'}
+          </Typography>
           <Stack direction="row" flexWrap="wrap" gap={1}>
-            {demoAccounts.map((account) => (
-              <Button key={account.email} variant="outlined" size="small" disabled={busy}
-                onClick={(event) => submit(event, { email: account.email, password: DEMO_PASSWORD })}>
+            {showPicker ? demoRoles.map((account) => (
+              <Button key={account.hint} variant="outlined" size="small"
+                href={`${DEMO_BASE}/sign-in?demoRole=${account.hint}`}>
+                {account.label}
+              </Button>
+            )) : (inDemo ? demoRoles : standaloneDemoAccounts).map((account) => (
+              <Button key={account.email} variant="outlined" size="small" disabled={busy || pendingDemo}
+                onClick={() => void authenticate(account.email, DEMO_PASSWORD)}>
                 {account.label}
               </Button>
             ))}

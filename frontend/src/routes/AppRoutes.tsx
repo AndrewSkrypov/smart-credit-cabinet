@@ -1,4 +1,5 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { demoAccess } from '../auth/demoAccess';
 import { AppShell } from '../components/AppShell';
 import { RoleGuard } from '../components/RoleGuard';
 import { SignInPage, SignUpPage } from '../pages/AuthPages';
@@ -23,7 +24,7 @@ import { bankRoles } from '../shared/labels';
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={demoAccess.basename ? <Navigate to="/sign-in" replace /> : <LandingPage />} />
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/sign-up" element={<SignUpPage />} />
       <Route path="/password-recovery" element={<PasswordRecoveryPage />} />

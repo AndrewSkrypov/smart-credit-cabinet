@@ -7,13 +7,15 @@ import re
 import subprocess
 from urllib.parse import urlparse
 
+from registry_release import RegistryRelease
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
 class Deployment:
-    def __init__(self, project, env_file="deploy/.env", local=False):
-        if not re.fullmatch(r"cabinet-prod[a-z0-9-]{0,50}", project):
-            raise ValueError("Имя производственного проекта должно начинаться с cabinet-prod")
+    def __init__(self, project, env_file="deploy/.env", local=False, release_manifest=None):
+        if not re.fullmatch(r"cabinet-(?:dev|prod)[a-z0-9-]{0,50}", project):
+            raise ValueError("Имя проекта должно начинаться с cabinet-dev или cabinet-prod")
         self.project = project
         self.local = local
         self.path = Path(env_file).resolve()
@@ -25,6 +27,11 @@ class Deployment:
             if not match:
                 raise ValueError("Ожидается KEY=value без кавычек; используйте configure.py")
             self.values[match[1]] = match[2]
+        self.release = RegistryRelease(release_manifest) if release_manifest else None
+        if self.release:
+            self.values["CABINET_RELEASE"] = self.release.revision
+        if project.startswith("cabinet-dev") and not self.release:
+            raise ValueError("Dev-проект требует manifest выпуска")
         secret_keys = ["POSTGRES_PASSWORD", "JWT_SECRET", "SIM_API_KEY", "IDENTITY_LINK_KEY", "VALKEY_PASSWORD"]
         database_secrets = [service + suffix for service in ["IDENTITY", "CREDIT", "ENGAGEMENT"]
                             for suffix in ["_DB_PASSWORD", "_MIGRATION_PASSWORD"]]
@@ -89,14 +96,21 @@ class Deployment:
         self.environment["SOURCE_REVISION"] = self.values["CABINET_RELEASE"]
         self.command = ["docker", "compose", "--env-file", str(self.path), "-p", project,
                         "-f", str(ROOT / "docker-compose.yml"), "-f", str(ROOT / "deploy/compose.yaml")]
+        if self.release:
+            self.environment.update(self.release.environment())
+            self.command.extend(["-f", str(ROOT / "deploy/compose.registry.yaml")])
         if local:
             self.command.extend(["-f", str(ROOT / "deploy/compose.local.yaml")])
+        if "monitoring" in self.profiles:
+            self.command.extend(["-f", str(ROOT / "monitoring/compose.ops.yaml")])
+            if project == "cabinet-dev" and self.values.get("CABINET_ALERTMANAGER_PAGING_DIR"):
+                self.command.extend(["-f", str(ROOT / "monitoring/compose.paging.yml")])
         for profile in sorted(self.profiles):
             self.command.extend(["--profile", profile])
 
     def compose(self, *arguments, capture=False):
         result = subprocess.run([*self.command, *arguments], cwd=ROOT, env=self.environment,
-                                text=True, encoding="utf-8", capture_output=capture)
+                                text=True, encoding="utf-8", capture_output=capture or self.release is not None)
         if result.returncode:
             # Expanded configuration and command errors can contain credentials, so callers get only the stage.
             raise RuntimeError(f"Compose {arguments[0]} не завершён, код {result.returncode}")

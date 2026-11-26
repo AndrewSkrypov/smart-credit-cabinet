@@ -1,9 +1,19 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  external_labels:
+    environment: dev
 
 rule_files:
   - /etc/prometheus/alerts.yml
+  - /etc/prometheus/rules/*.yml
+  - /etc/prometheus/live-rules/*.yml
+
+alerting:
+  alertmanagers:
+    - file_sd_configs:
+        - files: [/etc/prometheus/alertmanagers/*.yml]
+          refresh_interval: 15s
 
 scrape_configs:
   - job_name: credit

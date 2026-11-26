@@ -1,0 +1,4 @@
+services:
+  gateway:
+    ports: !override
+      - "127.0.0.1:${GATEWAY_PORT:-18081}:80"

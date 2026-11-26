@@ -1,0 +1,144 @@
+global:
+  cabinetAppNamespace: cabinet
+  cabinetEnvironment: prod
+cabinet:
+  runbookBaseUrl: ""
+  scrapeServices: [credit, identity, engagement, external-sim]
+  scrapePort: http
+  storageClass: ""
+  backends:
+    loki:
+      image: grafana/loki:3.6.7@sha256:3c8fd3570dd9219951a60d3f919c7f31923d10baee578b77bc26c4a0b32d092d
+      config: loki.yaml
+      path: /loki
+      disk: 20Gi
+      ports:
+        http: 3100
+    tempo:
+      image: grafana/tempo:2.9.0@sha256:65a5789759435f1ef696f1953258b9bbdb18eb571d5ce711ff812d2e128288a4
+      config: tempo.yaml
+      path: /var/tempo
+      disk: 20Gi
+      ports:
+        http: 3200
+        otlp-http: 4318
+kube-prometheus-stack:
+  fullnameOverride: cabinet-metrics
+  defaultRules:
+    create: false
+  prometheus:
+    prometheusSpec:
+      retention: 7d
+      retentionSize: 12GB
+      enableFeatures: [exemplar-storage]
+      externalLabels:
+        environment: prod
+      serviceMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+      probeSelectorNilUsesHelmValues: false
+      resources:
+        requests: {cpu: 300m, memory: 768Mi}
+        limits: {cpu: "2", memory: 2Gi}
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            accessModes: [ReadWriteOnce]
+            resources:
+              requests: {storage: 16Gi}
+  alertmanager:
+    alertmanagerSpec:
+      image:
+        tag: v0.33.0
+      storage:
+        volumeClaimTemplate:
+          spec:
+            accessModes: [ReadWriteOnce]
+            resources:
+              requests: {storage: 2Gi}
+  grafana:
+    defaultDashboardsEnabled: false
+    admin:
+      existingSecret: cabinet-grafana-admin
+      userKey: admin-user
+      passwordKey: admin-password
+    persistence:
+      enabled: true
+      size: 2Gi
+    sidecar:
+      dashboards:
+        searchNamespace: null
+      datasources:
+        defaultDatasourceEnabled: false
+        searchNamespace: null
+    grafana.ini:
+      analytics:
+        reporting_enabled: false
+        check_for_updates: false
+      users:
+        allow_sign_up: false
+vector:
+  role: Agent
+  containerPorts: []
+  service:
+    enabled: false
+  defaultVolumes:
+    - name: var-log
+      hostPath:
+        path: /var/log/pods
+        type: Directory
+  defaultVolumeMounts:
+    - name: var-log
+      mountPath: /var/log/pods
+      readOnly: true
+  podSecurityContext:
+    seccompProfile: {type: RuntimeDefault}
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  customConfig:
+    data_dir: /vector-data-dir
+    sources:
+      cabinet:
+        type: kubernetes_logs
+        self_node_name: "${VECTOR_SELF_NODE_NAME}"
+        extra_namespace_label_selector: 'kubernetes.io/metadata.name={{ .Values.global.cabinetAppNamespace }}'
+    transforms:
+      safe_json:
+        type: remap
+        inputs: [cabinet]
+        drop_on_abort: true
+        drop_on_error: true
+        source: |
+          if .stream != "stdout" { abort }
+          time = .timestamp
+          entry = parse_json!(string!(.message))
+          service = string!(entry.service)
+          if !includes(["credit", "identity", "engagement", "external-sim"], service) { abort }
+          . = {"service": service, "environment": "{{ .Values.global.cabinetEnvironment }}", "timestamp": time}
+          level = string(entry.level) ?? ""
+          if includes(["TRACE", "DEBUG", "INFO", "WARN", "ERROR"], level) { .level = level }
+          trace = downcase(string(entry.traceId) ?? "")
+          if match(trace, r'^[0-9a-f]{16}([0-9a-f]{16})?$') { .traceId = trace }
+          span = downcase(string(entry.spanId) ?? "")
+          if match(span, r'^[0-9a-f]{16}$') { .spanId = span }
+          request = downcase(string(entry.requestId) ?? "")
+          if match(request, r'^[0-9a-f]{16}([0-9a-f]{16})?$') { .requestId = request }
+    sinks:
+      loki:
+        type: loki
+        inputs: [safe_json]
+        endpoint: 'http://loki.{{ .Release.Namespace }}.svc:3100'
+        encoding:
+          codec: json
+        labels:
+          service: '{{ "{{ service }}" }}'
+          environment: '{{ "{{ environment }}" }}'
+        buffer:
+          type: disk
+          max_size: 536870912
+          when_full: block

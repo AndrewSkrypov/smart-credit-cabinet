@@ -1,0 +1,94 @@
+{{- $goalert := .Values.goalert | default dict }}
+{{- if $goalert.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cabinet-goalert
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cabinet-goalert
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cabinet-goalert
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: goalert
+          image: goalert/goalert:v0.35.0
+          env:
+            - name: GOALERT_LISTEN
+              value: ":8081"
+            - name: GOALERT_PUBLIC_URL
+              value: {{ required "goalert.publicURL is required" $goalert.publicURL | quote }}
+            - name: GOALERT_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "goalert.existingSecret is required" $goalert.existingSecret | quote }}
+                  key: db-url
+            - name: GOALERT_DATA_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $goalert.existingSecret | quote }}
+                  key: data-encryption-key
+          ports:
+            - name: http
+              containerPort: 8081
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+          livenessProbe:
+            tcpSocket: {port: http}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {memory: 384Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cabinet-goalert
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cabinet-goalert
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-goalert-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cabinet-goalert
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alertmanager
+              alertmanager: cabinet-metrics-alertmanager
+        - podSelector:
+            matchLabels:
+              cabinet-observability: oncall-admin-tunnel
+      ports:
+        - protocol: TCP
+          port: 8081
+{{- end }}

@@ -1,0 +1,9 @@
+groups:
+  - name: cabinet-telegram-smoke
+    rules:
+      - alert: CabinetTelegramSmoke
+        expr: vector(0) == 1
+        for: 2m
+        labels:
+          severity: info
+          service: monitoring

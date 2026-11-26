@@ -25,7 +25,7 @@
 ```bash
 export CABINET_OTLP_ENABLED=true CABINET_TRACE_SAMPLE_RATE=1.0
 export CABINET_LOG_FILE='/var/log/cabinet/${HOSTNAME}/${spring.application.name}.jsonl'
-docker compose --profile monitoring up --build -d
+docker compose -f docker-compose.yml -f monitoring/compose.ops.yaml --profile monitoring up --build -d
 python monitoring/verify.py --require-activity
 ```
 
@@ -35,7 +35,7 @@ python monitoring/verify.py --require-activity
 name с теми же опубликованными портами. Для существующего проекта передайте прежнее `-p`
 и те же compose-файлы. В CI проверка идёт после нагрузки и ошибок источников.
 
-Prometheus: http://localhost:9090, targets: `/targets`, alerts: `/alerts`.
+Prometheus доступен на `http://localhost:9090`. Используйте `/targets` и `/alerts`.
 Grafana: http://localhost:3000, дашборд **«Кредитный конвейер»** в папке «Кабинет»,
 UID `credit-pipeline`. Локальный вход: `admin` / `local-monitoring-change-me`;
 переопределения — `GRAFANA_USER`, `GRAFANA_PASSWORD`, `GRAFANA_PORT`, `PROMETHEUS_PORT`.
@@ -43,11 +43,10 @@ UID `credit-pipeline`. Локальный вход: `admin` / `local-monitoring-
 Для Grafana на сервере используйте SSH-туннель и собственный пароль.
 Изменение env-пароля не меняет уже созданного администратора в существующем томе Grafana.
 
-Для production укажите `CABINET_OPTIONAL_PROFILES=ai,monitoring` в `deploy/.env` и передайте
+Для Compose-стенда организаторов укажите `CABINET_OPTIONAL_PROFILES=monitoring` в `deploy/.env` и передайте
 фактический объём памяти через `deploy/start.py --host-memory-gib`. `monitoring` включает
 OTLP-экспорт и файловые логи. Для репетиции в малонагруженном проекте можно выставить
-`CABINET_TRACE_SAMPLE_RATE=1.0`, штатное значение — `0.1`. Профиль `ai` скачивает
-выбранные веса локально. Отдельно проверьте размер модели, свободную память и время прогрева.
+`CABINET_TRACE_SAMPLE_RATE=1.0`, штатное значение — `0.1`. Профиль `ai` опционален. При его запуске проверьте объём модели, свободную память и время прогрева.
 
 ## Логи, трейсы и метрики в одной проверке
 
@@ -56,10 +55,12 @@ OTLP-экспорт и файловые логи. Для репетиции в �
 сравнение тела события сохраняют прежнюю семантику. Воркер восстанавливает родительский
 контекст перед отправкой. Старые записи без родителя начинают отдельный трейс доставки.
 
-Tempo принимает OTLP внутри сети Compose. Alloy читает только файлы приложений из выделенного
-тома и передаёт их в Loki. По `service`, `traceId`, `spanId` и `requestId` связываются логи и трейсы.
-`userId` в JSON-логах — псевдоним на основе HMAC, `role` — проверенная роль JWT.
-Тела запросов, токены, пароли, URL с параметрами и персональные данные в измерение не включаются.
+Tempo принимает OTLP внутри сети Compose. Alloy читает файлы приложений из выделенного тома.
+В Loki сохраняются только `service`, `environment`, `level` и проверенные hex-значения
+`traceId`, `spanId`, `requestId`. Уровень и идентификаторы остаются в JSON;
+метки Loki ограничены сервисом и средой. Для HTTP-трейсов приложение удаляет сырые URL.
+У исходных локальных логов отдельный доступ и ротация. В Loki исключены свободный
+текст, идентификаторы акторов, документы, тела запросов и секреты.
 
 Для синтетического проекта автоматическая проверка
 `python monitoring/verify.py --require-correlation` запрашивает недоступную агенту
@@ -70,7 +71,7 @@ Tempo принимает OTLP внутри сети Compose. Alloy читает 
 2. Откройте Tempo в Grafana по этому ID. Найдите HTTP-операцию и дочерние запросы. Когда
    переход ставит уведомление в очередь, найдите `cabinet.outbox.deliver` и его HTTP-вызов.
 3. Перейдите к Loki из выбранного span или запросите `{service="credit"} | json | traceId="ID"`.
-   Сопоставьте `route`, `status` и роль с операцией.
+   Сопоставьте `requestId` и `spanId` с операцией. Маршрут и статус смотрите в трейсе.
 4. В Prometheus проверьте `max by (stage) (cabinet_agent_applications_reached)`. Для отказов по
    правам используйте `sum by (status) (increase(cabinet_agent_access_denied_total[15m]))`.
    Долю заявок, дошедших до каждого этапа, считайте от числа уникальных `DRAFT` в этом же снимке.
@@ -78,8 +79,8 @@ Tempo принимает OTLP внутри сети Compose. Alloy читает 
    exemplar используйте время и `X-Request-Id`. `cabinet_assistant_model_total` различает
    `ACCEPTED`, `CACHE_HIT`, `UNAVAILABLE` и `GUARD_REJECTED`.
 
-Prometheus 3.15.1 и Grafana 13.2.4 работают как отдельные открытые компоненты.
-Конфигурация, datasource и 14 панелей поставляются в [monitoring](../monitoring/prometheus.yml).
+Prometheus 3.15.1 и Grafana 13.2.5 работают как отдельные открытые компоненты.
+Конфигурация и дашборды поставляются в [monitoring](../monitoring/prometheus.yml).
 [DNS discovery](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#dns_sd_config)
 для `credit` получает все A-записи Docker, а не один случайно выбранный IP.
 [Provisioning Grafana](https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards)
@@ -90,6 +91,173 @@ Grafana — 512 MB с `GOMEMLIMIT=384MiB`. Проверка браузером �
 недостаточно для выбора лимита.
 Профиль мониторинга добавляет ресурсы к приложениям; 4 GB комплект проверяется отдельно
 без тяжёлых необязательных профилей.
+
+## Kubernetes prod
+
+Релиз `cabinet-observability` предназначен для namespace `monitoring`.
+Требуются Kubernetes 1.25+, CNI с NetworkPolicy и StorageClass для RWO. Prometheus/Grafana
+поставляются через kube-prometheus-stack 93.2.2, Alertmanager закреплён на 0.33.0, Vector
+на чарте 0.46.0, Blackbox Exporter на 12.0.0. Loki 3.6.7 и Tempo 2.9.0 используют
+закреплённые образы из Compose и отдельные StatefulSet. Один экземпляр каждого
+хранилища подходит для демостенда. При отказе PVC история соответствующего хранилища
+зависит от снимков тома.
+
+Подготовьте namespace и Secret `cabinet-grafana-admin` с ключами `admin-user` и
+`admin-password` через хранилище секретов окружения. Команды запуска из корня репозитория:
+
+```bash
+stage="$(mktemp -d)/chart"
+helm/observability/prepare.sh "$stage"
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add vector https://helm.vector.dev
+helm dependency build "$stage"
+helm lint "$stage" -f helm/observability/probes.yaml
+helm upgrade --install cabinet-observability "$stage" --namespace monitoring \
+  -f helm/observability/probes.yaml --set global.cabinetAppNamespace=cabinet-prod \
+  --wait --timeout 10m
+```
+
+Установка приложения задаёт `app.otlpEndpoint=http://tempo.monitoring.svc:4318/v1/traces`
+и включает namespace `monitoring` в `monitoring.namespaces` для pull метрик.
+`ServiceMonitor` проверяет `/actuator/prometheus` каждые 15 секунд на порту Service с
+именем `http` у `identity`, `credit`, `engagement`, `external-sim`. Для другого namespace приложения
+переопределите `global.cabinetAppNamespace`. Для другого имени Service измените
+`cabinet.scrapeServices` вместе с селектором workload в NetworkPolicy. Сервисные targets
+получают метки `service` и `environment`; остальные алерты наследуют prod из external labels.
+Blackbox проверяет публичные HTTPS, сертификат и HTTP 200 на `/api/v1/products`.
+Сменить адрес можно через `prometheus-blackbox-exporter.probe.targets`.
+
+Публичен только прикладной gateway. Actuator закрывается правилом gateway,
+порты OTLP, Loki, Grafana и Prometheus остаются ClusterIP. Политика Tempo ограничивает
+4318 приложениями и 3200 Grafana, Loki принимает запросы от Vector и Grafana.
+Доступ оператора к Grafana и Prometheus предоставляется через RBAC и локальный tunnel.
+
+Vector читает `/var/log/pods` с узла только на чтение. Для Kubernetes metadata
+использует чтение pods, namespaces и nodes. Из stdout JSON он оставляет проверенные
+корреляционные поля, timestamp и уровень. Невалидный JSON, stderr, окружение других
+приложений и произвольные поля отбрасываются. Дисковый буфер до 512 MiB и курсоры живут
+в `/var/lib/vector` на узле. Если Loki не принимает записи, Vector приостанавливает чтение
+при заполнении буфера; при длительном отказе ротация исходных логов может привести к потерям.
+
+Prometheus использует RWO 16 GiB с retention 7 дней или 12 GB. Loki и Tempo используют
+по 20 GiB с retention 48 часов, Grafana и Alertmanager по 2 GiB. Сервисный scrape
+ограничен 10 000 сэмплов на цель. Vector ограничен 512 MiB памяти, Loki и Tempo по 1 GiB.
+Loki принимает до 2 MiB/с и 8 KiB на строку, Tempo до 4 MiB/с и 1 MiB на трейс.
+Если kubelet не экспортирует volume stats для CSI, контролируйте PVC средствами провайдера.
+Проверьте загрузку и расход места после первого полного дня работы.
+
+Дашборды и источники собираются из [monitoring/grafana](../monitoring/grafana).
+В **«Доступность и эксплуатация»** доступны RED и ресурсы, JVM/пул соединений, очереди,
+возраст, ошибки источников и доставка. **«Агентский канал»** сопоставляет этапы
+единой исторической когорты, предложения и отказы показывает отдельно. Историческое
+время до решения начинается с `SUBMIT`. Агентский `CONFIRM_AND_SUBMIT` и единая дедупликация
+всех финальных исходов требуют отдельных метрик приложения. В том же дашборде доступны
+p95 ассистента и исходы модели и fallback.
+
+### Приёмка
+
+Откройте в отдельных терминалах:
+
+```bash
+kubectl -n monitoring port-forward svc/cabinet-observability-grafana 3000:80
+kubectl -n monitoring port-forward svc/cabinet-metrics-prometheus 9090:9090
+```
+
+Подайте учётные данные Grafana и выделенного синтетического агента через
+защищённые переменные `GRAFANA_USER`, `GRAFANA_PASSWORD`,
+`CABINET_SYNTHETIC_AGENT_EMAIL`, `CABINET_SYNTHETIC_AGENT_PASSWORD`. Запустите:
+
+```bash
+python3 monitoring/verify.py --environment prod --gateway-url https://credit-cabinet.ru \
+  --require-correlation --report-name prod-observability
+```
+
+Отказ синтетическому агенту для чужой компании увеличивает счётчик 404 и не создаёт
+заявку. Проверка требует, чтобы все четыре сервисные цели были Up, запрос появился
+в Tempo и соответствующий JSON появился в Loki. При нескольких репликах credit укажите
+`--replicas 2`. Для проверки exemplars откройте p95 HTTP в Grafana, выберите exemplar
+с trace ID и убедитесь, что открывается тот же trace. Проверьте с внешнего клиента,
+что `/actuator/prometheus` и `/v1/traces` не опубликованы через gateway.
+Для dev используйте ту же команду без `--environment prod` и с URL Compose-стенда.
+
+### Дежурство
+
+Правила, выражения и `for` заданы в [базовых правилах](../monitoring/alerts.yml) и
+[правилах доступности](../monitoring/alerts/cabinet-availability.yml).
+До публикации runbook в основной ветке задайте `cabinet.runbookBaseUrl` с адресом
+`docs/operations.md` в разворачиваемой ревизии для дежурных.
+Продовые critical уходят в GoAlert и Telegram, warning идут в Telegram. Alertmanager
+группирует Telegram по среде, имени алерта и сервису. В GoAlert полный набор
+меток разделяет независимые инциденты. После 30 секунд агрегации он отправляет
+сводку, обновления группы идут с интервалом 5 минут, повтор активного сигнала через
+4 часа. Dev и служебные сигналы исключены из внешнего маршрута.
+
+Включение GoAlert, отдельная БД, создание оператора, расписание и эскалация описаны
+в [инструкции дежурного](../monitoring/alerts/README.md#production).
+Штатное расписание требует согласованных участников и контактов.
+
+Создайте интеграцию Prometheus Alertmanager в GoAlert и храните URL интеграции
+в Secret `cabinet-paging` под ключом `goalert-url`. В том же Secret разместите
+`telegram-token` и `telegram-chat-id` из согласованного хранилища.
+Для отдельного Secret конфигурации:
+
+```bash
+kubectl -n monitoring create secret generic cabinet-alertmanager-paging-config \
+  --from-file=alertmanager.yaml=monitoring/alerts/alertmanager-prod.yml
+```
+
+При готовности обоих Secrets добавьте к Helm-команде `-f helm/observability/paging-values.yaml`.
+Alertmanager читает токен, chat ID и URL из файлов. Синтетическое внешнее оповещение
+проводите только в подтверждённом канале. В GoAlert дежурный открывает событие и
+нажимает Acknowledge. После исправления он подтверждает погашение исходного сигнала
+и закрывает событие. Повторное открытие означает, что причина всё ещё активна.
+Документируйте время firing, ACK, эскалации и закрытия. Локальную проверку проводите
+командой `python3 monitoring/alerts/smoke.py` с отдельными Prometheus,
+Alertmanager и webhook без продовых секретов. Публичный Telegram получает только
+статус, среду, важность, имя правила и сервис.
+
+### HTTPS
+
+<a id="incident-https"></a>
+
+После 2 минут сбоя проверьте `probe_success`, сертификат и ответ маршрута с внешней
+точки. Сопоставьте DNS с адресом балансировщика, затем проверьте gateway и endpoints
+в Kubernetes. Закройте событие после восстановления probe и проверки ответа.
+
+### HTTP
+
+<a id="incident-http"></a>
+
+5xx выше 5% либо средняя задержка выше 2 с держатся 5 минут при минимум 20 запросах за 5
+минут. Определите сервис и маршрут по RED, откройте trace и сопоставьте изменение
+с rollout. При росте latency проверьте JVM, пул БД и внешние вызовы.
+
+### Хранилище
+
+<a id="incident-storage"></a>
+
+Предупреждение PVC срабатывает после 10 минут со свободным местом ниже 15%.
+Красный сигнал корневой ФС срабатывает при остатке ниже 10% в течение 10 минут.
+Проверьте том, рост WAL и лимиты retention. Расширяйте PVC после проверки
+поддержки StorageClass и наличия резервной копии.
+
+### Ассистент
+
+<a id="incident-assistant"></a>
+
+При минимум 10 вызовах за 10 минут warning срабатывает на доле fallback выше 50%
+за 5 минут, critical на доле ошибок ответа выше 10% за 5 минут. Проверьте
+состояние модели, таймауты, guardrail и p95. Отдельно проверьте качество ответов
+штатного fallback. Контур принятия кредитных решений использует правила конвейера.
+
+<a id="incident-metrics"></a>
+
+### Цели и снимки
+
+Проверьте цели Prometheus и EndpointSlices при сервисном Down дольше минуты.
+Если снимок БД старше 60 секунд или отсутствует при Up, проверьте подключение к БД,
+счётчик ошибок обновления и время запросов снимка. Учитывайте эти ошибки при оценке
+воронки и очередей.
 
 ## Что означают метрики
 
@@ -131,12 +299,14 @@ rg 'ПОЛУЧЕННЫЙ_ID' cabinet.log
 собственный ID nginx; такой запрос до сервиса не доходит. Входной произвольный заголовок
 не является доказательством серверного ID. Не публикуйте логи с документами/персональными
 данными/секретами. Не каждая успешная HTTP-операция пишет строку лога: отсутствие совпадения
-само по себе не доказывает отсутствие запроса. Экспорт distributed traces пока не настроен.
+само по себе не доказывает отсутствие запроса. Включение OTLP описано в разделе запуска.
 
-Фоновая задача outbox не продолжает исходный HTTP-span автоматически. Для неё нужны
-UUID заявки/задачи, журнал переходов и `last_error`. Успешный HTTP submit означает постановку
+Воркер использует сохранённый W3C-контекст. Для старых записей без него ищите
+отдельный трейс доставки и сопоставляйте время с журналом переходов и `last_error`. Успешный HTTP submit означает постановку
 работы, а не выполнение всего конвейера. Уведомление тоже не является доказательством выдачи:
 проверяйте статус, договор и график через API.
+
+<a id="incident-source"></a>
 
 ## Источник недоступен
 
@@ -151,6 +321,8 @@ UUID заявки/задачи, журнал переходов и `last_error`.
    `SOURCE_TIMED_OUT`, а не получает кредитный отказ из-за сбоя. Очередь/длительность вызова
    могут задержать фактический переход; успешный ответ имеет приоритет при обработке.
    Измерения и воспроизводимый тест — [reliability.md](reliability.md).
+
+<a id="incident-queue"></a>
 
 ## Задачи FAILED
 
@@ -205,6 +377,8 @@ Prometheus и три сценария promtool для правил. Живой s
 После открытия графиков при лимите 512 MB Grafana использовала 392.4 MiB, Prometheus —
 60.7 MiB; у нового контейнера Grafana было 0 перезапусков. Это один снимок под этой
 нагрузкой, не верхняя граница потребления. Исходный лимит 256 MB дал событие OOM.
+<a id="incident-delivery"></a>
+
 ## Очереди уведомлений и SMTP
 
 В identity, credit и engagement очередь `delivery_outbox` имеет состояния PENDING,

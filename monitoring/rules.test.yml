@@ -22,6 +22,7 @@ tests:
               severity: warning
             exp_annotations:
               summary: 'Есть недоставленные уведомления или письма'
+              runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-delivery'
   - interval: 1m
     input_series:
       - series: 'cabinet_delivery_outbox_oldest_seconds{application="engagement",channel="email-notification"}'
@@ -34,6 +35,7 @@ tests:
               severity: warning
             exp_annotations:
               summary: 'Очередь уведомлений или писем ждёт больше двух минут'
+              runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-delivery'
   - interval: 1m
     input_series:
       - series: 'cabinet_pipeline_jobs{instance="a",status="FAILED",attempts="2-4"}'
@@ -54,11 +56,12 @@ tests:
               severity: warning
             exp_annotations:
               summary: 'Есть задачи FAILED — нужна диагностика оператора'
+              runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-queue'
   - interval: 1m
     input_series:
-      - series: 'up{job="credit",instance="a"}'
+      - series: 'up{job="credit",service="credit",instance="a"}'
         values: '1+0x4'
-      - series: 'cabinet_pipeline_metrics_snapshot_age_seconds{job="credit",instance="a"}'
+      - series: 'cabinet_pipeline_metrics_snapshot_age_seconds{job="credit",service="credit",instance="a"}'
         values: 'NaN NaN NaN NaN NaN'
     alert_rule_test:
       - eval_time: 2m
@@ -66,10 +69,12 @@ tests:
         exp_alerts:
           - exp_labels:
               job: credit
+              service: credit
               instance: a
               severity: warning
             exp_annotations:
               summary: 'Снимок метрик БД устарел — счётчики нельзя считать актуальными'
+              runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-metrics'
   - interval: 1m
     input_series:
       - series: 'cabinet_pipeline_queue_oldest_due_seconds{instance="a"}'

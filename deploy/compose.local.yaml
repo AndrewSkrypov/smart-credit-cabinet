@@ -5,3 +5,5 @@ services:
       - "127.0.0.1:${HTTPS_PORT:-18443}:443"
     volumes:
       - ./deploy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+  clamav:
+    image: "${CABINET_IMAGE_CLAMAV:-${CABINET_CI_CLAMAV_IMAGE:-clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614}}"

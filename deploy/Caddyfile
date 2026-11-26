@@ -1,5 +1,5 @@
 {
-    email {$ACME_EMAIL}
+    {$ACME_CONTACT}
     admin off
 }
 

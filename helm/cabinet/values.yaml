@@ -1,0 +1,104 @@
+app:
+  enabled: true
+  publicURL: ""
+  demoAccounts: false
+  simControlEnabled: false
+  otlpEndpoint: ""
+images:
+  identity: ""
+  credit: ""
+  engagement: ""
+  external-sim: ""
+  frontend: ""
+  postgres: ""
+  swagger: ""
+  ssh-bridge: ""
+  valkey: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+  clamav: clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614
+  seaweedfs: chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9
+  gateway: nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
+imagePullSecrets: []
+release:
+  revision: ""
+secrets:
+  existingSecret: cabinet-secrets
+s3:
+  endpoint: ""
+  bucket: cabinet-documents
+  region: us-east-1
+  internal:
+    enabled: false
+    appSecret: cabinet-s3-app
+    adminSecret: cabinet-s3-admin
+    storage: 20Gi
+    resources: {requests: {cpu: 200m, memory: 384Mi}, limits: {cpu: "1", memory: 1Gi}}
+gateway:
+  dnsResolver: ""
+  trustedProxyCIDRs: []
+  service:
+    type: ClusterIP
+    nodePort: null
+    # Local preserves the source address seen by nginx. The LB must probe healthy
+    # gateway endpoints on nodes or the upstream NodePort path.
+    externalTrafficPolicy: Local
+persistence:
+  storageClass: ""
+  postgres: 20Gi
+  valkey: 2Gi
+  clamav: 2Gi
+  backup: 30Gi
+backup:
+  schedule: "20 2 * * *"
+  retentionDays: 14
+workloads:
+  gateway:
+    replicas: 2
+    resources: {requests: {cpu: 50m, memory: 64Mi}, limits: {cpu: 500m, memory: 128Mi}}
+  frontend:
+    replicas: 2
+    resources: {requests: {cpu: 40m, memory: 48Mi}, limits: {cpu: 250m, memory: 128Mi}}
+  swagger:
+    replicas: 1
+    resources: {requests: {cpu: 40m, memory: 48Mi}, limits: {cpu: 250m, memory: 128Mi}}
+  identity:
+    replicas: 2
+    resources: {requests: {cpu: 150m, memory: 384Mi}, limits: {cpu: "1", memory: 640Mi}}
+  credit:
+    replicas: 2
+    resources: {requests: {cpu: 200m, memory: 512Mi}, limits: {cpu: "2", memory: 896Mi}}
+  engagement:
+    replicas: 2
+    resources: {requests: {cpu: 150m, memory: 384Mi}, limits: {cpu: "1", memory: 640Mi}}
+  external-sim:
+    replicas: 1
+    resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {cpu: "1", memory: 512Mi}}
+monitoring:
+  namespaces: []
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  aliases: []
+  tlsSecret: ""
+  annotations: {}
+  sourceNamespaces: []
+  sourcePodLabels: {}
+
+ollamaBridge:
+  enabled: false
+  host: ""
+  port: 22
+  secretName: engagement-ollama-ssh
+  model: qwen2.5:7b-instruct-q4_K_M
+  timeout: PT30S
+  warmup: false
+  dns:
+    address: ""
+    namespace: kube-system
+    podLabels:
+      k8s-app: kube-dns
+  otlp:
+    namespace: ""
+    podLabels: {}
+    port: 4318
+  resources: {requests: {cpu: 10m, memory: 16Mi}, limits: {cpu: 100m, memory: 64Mi}}

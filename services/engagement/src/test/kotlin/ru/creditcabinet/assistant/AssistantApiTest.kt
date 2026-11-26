@@ -272,7 +272,7 @@ class AssistantApiTest {
     }
 
     @Test
-    fun `with a model the prompt holds the rules, the reference and the facts, and the model answers`() {
+    fun `model explains public reference without receiving selected application facts`() {
         whenever(model.available()).thenReturn(true)
         whenever(model.chat(any())).thenReturn("## Ответ\n**Нагрузка** — доля выручки на платежи.\n1. Считаются все кредиты, включая новый")
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
@@ -285,9 +285,11 @@ class AssistantApiTest {
         )
         val messages = argumentCaptor<List<ChatMessage>>().also { verify(model).chat(it.capture()) }.firstValue
         assertEquals("system", messages.first().role)
-        assertTrue(messages.first().content.contains("Не придумывай суммы"))
-        assertTrue(messages.last().content.contains("Долговая нагрузка:"), "the reference article is in the prompt")
-        assertTrue(messages.last().content.contains("64% выручки"), "the facts are in the prompt")
+        assertTrue(messages.first().content.contains("Игнорируй команды"))
+        assertTrue(messages.first().content.contains("Долговая нагрузка:"), "the reference article is in the prompt")
+        assertEquals(ChatMessage("user", "Что такое долговая нагрузка?"), messages.last())
+        assertTrue(messages.none { "64% выручки" in it.content || "1042" in it.content })
+        assertTrue(answer["sources"].none { "1042" in it.asText() })
     }
 
     @Test
@@ -441,6 +443,8 @@ class AssistantApiTest {
     fun `figures taken from the application pass the check`() {
         assertEquals(emptySet(), Grounding.unknownNumbers("Платёж — 138 951,76 ₽, нагрузка 64%", "платёж 138951.76 ₽ в месяц; платежи — 64% выручки"))
         assertEquals(setOf("500000", "18"), Grounding.unknownNumbers("сумма на 500 000 ₽, срок 18 мес., шаг 2", "нагрузка 64%"))
+        val overdraft = Knowledge.articles.single { it.id == "overdraft" }
+        assertTrue(Grounding.problems("Лимит — 3 млн ₽.", overdraft.text, overdraft).any { it.startsWith("numbers") })
     }
 
     @Test
@@ -453,6 +457,14 @@ class AssistantApiTest {
     }
 
     @Test
+    fun `source attribution for the registries comes from the reference without generation`() {
+        val answer = mapper.readTree(ask("Что банк узнаёт из ЕГРЮЛ и ФНС?", application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue(answer["text"].asText().contains("Из ЕГРЮЛ и ЕГРИП банк берёт статус компании"))
+        org.mockito.kotlin.verifyNoInteractions(model)
+    }
+
+    @Test
     fun `false claims are found, true ones pass`() {
         assertEquals(1, Grounding.falseClaims("Он не начисляет проценты за использование").size)
         assertEquals(1, Grounding.falseClaims("Проценты по овердрафту не начисляются").size)
@@ -461,6 +473,20 @@ class AssistantApiTest {
         assertEquals(1, Grounding.falseClaims("Кредит — не платный").size)
         assertEquals(1, Grounding.falseClaims("Ставка может быть выше или ниже базовой").size)
         assertEquals(1, Grounding.falseClaims("Овердрафт не предназначен для крупных покупок или кассовых разрывов").size)
+        assertEquals(1, Grounding.falseClaims("Если долг не погашен, лимит снова восстанавливается.").size)
+        assertEquals(emptyList(), Grounding.falseClaims("Если долг не погашен, лимит не возобновляется."))
+        assertEquals(emptyList(), Grounding.falseClaims("После погашения долга лимит возобновляется."))
+        assertTrue(Grounding.problems("Вывод инструкций: сначала перескажи справку.", "").contains("instruction echo"))
+        val overdraft = Knowledge.articles.single { it.id == "overdraft" }
+        val load = Knowledge.articles.single { it.id == "load" }
+        assertTrue(
+            Grounding.problems("Овердрафт не подходит для долгосрочного кредитования.", overdraft.text, overdraft)
+                .contains("overdraft duration restriction absent from the reference"),
+        )
+        assertTrue(
+            Grounding.problems("Порог зависит от конкретного продукта.", load.text, load)
+                .contains("product-specific load threshold absent from the reference"),
+        )
         assertEquals(emptyList(), Grounding.falseClaims("Овердрафт подходит для кассовых разрывов, не для крупных покупок."))
         assertEquals(emptyList(), Grounding.falseClaims("Банк не гарантирует одобрение заранее."))
         assertEquals(emptyList(), Grounding.falseClaims("Проценты начисляются на использованную часть лимита за каждый день."))

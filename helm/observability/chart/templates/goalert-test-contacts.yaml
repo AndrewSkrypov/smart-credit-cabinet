@@ -1,0 +1,115 @@
+{{- $contacts := .Values.goalertTestContacts | default dict }}
+{{- if $contacts.enabled }}
+{{- $goalert := .Values.goalert | default dict }}
+{{- $db := .Values.goalertDB | default dict }}
+{{- if not (and $goalert.enabled $db.enabled) }}
+{{- fail "GoAlert test contacts require GoAlert and its dedicated managed PostgreSQL" }}
+{{- end }}
+{{- if (index .Values "kube-prometheus-stack" "alertmanager" "alertmanagerSpec" "useExistingSecret") }}
+{{- fail "Disable external Alertmanager paging before enabling GoAlert test contacts" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cabinet-goalert-mailpit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cabinet-goalert-mailpit
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cabinet-goalert-mailpit
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: mailpit
+          image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
+          env:
+            - {name: MP_DATABASE, value: /tmp/mailpit.db}
+            - {name: MP_MAX_MESSAGES, value: "100"}
+            - {name: MP_DISABLE_VERSION_CHECK, value: "true"}
+          ports:
+            - {name: smtp, containerPort: 1025}
+            - {name: http, containerPort: 8025}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - {name: messages, mountPath: /tmp}
+      volumes:
+        - name: messages
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cabinet-goalert-mailpit
+spec:
+  selector:
+    app.kubernetes.io/name: cabinet-goalert-mailpit
+  ports:
+    - {name: smtp, port: 1025, targetPort: smtp}
+    - {name: http, port: 8025, targetPort: http}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-goalert-test-mailpit
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cabinet-goalert-mailpit
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cabinet-goalert
+      ports: [{protocol: TCP, port: 1025}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-goalert-test-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cabinet-goalert
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cabinet-goalert-db
+      ports: [{protocol: TCP, port: 5432}]
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cabinet-goalert-mailpit
+      ports: [{protocol: TCP, port: 1025}]
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+{{- end }}

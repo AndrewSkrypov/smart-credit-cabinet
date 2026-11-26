@@ -43,7 +43,7 @@ def main():
     parser.add_argument("--base", default="http://localhost:8080")
     parser.add_argument("--project", default="cabinet-e2e")
     parser.add_argument("--mode", choices=["rules", "model"], required=True)
-    parser.add_argument("--model", choices=["qwen2.5:1.5b", "qwen3:1.7b", "qwen3:4b-instruct-2507-q4_K_M"], default="qwen2.5:1.5b",
+    parser.add_argument("--model", choices=["qwen2.5:7b-instruct-q4_K_M", "qwen2.5:1.5b", "qwen3:1.7b", "qwen3:4b-instruct-2507-q4_K_M"], default="qwen2.5:1.5b",
                         help="Exact separately verified Apache-2.0 model tag; does not change the rubric")
     parser.add_argument("--report-name", required=True)
     parser.add_argument("--native-manifest", type=Path, help="Манифест изолированного синтетического стенда на loopback")
@@ -107,6 +107,10 @@ def main():
                         assert env.get("OLLAMA_URL") == "", "Rules CI requires explicitly empty OLLAMA_URL: no model probe/chat is possible"
                     if service == "engagement" and args.mode == "model":
                         assert env.get("ASSISTANT_MODEL") == args.model, "Use the separately verified Apache-2.0 evaluation model"
+                        model_url = urlsplit(env.get("OLLAMA_URL", ""))
+                        assert model_url.scheme == "http" and model_url.hostname in {"ollama", "host.docker.internal", "127.0.0.1"}
+                        assert not (model_url.username or model_url.password or model_url.query or model_url.fragment)
+                        ollama_tags_url = model_url.geturl().rstrip("/") + "/api/tags"
                     report["images"].append({"service": service, "container": cid, "image": info["Image"],
                                              "revision": (info["Config"].get("Labels") or {}).get("org.opencontainers.image.revision")})
         readers = [api.register("assistant-eval") for _ in range(3)]
@@ -118,7 +122,7 @@ def main():
                 with urlopen(native["ollama_url"] + "/api/tags", timeout=10) as response:
                     raw = response.read()
             else:
-                raw = docker("exec", engagement_ids[0], "curl", "-fsS", "--max-time", "10", "http://ollama:11434/api/tags")
+                raw = docker("exec", engagement_ids[0], "curl", "-fsS", "--max-time", "10", ollama_tags_url)
             tag = next(item for item in json.loads(raw)["models"] if item["name"] == args.model)
             report["model"] = {key: tag[key] for key in ("name", "digest", "size", "details") if key in tag}
         fixtures = {}

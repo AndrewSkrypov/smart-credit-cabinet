@@ -1,0 +1,75 @@
+{{- if .Values.app.enabled }}
+{{- $resolver := required "gateway.dnsResolver must be the cluster DNS IPv4 service address" .Values.gateway.dnsResolver }}
+{{- if not (regexMatch "^([0-9]{1,3}[.]){3}[0-9]{1,3}$" $resolver) }}
+{{- fail "gateway.dnsResolver must be a single IPv4 address" }}
+{{- end }}
+{{- $domain := .Values.gateway.clusterDomain | default "cluster.local" }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9.-]*[a-z0-9]$" $domain) }}
+{{- fail "gateway.clusterDomain must be a DNS domain" }}
+{{- end }}
+{{- $gateway := .Files.Get "files/gateway/nginx.conf" }}
+{{- $upstreams := .Files.Get "files/gateway/upstreams.conf" | replace "127.0.0.11" $resolver }}
+{{- range $service := list "identity" "credit" "engagement" "external-sim" "frontend" "swagger-ui" }}
+  {{- $target := printf "%s.%s.svc.%s:8080" $service $.Release.Namespace $domain }}
+  {{- $gateway = replace (printf "%s:8080" $service) $target $gateway }}
+  {{- $upstreams = replace (printf "server %s:8080" $service) (printf "server %s" $target) $upstreams }}
+{{- end }}
+{{- $gateway = replace (printf "set $credit_read_upstream http://credit.%s.svc.%s:8080;" .Release.Namespace $domain) (printf "set $credit_read_upstream http://credit-read.%s.svc.%s:8080;" .Release.Namespace $domain) $gateway }}
+{{- $gateway = replace "X-Forwarded-For $proxy_add_x_forwarded_for" "X-Forwarded-For $remote_addr" $gateway }}
+{{- $gateway = replace "X-Forwarded-Proto $scheme;" "X-Forwarded-Proto $cabinet_forwarded_proto;\n    proxy_set_header X-Forwarded-Host $host;\n    proxy_set_header X-Forwarded-Port $cabinet_forwarded_port;\n    proxy_set_header Forwarded \"\";" $gateway }}
+{{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    location = /healthz { access_log off; return 200; }" $gateway }}
+{{- if and .Values.ingress.enabled .Values.ingress.aliases }}
+{{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    if ($cabinet_canonical_host != \"\") { return 308 https://$cabinet_canonical_host$request_uri; }" $gateway }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cabinet-gateway
+data:
+  default.conf: |
+    {{- if and .Values.ingress.enabled .Values.ingress.aliases }}
+    map $host $cabinet_canonical_host {
+        default "";
+        {{- range .Values.ingress.aliases }}
+        {{ . }} {{ $.Values.ingress.host }};
+        {{- end }}
+    }
+    {{- end }}
+    {{- range .Values.gateway.trustedProxyCIDRs }}
+    {{- if or (not (regexMatch "^([0-9]{1,3}[.]){3}[0-9]{1,3}(/([0-9]|[12][0-9]|3[0-2]))?$" .)) (eq . "0.0.0.0/0") }}
+    {{- fail "trustedProxyCIDRs must contain only explicit IPv4 proxy addresses or private ingress ranges" }}
+    {{- end }}
+    set_real_ip_from {{ . }};
+    {{- end }}
+    real_ip_header X-Forwarded-For;
+    real_ip_recursive on;
+    geo $realip_remote_addr $cabinet_tls_proxy {
+        default 0;
+        {{- range .Values.gateway.trustedProxyCIDRs }}
+        {{ . }} 1;
+        {{- end }}
+    }
+    map "$cabinet_tls_proxy:$http_x_forwarded_proto" $cabinet_forwarded_proto {
+        default $scheme;
+        "1:https" https;
+    }
+    map $cabinet_forwarded_proto $cabinet_forwarded_port {
+        default $server_port;
+        https 443;
+    }
+    log_format cabinet_edge '$remote_addr peer=$realip_remote_addr proto=$cabinet_forwarded_proto id=$sent_http_x_request_id $request_method $uri $status';
+    access_log /dev/stdout cabinet_edge;
+    {{- $gateway | nindent 4 }}
+  upstreams.conf: |
+    {{- $upstreams | nindent 4 }}
+  {{- range $path, $_ := .Files.Glob "files/gateway/*.conf" }}
+  {{- if not (has (base $path) (list "nginx.conf" "upstreams.conf")) }}
+  {{- $contents := $.Files.Get $path }}
+  {{- if eq (base $path) "engagement.conf" }}
+    {{- $contents = replace "proxy_read_timeout 120s;" "proxy_read_timeout 120s;\n        proxy_buffering off;\n        proxy_cache off;" $contents }}
+  {{- end }}
+  {{ base $path }}: |
+    {{- $contents | nindent 4 }}
+  {{- end }}
+  {{- end }}
+{{- end }}

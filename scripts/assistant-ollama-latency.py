@@ -24,7 +24,7 @@ def percentile(values, fraction):
 def main():
     parser = argparse.ArgumentParser(description="Сравнить холодный старт и прогретую модель Ollama")
     parser.add_argument("--base", default="http://127.0.0.1:11434")
-    parser.add_argument("--model", action="append", choices=["qwen2.5:3b", "qwen2.5:1.5b"], required=True)
+    parser.add_argument("--model", action="append", choices=["qwen2.5:7b-instruct-q4_K_M", "qwen2.5:3b", "qwen2.5:1.5b"], required=True)
     parser.add_argument("--runs", type=int, default=8)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()

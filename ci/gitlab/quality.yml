@@ -1,0 +1,390 @@
+# Test jobs use the disposable, non-production cabinet-ci Linux runner.
+# Extended jobs are mandatory on a protected release ref.
+.quality:
+  tags:
+    - cabinet-ci
+  variables:
+    SOURCE_REVISION: $CI_COMMIT_SHA
+    COMPOSE_ANSI: never
+    COMPOSE_PROGRESS: plain
+  before_script:
+    - test "$(uname -s)" = Linux
+    - export RUNNER_TEMP="$CI_PROJECT_DIR/ci-artifacts/.job"
+    - mkdir -p "$RUNNER_TEMP"
+    - source ci/gitlab/quality/runner.sh
+.verified:
+  extends: .quality
+  needs:
+    - job: backend
+      artifacts: true
+    - job: frontend
+      artifacts: true
+  before_script:
+    - !reference [.quality, before_script]
+    - sha256sum -c ci-artifacts/backend.sha256
+    - sha256sum -c ci-artifacts/frontend.sha256
+.extended:
+  stage: extended
+  rules:
+    - if: $CI_COMMIT_REF_PROTECTED == "true" || $CI_PIPELINE_SOURCE == "schedule"
+    - when: manual
+      allow_failure: true
+.compose-quality:
+  extends: .verified
+  before_script:
+    - !reference [.verified, before_script]
+    - source ci/gitlab/quality/allocate.sh
+    - CABINET_CI_CLAMAV_IMAGE=$(bash ci/gitlab/quality/clamav-runtime.sh)
+    - export CABINET_CI_CLAMAV_IMAGE
+    - export COMPOSE_PROJECT_NAME="cabinet-e2e-${CI_JOB_ID}"
+    - export COMPOSE_FILE="docker-compose.yml:ci/compose.yaml:ci/gitlab/quality/compose.yaml"
+  after_script:
+    - bash ci/gitlab/quality/cleanup.sh
+backend:
+  stage: quality
+  extends: .quality
+  timeout: 45 minutes
+  script:
+    - bash ci/gitlab/quality/backend.sh
+  after_script:
+    - bash ci/gitlab/quality/cleanup.sh
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - '**/build/reports/tests/'
+      - '**/build/reports/jacoco/'
+      - ci-artifacts/schema-rollback.json
+      - ci-artifacts/migration-restore.json
+      - security/reports/postgres-image.json
+      - services/*/build/libs/app.jar
+      - ci-artifacts/backend.sha256
+    reports:
+      junit:
+        - '**/build/test-results/test/TEST-*.xml'
+frontend:
+  stage: quality
+  extends: .quality
+  script:
+    - (cd frontend && npm ci)
+    - (cd frontend && npx tsc --noEmit)
+    - (cd frontend && npm run lint)
+    - (cd frontend && npm run test:coverage)
+    - (cd frontend && npm run build)
+    - |
+      mkdir -p ci-artifacts
+      find frontend/dist -type f -print0 | sort -z | xargs -0 sha256sum > ci-artifacts/frontend.sha256
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - frontend/coverage/
+      - frontend/dist/
+      - ci-artifacts/frontend.sha256
+documentation:
+  stage: quality
+  extends: .quality
+  script:
+    - python3 scripts/check-docs.py
+    - |
+      npm ci --prefix frontend
+      npm ci --prefix e2e
+      npm ci --prefix contracts/postman
+      npm ci --prefix scripts/license-tools
+    - node scripts/generate-notices.mjs --check
+    - python3 security/audit-dependencies.py
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - security/reports/npm-*.json
+      - build/reports/dependency-license/
+      - build-logic/build/reports/dependency-license/
+      - docs/licenses/inventory.json
+source-security:
+  stage: quality
+  extends: .quality
+  timeout: 20 minutes
+  script:
+    - python3 security/check-exceptions.py
+    - python3 security/scan.py --report-name ci-source --cache-volume "cabinet-trivy-${CI_JOB_ID}"
+  after_script:
+    - bash ci/gitlab/quality/cleanup.sh
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - security/reports/ci-source/trivy-filesystem.json
+      - security/reports/ci-source/summary.json
+infrastructure-security:
+  stage: quality
+  extends: .quality
+  timeout: 25 minutes
+  parallel:
+    matrix:
+      - INFRA_NAME: [postgres, gateway, swagger, prometheus, grafana, alertmanager, caddy, mailpit, clamav, seaweedfs, valkey]
+  script:
+    - bash ci/gitlab/quality/image-scan.sh infra
+  after_script:
+    - bash ci/gitlab/quality/cleanup.sh
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - security/reports/infra-$INFRA_NAME/trivy-image-*.json
+      - security/reports/infra-$INFRA_NAME/summary.json
+      - security/reports/postgres-image.json
+ollama-image-security:
+  stage: quality
+  extends: .quality
+  tags: [cabinet-ci, cabinet-ollama-cache]
+  timeout: 55 minutes
+  resource_group: cabinet-ci-ollama-scan
+  script:
+    - bash ci/gitlab/quality/ollama-scan.sh
+  after_script:
+    - bash ci/gitlab/quality/cleanup.sh
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - security/reports/infra-ollama/oci.json
+      - security/reports/infra-ollama/trivy-image-*.json
+      - security/reports/infra-ollama/summary.json
+image-security:
+  stage: verify
+  extends: .verified
+  timeout: 30 minutes
+  parallel:
+    matrix:
+      - SERVICE:
+          - identity
+          - credit
+          - engagement
+          - external-sim
+          - frontend
+          - ssh-bridge
+  script:
+    - bash ci/gitlab/quality/image-scan.sh app
+  after_script:
+    - bash ci/gitlab/quality/cleanup.sh
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - security/reports/image-$SERVICE/trivy-image-*.json
+      - security/reports/image-$SERVICE/summary.json
+deployment:
+  stage: extended
+  extends: &compose-extended
+    - .compose-quality
+    - .extended
+  timeout: 35 minutes
+  resource_group: cabinet-ci-local-deployment
+  parallel:
+    matrix:
+      - STORAGE:
+          - local
+          - s3
+  script:
+    - |
+      python3 -m venv "$RUNNER_TEMP/cabinet-deployment"
+      "$RUNNER_TEMP/cabinet-deployment/bin/pip" install -r scripts/requirements-tools.txt
+    - docker compose -p "$COMPOSE_PROJECT_NAME" build
+    - 'env -u COMPOSE_PROJECT_NAME "$RUNNER_TEMP/cabinet-deployment/bin/python" deploy/test-local.py --image-prefix "$COMPOSE_PROJECT_NAME" --companies 20 --storage "$STORAGE" --expected-revision
+      "$CI_COMMIT_SHA" --https-port "$CI_HTTPS_PORT" --http-port "$CI_HTTP_PORT"'
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - deploy/reports/test-*/*.json
+storage:
+  stage: extended
+  extends: *compose-extended
+  timeout: 35 minutes
+  variables:
+    STORAGE_BACKEND: s3
+    MAIL_MODE: 'off'
+  script:
+    - |
+      python3 -m venv "$RUNNER_TEMP/cabinet-storage"
+      "$RUNNER_TEMP/cabinet-storage/bin/pip" install -r scripts/requirements-storage.txt
+    - docker compose --profile storage up -d --build --scale credit=2 --wait --wait-timeout 300
+    - python3 load/storage.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --report-name ci-storage
+    - '"$RUNNER_TEMP/cabinet-storage/bin/python" load/storage-transfer.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --report-name ci-storage-transfer'
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - load/reports/ci-storage/*.json
+      - load/reports/ci-storage-transfer/*.json
+shared-state:
+  stage: extended
+  extends: *compose-extended
+  timeout: 35 minutes
+  variables:
+    MAIL_MODE: 'on'
+  script:
+    - docker compose --profile mail up -d --build --scale identity=2 --scale credit=2 --scale engagement=2 --wait --wait-timeout 300
+    - python3 security/db-permissions.py --project "$COMPOSE_PROJECT_NAME" --report-name ci-db-permissions
+    - python3 load/shared-state.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --report-name ci-shared-state
+    - |
+      python3 load/gateway-fault.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --label ci-gateway --expect-hardened
+      python3 load/gateway-write-refusal.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --label ci-gateway-refusal
+      python3 load/gateway-write-fault.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --label ci-gateway-writes
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - load/reports/ci-shared-state/*.json
+      - load/reports/ci-gateway/gateway-fault.json
+      - load/reports/ci-gateway-refusal/gateway-refusal.json
+      - load/reports/ci-gateway-writes/gateway-writes.json
+      - security/reports/ci-db-permissions/verified.json
+demo-history:
+  stage: extended
+  extends: *compose-extended
+  timeout: 45 minutes
+  script:
+    - docker compose build
+    - env -u COMPOSE_PROJECT_NAME python3 -u scripts/seed-demo-history.py --start --project "cabinet-demo-${CI_JOB_ID}" --port "$GATEWAY_PORT" --image-prefix "$COMPOSE_PROJECT_NAME" --count
+      120 --report-name ci-first
+    - env -u COMPOSE_PROJECT_NAME python3 -u deploy/rehearse-demo.py --project "cabinet-demo-${CI_JOB_ID}" --confirm-project "cabinet-demo-${CI_JOB_ID}" --port "$GATEWAY_PORT" --output scripts/demo-reports/ci-agent-rehearsal.json
+    - env -u COMPOSE_PROJECT_NAME python3 -u scripts/seed-demo-history.py --start --project "cabinet-demo-${CI_JOB_ID}" --port "$GATEWAY_PORT" --image-prefix "$COMPOSE_PROJECT_NAME" --count
+      120 --report-name ci-repeat
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - scripts/demo-reports/*.json
+e2e:
+  stage: verify
+  extends: .compose-quality
+  timeout: 55 minutes
+  variables: &e2e-variables
+    OLLAMA_URL: ''
+    CABINET_AGENT_ROUTE_BOUNDARY: '1'
+    CABINET_OTLP_ENABLED: 'true'
+    CABINET_TRACE_SAMPLE_RATE: '1.0'
+  script:
+    - export CABINET_LOG_FILE='/var/log/cabinet/${HOSTNAME}/${spring.application.name}.jsonl'
+    - npm ci --prefix e2e
+    - npm run typecheck --prefix e2e
+    - (cd e2e && npx playwright install chromium)
+    - |
+      python3 -m venv "$RUNNER_TEMP/cabinet-contracts"
+      "$RUNNER_TEMP/cabinet-contracts/bin/pip" install -r scripts/requirements-tools.txt
+      "$RUNNER_TEMP/cabinet-contracts/bin/python" -m unittest discover -s scripts/tests -v
+      npm ci --prefix contracts/postman
+    - docker compose --profile monitoring up --build --wait --wait-timeout 300
+    - (cd e2e && npm run wait)
+    - '"$RUNNER_TEMP/cabinet-contracts/bin/python" scripts/export-openapi.py --check'
+    - |
+      status=0
+      "$RUNNER_TEMP/cabinet-contracts/bin/python" security/matrix.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --final-only || status=$?
+      if test -f security/reports/final-access-matrix.json; then
+        cp security/reports/final-access-matrix.json security/reports/early-final-access-matrix.json
+      fi
+      early_access_status="$status"
+    - browser_status=0; npm test --prefix e2e -- --trace off || browser_status=$?
+    - python3 scripts/assistant-eval.py --base "$CABINET_URL" --mode rules --project "$COMPOSE_PROJECT_NAME" --report-name ci-rules
+    - python3 scripts/assistant-final-eval.py --base "$CABINET_URL" --output scripts/assistant-eval-reports/ci-agent-rules.json
+    - (cd contracts/postman && npm test)
+    - (cd contracts/postman && npm run test:agent)
+    - (cd contracts/postman && npm run test:recovery)
+    - (cd contracts/postman && npm run test:keepalive)
+    - |
+      full_access_status=0
+      "$RUNNER_TEMP/cabinet-contracts/bin/python" security/matrix.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" || full_access_status=$?
+    - python3 security/negative.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME"
+    - |
+      replicas="$(docker compose ps --status running -q credit | wc -l)"
+      python3 monitoring/verify.py --replicas "$replicas" --require-correlation --report-name correlation
+    - test "$early_access_status:$browser_status:$full_access_status" = 0:0:0
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - e2e/playwright-report/
+      - e2e/test-results/
+      - contracts/postman/reports/
+      - scripts/assistant-eval-reports/ci-rules/report.json
+      - scripts/assistant-eval-reports/ci-agent-rules.json
+      - security/reports/access-matrix.json
+      - security/reports/early-final-access-matrix.json
+      - security/reports/final-access-matrix.json
+      - security/reports/negative.json
+      - monitoring/reports/*.json
+    reports:
+      junit:
+        - contracts/postman/reports/*.xml
+        - e2e/test-results/default/junit.xml
+reliability:
+  stage: extended
+  extends: *compose-extended
+  timeout: 60 minutes
+  variables: *e2e-variables
+  script:
+    - export CABINET_LOG_FILE='/var/log/cabinet/${HOSTNAME}/${spring.application.name}.jsonl'
+    - npm ci --prefix e2e
+    - npm run typecheck --prefix e2e
+    - (cd e2e && npx playwright install chromium)
+    - docker compose --profile monitoring up --build --wait --wait-timeout 300
+    - (cd e2e && npm run wait)
+    - |
+      python3 load/prepare-config.py
+      docker compose -f docker-compose.yml -f load/compose.yaml -f ci/gitlab/quality/compose.yaml \
+        up -d --no-build --scale credit=2 --wait --wait-timeout 240
+      python3 load/run.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --companies 20 --label ci-normal
+      python3 load/chaos.py --base "$CABINET_URL" balance --project "$COMPOSE_PROJECT_NAME" --cohort ci-normal
+      python3 load/chaos.py --base "$CABINET_URL" disburse --project "$COMPOSE_PROJECT_NAME" --cohort ci-normal
+    - |
+      python3 load/run.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --companies 20 --label ci-crash --prepare-only
+      python3 load/chaos.py --base "$CABINET_URL" crash --project "$COMPOSE_PROJECT_NAME" --cohort ci-crash
+    - |
+      for mode in recover-down recover-slow timeout; do
+        python3 load/run.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --companies 10 --label "ci-$mode" --prepare-only
+        python3 load/chaos.py --base "$CABINET_URL" "$mode" --project "$COMPOSE_PROJECT_NAME" --cohort "ci-$mode"
+      done
+    - |
+      python3 load/run.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --companies 6 --revenue 999000000 --label ci-races --prepare-only
+      python3 load/chaos.py --base "$CABINET_URL" races --project "$COMPOSE_PROJECT_NAME" --cohort ci-races
+    - |
+      docker compose exec -T prometheus promtool check config /etc/prometheus/prometheus.yml
+      docker compose exec -T -w /etc/prometheus prometheus promtool test rules rules.test.yml
+      python3 monitoring/verify.py --replicas 2 --require-activity --require-source-errors --require-source-timeouts
+    - python3 load/notifications.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --report-name ci-notifications
+    - |
+      docker compose --profile mail up -d --no-build --scale credit=2 --wait --wait-timeout 180
+      MAIL_TESTS=1 npm test --prefix e2e -- --trace off tests/release-notifications.spec.ts tests/release-accounts.spec.ts
+      python3 load/mail.py --base "$CABINET_URL" --mailpit "$MAILPIT_URL" --project "$COMPOSE_PROJECT_NAME" --report-name ci-mail
+      python3 load/account-mail.py --base "$CABINET_URL" --mailpit "$MAILPIT_URL" --project "$COMPOSE_PROJECT_NAME" --report-name ci-account-mail
+    - |
+      replicas="$(docker compose ps --status running -q credit | wc -l)"
+      python3 monitoring/verify.py --replicas "$replicas" --require-correlation --report-name correlation
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - e2e/playwright-report/
+      - e2e/test-results/
+      - load/reports/**/summary.json
+      - load/reports/**/verified.json
+      - load/reports/**/k6.log
+      - load/reports/**/balance.json
+      - load/reports/**/disburse.json
+      - load/reports/**/crash.json
+      - load/reports/**/recover-down.json
+      - load/reports/**/recover-slow.json
+      - load/reports/**/timeout.json
+      - load/reports/**/races.json
+      - monitoring/reports/*.json
+    reports:
+      junit:
+        - e2e/test-results/mail/junit.xml
+
+helm-chart:
+  stage: quality
+  extends: .quality
+  script:
+    - sh helm/cabinet/test-chart.sh

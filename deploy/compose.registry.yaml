@@ -1,0 +1,50 @@
+x-release-image: &release-image
+  pull_policy: never
+
+services:
+  clamav:
+    image: "${CABINET_IMAGE_CLAMAV:-clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614}"
+  postgres:
+    <<: *release-image
+    build: !reset null
+    image: ${CABINET_IMAGE_POSTGRES:?Нужен registry manifest PostgreSQL}
+  db-init:
+    <<: *release-image
+    build: !reset null
+    image: ${CABINET_IMAGE_POSTGRES:?Нужен registry manifest PostgreSQL}
+  identity-migrate:
+    <<: *release-image
+    build: !reset null
+    image: ${CABINET_IMAGE_IDENTITY:?Нужен registry manifest identity}
+  credit-migrate:
+    <<: *release-image
+    build: !reset null
+    image: ${CABINET_IMAGE_CREDIT:?Нужен registry manifest credit}
+  engagement-migrate:
+    <<: *release-image
+    build: !reset null
+    image: ${CABINET_IMAGE_ENGAGEMENT:?Нужен registry manifest engagement}
+  identity:
+    <<: *release-image
+    build: !reset null
+    image: ${CABINET_IMAGE_IDENTITY:?Нужен registry manifest identity}
+  credit:
+    <<: *release-image
+    build: !reset null
+    image: ${CABINET_IMAGE_CREDIT:?Нужен registry manifest credit}
+  engagement:
+    <<: *release-image
+    build: !reset null
+    image: ${CABINET_IMAGE_ENGAGEMENT:?Нужен registry manifest engagement}
+  external-sim:
+    <<: *release-image
+    build: !reset null
+    image: ${CABINET_IMAGE_EXTERNAL_SIM:?Нужен registry manifest external-sim}
+  frontend:
+    <<: *release-image
+    build: !reset null
+    image: ${CABINET_IMAGE_FRONTEND:?Нужен registry manifest frontend}
+  swagger-ui:
+    <<: *release-image
+    build: !reset null
+    image: ${CABINET_IMAGE_SWAGGER:?Нужен registry manifest swagger}

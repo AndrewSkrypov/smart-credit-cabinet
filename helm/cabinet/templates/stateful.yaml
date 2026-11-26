@@ -1,0 +1,129 @@
+{{- $root := . }}
+{{- $services := dict
+  "postgres" (dict "port" 5432 "mount" "/var/lib/postgresql/data" "cpu" "250m" "memory" "384Mi" "limit" "1Gi")
+  "valkey" (dict "port" 6379 "mount" "/data" "cpu" "50m" "memory" "96Mi" "limit" "192Mi")
+  "clamav" (dict "port" 3310 "mount" "/var/lib/clamav" "cpu" "200m" "memory" "1Gi" "limit" "2Gi") }}
+{{- range $name, $service := $services }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "cabinet.selector" (list $root $name) | nindent 4 }}
+  ports:
+    - {name: service, port: {{ $service.port }}, targetPort: service}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "cabinet.selector" (list $root $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list $root $name) | nindent 8 }}
+      annotations:
+        checksum/state-config: {{ (include (print $root.Template.BasePath "/config.yaml") $root | sha256sum) | quote }}
+    spec:
+      {{- include "cabinet.pod" $root | nindent 6 }}
+      {{- if eq $name "clamav" }}
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      initContainers:
+        - name: seed-clamav-signatures
+          image: {{ include "cabinet.image" (list $root $name) | quote }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              {{- $root.Files.Get "files/clamav-seed.sh" | nindent 14 }}
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL], add: [CHOWN, DAC_OVERRIDE]}
+            seccompProfile: {type: RuntimeDefault}
+          resources:
+            requests: {cpu: 100m, memory: 64Mi}
+            limits: {cpu: "1", memory: 256Mi}
+          volumeMounts:
+            - {name: data, mountPath: /seed}
+      {{- end }}
+      containers:
+        - name: {{ $name }}
+          image: {{ include "cabinet.image" (list $root $name) | quote }}
+          ports:
+            - {name: service, containerPort: {{ $service.port }}}
+          resources:
+            requests:
+              cpu: {{ $service.cpu | quote }}
+              memory: {{ $service.memory | quote }}
+            limits:
+              memory: {{ $service.limit | quote }}
+              cpu: "2"
+          {{- if eq $name "postgres" }}
+          args: [postgres, -c, shared_buffers=96MB, -c, work_mem=4MB, -c, max_connections=120]
+          env:
+            - {name: POSTGRES_DB, value: cabinet}
+            - {name: POSTGRES_USER, value: cabinet}
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+            {{- include "cabinet.secret" (list $root "POSTGRES_PASSWORD" "POSTGRES_PASSWORD") | nindent 12 }}
+          readinessProbe:
+            exec:
+              command: [pg_isready, -h, 127.0.0.1, -U, cabinet, -d, cabinet]
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: service}
+            initialDelaySeconds: 30
+          {{- else if eq $name "valkey" }}
+          command: [/bin/sh, /cabinet/start.sh]
+          env:
+            {{- include "cabinet.secret" (list $root "VALKEY_PASSWORD" "VALKEY_PASSWORD") | nindent 12 }}
+          readinessProbe:
+            exec:
+              command: [/bin/sh, -ec, 'VALKEYCLI_AUTH="$VALKEY_PASSWORD" valkey-cli ping | grep -qx PONG']
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: service}
+            initialDelaySeconds: 20
+          {{- else }}
+          command: [/bin/sh, -ec, "cp /cabinet/clamd.conf /etc/clamav/clamd.conf && exec /init"]
+          env:
+            - {name: ANTIVIRUS_MAX_SIGNATURE_AGE, value: PT72H}
+          readinessProbe:
+            exec: {command: [/bin/sh, /cabinet/healthcheck.sh]}
+            timeoutSeconds: 5
+          startupProbe:
+            exec: {command: [/bin/sh, /cabinet/healthcheck.sh]}
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 60
+          livenessProbe:
+            tcpSocket: {port: service}
+          {{- end }}
+          volumeMounts:
+            - {name: data, mountPath: {{ $service.mount }}}
+            {{- if ne $name "postgres" }}
+            - {name: scripts, mountPath: /cabinet, readOnly: true}
+            {{- end }}
+      {{- if ne $name "postgres" }}
+      volumes:
+        - name: scripts
+          configMap: {name: cabinet-state-config}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- include "cabinet.storageClass" $root | nindent 8 }}
+        resources:
+          requests:
+            storage: {{ index $root.Values.persistence $name | quote }}
+{{- end }}

@@ -1,0 +1,33 @@
+route:
+  receiver: discard
+  group_by: [environment, alertname, service]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - receiver: discard
+      matchers: ['alertname=~"Watchdog|InfoInhibitor"']
+    - receiver: goalert
+      group_by: ["..."]
+      matchers: ['environment="prod"', 'severity="critical"']
+      continue: true
+    - receiver: telegram
+      matchers: ['environment="prod"', 'severity=~"critical|warning"']
+receivers:
+  - name: discard
+  - name: telegram
+    telegram_configs:
+      - api_url: https://api.telegram.org
+        bot_token_file: /etc/alertmanager/secrets/cabinet-paging/telegram-token
+        chat_id_file: /etc/alertmanager/secrets/cabinet-paging/telegram-chat-id
+        parse_mode: ""
+        http_config:
+          tls_config:
+            insecure_skip_verify: false
+        send_resolved: true
+        message: |-
+          [{{ .Status | toUpper }}][{{ .CommonLabels.environment }}][{{ .CommonLabels.severity }}] {{ .GroupLabels.alertname }} {{ .CommonLabels.service }}
+  - name: goalert
+    webhook_configs:
+      - url_file: /etc/alertmanager/secrets/cabinet-paging/goalert-url
+        send_resolved: true

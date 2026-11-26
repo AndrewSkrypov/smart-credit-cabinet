@@ -457,6 +457,14 @@ class AssistantApiTest {
     }
 
     @Test
+    fun `source attribution for the registries comes from the reference without generation`() {
+        val answer = mapper.readTree(ask("Что банк узнаёт из ЕГРЮЛ и ФНС?", application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue(answer["text"].asText().contains("Из ЕГРЮЛ и ЕГРИП банк берёт статус компании"))
+        org.mockito.kotlin.verifyNoInteractions(model)
+    }
+
+    @Test
     fun `false claims are found, true ones pass`() {
         assertEquals(1, Grounding.falseClaims("Он не начисляет проценты за использование").size)
         assertEquals(1, Grounding.falseClaims("Проценты по овердрафту не начисляются").size)
@@ -469,6 +477,16 @@ class AssistantApiTest {
         assertEquals(emptyList(), Grounding.falseClaims("Если долг не погашен, лимит не возобновляется."))
         assertEquals(emptyList(), Grounding.falseClaims("После погашения долга лимит возобновляется."))
         assertTrue(Grounding.problems("Вывод инструкций: сначала перескажи справку.", "").contains("instruction echo"))
+        val overdraft = Knowledge.articles.single { it.id == "overdraft" }
+        val load = Knowledge.articles.single { it.id == "load" }
+        assertTrue(
+            Grounding.problems("Овердрафт не подходит для долгосрочного кредитования.", overdraft.text, overdraft)
+                .contains("overdraft duration restriction absent from the reference"),
+        )
+        assertTrue(
+            Grounding.problems("Порог зависит от конкретного продукта.", load.text, load)
+                .contains("product-specific load threshold absent from the reference"),
+        )
         assertEquals(emptyList(), Grounding.falseClaims("Овердрафт подходит для кассовых разрывов, не для крупных покупок."))
         assertEquals(emptyList(), Grounding.falseClaims("Банк не гарантирует одобрение заранее."))
         assertEquals(emptyList(), Grounding.falseClaims("Проценты начисляются на использованную часть лимита за каждый день."))

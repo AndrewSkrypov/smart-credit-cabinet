@@ -1,11 +1,37 @@
 import { Box, Button, LinearProgress, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { ReactNode, useLayoutEffect, useRef } from 'react';
 import { useApplicationPage } from '../hooks/useApplicationPage';
+import { tokens } from '../theme/theme';
 
 type PageState = ReturnType<typeof useApplicationPage>;
-const statusSlot = { minHeight: 24, '@media (max-width: 899.95px), (pointer: coarse)': { minHeight: 44 } };
+const narrowOrTouch = '@media (max-width: 899.95px), (pointer: coarse)';
+const statusSlot = { minHeight: 36, [narrowOrTouch]: { minHeight: 44 } };
+const statusAction = {
+  ...statusSlot,
+  position: 'relative',
+  isolation: 'isolate',
+  border: 0,
+  bgcolor: 'transparent',
+  whiteSpace: 'nowrap',
+  // Inset the visible surface while keeping the full touch target.
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    inset: '2px 0',
+    zIndex: -1,
+    border: '1px solid',
+    borderColor: 'divider',
+    borderRadius: 'inherit',
+    bgcolor: tokens.secondaryFill,
+    pointerEvents: 'none',
+    [narrowOrTouch]: { insetBlock: '4px' },
+  },
+  '&:hover': { border: 0, bgcolor: 'transparent' },
+  '&:hover::before': { borderColor: 'text.secondary' },
+};
+
 export function ApplicationPageFilters({ state, bank, status = true }: { state: PageState; bank?: boolean; status?: boolean }) {
-  return <Stack spacing={0.5}>
+  return <Stack>
     <Stack direction={{ xs: 'column', sm: 'row' }} gap={2}>
       <TextField label={bank ? 'Поиск по номеру, компании или ИНН' : 'Поиск по номеру или продукту'} value={state.search} onChange={(event) => state.setSearch(event.target.value)} inputProps={{ maxLength: 100 }} fullWidth size="small" />
       <TextField select label="Сортировка" size="small" value={state.query.sort} onChange={(event) => state.update({ sort: event.target.value, page: 0 })} sx={{ minWidth: 190 }}>
@@ -17,16 +43,18 @@ export function ApplicationPageFilters({ state, bank, status = true }: { state: 
   </Stack>;
 }
 
-/** Reserved toolbar line: a poll/update/error never inserts a banner above a reading row. */
+/** Reserve one status row, with room for actions to wrap on narrow screens. */
 export function ApplicationPageStatus({ states }: { states: PageState[] }) {
   const failed = states.find(state => state.error);
   const updated = states.some(state => state.hasUpdates);
-  return <Stack direction="row" alignItems="center" gap={1} sx={{ ...statusSlot, minWidth: 0 }}>
-    <Typography role="status" variant="caption" color={failed ? 'error' : 'text.secondary'} noWrap sx={{ flex: 1 }} title={failed?.error ?? undefined}>
+  return <Stack direction="row" alignItems="center" gap={1} useFlexGap flexWrap="wrap"
+    sx={{ ...statusSlot, boxSizing: 'content-box', py: 1, minWidth: 0 }}>
+    <Typography role="status" variant="caption" color={failed ? 'error' : 'text.secondary'} noWrap
+      sx={{ minWidth: 0, maxWidth: '100%', fontWeight: 500 }} title={failed?.error ?? undefined}>
       {failed ? failed.error : updated ? 'Есть обновления' : states.some(state => state.loading) ? 'Загрузка заявок…' : ''}
     </Typography>
-    {updated && <Button size="small" sx={{ ...statusSlot, py: 0 }} onClick={() => states.forEach(state => state.apply())}>Показать обновления</Button>}
-    {failed && <Button size="small" sx={{ ...statusSlot, py: 0 }} onClick={() => states.forEach(state => { if (state.error) void state.reload(); })}>Повторить</Button>}
+    {updated && <Button variant="outlined" size="small" sx={statusAction} onClick={() => states.forEach(state => state.apply())}>Показать обновления</Button>}
+    {failed && <Button variant="outlined" size="small" sx={statusAction} onClick={() => states.forEach(state => { if (state.error) void state.reload(); })}>Повторить</Button>}
   </Stack>;
 }
 

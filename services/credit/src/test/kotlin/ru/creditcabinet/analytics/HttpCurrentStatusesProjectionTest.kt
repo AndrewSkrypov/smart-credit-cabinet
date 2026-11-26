@@ -49,7 +49,7 @@ class HttpCurrentStatusesProjectionTest {
                 assertEquals(1.0, metrics.get(READ_METRIC).tags("source", "projection", "reason", "ready").counter().count())
                 assertEquals(2.0, metrics.get(READ_METRIC).tags("source", "sql", "reason", "outbox_pending").counter().count())
             }
-            synchronized(calls) { assertEquals(listOf(token, token), calls) }
+            synchronized(calls) { assertEquals(listOf<String?>(token, token), calls) }
         }
     }
 

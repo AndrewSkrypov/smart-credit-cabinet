@@ -4,31 +4,40 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.jsonwebtoken.Jwts
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
+import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.doCallRealMethod
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.context.bean.override.mockito.MockitoBean
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import ru.creditcabinet.agent.domain.AgentAccessDecision
 import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.application.domain.CompanyDirectory
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
-import ru.creditcabinet.assessment.domain.BankInfo
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.integration.CompanySources
+import ru.creditcabinet.pipeline.FakeSources
+import ru.creditcabinet.pipeline.MutableClock
+import ru.creditcabinet.pipeline.PipelineFakesConfig
+import ru.creditcabinet.pipeline.PipelineWorker
 import ru.creditcabinet.product.infrastructure.CreditCatalogConfiguration
+import ru.creditcabinet.product.infrastructure.RemoteProductCatalog
+import java.sql.Connection
 import java.sql.DriverManager
 import java.time.Clock
 import java.util.Date
@@ -36,6 +45,8 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 @SpringBootTest(
     properties = [
@@ -45,6 +56,7 @@ import kotlin.test.assertFailsWith
     ],
 )
 @AutoConfigureMockMvc
+@Import(PipelineFakesConfig::class)
 @EnabledIfEnvironmentVariable(named = "CATALOG_CREDIT_TEST", matches = "true")
 class RemoteCatalogIntegrationTest {
     @Autowired
@@ -65,8 +77,17 @@ class RemoteCatalogIntegrationTest {
     @MockitoBean
     private lateinit var agentAccess: AgentAccessPort
 
-    @MockitoBean
-    private lateinit var sources: CompanySources
+    @Autowired
+    private lateinit var sources: FakeSources
+
+    @Autowired
+    private lateinit var clock: MutableClock
+
+    @Autowired
+    private lateinit var worker: PipelineWorker
+
+    @MockitoSpyBean
+    private lateinit var remote: RemoteProductCatalog
 
     private val riskId = UUID.randomUUID()
     private val agentId = UUID.randomUUID()
@@ -77,7 +98,9 @@ class RemoteCatalogIntegrationTest {
     fun `both HTTP submission paths pin the remote audit and reject stale consent without replaying writes`() {
         whenever(companies.find(direct.id)).thenReturn(direct)
         whenever(agentAccess.checkAccess(agentId, represented.id)).thenReturn(AgentAccessDecision(allowed = true, company = represented))
-        whenever(sources.bank(represented.inn)).thenReturn(BankInfo(true, null, emptyList()))
+        val today = clock.instant().atZone(clock.zone).toLocalDate()
+        sources.companies[direct.inn] = FakeSources.healthy(direct.inn, today, okved = "41.20")
+        sources.companies[represented.inn] = FakeSources.healthy(represented.inn, today)
 
         val admin = token(Roles.RISK_ADMIN, riskId)
         val manager = token(Roles.MANAGER)
@@ -110,9 +133,18 @@ class RemoteCatalogIntegrationTest {
             "declaredRevenue12m" to 24_000_000,
             "bureauConsent" to true,
         )
+        var previewFailures = 0
+        doAnswer {
+            assertFalse(TransactionSynchronizationManager.isActualTransactionActive())
+            previewFailures++
+            throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Сбой чтения после записи")
+        }.whenever(remote).latest(selected)
         val directId = post(applications, directClient, request).json(201)["id"].asText()
+        assertEquals("DRAFT", put("$applications/$directId", directClient, request).json()["status"].asText())
         val agentId = post(agentApplications, agent, request + ("companyId" to represented.id)).json(201)["id"].asText()
         assertEquals("PENDING_CLIENT_CONFIRMATION", post("$agentApplications/$agentId/request-confirmation", agent).json()["status"].asText())
+        assertEquals(4, previewFailures)
+        doCallRealMethod().whenever(remote).latest(selected)
 
         val revised = put(
             "$bankProducts/$selected",
@@ -148,39 +180,94 @@ class RemoteCatalogIntegrationTest {
         )
         post("$bankProducts/$selected/archive", admin, mapOf("expectedVersion" to 3, "reason" to "Архив")).json()
         val retry = post(applications, directClient, request + ("productCode" to alternative)).json(201)["id"].asText()
+        val retryAgent = post(agentApplications, agent, request + mapOf("companyId" to represented.id, "productCode" to alternative))
+            .json(201)["id"].asText()
+        post("$agentApplications/$retryAgent/request-confirmation", agent).json()
         val local = CreditCatalogConfiguration().creditProductCatalog(jdbc, Clock.systemUTC(), "local")
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, assertFailsWith<ApiException> { local.snapshotForSubmission(selected) }.httpStatus)
         assertEquals(3L, local.version(selected, 3)?.version)
 
-        withoutCatalogAuthority {
+        val uncached = "R1_HTTP_${suffix}_C"
+        post(bankProducts, admin, terms() + ("code" to uncached)).json(201)
+        post("$bankProducts/$uncached/publish", admin, mapOf("expectedVersion" to 1, "reason" to "Публикация")).json()
+        withLockedCatalog {
             assertEquals(503, post("$applications/$retry/submit", directClient, mapOf("acceptedProductVersion" to 2)).status)
             assertEquals(
-                "DRAFT",
-                jdbc.queryForObject("select status from applications where id = ?", String::class.java, UUID.fromString(retry)),
+                503,
+                post("$applications/$retryAgent/confirm", representedClient, mapOf("acceptedProductVersion" to 2, "bureauConsent" to true)).status,
             )
-            assertEquals(
-                0,
-                jdbc.queryForObject("select count(*) from pipeline_jobs where application_id = ?", Int::class.java, UUID.fromString(retry)),
-            )
+            assertUnchangedDraft(retry, "DRAFT")
+            assertUnchangedDraft(retryAgent, "PENDING_CLIENT_CONFIRMATION")
+            assertEquals(0, jdbc.queryForObject("select count(*) from product_versions where code = ?", Int::class.java, uncached))
+            val handed = get("$applications/$retryAgent", representedClient).json()
+            assertEquals(2L, handed["product"]["version"].asLong())
+        }
+        val archived = terms() + mapOf("expectedVersion" to 2, "name" to "Архивный тариф", "baseRate" to 88, "lifecycleStatus" to "ARCHIVED")
+        put("$bankProducts/$alternative", admin, archived).json()
+        withoutCatalogAuthority {
+            worker.runDue()
             val pinned = get("$applications/$directId", manager).json()
+            assertEquals("MANUAL_REVIEW", pinned["status"].asText())
             assertEquals(3L, pinned["product"]["version"].asLong())
+            post(
+                "/api/v1/underwriting/applications/$directId/counter-offer",
+                token(Roles.UNDERWRITER),
+                mapOf("productCode" to alternative, "amount" to 500_000, "termMonths" to 12, "comment" to "Тариф из снимка"),
+            ).json()
+            val offer = get("$applications/$directId", directClient).json()["process"]["offer"]
+            assertEquals(2L, offer["productVersion"].asLong())
+            assertTrue(offer["rate"].asDouble() < 88)
+            post("$applications/$directId/offer/accept", directClient).json()
+            val contract = get("$applications/$directId/contract", directClient).json()
+            assertTrue(contract["text"].asText().contains("Проверка удалённого Catalog"))
+            assertFalse(contract["text"].asText().contains("Архивный тариф"))
         }
     }
 
-    private fun withoutCatalogAuthority(action: () -> Unit) {
+    private fun assertUnchangedDraft(id: String, status: String) {
+        val uuid = UUID.fromString(id)
+        val application = jdbc.queryForMap(
+            "select status, product_catalog_snapshot::text as snapshot from applications where id = ?",
+            uuid,
+        )
+        assertEquals(status, application["status"])
+        assertEquals("{}", application["snapshot"])
+        assertEquals(0, jdbc.queryForObject("select count(*) from pipeline_jobs where application_id = ?", Int::class.java, uuid))
+    }
+
+    private fun withLockedCatalog(action: () -> Unit) = withCatalogOwner { owner ->
+        owner.autoCommit = false
+        try {
+            owner.createStatement().use { statement ->
+                statement.execute("lock table catalog_cutover.authority in access exclusive mode")
+                action()
+            }
+        } finally {
+            owner.rollback()
+        }
+    }
+
+    private fun withoutCatalogAuthority(action: () -> Unit) = withCatalogOwner { owner ->
+        owner.createStatement().use { statement ->
+            assertEquals(
+                1,
+                statement.executeUpdate("update catalog_cutover.authority set writable = false where singleton and writable"),
+            )
+            try {
+                action()
+            } finally {
+                assertEquals(1, statement.executeUpdate("update catalog_cutover.authority set writable = true where singleton and not writable"))
+            }
+        }
+    }
+
+    private fun withCatalogOwner(action: (Connection) -> Unit) {
         val url = checkNotNull(System.getenv("CATALOG_TEST_OWNER_JDBC_URL"))
         val user = checkNotNull(System.getenv("CATALOG_TEST_OWNER_DATABASE_USER"))
         val password = System.getenv("CATALOG_TEST_OWNER_DATABASE_PASSWORD").orEmpty()
         DriverManager.getConnection(url, user, password).use { owner ->
             require(owner.catalog == "catalog")
-            owner.createStatement().use { statement ->
-                assertEquals(1, statement.executeUpdate("update catalog_cutover.authority set writable = false where singleton and writable"))
-                try {
-                    action()
-                } finally {
-                    assertEquals(1, statement.executeUpdate("update catalog_cutover.authority set writable = true where singleton and not writable"))
-                }
-            }
+            action(owner)
         }
     }
 

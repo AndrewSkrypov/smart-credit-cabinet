@@ -189,6 +189,15 @@ class DocumentsRuntimeTest {
                     statement.executeUpdate()
                 }
             }
+            db("credit") { connection ->
+                assertFailsWith<java.sql.SQLException> {
+                    connection.prepareStatement("update document_artifact_inputs set input_json=jsonb_set(input_json,'{calculation,rate}','12.0'::jsonb) where application_id=? and offer_id=?").use { statement ->
+                        statement.setObject(1, scope.applicationId)
+                        statement.setObject(2, offer)
+                        statement.executeUpdate()
+                    }
+                }
+            }
             val first = remote.prepare(record)
             val duplicateId = UUID.randomUUID()
             assertEquals(first.id, remote.prepare(record.copy(id = duplicateId, storedName = "generated-$duplicateId.pdf")).id)

@@ -23,8 +23,8 @@ create unique index document_final_input_immutable on document_artifact_inputs(a
 create function preserve_document_artifact_input() returns trigger language plpgsql as $$
 begin
  if TG_OP='DELETE' then raise exception 'Document input is immutable'; end if;
- if (new.application_id,new.offer_id,new.phase,new.input_hash,new.input_json,new.created_at) is distinct from
-    (old.application_id,old.offer_id,old.phase,old.input_hash,old.input_json,old.created_at) then
+ if (new.application_id,new.offer_id,new.phase,new.input_hash,new.input_json::text,new.created_at) is distinct from
+    (old.application_id,old.offer_id,old.phase,old.input_hash,old.input_json::text,old.created_at) then
   raise exception 'Document input is immutable';
  end if;
  if old.delivered_at is not null and new.delivered_at is distinct from old.delivered_at then

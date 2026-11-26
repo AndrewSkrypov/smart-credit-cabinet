@@ -64,7 +64,7 @@ class DocumentsMigration(
 
     private fun forward(credit: JdbcTemplate, creditStore: (String) -> FileStore) {
         var documents = 0
-        credit.query("select d.*,a.company_id from documents d join applications a on a.id=d.application_id order by d.id") { rs: ResultSet ->
+        credit.query("select d.*,a.company_id from documents d join applications a on a.id=d.application_id order by d.id", org.springframework.jdbc.core.RowCallbackHandler { rs ->
             val backend = rs.getString("storage_backend")
             val size = rs.getLong("size_bytes")
             val bytes = read(creditStore(backend), rs.getString("stored_name"), backend, size, rs.getString("checksum_sha256"))
@@ -77,9 +77,9 @@ class DocumentsMigration(
             check(previous == null || previous == record)
             target.update("insert into document_records(id,company_id,application_id,context,metadata) values(?,?,?,?,?::jsonb) on conflict do nothing", record.id, record.scope.companyId, record.scope.applicationId, record.context, mapper.writeValueAsString(record))
             documents++
-        }
+        })
         var artifacts = 0
-        credit.query("select g.*,a.company_id from generated_artifacts g join applications a on a.id=g.application_id order by g.id") { rs: ResultSet ->
+        credit.query("select g.*,a.company_id from generated_artifacts g join applications a on a.id=g.application_id order by g.id", org.springframework.jdbc.core.RowCallbackHandler { rs ->
             val input = mapper.readValue<ArtifactInput>(rs.getString("input_json"))
             val frozen = mapper.writeValueAsString(input)
             check(sha256(frozen.toByteArray()) == rs.getString("input_hash"))
@@ -90,12 +90,12 @@ class DocumentsMigration(
             if (record.status == "READY") copy(files, record.storedName, record.backend, read(creditStore(record.backend), record.storedName, record.backend, record.sizeBytes!!, record.checksum))
             val previous = target.query("select metadata from artifact_records where id=?", { row, _ -> mapper.readValue<ArtifactRecord>(row.getString(1)) }, record.id).firstOrNull()
             check(previous == null || previous == record)
-            target.update("insert into artifact_records(id,company_id,application_id,offer_id,kind,phase,template_version,input_hash,metadata,status,attempts,next_attempt_at) values(?,?,?,?,?,?,?,?,?::jsonb,?,?,?) on conflict do nothing",
+            target.update("insert into artifact_records(id,company_id,application_id,offer_id,kind,phase,template_version,input_hash,metadata,status,attempts,next_attempt_at) values(?,?,?,?,?,?,?,?,?::jsonb,?,?,?) on conflict(id) do nothing",
                 record.id, record.scope.companyId, record.scope.applicationId, record.offerId, record.kind, record.phase, record.templateVersion, record.inputHash, mapper.writeValueAsString(record), record.status, rs.getInt("attempts"), rs.getTimestamp("next_attempt_at"))
             // Import the immutable Credit snapshot as a retry intent, retaining old file links.
             credit.update("insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json,delivered_at) values(?,?,?,?,?::jsonb,now()) on conflict do nothing", record.scope.applicationId, record.offerId, record.phase, record.inputHash, frozen)
             artifacts++
-        }
+        })
         println("documents_migration direction=forward documents=$documents artifacts=$artifacts checksums=verified owner=FROZEN")
     }
 
@@ -103,21 +103,21 @@ class DocumentsMigration(
         // Requires explicit admin credentials. The application role must never own these tables.
         credit.execute("alter table documents disable trigger documents_owner_fence")
         credit.execute("alter table generated_artifacts disable trigger artifacts_owner_fence")
-        target.query("select metadata from document_records order by id") { rs: ResultSet ->
+        target.query("select metadata from document_records order by id", org.springframework.jdbc.core.RowCallbackHandler { rs ->
             val d = mapper.readValue<DocumentRecord>(rs.getString(1))
             check(credit.queryForObject("select company_id from applications where id=?", UUID::class.java, d.scope.applicationId) == d.scope.companyId)
             copy(creditStore(d.backend), d.storedName, d.backend, read(files, d.storedName, d.backend, d.sizeBytes, d.checksum))
             credit.update("""insert into documents(id,application_id,type,file_name,stored_name,size_bytes,uploaded_by,uploaded_at,context,storage_backend,checksum_sha256,private_to_bank,deleted_at)
                 values(?,?,?,?,?,?,?,?,?,?,?,?,?) on conflict(id) do update set deleted_at=excluded.deleted_at,checksum_sha256=excluded.checksum_sha256""",
                 d.id, d.scope.applicationId, d.type, d.fileName, d.storedName, d.sizeBytes, d.uploadedBy, Timestamp.from(d.uploadedAt), d.context, d.backend, d.checksum, d.privateToBank, d.deletedAt?.let(Timestamp::from))
-        }
-        target.query("select metadata from artifact_records order by id") { rs: ResultSet ->
+        })
+        target.query("select metadata from artifact_records order by id", org.springframework.jdbc.core.RowCallbackHandler { rs ->
             val a = mapper.readValue<ArtifactRecord>(rs.getString(1))
             if (a.status == "READY") copy(creditStore(a.backend), a.storedName, a.backend, read(files, a.storedName, a.backend, a.sizeBytes!!, a.checksum))
             credit.update("""insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,status,size_bytes,checksum,created_at,updated_at,ready_at,next_attempt_at)
                 values(?,?,?,?,?,?,?,?::jsonb,?,?,?,?,?,?,?,?,?,now(),?,now()) on conflict(id) do update set status=excluded.status,size_bytes=excluded.size_bytes,checksum=excluded.checksum,ready_at=excluded.ready_at""",
                 a.id, a.scope.applicationId, a.offerId, a.kind, a.phase, a.templateVersion, a.inputHash, a.inputJson, a.title, a.fileName, a.contentType, a.storedName, a.backend, a.status, a.sizeBytes, a.checksum, Timestamp.from(a.createdAt), a.readyAt?.let(Timestamp::from))
-        }
+        })
         credit.execute("alter table documents enable trigger documents_owner_fence")
         credit.execute("alter table generated_artifacts enable trigger artifacts_owner_fence")
         println("documents_migration direction=reverse checksums=verified owner=FROZEN")

@@ -19,6 +19,20 @@ create table document_artifact_inputs (
  created_at timestamptz not null default now(), delivered_at timestamptz,
  primary key(application_id,offer_id,phase,input_hash)
 );
+create unique index document_final_input_immutable on document_artifact_inputs(application_id,offer_id) where phase='FINAL';
+create function preserve_document_artifact_input() returns trigger language plpgsql as $$
+begin
+ if TG_OP='DELETE' then raise exception 'Document input is immutable'; end if;
+ if (new.application_id,new.offer_id,new.phase,new.input_hash,new.input_json,new.created_at) is distinct from
+    (old.application_id,old.offer_id,old.phase,old.input_hash,old.input_json,old.created_at) then
+  raise exception 'Document input is immutable';
+ end if;
+ if old.delivered_at is not null and new.delivered_at is distinct from old.delivered_at then
+  raise exception 'Document delivery receipt is immutable';
+ end if;
+ return new;
+end $$;
+create trigger document_artifact_inputs_immutable before update or delete on document_artifact_inputs for each row execute function preserve_document_artifact_input();
 -- Existing FK assumes local documents. Application/chat FKs and immutable attachment
 -- triggers remain; Credit validates document scope before inserting each reference.
 alter table message_attachments drop constraint message_attachments_document_id_application_id_fkey;

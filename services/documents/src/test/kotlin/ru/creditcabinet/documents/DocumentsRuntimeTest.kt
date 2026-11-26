@@ -115,6 +115,9 @@ class DocumentsRuntimeTest {
             assertEquals(ready, remote.retry(scope, ready.id))
             assertContentEquals(bytes, remote.artifactBytes(scope, ready.id))
             assertEquals(frozen, ready.inputJson)
+            assertTrue(ready.inputJson.contains("\"rate\":12.00"))
+            assertEquals(input, mapper.readValue(ready.inputJson, ArtifactInput::class.java))
+            assertEquals(2, mapper.readValue(ready.inputJson, ArtifactInput::class.java).calculation.rate.scale())
             val noticeDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(40)
             var notices = 0
             while (notices == 0 && System.nanoTime() < noticeDeadline) {

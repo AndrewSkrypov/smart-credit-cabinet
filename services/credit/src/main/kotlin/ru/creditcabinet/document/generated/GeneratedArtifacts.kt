@@ -133,7 +133,11 @@ class GeneratedArtifacts(
         val hash = checksum(canonical.toByteArray())
         // Credit owns the immutable terms and durable command intent, never remote file metadata.
         jdbc.update("insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json) values(?,?,?,?,?::jsonb) on conflict do nothing", application.id, input.offerId, input.phase.name, hash, canonical)
-        val frozen = jdbc.queryForObject("select input_json from document_artifact_inputs where application_id=? and offer_id=? and phase=? and input_hash=?", String::class.java, application.id, input.offerId, input.phase.name, hash)!!
+        val frozen = if (input.phase == ArtifactPhase.FINAL) {
+            jdbc.queryForObject("select input_json from document_artifact_inputs where application_id=? and offer_id=? and phase='FINAL'", String::class.java, application.id, input.offerId)!!
+        } else {
+            jdbc.queryForObject("select input_json from document_artifact_inputs where application_id=? and offer_id=? and phase=? and input_hash=?", String::class.java, application.id, input.offerId, input.phase.name, hash)!!
+        }
         val stableInput = mapper.readValue<ArtifactInput>(frozen)
         val stableJson = mapper.writeValueAsString(stableInput)
         val stableHash = checksum(stableJson.toByteArray())
@@ -165,7 +169,7 @@ class GeneratedArtifacts(
             val ids = jdbc.query("select l.application_id from loans l where not exists(select 1 from document_artifact_inputs i where i.application_id=l.application_id and i.phase='FINAL' and i.delivered_at is not null) order by l.disbursed_at limit 5", { rs, _ -> rs.getObject(1, UUID::class.java) })
             ids.forEach { id -> runCatching { tx.executeWithoutResult {
                 prepare(repository.find(id) ?: throw NotFoundException("Заявка не найдена"))
-                jdbc.update("update document_artifact_inputs set delivered_at=now() where application_id=? and phase='FINAL'", id)
+                jdbc.update("update document_artifact_inputs set delivered_at=now() where application_id=? and phase='FINAL' and delivered_at is null", id)
             } } }
             return
         }

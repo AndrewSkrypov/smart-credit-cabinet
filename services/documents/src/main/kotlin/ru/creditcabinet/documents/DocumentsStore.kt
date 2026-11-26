@@ -129,8 +129,12 @@ class DocumentsStore(
                 jdbc.update("insert into artifact_outbox(artifact_id) values(?) on conflict do nothing", record.id)
             }
         } catch (_: Exception) {
-            tx.executeWithoutResult {
-                jdbc.update("update artifact_records set status='ERROR',metadata=jsonb_set(metadata,'{status}','\"ERROR\"'),lease_token=null,lease_until=null,next_attempt_at=now()+interval '15 seconds' where id=? and lease_token=?", record.id, token)
+            // A failed stale worker is still a writer. Losing ownership or the claim must
+            // never demote a record belonging to the next epoch or another live worker.
+            runCatching {
+                owned(epoch) {
+                    jdbc.update("update artifact_records set status='ERROR',metadata=jsonb_set(metadata,'{status}','\"ERROR\"'),lease_token=null,lease_until=null,next_attempt_at=now()+interval '15 seconds' where id=? and lease_token=? and lease_until>now() and status<>'READY'", record.id, token)
+                }
             }
         }
     }

@@ -103,7 +103,7 @@ export function AgentPortfolioPage() {
 
       {actionError && <Alert severity="error" onClose={() => setActionError(null)}>{actionError}</Alert>}
 
-      <Grid container spacing={2}>
+      <Grid container spacing={2} data-tour="agent-kpi">
         <Grid item xs={12} sm={6} md={3}>
           <KpiCard label="Активных клиентов" value={String(portfolio.assignedCompaniesCount)} hint="Компаний с действующим мандатом" />
         </Grid>
@@ -122,7 +122,7 @@ export function AgentPortfolioPage() {
         </Grid>
       </Grid>
 
-      <Box>
+      <Box data-tour="agent-clients">
         <Typography variant="h6" component="h2" sx={{ mb: 2 }}>Закреплённые клиенты</Typography>
         {clients.length === 0 ? (
           <EmptyState
@@ -193,7 +193,7 @@ export function AgentPortfolioPage() {
         )}
       </Box>
 
-      <Box>
+      <Box data-tour="agent-applications">
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
           <Typography variant="h6" component="h2">Заявки портфеля</Typography>
           <FormControlLabel

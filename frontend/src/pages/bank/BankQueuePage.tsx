@@ -37,7 +37,7 @@ export function BankQueuePage() {
   return (
     <>
       <PageHeader title="Заявки" subtitle={state.query.sort === 'default' && tab !== 'done' ? 'Очередь заявок малого и микробизнеса. Сверху — те, что ждут дольше всех.' : 'Заявки малого и микробизнеса в выбранном порядке.'} />
-      <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+      <Paper data-tour="bank-queue-tabs" variant="outlined" sx={{ overflow: 'hidden' }}>
         <Tabs value={tab} onChange={(_, value: string) => state.update({ group: value, page: 0 })} variant="scrollable" allowScrollButtonsMobile sx={{ px: { xs: 1, md: 2 }, borderBottom: 1, borderColor: 'divider' }}>
           {groups.map((item) => {
             const count = state.counts?.[item.key] ?? '…';

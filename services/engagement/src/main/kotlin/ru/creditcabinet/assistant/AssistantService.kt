@@ -296,7 +296,7 @@ object Grounding {
     // Letters of scripts other than Cyrillic and Latin: a small model sometimes slips into Chinese mid-sentence.
     private val FOREIGN_SCRIPT = Regex("[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}\\p{IsHangul}\\p{IsArabic}]")
 
-    private val INSTRUCTION_ECHO = Regex("""(?im)^\s*(?:вывод|текст)\s+инструкций\s*:""")
+    private val INSTRUCTION_ECHO = Regex("""(?m)^\s*(?:вывод|текст)\s+инструкций\s*:""", RegexOption.IGNORE_CASE)
 
     /** Longer than this the answer is no longer "short"; long answers were where a small model went wrong. */
     const val MAX_ANSWER = 900

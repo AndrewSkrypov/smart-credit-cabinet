@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Role } from '../../types';
 import { OnboardingHeaderMenu, OnboardingProvider, OnboardingWelcomeBanner } from './OnboardingTour';
-import { onboardingStorageKey } from './tourSteps';
+import { findPageTour, onboardingStorageKey } from './tourSteps';
 
 const testTheme = createTheme();
 
@@ -129,5 +129,75 @@ describe('OnboardingTour', () => {
 
     renderTour('/bank', 'RISK_ADMIN', <div data-tour="bank-queue-tabs">Очередь</div>);
     expect(screen.getByText('Гид риск-администратора')).toBeInTheDocument();
+  });
+  it('offers a page tour on the client application card and stores its progress separately', () => {
+    renderTour(
+      '/client/applications/abc',
+      'CLIENT',
+      <div>
+        <div data-tour="app-status">Этапы</div>
+        <div data-tour="app-confirm">Подтверждение</div>
+        <div data-tour="app-documents">Документы</div>
+      </div>
+    );
+
+    expect(screen.getByText('Впервые в карточке заявки?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Начать обучение' }));
+    expect(screen.getByRole('dialog', { name: /Шаг 1 из 3:/ })).toBeInTheDocument();
+    expect(screen.getByText('Где сейчас заявка и что нужно от вас')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
+    expect(screen.getByText('Проверьте заявку, подготовленную агентом')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Готово' }));
+
+    expect(window.localStorage.getItem(onboardingStorageKey(mocks.userId, 'CLIENT', 'client-application'))).toBe('completed');
+    expect(window.localStorage.getItem(onboardingStorageKey(mocks.userId, 'CLIENT'))).toBeNull();
+    expect(screen.queryByTestId('onboarding-welcome-banner')).not.toBeInTheDocument();
+  });
+
+  it('starts the page tour or the cabinet tour from the header menu and resets every tour of the role', async () => {
+    renderTour(
+      '/bank/applications/42',
+      'UNDERWRITER',
+      <div>
+        <div data-tour="bank-queue-tabs">Очередь</div>
+        <div data-tour="bank-app-decision">Решение</div>
+        <div data-tour="bank-app-advice">Советы</div>
+      </div>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Скрыть' }));
+    expect(window.localStorage.getItem(onboardingStorageKey(mocks.userId, 'UNDERWRITER', 'bank-application'))).toBe('dismissed');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Обучение' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Гид по этой странице/ }));
+    expect(screen.getByText('Решение по заявке и его обоснование')).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Обучение' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Пройти интерактивный гид/ }));
+    expect(await screen.findByText('Очередь заявок и просрочки SLA')).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Обучение' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Показать приглашение снова/ }));
+    expect(window.localStorage.getItem(onboardingStorageKey(mocks.userId, 'UNDERWRITER', 'bank-application'))).toBeNull();
+    expect(window.localStorage.getItem(onboardingStorageKey(mocks.userId, 'UNDERWRITER'))).toBeNull();
+  });
+
+  it('matches page tours by role and path', () => {
+    expect(findPageTour('CLIENT', '/client/applications/1')?.id).toBe('client-application');
+    expect(findPageTour('AGENT', '/agent/applications/1')?.id).toBe('agent-application');
+    expect(findPageTour('AGENT', '/agent/clients/7')?.id).toBe('agent-client');
+    expect(findPageTour('MANAGER', '/bank/applications/1')?.id).toBe('bank-application');
+    expect(findPageTour('RISK_ADMIN', '/bank/products')?.id).toBe('bank-products');
+    expect(findPageTour('UNDERWRITER', '/bank/products')?.id).toBe('bank-products');
+    expect(findPageTour('CLIENT', '/bank/applications/1')).toBeNull();
+    expect(findPageTour('CLIENT', '/client')).toBeNull();
+  });
+
+  it('describes the signing code where the client actually sees it', () => {
+    renderTour('/client', 'CLIENT', <div data-tour="notifications-bell">Колокольчик</div>);
+    fireEvent.click(screen.getByRole('button', { name: 'Начать обучение' }));
+    expect(screen.queryByText(/коды подписания ПЭП приходят/)).not.toBeInTheDocument();
   });
 });

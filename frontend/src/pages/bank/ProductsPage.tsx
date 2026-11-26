@@ -77,6 +77,7 @@ export function ProductsPage() {
         actions={
           canEdit ? (
             <Button
+              data-tour="products-create"
               variant="contained"
               startIcon={<AddRoundedIcon />}
               onClick={() => guard.request(() => setCreateOpen(true))}
@@ -89,7 +90,7 @@ export function ProductsPage() {
       />
       {products.loading && !products.data ? <LoadingBlock /> : products.error ? <ErrorState message={products.error} onRetry={products.reload} /> : (
         <Stack spacing={3}>
-          <Paper sx={{ p: { xs: 2, md: 4 } }}>
+          <Paper data-tour="products-select" sx={{ p: { xs: 2, md: 4 } }}>
             <TextField
               select
               label="Продукт"
@@ -274,14 +275,14 @@ function ProductCard({
         <Paper sx={{ p: { xs: 2, md: 4 } }}>
           <Stack spacing={2.5}>
             <Typography variant="h6">Условия продукта</Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Stack data-tour="products-status" direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <Chip label={`Версия ${value.version}`} />
               <Chip label={lifecycleMeta[status].label} color={lifecycleMeta[status].color} />
               <Chip variant="outlined" label={`Комиссия агента: ${formatCommissionPercent(value.agentCommissionRateBps)}`} />
             </Stack>
 
             {canEdit && (
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap" useFlexGap>
+              <Stack data-tour="products-lifecycle" direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap" useFlexGap>
                 {currentStatus === 'DRAFT' && (
                   <Button
                     variant="contained"
@@ -444,7 +445,7 @@ function ProductCard({
           </Stack>
         </Paper>
       </Grid>
-      <Grid item xs={12} lg={4}>
+      <Grid item xs={12} lg={4} data-tour="products-history">
         <VersionHistory
           title="История версий продукта"
           currentVersion={current?.version ?? value.version ?? 1}

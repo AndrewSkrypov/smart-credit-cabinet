@@ -110,7 +110,7 @@ function ApplicationCard({ id }: { id: string }) {
       <Grid container spacing={3} sx={{ pb: 6 }}>
         <Grid item xs={12} md={8}>
           <Stack spacing={3}>
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+            <Paper data-tour="app-status" variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
               <StageStepper status={application.status} />
               <Box sx={{ mt: 2 }} aria-live="polite">
                 <Typography fontWeight={600}>Что сейчас происходит</Typography>
@@ -130,7 +130,7 @@ function ApplicationCard({ id }: { id: string }) {
               <DraftForm application={application} onSaved={apply} onSubmitted={apply} />
             )}
             {application.status === 'PENDING_CLIENT_CONFIRMATION' && (
-              <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main' }}>
+              <Paper data-tour="app-confirm" variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main' }}>
                 <Typography variant="h6" component="h2" gutterBottom>Подтверждение агентской заявки</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2 }}>
                   {application.agentName
@@ -210,14 +210,14 @@ function ApplicationCard({ id }: { id: string }) {
               </Paper>
             )}
             {application.status === 'INFO_REQUESTED' && application.process.infoRequest && (
-              <InfoRequestBlock application={application} onChanged={load} onSent={apply} />
+              <Box data-tour="app-info"><InfoRequestBlock application={application} onChanged={load} onSent={apply} /></Box>
             )}
             {application.process.offer && ['OFFER_ISSUED', 'SIGNING', 'DISBURSING'].includes(application.status) && (
-              <OfferBlock application={application} onChanged={apply} />
+              <Box data-tour="app-offer"><OfferBlock application={application} onChanged={apply} /></Box>
             )}
-            {application.status === 'SIGNING' && <SigningBlock application={application} onChanged={apply} />}
+            {application.status === 'SIGNING' && <Box data-tour="app-signing"><SigningBlock application={application} onChanged={apply} /></Box>}
             {application.status === 'DISBURSED' && application.process.loan && <LoanBlock application={application} />}
-            {application.status === 'DISBURSED' && <LoanServicingBlock applicationId={application.id} />}
+            {application.status === 'DISBURSED' && <Box data-tour="app-loan"><LoanServicingBlock applicationId={application.id} /></Box>}
             {application.status === 'DISBURSED' && application.process.loan && <GeneratedFilesBlock applicationId={application.id} final />}
             {application.status === 'DISBURSED' && application.process.offer && <Box component="details"><Typography component="summary" sx={{ cursor: 'pointer', py: 1 }}>Согласованные условия</Typography><OfferBlock historical application={application} onChanged={apply} /></Box>}
             {outcome && (
@@ -231,9 +231,9 @@ function ApplicationCard({ id }: { id: string }) {
             )}
 
             {application.process.offer && ['OFFER_ISSUED', 'SIGNING', 'DISBURSING'].includes(application.status) && <GeneratedFilesBlock key={`${application.id}-${!!application.process.loan}`} applicationId={application.id} final={!!application.process.loan} />}
-            <DocumentsBlock application={application} onChanged={load} />
-            <MessagesBlock key={application.id} applicationId={application.id} status={application.status} />
-            <HistoryBlock applicationId={application.id} version={`${application.status}-${application.documents.length}`} />
+            <Box data-tour="app-documents"><DocumentsBlock application={application} onChanged={load} /></Box>
+            <Box data-tour="app-messages"><MessagesBlock key={application.id} applicationId={application.id} status={application.status} /></Box>
+            <Box data-tour="app-history"><HistoryBlock applicationId={application.id} version={`${application.status}-${application.documents.length}`} /></Box>
           </Stack>
         </Grid>
 

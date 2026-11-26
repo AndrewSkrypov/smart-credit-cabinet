@@ -25,7 +25,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { roleHome, useAuth } from '../../auth/AuthProvider';
 import { tokens } from '../../theme/theme';
 import {
+  findPageTour,
   OnboardingState,
+  pageTourIds,
   readOnboardingState,
   roleTours,
   TourStep,
@@ -44,7 +46,10 @@ interface OnboardingContextValue {
   bannerVisible: boolean;
   welcomeTitle: string;
   welcomeSubtitle: string;
+  hasPageTour: boolean;
+  /** Starts the tour of the current screen: the page tour where there is one, otherwise the cabinet tour. */
   startTour: () => void;
+  startCabinetTour: () => void;
   dismissBanner: () => void;
   resetTour: () => void;
 }
@@ -71,74 +76,90 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   const userId = session?.user.id ?? '';
   const role = session?.user.role ?? 'CLIENT';
-  const config = roleTours[role];
+  const homeConfig = roleTours[role];
   const homePath = roleHome[role];
+  const pathname = location.pathname.replace(/\/+$/, '') || '/';
+  const onHome = pathname === homePath;
+  const pageTour = onHome ? null : findPageTour(role, pathname);
+  // The tour of the screen the user is on: the cabinet tour at home, a page tour on key screens.
+  const screenTourId = onHome ? undefined : pageTour?.id;
+  const screenConfig = onHome ? homeConfig : pageTour;
 
   const [status, setStatus] = useState<OnboardingState>(() =>
-    userId ? readOnboardingState(userId, role) : 'dismissed'
+    userId && screenConfig ? readOnboardingState(userId, role, screenTourId) : 'dismissed'
   );
   const [open, setOpen] = useState(false);
   const [activeSteps, setActiveSteps] = useState<TourStep[]>([]);
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<SpotlightRect | null>(null);
-  const pendingStartRef = useRef(false);
+  const pendingCabinetStartRef = useRef(false);
+  const runningTourIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (!userId) return;
-    setStatus(readOnboardingState(userId, role));
     setOpen(false);
     setStepIndex(0);
     setActiveSteps([]);
     setTargetRect(null);
-    pendingStartRef.current = false;
+    pendingCabinetStartRef.current = false;
   }, [userId, role]);
 
-  const launchOnCurrentPage = useCallback(() => {
-    const resolved = config.steps.filter((step) => findVisibleTarget(step.selector) !== null);
-    const stepsToUse = resolved.length > 0 ? resolved : config.steps;
-    setActiveSteps(stepsToUse);
+  useEffect(() => {
+    setStatus(userId && screenConfig ? readOnboardingState(userId, role, screenTourId) : 'dismissed');
+  }, [role, screenConfig, screenTourId, userId]);
+
+  const launch = useCallback((steps: TourStep[], tourId: string | undefined) => {
+    const resolved = steps.filter((step) => findVisibleTarget(step.selector) !== null);
+    runningTourIdRef.current = tourId;
+    setActiveSteps(resolved.length > 0 ? resolved : steps);
     setStepIndex(0);
     setOpen(true);
-  }, [config.steps]);
+  }, []);
 
-  const startTour = useCallback(() => {
-    if (location.pathname !== homePath) {
-      pendingStartRef.current = true;
+  const startCabinetTour = useCallback(() => {
+    if (!onHome) {
+      pendingCabinetStartRef.current = true;
       navigate(homePath);
       return;
     }
-    launchOnCurrentPage();
-  }, [homePath, launchOnCurrentPage, location.pathname, navigate]);
+    launch(homeConfig.steps, undefined);
+  }, [homeConfig.steps, homePath, launch, navigate, onHome]);
+
+  const startTour = useCallback(() => {
+    if (pageTour) launch(pageTour.steps, pageTour.id);
+    else startCabinetTour();
+  }, [launch, pageTour, startCabinetTour]);
 
   useEffect(() => {
-    if (!pendingStartRef.current || location.pathname !== homePath) return;
-    pendingStartRef.current = false;
-    const timer = window.setTimeout(() => launchOnCurrentPage(), 120);
+    if (!pendingCabinetStartRef.current || !onHome) return;
+    pendingCabinetStartRef.current = false;
+    const timer = window.setTimeout(() => launch(homeConfig.steps, undefined), 120);
     return () => window.clearTimeout(timer);
-  }, [homePath, launchOnCurrentPage, location.pathname]);
+  }, [homeConfig.steps, launch, onHome]);
 
   const finishTour = useCallback((nextState: 'completed' | 'dismissed') => {
     setOpen(false);
     setTargetRect(null);
     if (userId) {
-      writeOnboardingState(userId, role, nextState);
-      setStatus(nextState);
+      const tourId = runningTourIdRef.current;
+      writeOnboardingState(userId, role, nextState, tourId);
+      if (tourId === screenTourId) setStatus(nextState);
     }
-  }, [role, userId]);
+  }, [role, screenTourId, userId]);
 
   const dismissBanner = useCallback(() => {
     if (userId) {
-      writeOnboardingState(userId, role, 'dismissed');
+      writeOnboardingState(userId, role, 'dismissed', screenTourId);
       setStatus('dismissed');
     }
-  }, [role, userId]);
+  }, [role, screenTourId, userId]);
 
   const resetTour = useCallback(() => {
     if (userId) {
       writeOnboardingState(userId, role, null);
-      setStatus(null);
+      pageTourIds(role).forEach((tourId) => writeOnboardingState(userId, role, null, tourId));
+      setStatus(screenConfig ? null : 'dismissed');
     }
-  }, [role, userId]);
+  }, [role, screenConfig, userId]);
 
   const currentStep = activeSteps[stepIndex] ?? null;
 
@@ -198,17 +219,19 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [activeSteps.length, finishTour, open, stepIndex]);
 
-  const bannerVisible = Boolean(userId) && status === null && !open && location.pathname === homePath;
+  const bannerVisible = Boolean(userId) && Boolean(screenConfig) && status === null && !open;
 
   const value = useMemo<OnboardingContextValue>(() => ({
     open,
     bannerVisible,
-    welcomeTitle: config.welcomeTitle,
-    welcomeSubtitle: config.welcomeSubtitle,
+    welcomeTitle: screenConfig?.welcomeTitle ?? homeConfig.welcomeTitle,
+    welcomeSubtitle: screenConfig?.welcomeSubtitle ?? homeConfig.welcomeSubtitle,
+    hasPageTour: Boolean(pageTour),
     startTour,
+    startCabinetTour,
     dismissBanner,
     resetTour
-  }), [bannerVisible, config.welcomeSubtitle, config.welcomeTitle, dismissBanner, open, resetTour, startTour]);
+  }), [bannerVisible, dismissBanner, homeConfig, open, pageTour, resetTour, screenConfig, startCabinetTour, startTour]);
 
   const popoverPosition = useMemo(() => {
     if (isMobile || !targetRect || typeof window === 'undefined') return null;
@@ -369,14 +392,25 @@ export function OnboardingHeaderMenu() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
+        {ctx.hasPageTour && (
+          <MenuItem
+            onClick={() => {
+              setAnchorEl(null);
+              ctx.startTour();
+            }}
+          >
+            <ListItemIcon><PlayArrowRoundedIcon fontSize="small" /></ListItemIcon>
+            <ListItemText primary="Гид по этой странице" secondary="Подсветка блоков и действий экрана" />
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             setAnchorEl(null);
-            ctx.startTour();
+            ctx.startCabinetTour();
           }}
         >
-          <ListItemIcon><PlayArrowRoundedIcon fontSize="small" /></ListItemIcon>
-          <ListItemText primary="Пройти интерактивный гид" secondary="Подсветка разделов и действий" />
+          <ListItemIcon><SchoolOutlinedIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primary="Пройти интерактивный гид" secondary="Обзор разделов кабинета" />
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -392,7 +426,7 @@ export function OnboardingHeaderMenu() {
   );
 }
 
-/** Non-blocking first-visit invitation banner on the role's home page. */
+/** Non-blocking first-visit invitation on the role's home page and on key screens with a page tour. */
 export function OnboardingWelcomeBanner() {
   const ctx = useContext(OnboardingContext);
   if (!ctx || !ctx.bannerVisible) return null;

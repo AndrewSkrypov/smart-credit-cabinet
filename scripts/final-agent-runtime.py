@@ -462,11 +462,17 @@ def attach_spa(args, directory, state):
         staged = Path(workspace) / "frontend"
         shutil.copytree(args.spa, staged)
         checksums = frontend_digests(staged)
-        staged.replace(directory / "api-only-root")
+        mounted = directory / "api-only-root"
+        if any(mounted.iterdir()):
+            if frontend_digests(mounted) != checksums:
+                raise ValueError("В API-запуск уже добавлена другая сборка SPA")
+        else:
+            staged.replace(mounted)
+    code, html = request(gateway + "/sign-in")
+    if code != 200 or hashlib.sha256(html).hexdigest() != checksums["frontend/index.html"]:
+        raise RuntimeError("Шлюз не отдаёт подключённую SPA")
     state["serve_spa"] = True
     state["artifacts_sha256"].update(checksums)
-    if request(gateway + "/sign-in")[0] != 200:
-        raise RuntimeError("Шлюз не отдаёт подключённую SPA")
 
 
 def write_state(receipt, state):

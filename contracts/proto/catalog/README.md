@@ -32,14 +32,8 @@ python3 contracts/proto/catalog/check_contract.py --include /usr/include
 
 Проверка компилирует схему, читает опубликованные примеры и проверяет шесть RPC, включительные окна, нулевую комиссию, историческую ссылку, отклонение неоднозначных снимков и двоичную совместимость при добавлении поля. Выполнение gRPC на двух сервисах относится к [приёмке выноса каталога](../../../docs/plans/alpha-catalog-r1.md).
 
-## Пробный транспорт
+## Подключение Credit к Catalog
 
-Модуль `:services:catalog-grpc` доступен с `-PalphaCatalogGrpc=true`. Он использует существующий Credit как сборку Spring и читает тот же JDBC-каталог. Проверки канала запускаются командой:
+Catalog запускается отдельно с собственной БД и TLS-сертификатом. В Credit по умолчанию действует `cabinet.catalog.mode=local`. После сверки истории и передачи записи включите `cabinet.catalog.mode=remote` и задайте `cabinet.catalog.grpc.client.host`, `port`, `certificate`, `key` и `server-ca`. Имя сервера должно совпадать с его TLS-идентичностью. Сервер проверяет клиентский сертификат Credit. [Настройки, перенос и возврат записи](../../../docs/plans/alpha-catalog-r1.md)
 
-```sh
-./gradlew -PalphaCatalogGrpc=true :services:catalog-grpc:test
-```
-
-У сервера и клиента свои настройки. Для сервера задайте `CABINET_CATALOG_GRPC_SERVER_ENABLED=true`, `CABINET_CATALOG_GRPC_SERVER_CERTIFICATE`, `CABINET_CATALOG_GRPC_SERVER_KEY` и `CABINET_CATALOG_GRPC_SERVER_CLIENT_CA`. Сервер по умолчанию слушает `127.0.0.1:9094`. Для отдельного экземпляра укажите внутренний адрес в `CABINET_CATALOG_GRPC_SERVER_HOST`. Порт можно задать через `CABINET_CATALOG_GRPC_SERVER_PORT`. Клиентский CA предназначен для служебной идентичности Credit.
-
-Клиент использует `CABINET_CATALOG_GRPC_CLIENT_ENABLED=true`, `CABINET_CATALOG_GRPC_CLIENT_HOST`, `CABINET_CATALOG_GRPC_CLIENT_CERTIFICATE`, `CABINET_CATALOG_GRPC_CLIENT_KEY` и `CABINET_CATALOG_GRPC_CLIENT_SERVER_CA`. Имя сервера совпадает с его TLS-идентичностью. Порт задаётся в `CABINET_CATALOG_GRPC_CLIENT_PORT`, дедлайн в миллисекундах в `cabinet.catalog.grpc.client.deadline-ms`. При выключенном клиенте Credit продолжает применять локальный порт снимка. История и банковские правки пока работают в БД Credit.
+Для обязательной интеграционной проверки используется `bash scripts/check-catalog-integration.sh`. Команда поднимает изолированные PostgreSQL и Catalog, выдаёт тестовые сертификаты и требует успешного выполнения обоих тестов. [Интеграционная проверка](../../../scripts/check-catalog-integration.sh)

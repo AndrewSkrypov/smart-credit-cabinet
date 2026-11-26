@@ -26,7 +26,14 @@ deploy/backups
 scripts/demo-reports
 frontend/coverage
 ci-artifacts
-contracts
+contracts/*
+!contracts/proto/
+contracts/proto/*
+!contracts/proto/catalog/
+contracts/proto/catalog/*
+!contracts/proto/catalog/v1/
+contracts/proto/catalog/v1/*
+!contracts/proto/catalog/v1/*.proto
 **/__pycache__
 scripts/license-tools/node_modules
 docs

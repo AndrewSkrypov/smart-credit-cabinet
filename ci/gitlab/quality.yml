@@ -44,9 +44,13 @@ backend:
   stage: quality
   extends: .quality
   timeout: 45 minutes
+  variables:
+    RUNNER_SCRIPT_TIMEOUT: 40m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 5m
   script:
     - bash ci/gitlab/quality/backend.sh
   after_script:
+    - bash ci/gitlab/quality/documents-cleanup.sh
     - bash ci/gitlab/quality/cleanup.sh
   artifacts:
     when: always

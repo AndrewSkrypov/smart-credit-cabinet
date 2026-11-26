@@ -186,6 +186,7 @@ image-security:
   parallel:
     matrix:
       - SERVICE:
+          - servicing
           - catalog-grpc
           - identity
           - credit

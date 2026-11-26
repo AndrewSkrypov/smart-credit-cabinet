@@ -1,8 +1,9 @@
 # Стартер наблюдаемости Alpha
 
 `libs:starter-observability` выделяет техническую обвязку из `platform-common`.
-Он сохраняет `X-Request-Id` из локального trace context, исключает необработанные
-URL из telemetry и задаёт низкоприоритетные настройки health, Prometheus и трассировки.
+Он возвращает `X-Request-Id` из текущего trace context, удаляет необработанные
+URL из наблюдений Micrometer и задаёт низкоприоритетные настройки health,
+Prometheus и трассировки.
 В Gradle-зависимостях и API стартера нет моделей заявок, начислений и каталогов.
 
 Работающие сервисы получают стартер через существующий `platform-common`.
@@ -25,3 +26,21 @@ route template при исключении полного URL, приорите�
 существующий контракт `X-Request-Id` и отсутствие новых доменных зависимостей.
 Общий Gradle-шаблон сервиса сохраняет сборку JAR, Flyway для служб с БД
 и проверки репозитория.
+
+## Подключение Catalog
+
+При сборке через `cabinet.service-conventions` стартер уже входит в зависимости
+через `platform-common`. Для отдельного подключения достаточно
+`implementation(project(":libs:starter-observability"))`. Трассировка HTTP
+в стандартном сервисе настраивается convention через Actuator и
+`micrometer-tracing-bridge-otel`.
+
+Публичный API находится в пакете `ru.creditcabinet.common.observability`.
+`RequestIds.HEADER` содержит имя `X-Request-Id`, а `RequestIds.current()`
+возвращает trace ID из MDC или `null`. Servlet-фильтр берёт ответный ID
+из текущей трассировки. Объявленный сервисом bean типа `RequestIdFilter`
+подменяет стандартный bean. Перед передачей наблюдения обработчикам удаляются high-cardinality теги
+`http.url`, `http.target` и `url.full`. Шаблон маршрута, HTTP-статус и остальные теги
+сохраняются.
+
+[Генерация и проверка нового модуля](../templates/backend-service/README.md)

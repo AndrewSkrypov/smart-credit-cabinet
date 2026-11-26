@@ -1,10 +1,27 @@
 # Шаблон backend-сервиса
 
-Шаблон использует принятые в кабинете Gradle conventions и упаковку
-`docker/service/Dockerfile`. Скопируйте `build.gradle.kts` и `src`
-в `services/<имя>`, укажите новый модуль в `settings.gradle.kts`
-и замените `ServiceApplication` на имя приложения. `SERVICE_NAME` и
-`JWT_SECRET` задаются конфигурацией контура.
+Из корня репозитория с Python 3 и JDK 21:
+
+```bash
+python3 templates/backend-service/generate.py report-service
+./gradlew :services:report-service:test :services:report-service:ktlintCheck :services:report-service:bootJar
+```
+
+Генератор создаёт `services/<имя>` и добавляет модуль в `settings.gradle.kts`.
+Он переименовывает класс приложения и тест запуска, подключает существующие
+Gradle conventions и копирует `gradle.lockfile`. Для имени подходит, например, `report-service`. Занятые имена
+отклоняются. `SERVICE_NAME` и `JWT_SECRET` задаются конфигурацией контура.
+
+Чтобы проверить шаблон отдельно от рабочего дерева, выполните эти команды
+в отдельном checkout. Тест запуска поднимает HTTP на случайном локальном порту,
+проверяет health, `X-Request-Id` и JSON ошибки. Артефакт
+`services/report-service/build/libs/app.jar` использует стандартный
+[docker/service/Dockerfile](../../docker/service/Dockerfile).
+
+После изменения зависимостей обновите lock-файл нового модуля командой
+`./gradlew :services:report-service:resolveAndLockAll --write-locks`.
+При изменении самого шаблона перенесите пересозданный lock-файл в этот каталог.
+Сборка с `--offline` использует уже доступный кэш зависимостей.
 
 Вводите прикладные операции и интерфейсы портов в `application`, правила
 и инварианты в `domain`. Входной адаптер преобразует HTTP, Protobuf или
@@ -12,8 +29,3 @@
 межсервисных вызовов и публикации. Схема контракта хранится в `contracts/`.
 Для сервиса со своей БД используйте существующий JPA/Flyway convention
 и отдельные роли приложения и мигратора.
-
-Проверьте `./gradlew :services:<имя>:test :services:<имя>:bootJar`.
-Артефакт `services/<имя>/build/libs/app.jar` загружается стандартным
-Dockerfile. До добавления сервиса в CI опишите владельца данных и добавьте
-сценарии совместимости, отказа транспорта и восстановления.

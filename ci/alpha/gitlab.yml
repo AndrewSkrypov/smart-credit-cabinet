@@ -26,3 +26,7 @@ alpha-pilot-analytics-jar:
     expire_in: 14 days
     paths:
       - ci-artifacts/alpha-analytics/
+
+# Merge only the artifact dependencies into the existing protected release job.
+release-images:
+  dependencies: [backend, frontend, alpha-pilot-analytics-jar]

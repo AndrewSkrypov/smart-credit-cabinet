@@ -6,6 +6,17 @@ set -euo pipefail
 sha256sum -c ci-artifacts/backend.sha256
 sha256sum -c ci-artifacts/frontend.sha256
 
+analytics_jar_sha256=
+if [[ "${CABINET_ALPHA_PILOT:-0}" == 1 ]]; then
+    artifacts=ci-artifacts/alpha-analytics
+    [[ "$(git rev-parse HEAD)" == "$CI_COMMIT_SHA" ]]
+    [[ "$(cat "$artifacts/source-revision.txt")" == "$CI_COMMIT_SHA" ]]
+    read -r analytics_jar_sha256 filename extra < "$artifacts/app.jar.sha256"
+    [[ "$analytics_jar_sha256" =~ ^[a-f0-9]{64}$ && "$filename" == app.jar && -z "$extra" ]]
+    printf '%s  %s\n' "$analytics_jar_sha256" "$artifacts/app.jar" | sha256sum -c -
+    install -D -m 0644 "$artifacts/app.jar" services/analytics/build/libs/app.jar
+fi
+
 export DOCKER_CONFIG
 DOCKER_CONFIG=$(mktemp -d)
 trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
@@ -14,6 +25,9 @@ tag="$CI_COMMIT_SHA-$CI_JOB_ID"
 manifest="$DOCKER_CONFIG/images.tsv"
 
 components=(identity credit engagement external-sim frontend postgres swagger ssh-bridge)
+if [[ -n "$analytics_jar_sha256" ]]; then
+    components+=(analytics)
+fi
 if [[ "${CABINET_CI_CLAMAV_SEED_FROM_FILES:-0}" != 0 || -n "${CABINET_CI_CLAMAV_SEED_IMAGE:-}" ]]; then
     seeded_clamav=$(bash ci/gitlab/quality/clamav-runtime.sh release)
     components+=(clamav)
@@ -28,6 +42,9 @@ for service in "${components[@]}"; do
         clamav) docker tag "$seeded_clamav" "$image";;
         *) args+=(-f docker/service/Dockerfile --build-arg "SERVICE=$service" --build-arg JAR_SOURCE=prebuilt --build-arg "SOURCE_REVISION=$CI_COMMIT_SHA");;
     esac
+    if [[ "$service" == analytics ]]; then
+        args+=(--label "org.opencontainers.image.jar.sha256=$analytics_jar_sha256")
+    fi
     if [[ "$service" != clamav ]]; then docker build "${args[@]}" .; fi
     python3 security/scan.py --image "$image" --report-name "release-$service"
     docker push "$image"
@@ -36,12 +53,16 @@ for service in "${components[@]}"; do
     printf '%s\t%s\n' "$service" "$CI_REGISTRY_IMAGE/$service@$digest" >> "$manifest"
 done
 
-python3 - "$CI_COMMIT_SHA" "$manifest" <<'PY'
+python3 - "$CI_COMMIT_SHA" "$manifest" "$analytics_jar_sha256" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-revision, manifest_path = sys.argv[1:]
+revision, manifest_path, analytics_jar_sha256 = sys.argv[1:]
 images = dict(line.split("\t", 1) for line in Path(manifest_path).read_text().splitlines())
-Path("release.json").write_text(json.dumps({"revision": revision, "images": images}, indent=2) + "\n")
+alpha_image = images.pop("analytics", None)
+release = {"revision": revision, "images": images}
+if alpha_image:
+    release["alpha_dev"] = {"image": alpha_image, "jar_sha256": analytics_jar_sha256}
+Path("release.json").write_text(json.dumps(release, indent=2) + "\n")
 PY

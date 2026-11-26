@@ -31,7 +31,7 @@ import java.util.UUID
 
 @Component
 class CreditPeer(@Value("\${cabinet.documents.grpc.credit-peer}") private val peer: String) : ServerInterceptor {
-    override fun <ReqT : Any, RespT : Any> interceptCall(call: ServerCall<ReqT, RespT>, headers: Metadata, next: ServerCallHandler<ReqT, RespT>): ServerCall.Listener<ReqT> {
+    override fun <ReqT, RespT> interceptCall(call: ServerCall<ReqT, RespT>, headers: Metadata, next: ServerCallHandler<ReqT, RespT>): ServerCall.Listener<ReqT> {
         val certificate = runCatching { call.attributes.get(Grpc.TRANSPORT_ATTR_SSL_SESSION)?.peerCertificates?.firstOrNull() as? X509Certificate }.getOrNull()
         val allowed = certificate?.subjectAlternativeNames.orEmpty().any { it.size == 2 && it[0] == 6 && it[1] == peer }
         if (!allowed) { call.close(Status.PERMISSION_DENIED, Metadata()); return object : ServerCall.Listener<ReqT>() {} }

@@ -36,7 +36,6 @@ class DocumentsMigration(
         val direction = env("DOCUMENTS_MIGRATION_DIRECTION")
         require(direction in setOf("forward", "reverse"))
         val source = DriverManagerDataSource(env("DOCUMENTS_CREDIT_DATABASE_URL"), env("DOCUMENTS_CREDIT_DATABASE_USER"), env("DOCUMENTS_CREDIT_DATABASE_PASSWORD"))
-        val credit = JdbcTemplate(source)
         val creditLocal = LocalFileStore(env("DOCUMENTS_CREDIT_LOCAL_DIR"))
         val s3 = lazy { S3FileStore(env("DOCUMENTS_CREDIT_S3_ENDPOINT"), env("DOCUMENTS_CREDIT_S3_REGION"), env("DOCUMENTS_CREDIT_S3_BUCKET"), env("DOCUMENTS_CREDIT_S3_ACCESS_KEY"), env("DOCUMENTS_CREDIT_S3_SECRET_KEY")) }
         fun creditStore(backend: String): FileStore = if (backend == "LOCAL") creditLocal else s3.value
@@ -44,7 +43,7 @@ class DocumentsMigration(
             connection.autoCommit = false
             connection.transactionIsolation = java.sql.Connection.TRANSACTION_SERIALIZABLE
             try {
-                val creditTx = JdbcTemplate(org.springframework.jdbc.datasource.SingleConnectionDataSource(connection, true))
+                val creditTx = JdbcTemplate(org.springframework.jdbc.datasource.SingleConnectionDataSource(connection, true)).apply { fetchSize = 100 }
                 val gate = creditTx.queryForMap("select owner,epoch from document_ownership where singleton for update")
                 check(gate["owner"] == "FROZEN")
                 tx.executeWithoutResult {

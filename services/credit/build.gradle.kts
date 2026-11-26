@@ -11,6 +11,9 @@ dependencies {
     implementation(project(":libs:catalog-client"))
     implementation(project(":libs:assessment-engine"))
     implementation(project(":libs:assessment-messaging"))
+    implementation(project(":libs:servicing-grpc"))
+    implementation("io.grpc:grpc-netty-shaded:1.85.1")
+    implementation(project(":libs:servicing-persistence"))
     implementation(platform(libs.aws.sdk.bom))
     implementation(libs.aws.sdk.s3) {
         exclude(group = "software.amazon.awssdk", module = "apache-client")

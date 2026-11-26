@@ -427,3 +427,24 @@ helm-chart:
   extends: .quality
   script:
     - sh helm/cabinet/test-chart.sh
+
+# Mandatory R3 gate: a fresh job-owned PostgreSQL container, mTLS and a separate runtime.
+servicing-integration:
+  stage: quality
+  extends: .quality
+  timeout: 30 minutes
+  script:
+    - bash ci/gitlab/quality/servicing.sh
+  after_script:
+    - python3 ci/gitlab/quality/servicing-cleanup.py
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - ci-artifacts/servicing/receipt.json
+      - ci-artifacts/servicing/results/
+      - ci-artifacts/servicing/*.log
+      - ci-artifacts/servicing/ci-resource.json
+    reports:
+      junit:
+        - ci-artifacts/servicing/results/**/TEST-*.xml

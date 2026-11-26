@@ -65,7 +65,7 @@ import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.applicationCatalog
 import ru.creditcabinet.product.domain.forApplication
-import ru.creditcabinet.servicing.application.LoanServicingService
+import ru.creditcabinet.servicing.application.LoanOpening
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -95,7 +95,7 @@ class PipelineSteps(
     private val products: ProductCatalog,
     private val ruleSets: RuleSets,
     private val preApprovedOffers: PreApprovedOfferStore,
-    private val loanServicing: LoanServicingService,
+    private val loanOpening: LoanOpening,
     private val settings: PipelineSettings,
     private val tx: TransactionTemplate,
     private val clock: Clock,
@@ -561,49 +561,53 @@ class PipelineSteps(
         }
     }
 
-    /** T19/T20: opens the loan in the core banking system; it is idempotent per application, so a retry is safe. */
+    /** T19/T20: a booked core result is durable before delivery; DISBURSED requires the unique account receipt. */
     private fun disburse(job: PipelineJob, application: LoanApplication) {
         val offer = offers.current(application.id)!!
         val session = signing.latest(application.id)!!
-        val booked = try {
-            core.disburse(
-                LoanRequest(
-                    application.id,
-                    application.company.inn,
-                    offer.amount,
-                    offer.termMonths,
-                    offer.rate,
-                    products.version(offer.productCode, offer.productVersion)!!.revolving,
-                    session.signatureId!!,
-                ),
-            )
-        } catch (exception: SourceUnavailableException) {
-            val now = clock.instant()
-            val next = now.plus(settings.sourceRetryDelay(job.attempts))
-            tx.executeWithoutResult {
-                transitions.commit(
-                    application.move(ApplicationEvent.DISBURSEMENT_FAILED, Actor.SYSTEM, now, reasonCode = "CORE_UNAVAILABLE", comment = exception.message),
+        loanOpening.requireSignedSnapshot(application.id, offer.id)
+        val loan = loanOpening.bookedLoan(application.id) ?: loans.find(application.id) ?: run {
+            // Exact historical version is local in Credit, independent of current Catalog availability.
+            val pinnedProduct = products.version(offer.productCode, offer.productVersion)
+                ?: error("Не восстановлены закреплённые условия подписанного договора")
+            val booked = try {
+                core.disburse(
+                    LoanRequest(
+                        application.id,
+                        application.company.inn,
+                        offer.amount,
+                        offer.termMonths,
+                        offer.rate,
+                        pinnedProduct.revolving,
+                        session.signatureId!!,
+                    ),
                 )
-                jobs.retry(job.id, next, exception.message)
+            } catch (exception: SourceUnavailableException) {
+                val now = clock.instant()
+                val next = now.plus(settings.sourceRetryDelay(job.attempts))
+                tx.executeWithoutResult {
+                    transitions.commit(
+                        application.move(ApplicationEvent.DISBURSEMENT_FAILED, Actor.SYSTEM, now, reasonCode = "CORE_UNAVAILABLE", comment = exception.message),
+                    )
+                    jobs.retry(job.id, next, exception.message)
+                }
+                return
             }
-            return
+            Loan(
+                applicationId = application.id, contractNumber = booked.contractNumber,
+                loanAccount = booked.loanAccount, settlementAccount = booked.settlementAccount,
+                amount = offer.amount, termMonths = offer.termMonths, rate = offer.rate, revolving = pinnedProduct.revolving,
+                disbursedAt = booked.disbursedAt, maturityDate = booked.maturityDate,
+            )
         }
         val now = clock.instant()
         tx.executeWithoutResult {
-            val loan = Loan(
-                applicationId = application.id,
-                contractNumber = booked.contractNumber,
-                loanAccount = booked.loanAccount,
-                settlementAccount = booked.settlementAccount,
-                amount = offer.amount,
-                termMonths = offer.termMonths,
-                rate = offer.rate,
-                revolving = products.version(offer.productCode, offer.productVersion)!!.revolving,
-                disbursedAt = booked.disbursedAt,
-                maturityDate = booked.maturityDate,
-            )
+            if (!loanOpening.prepareOrConfirmed(application, loan, offer.id)) {
+                loanOpening.awaitReceipt(job.id, now.plusSeconds(2))
+                return@executeWithoutResult
+            }
             loans.save(loan)
-            val disbursed = application.move(ApplicationEvent.DISBURSED, Actor.SYSTEM, now, payload = mapOf("contractNumber" to booked.contractNumber))
+            val disbursed = application.move(ApplicationEvent.DISBURSED, Actor.SYSTEM, now, payload = mapOf("contractNumber" to loan.contractNumber))
             val withCommission = if (application.agentId != null) {
                 val actualCommission = application.agentCommissionRateBps?.let { offer.amount * it / 10_000L } ?: application.agentCommissionAmount
                 disbursed.copy(
@@ -615,8 +619,7 @@ class PipelineSteps(
             } else {
                 disbursed
             }
-            val saved = transitions.commit(withCommission)
-            loanServicing.openOnDisbursement(saved, loan)
+            transitions.commit(withCommission)
             jobs.complete(job.id)
         }
     }

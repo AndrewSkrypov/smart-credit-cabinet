@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-services=(assessment catalog-grpc credit engagement external-sim identity)
+services=(assessment catalog-grpc credit engagement external-sim identity servicing)
 jars=()
 for service in "${services[@]}"; do
     jar="services/$service/build/libs/app.jar"

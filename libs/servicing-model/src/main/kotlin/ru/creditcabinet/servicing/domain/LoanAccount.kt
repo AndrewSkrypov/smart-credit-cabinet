@@ -1,13 +1,13 @@
 package ru.creditcabinet.servicing.domain
 
-import ru.creditcabinet.common.exception.BadRequestException
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.product.domain.LoanMath
+import ru.creditcabinet.servicing.math.LoanMath
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
+import ru.creditcabinet.servicing.domain.ServicingBadRequest as BadRequestException
+import ru.creditcabinet.servicing.domain.ServicingConflict as ConflictException
 
 enum class LoanAccountStatus {
     ACTIVE,

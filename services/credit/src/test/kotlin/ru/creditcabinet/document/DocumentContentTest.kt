@@ -24,8 +24,14 @@ class DocumentContentTest {
     private val boundary = mock<DocumentsBoundary>()
     private val content = DocumentContentAdapter(files, boundary)
     private val document = ApplicationDocument(
-        applicationId = UUID.randomUUID(), type = DocumentType.OTHER, fileName = "invoice.pdf", storedName = "invoice.pdf",
-        sizeBytes = 3, uploadedBy = UUID.randomUUID(), uploadedAt = Instant.EPOCH, storageBackend = StorageBackend.S3,
+        applicationId = UUID.randomUUID(),
+        type = DocumentType.OTHER,
+        fileName = "invoice.pdf",
+        storedName = "invoice.pdf",
+        sizeBytes = 3,
+        uploadedBy = UUID.randomUUID(),
+        uploadedAt = Instant.EPOCH,
+        storageBackend = StorageBackend.S3,
     )
 
     @Test

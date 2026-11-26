@@ -322,8 +322,15 @@ class PipelineSteps(
                 ?: error("Не восстановлены закреплённые условия подписанного договора")
             val booked = try {
                 core.disburse(
-                    LoanRequest(application.id, application.company.inn, offer.amount, offer.termMonths, offer.rate,
-                        pinnedProduct.revolving, session.signatureId!!),
+                    LoanRequest(
+                        application.id,
+                        application.company.inn,
+                        offer.amount,
+                        offer.termMonths,
+                        offer.rate,
+                        pinnedProduct.revolving,
+                        session.signatureId!!,
+                    ),
                 )
             } catch (exception: SourceUnavailableException) {
                 val now = clock.instant()
@@ -336,10 +343,12 @@ class PipelineSteps(
                 }
                 return
             }
-            Loan(applicationId = application.id, contractNumber = booked.contractNumber,
+            Loan(
+                applicationId = application.id, contractNumber = booked.contractNumber,
                 loanAccount = booked.loanAccount, settlementAccount = booked.settlementAccount,
                 amount = offer.amount, termMonths = offer.termMonths, rate = offer.rate, revolving = pinnedProduct.revolving,
-                disbursedAt = booked.disbursedAt, maturityDate = booked.maturityDate)
+                disbursedAt = booked.disbursedAt, maturityDate = booked.maturityDate,
+            )
         }
         val now = clock.instant()
         tx.executeWithoutResult {

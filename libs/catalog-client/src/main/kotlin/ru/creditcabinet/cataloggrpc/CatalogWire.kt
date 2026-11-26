@@ -50,9 +50,9 @@ fun ProductRevision.toWire(): ProductVersion = product.toWire().toBuilder()
             .setReason(reason)
             .setCreatedAt(createdAt.toWireTimestamp())
             .apply {
-                    this@toWire.authorId?.let { setAuthorId(it.toString()) }
-                    this@toWire.authorName?.let { setAuthorName(it) }
-                    this@toWire.authorRole?.let { setAuthorRole(it) }
+                this@toWire.authorId?.let { setAuthorId(it.toString()) }
+                this@toWire.authorName?.let { setAuthorName(it) }
+                this@toWire.authorRole?.let { setAuthorRole(it) }
             },
     )
     .build()

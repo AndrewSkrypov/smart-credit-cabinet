@@ -1,0 +1,10 @@
+# The separately rendered native config excludes GoAlert test alerts from Telegram.
+goalertTestContacts:
+  allowScopedTelegram: true
+kube-prometheus-stack:
+  alertmanager:
+    alertmanagerSpec:
+      useExistingSecret: true
+      configSecret: cabinet-alertmanager-telegram-config
+      secrets: [cabinet-paging]
+      automountServiceAccountToken: false

@@ -1,0 +1,23 @@
+# The ConfigMap contains only the relay's public certificate, never paging credentials.
+telegramRelayProbe:
+  enabled: true
+  address: "85.92.111.168:18443"
+prometheus-blackbox-exporter:
+  extraConfigmapMounts:
+    - name: telegram-relay-ca
+      mountPath: /etc/blackbox-exporter/telegram-relay
+      configMap: cabinet-telegram-relay-ca
+      readOnly: true
+      defaultMode: 292 # 0444
+  config:
+    modules:
+      cabinet_telegram_relay_tls:
+        prober: tcp
+        timeout: 5s
+        tcp:
+          preferred_ip_protocol: ip4
+          ip_protocol_fallback: false
+          tls: true
+          tls_config:
+            ca_file: /etc/blackbox-exporter/telegram-relay/relay.pem
+            min_version: TLS12

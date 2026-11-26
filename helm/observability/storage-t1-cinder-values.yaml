@@ -1,0 +1,26 @@
+# The cluster does not designate a default StorageClass.
+cabinet:
+  storageClass: t1cloud-average
+goalertDB:
+  storageClass: t1cloud-average
+kube-prometheus-stack:
+  grafana:
+    deploymentStrategy:
+      type: Recreate
+    persistence:
+      storageClassName: t1cloud-average
+  prometheus:
+    prometheusSpec:
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: t1cloud-average
+  alertmanager:
+    alertmanagerSpec:
+      storage:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: t1cloud-average
+goalertTestContacts:
+  dnsPodLabels:
+    k8s-app: coredns

@@ -1,5 +1,4 @@
 goalertDB:
   enabled: true
   existingSecret: cabinet-goalert-db
-  storageClass: ""
   storage: 8Gi

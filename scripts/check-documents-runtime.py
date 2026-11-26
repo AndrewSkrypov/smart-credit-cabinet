@@ -100,7 +100,8 @@ def main():
         if args.storage_backend == 's3':
             spec=importlib.util.spec_from_file_location('documents_s3_fixture',ROOT/'scripts/documents-s3-fixture.py')
             module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
-            s3=module.S3Fixture(scratch,report,free_port,binary=args.s3_binary,binary_sha256=args.s3_sha256,image=args.s3_image)
+            s3=module.S3Fixture.__new__(module.S3Fixture)
+            s3.__init__(scratch,report,free_port,binary=args.s3_binary,binary_sha256=args.s3_sha256,image=args.s3_image)
         if not args.skip_build:
             run([gradle, '--no-daemon', '--max-workers=1', ':services:documents:bootJar', ':services:credit:bootJar', ':services:documents:testClasses'], 'build')
         if args.postgres_image:
@@ -200,7 +201,7 @@ insert into financing_scenario_publications(application_id,revision,status,docum
                                 if not count: break
                                 if len(content)+count > 21*1024*1024: raise RuntimeError('Scanner request limit exceeded')
                                 content.extend(read_exact(count))
-                            connection.sendall(b'stream: Gate.EICAR FOUND\0' if b'EICAR' in content else b'stream: OK\0')
+                            connection.sendall(b'stream: ERROR\0' if b'GATE-SCANNER-UNAVAILABLE' in content else (b'stream: Gate.EICAR FOUND\0' if b'EICAR' in content else b'stream: OK\0'))
         threading.Thread(target=scanner, daemon=True).start()
         sql('documents', "update document_ownership set owner='DOCUMENTS';", user='documents_owner', password=own_password)
         sql('credit', "update document_ownership set owner='REMOTE';", user='credit_owner', password=credit_password)
@@ -209,7 +210,10 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         if s3: own_env['SPRING_APPLICATION_JSON']=json.dumps({'cabinet':{'storage':{'s3':s3.configuration('target')}}})
         own = start([java,'-Xmx256m','-jar','services/documents/build/libs/app.jar','--spring.flyway.enabled=false',f'--cabinet.storage.local-dir={target_files}',f'--cabinet.antivirus.port={scanner_port}',f'--cabinet.storage.mode={args.storage_backend}'], 'documents', own_env)
         wait_port(grpc_port, own)
-        credit_env = base_env | {'DB_HOST':'127.0.0.1','DB_PORT':str(pg_port),'DB_NAME':'credit','DB_USER':'credit_app','DB_PASSWORD':credit_password,'SERVER_PORT':str(http_port),'JWT_SECRET':jwt,'PIPELINE_ENABLED':'false','OUTBOX_WORKER_ENABLED':'false','IDENTITY_URL':'','ANTIVIRUS_ENABLED':'false','STORAGE_BACKEND':args.storage_backend,'UPLOAD_DIR':str(credit_files)}
+        replica_port = free_port()
+        replica = start([*own.args,f'--cabinet.documents.grpc.port={replica_port}'],'documents-replica',own_env)
+        wait_port(replica_port,replica)
+        credit_env = base_env | {'DB_HOST':'127.0.0.1','DB_PORT':str(pg_port),'DB_NAME':'credit','DB_USER':'credit_app','DB_PASSWORD':credit_password,'SERVER_PORT':str(http_port),'JWT_SECRET':jwt,'PIPELINE_ENABLED':'true','OUTBOX_WORKER_ENABLED':'false','IDENTITY_URL':'','ANTIVIRUS_ENABLED':'false','STORAGE_BACKEND':args.storage_backend,'UPLOAD_DIR':str(credit_files)}
         credit = start([java,'-Xmx320m','-jar','services/credit/build/libs/app.jar','--spring.flyway.enabled=false','--cabinet.documents.mode=remote','--cabinet.documents.epoch=2','--cabinet.documents.grpc.host=127.0.0.1',f'--cabinet.documents.grpc.port={grpc_port}',f'--cabinet.documents.grpc.certificate={certs/"credit.crt"}',f'--cabinet.documents.grpc.key={certs/"credit.key"}',f'--cabinet.documents.grpc.ca={certs/"ca.crt"}'], 'credit', credit_env)
         wait_port(http_port, credit)
         test_env = base_env | {'DOCUMENTS_TEST_STORAGE_BACKEND':args.storage_backend.upper(),'DOCUMENTS_TEST_CERTS':str(certs),'DOCUMENTS_TEST_GRPC_PORT':str(grpc_port),'DOCUMENTS_TEST_APPLICATION':application,'DOCUMENTS_TEST_COMPANY':company,'DOCUMENTS_TEST_HIDDEN':hidden,'DOCUMENTS_TEST_VISIBLE':visible,'DOCUMENTS_TEST_PRIVATE':private,
@@ -220,6 +224,23 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         totals = {key: sum(int(ET.parse(path).getroot().get(key,0)) for path in xml_paths) for key in ('tests','failures','errors','skipped')}
         assert totals['tests'] >= 3 and all(totals[key] == 0 for key in ('failures','errors','skipped')), totals
         for path in xml_paths: shutil.copy2(path, report/path.name)
+        stop(credit); stop(own); stop(replica)
+        sql('documents', "update artifact_records set lease_until=now()-interval '1 second',next_attempt_at=now() where status<>'READY';", user='documents_owner', password=own_password, name='recovery')
+        own = start(own.args, 'documents-restart', own_env)
+        wait_port(grpc_port, own)
+        credit = start(credit.args, 'credit-restart', credit_env)
+        wait_port(http_port, credit)
+        deadline=time.monotonic()+40
+        while True:
+            try:
+                sql('documents', "do $$ begin if exists(select 1 from artifact_records where status<>'READY') then raise exception 'Recovery pending'; end if; if (select count(*) from artifact_outbox) <> (select count(*) from artifact_records) then raise exception 'Outbox mismatch'; end if; end $$;", user='documents_owner', password=own_password, name='recovery')
+                break
+            except subprocess.CalledProcessError:
+                if time.monotonic()>deadline: raise
+                time.sleep(.3)
+        # A second restarted poll observes durable READY and must preserve one notice/outbox effect.
+        time.sleep(2)
+        sql('credit', "do $$ begin if (select count(*) from generated_artifact_notices)<>1 then raise exception 'Notice dedup failed'; end if; if (select count(*) from delivery_outbox where event_key like 'generated-files:%')<>1 then raise exception 'Outbox dedup failed'; end if; end $$;", user='credit_owner', password=credit_password, name='recovery')
         target_inventory = object_inventory('target','documents')
         stop(credit); stop(own)
         sql('documents', "update document_ownership set owner='FROZEN',epoch=3;", user='documents_owner', password=own_password)
@@ -236,7 +257,7 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         revision = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()
         tree = subprocess.check_output(['git','rev-parse','HEAD^{tree}'],cwd=ROOT).decode().strip()
         jars = {service:hashlib.sha256((ROOT/f'services/{service}/build/libs/app.jar').read_bytes()).hexdigest() for service in ('documents','credit')}
-        (report/'receipt.json').write_text(json.dumps({'sourceSha':revision,'sourceTree':tree,'jars':jars,'tests':totals,'migration':['forward','repeat','reverse','U26-data-preserving'],'storageBackend':args.storage_backend,'s3':({'provenance':s3.provenance,'targetPerFile':target_inventory,'reversePerFile':source_inventory} if s3 else {'status':'not-tested-in-LOCAL-profile'}),'scanner':'synthetic fresh clamd protocol; clean+reject; not AV efficacy evidence','environment':'native private PostgreSQL + actual standalone Documents/Credit JARs + mTLS'},ensure_ascii=False,indent=2)+'\n')
+        (report/'receipt.json').write_text(json.dumps({'sourceSha':revision,'sourceTree':tree,'jars':jars,'tests':totals,'migration':['forward','repeat','reverse','U26-data-preserving'],'recovery':['two-competing-Documents-workers','expired-lease-after-two-JAR-restart','durable-READY','single-Credit-notice-and-notification-outbox'],'storageBackend':args.storage_backend,'s3':({'provenance':s3.provenance,'targetPerFile':target_inventory,'reversePerFile':source_inventory} if s3 else {'status':'not-tested-in-LOCAL-profile'}),'scanner':'synthetic fresh clamd protocol; clean+reject; not AV efficacy evidence','environment':'native private PostgreSQL + actual standalone Documents/Credit JARs + mTLS'},ensure_ascii=False,indent=2)+'\n')
     finally:
         scanner_stop.set()
         if s3: s3.close()

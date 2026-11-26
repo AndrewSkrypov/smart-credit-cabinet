@@ -60,6 +60,9 @@ class DocumentsRuntimeTest {
             val infected = "EICAR-STANDARD-ANTIVIRUS-TEST-FILE".toByteArray()
             assertFailsWith<StatusRuntimeException> { remote.put(record.copy(id = UUID.randomUUID(), storedName = "infected.pdf", sizeBytes = infected.size.toLong(), checksum = sha256(infected)), infected) }
             assertTrue(remote.list(scope).none { it.storedName == "infected.pdf" })
+            val unavailable = "GATE-SCANNER-UNAVAILABLE".toByteArray()
+            assertFailsWith<StatusRuntimeException> { remote.put(record.copy(id = UUID.randomUUID(), storedName = "unavailable.pdf", sizeBytes = unavailable.size.toLong(), checksum = sha256(unavailable)), unavailable) }
+            assertTrue(remote.list(scope).none { it.storedName == "unavailable.pdf" })
         }
         client("wrong") { remote -> assertEquals(Status.Code.PERMISSION_DENIED, assertFailsWith<StatusRuntimeException> { remote.list(scope) }.status.code) }
         client(epoch = 1) { remote -> assertFailsWith<StatusRuntimeException> { remote.list(scope) } }
@@ -81,6 +84,22 @@ class DocumentsRuntimeTest {
             val id = UUID.randomUUID()
             val record = ArtifactRecord(id, scope, offer, "CONTRACT_PDF", "FINAL", 2, sha256(frozen.toByteArray()), frozen,
                 "Сохранённые условия", "contract.pdf", "application/pdf", "generated-$id.pdf", env("DOCUMENTS_TEST_STORAGE_BACKEND"), Instant.now())
+            val decision = UUID.randomUUID()
+            db("credit") { connection ->
+                connection.prepareStatement("insert into decisions(id,application_id,rule_set_version,decided_by_type,outcome,inputs,created_at) values(?,?,1,'SYSTEM','APPROVE','{}',now())").use { statement ->
+                    statement.setObject(1, decision); statement.setObject(2, scope.applicationId); statement.executeUpdate()
+                }
+                connection.prepareStatement("insert into offers(id,application_id,decision_id,kind,product_code,amount,term_months,rate,monthly_payment,total_payment,valid_until,status,created_at,product_version) values(?,?,?,'APPROVED','WORKING_CAPITAL',123456,6,12,21000,126000,now()+interval '1 day','ACCEPTED',now(),1)").use { statement ->
+                    statement.setObject(1, offer); statement.setObject(2, scope.applicationId); statement.setObject(3, decision); statement.executeUpdate()
+                }
+            }
+            for (kind in listOf("SCHEDULE_PDF", "SCHEDULE_XLSX")) {
+                val nextId = UUID.randomUUID()
+                remote.prepare(record.copy(id = nextId, kind = kind, storedName = "generated-$nextId.${if (kind.endsWith("XLSX")) "xlsx" else "pdf"}"))
+            }
+            db("credit") { connection -> connection.prepareStatement("insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json,delivered_at) values(?,?,'FINAL',?,?::jsonb,now())").use { statement ->
+                statement.setObject(1, scope.applicationId); statement.setObject(2, offer); statement.setString(3, record.inputHash); statement.setString(4, frozen); statement.executeUpdate()
+            } }
             val first = remote.prepare(record)
             assertEquals(first.id, remote.prepare(record.copy(id = UUID.randomUUID(), storedName = "generated-${UUID.randomUUID()}.pdf")).id)
             assertFailsWith<StatusRuntimeException> { remote.prepare(record.copy(id = UUID.randomUUID(), inputJson = frozen.replace("123456", "999999"))) }
@@ -96,6 +115,34 @@ class DocumentsRuntimeTest {
             assertEquals(ready, remote.retry(scope, ready.id))
             assertContentEquals(bytes, remote.artifactBytes(scope, ready.id))
             assertEquals(frozen, ready.inputJson)
+            val noticeDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(40)
+            var notices = 0
+            while (notices == 0 && System.nanoTime() < noticeDeadline) {
+                Thread.sleep(200)
+                db("credit") { connection -> connection.prepareStatement("select count(*) from generated_artifact_notices where application_id=? and offer_id=?").use { statement ->
+                    statement.setObject(1, scope.applicationId); statement.setObject(2, offer)
+                    statement.executeQuery().use { rs -> rs.next(); notices = rs.getInt(1) }
+                } }
+            }
+            assertEquals(1, notices)
+            db("credit") { connection -> connection.prepareStatement("select count(*) from delivery_outbox where channel='notification' and event_key like ?").use { statement ->
+                statement.setString(1, "generated-files:${scope.applicationId}:$offer:%")
+                statement.executeQuery().use { rs -> rs.next(); assertEquals(1, rs.getInt(1)) }
+            } }
+            // Persist a worker claim that will expire only after the harness stops both JARs.
+            val recoveryId = UUID.randomUUID()
+            val recoveryInput = input.copy(offerId = UUID.randomUUID())
+            db("credit") { connection -> connection.prepareStatement("insert into offers(id,application_id,decision_id,kind,product_code,amount,term_months,rate,monthly_payment,total_payment,valid_until,status,created_at,product_version) values(?,?,?,'APPROVED','WORKING_CAPITAL',123456,6,12,21000,126000,now()+interval '1 day','ACCEPTED',now(),1)").use { statement ->
+                statement.setObject(1, recoveryInput.offerId); statement.setObject(2, scope.applicationId); statement.setObject(3, decision); statement.executeUpdate()
+            } }
+            val recoveryJson = mapper.writeValueAsString(recoveryInput)
+            val recovery = record.copy(id = recoveryId, offerId = recoveryInput.offerId, inputJson = recoveryJson,
+                inputHash = sha256(recoveryJson.toByteArray()), storedName = "generated-$recoveryId.pdf")
+            db("documents") { connection -> connection.prepareStatement("insert into artifact_records(id,company_id,application_id,offer_id,kind,phase,template_version,input_hash,metadata,lease_token,lease_until,next_attempt_at) values(?,?,?,?,'CONTRACT_PDF','FINAL',2,?,?::jsonb,?,now()+interval '1 day',now()+interval '1 day')").use { statement ->
+                statement.setObject(1, recovery.id); statement.setObject(2, scope.companyId); statement.setObject(3, scope.applicationId); statement.setObject(4, recovery.offerId)
+                statement.setString(5, recovery.inputHash); statement.setString(6, mapper.writeValueAsString(recovery)); statement.setObject(7, UUID.randomUUID()); statement.executeUpdate()
+            } }
+
             db("documents") { connection -> connection.prepareStatement("select count(*) from artifact_outbox where artifact_id=?").use { statement ->
                 statement.setObject(1, ready.id); statement.executeQuery().use { rs -> rs.next(); assertEquals(1, rs.getInt(1)) }
             } }

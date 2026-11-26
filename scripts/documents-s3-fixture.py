@@ -91,11 +91,11 @@ class S3Fixture:
         return {'endpoint':self.endpoint,'region':'us-east-1','bucket':self.buckets[identity],'access-key':key,'secret-key':secret}
 
     def close(self):
-        if self.process and self.process.poll() is None:
+        if getattr(self, "process", None) and self.process.poll() is None:
             self.process.terminate()
             try: self.process.wait(timeout=15)
             except subprocess.TimeoutExpired: self.process.kill(); self.process.wait(timeout=5)
-        if self.handle: self.handle.close()
-        if self.container:
+        if getattr(self, "handle", None): self.handle.close()
+        if getattr(self, "container", None):
             with (self.report/'s3-server.log').open('ab') as output: subprocess.run(['docker','logs',self.container],stdout=output,stderr=subprocess.STDOUT)
             subprocess.run(['docker','rm','-fv',self.container],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)

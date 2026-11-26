@@ -1,6 +1,6 @@
 # Alpha. Исполнение рефакторинга
 
-[План](alpha-hexagonal-refactor.md) · [Матрица приёмки](alpha-hexagonal-acceptance.md)
+[План](alpha-hexagonal-refactor.md) · [Матрица приёмки](alpha-hexagonal-acceptance.md) · [Открытые работы](alpha-technical-remaining.md)
 
 Основной чат владеет планом, назначениями, интеграцией и решением о приёмке. По каждому файлу работает один владелец. Межчатные передачи используют ID задачи, точный SHA, пути, проверки и открытые критерии. Получатель подтверждает, какую ревизию принял. Журналы содержат ссылку на действующие хранилища без секретов.
 
@@ -16,6 +16,8 @@
 На каждую передачу записываем ID, источник и получателя, время с UTC+03:00, состояние, полный SHA базы и кандидата, branch/worktree, файлы, команду и статус проверки, среду, ссылку на артефакт или хеш, открытые критерии и следующее действие. Для сабагента фиксируем заданный режим, подтверждённый инструментом режим при его наличии, идентификатор и результат фактического запуска.
 
 Назначение, принятие, выполнение, артефакт, проверка, ревью и приёмка имеют отдельные состояния. Падение окружения и отсутствие доказательства сохраняются как открытые причины. Доказательства относятся к конкретной ревизии. Параллельные коммиты объединяет основной чат после сверки границ.
+
+Записи о кандидатах ниже сохраняют состояние на момент каждой проверки. Текущее состояние Dev и следующих волн ведётся в [отдельном реестре](alpha-technical-remaining.md).
 
 ## Стартовая запись
 
@@ -157,3 +159,37 @@ GitLab [pipeline #58](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet
   запись текущего выпуска до проверки ролей и HTTPS. Регрессии
   проверяют отказ при открытом маршруте, запрет активации после сбоя
   теневого прогона и управляемый возврат к SQL после сбоя активации.
+
+## Приёмка 7476cb8 и защищённая поставка
+
+Кандидат `7476cb814ee12667c3b5ad674ad4fdcfa75521ec` прошёл CI. Нативные
+прогоны Credit и Analytics выполнены на CI JAR
+`353148bc7c1fbebdb0f0e4207ab53f74b8ff6d68`. Сверка подтвердила совпадение
+распакованного содержимого обоих JAR с JAR кандидата `7476cb8`, включая
+файлы вложенного `platform-common.jar`. Область этих нативных
+квитанций ограничена проверенными артефактами. Для последующих
+инфраструктурных коммитов ниже зафиксированы их собственные проверки CI
+и попытки поставки. [Pipeline #58](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/58) · [Pipeline #60](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/60)
+
+| Критерии | Подтверждено на проверенных артефактах |
+| --- | --- |
+| A01–A04 | Проверены ключ события, изоляция невалидного сообщения в DLQ и подтверждение offset после DLQ. Совпали живой HTTP и OpenAPI с базовым Credit, восемь видимых строк, прямая подача, агентское подтверждение и доступ по ролям при SQL, проекции и fallback. Это историческая запись A03 для пилота. |
+| A05–A08 | JUnit подтвердил общий rollback статуса, журнала, outbox и следующей задачи. Проверены идемпотентность и перезапуск после коммита до подтверждения offset, работа при отказе Kafka, повтор доставки после ack и адресный повтор FAILED после 12 попыток. Прошли обе очередности снимка и событий и восстановление в новое поколение. [Backend #776](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/jobs/776) |
+| A09–A11 | Локально проверены лаг, pending outbox при нулевом лаге, ошибочный маркер, таймаут, отказ Kafka и Analytics, DLQ и выключение чтения. Проверены поставка в CI, Helm, ACL, регрессии выкладки и запуск старого JAR на обновлённой схеме. Для A11 подтверждены дайджесты CI JAR. A09 и A11 на Dev открыты. |
+| A12–A13 | Независимое ревью и тесты кандидата подтвердили внешний 404, сохранение pending при сбое и повтор запуска с чтением из SQL. Полный E2E прошёл для клиента, агента, банка и уведомлений. [E2E #799](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/jobs/799) |
+
+Сводка и исходные пути к квитанциям находятся на проверочном хосте в
+`/var/tmp/alpha-pilot-verify.uQCHokYt/merge-readiness-7476cb8.md`. Рядом
+сохранена сверка содержимого JAR `runtime-equivalence-7476cb8.txt`.
+
+| Попытка | Результат |
+| --- | --- |
+| Слияние пилота | MR !6 прошёл pipeline #59. MR !9 влит в `feat/final-platform-release` коммитом `93a8be8` с деревом кандидата `7476cb8`. Попытки выпуска из защищённого #62 остановлены после подготовки автоматических настроек Dev. [Pipeline #59](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/59) · [Коммит 93a8be8](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/commit/93a8be887b812007400b84552abaa494bae32f7c) · [Pipeline #62](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/62) |
+| Первичная настройка | MR !10 добавил атомарную первичную настройку Alpha из opt-in манифеста с отдельными настройками и чтением из SQL. Кандидат `857b592` прошёл 14 локальных тестов Alpha, 19 смежных и 26 обязательных заданий #65. Из него получен защищённый `8d77962`. [MR !10](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/merge_requests/10) · [Pipeline #65](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/65) · [Коммит 8d77962](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/commit/8d779627d3d2ad0617de01cc88033f85cb77fcd0) |
+| Выпуск #72 | Прошли все 32 обязательные проверки. `release-images` отклонил исходный образ Kafka из-за уязвимой версии `brotli-libs`. Исправленный образ проверен в #74 и интегрирован через MR !11. [Pipeline #72](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/72) · [release-images #1099](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/jobs/1099) · [Pipeline #74](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/74) · [MR !11](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/merge_requests/11) |
+| Выпуск #76 | На защищённом `3e434c0` прошли все 32 обязательные проверки и `release-images`. Общий статус pipeline — `failed` из-за ошибок `dev-deploy`. SHA-256 манифеста `07df658356bbc5e3501b0b00321f0177b6f72f6727e36ba624dfd44b0557791a`. Для Kafka сверены ID просканированного образа, digest после pull, OCI revision и закреплённая ссылка на базовый образ. [Коммит 3e434c0](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/commit/3e434c0adee63917d2fe088e8939207de5b84452) · [Pipeline #76](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/pipelines/76) · [release-images #1232](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/jobs/1232) |
+| Dev #1233 и #1235 | При первой попытке завершилась предмиграционная резервная копия, сохранены поколение `gf59d0945c2542f55` и снимок с хешем `960ed6e6bf397135773068cf307230917e19345b51ab9890406fc8e5bdc4935a`. Повтор сохранил поколение и маркер снимка. Обе попытки завершились с кодом 1 в `deploy/start.py:52` на общем `docker compose up`. Исходный stderr и состояние контейнеров отсутствуют в квитанции. После остановки ingress HTTPS был недоступен, позже публичный HTTPS восстановился. Активные SHA, поколение и image ID на Dev пока не подтверждены. [dev-deploy #1233](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/jobs/1233) · [dev-deploy #1235](https://gitlab.credit-cabinet.ru/pump/smart-credit-cabinet/-/jobs/1235) |
+
+Следующий подтверждённый запуск Alpha на Dev должен быть теневым, с
+чтением из SQL. Условия перехода, диагностика и открытые работы по
+волнам R1–R4 приведены в [реестре оставшихся работ](alpha-technical-remaining.md).

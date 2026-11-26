@@ -10,6 +10,7 @@ IMAGE_COMPONENTS = (*APP_SERVICES, "postgres", "swagger")
 OPTIONAL_IMAGES = {"ssh-bridge", "clamav"}
 REVISION = re.compile(r"[0-9a-f]{40}")
 SHA256 = re.compile(r"[0-9a-f]{64}")
+KAFKA_IMAGE = re.compile(r"apache/kafka:[0-9.]+@sha256:[0-9a-f]{64}")
 IMAGE = re.compile(r"[a-z0-9.-]+(?::[0-9]{1,5})?(?:/[a-z0-9][a-z0-9._-]*)+@sha256:[0-9a-f]{64}")
 SERVICE_COMPONENTS = {
     **{name: name for name in (*APP_SERVICES, "postgres")},
@@ -50,11 +51,12 @@ class RegistryRelease:
         if "alpha_dev" in release:
             alpha = release["alpha_dev"]
             repository, = repositories
-            if (not isinstance(alpha, dict) or set(alpha) != {"image", "jar_sha256"}
+            if (not isinstance(alpha, dict) or set(alpha) != {"image", "jar_sha256", "kafka_image"}
                     or not isinstance(alpha["image"], str)
                     or not re.fullmatch(re.escape(repository) + r"/analytics@sha256:[0-9a-f]{64}", alpha["image"])
-                    or not isinstance(alpha["jar_sha256"], str) or not SHA256.fullmatch(alpha["jar_sha256"])):
-                raise ValueError("Некорректный digest образа или SHA256 JAR Analytics в manifest")
+                    or not isinstance(alpha["jar_sha256"], str) or not SHA256.fullmatch(alpha["jar_sha256"])
+                    or not isinstance(alpha["kafka_image"], str) or not KAFKA_IMAGE.fullmatch(alpha["kafka_image"])):
+                raise ValueError("Некорректный digest образа Analytics, Kafka или SHA256 JAR в manifest")
             self.alpha_dev = alpha
         self.checksum = sha256(raw).hexdigest()
 

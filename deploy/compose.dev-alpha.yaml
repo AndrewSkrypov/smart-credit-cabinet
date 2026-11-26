@@ -98,6 +98,7 @@ services:
       DB_USER: analytics_app
       DB_PASSWORD: ${CABINET_ALPHA_DEV_PG_APP_PASSWORD:?Нужен пароль приложения Analytics}
       SPRING_PROFILES_ACTIVE: prod
+      JWT_SECRET: ${CABINET_ALPHA_DEV_JWT_SECRET:?Нужен отдельный ключ Analytics}
       SPRING_FLYWAY_ENABLED: "false"
       ANALYTICS_KAFKA_ENABLED: "true"
       APPLICATION_STATUS_KAFKA_BOOTSTRAP_SERVERS: analytics-kafka:9092

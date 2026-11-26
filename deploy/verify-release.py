@@ -66,11 +66,11 @@ def verify_alpha(deployment, origin, ca, containers):
         raise RuntimeError("Работающий Kafka отличается от закреплённого digest")
 
     route = "http://analytics:8080" + ALPHA_ROUTE
-    common = ["curl", "-sS", "--max-time", "3", "-o", "/dev/null", "-w", "%{http_code}"]
+    common = ["curl", "-sS", "--noproxy", "*", "--max-time", "3", "-o", "/dev/null", "-w", "%{http_code}"]
     denied = docker("exec", containers["credit"], *common, route).decode("ascii")
     authorized = docker(
         "exec", containers["credit"], "sh", "-eu", "-c",
-        'exec curl -sS --max-time 3 -o /dev/null -w "%{http_code}" '
+        'exec curl -sS --noproxy "*" --max-time 3 -o /dev/null -w "%{http_code}" '
         '-H "X-Analytics-Read-Token: $ANALYTICS_STATUS_READ_TOKEN" "$1"', "analytics", route,
     ).decode("ascii")
     if denied != "401" or authorized not in {"200", "503"}:

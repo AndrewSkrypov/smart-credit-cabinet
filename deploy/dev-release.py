@@ -80,7 +80,7 @@ def deploy(args, state_dir, release):
         raise RuntimeError("Указанный выпуск не записан как текущий")
 
     if not args.verify_only and desired != status:
-        if status and not pending and (status["revision"] != release.revision or not (history or status.get("alpha_dev"))):
+        if status and not pending and status["revision"] != release.revision:
             old_root, old_release = release_at(ROOT.parent, status["revision"])
             if status["manifest_sha256"] != old_release.checksum:
                 raise RuntimeError("Manifest предыдущего выпуска изменился")

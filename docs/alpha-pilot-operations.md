@@ -1,6 +1,6 @@
 # Изолированный пилот Alpha
 
-[План](plans/alpha-hexagonal-refactor.md) · [Матрица приёмки](plans/alpha-hexagonal-acceptance.md)
+[План](plans/alpha-hexagonal-refactor.md) · [Матрица приёмки](plans/alpha-hexagonal-acceptance.md) · [Защищённая выкладка на Dev](alpha-dev-rollout.md)
 
 ## Проверка инфраструктуры
 
@@ -48,8 +48,7 @@ alpha_compose=(docker compose --env-file /dev/null -f ci/alpha/compose.yaml
 
 Корневой pipeline подключает `ci/alpha/gitlab.yml` при `CABINET_ALPHA_PILOT=1`.
 Выделенный pipeline runner-canary выполняется отдельно. В изолированном CI
-задайте `CABINET_ALPHA_PILOT=1` и тот же
-`ALPHA_PILOT_KAFKA_IMAGE`. Оба задания используют существующий `.quality`.
+задайте `CABINET_ALPHA_PILOT=1`. Smoke использует закреплённый Kafka digest из репозитория. Оба задания используют существующий `.quality`.
 Инфраструктурное задание запускает зависимости, отдельное задание
 `alpha-pilot-analytics-jar` собирает Analytics на интегрированном SHA.
 

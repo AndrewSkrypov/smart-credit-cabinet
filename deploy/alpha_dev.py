@@ -6,6 +6,8 @@ import re
 import subprocess
 import tempfile
 
+from registry_release import KAFKA_IMAGE
+
 
 PROJECT = "cabinet-dev"
 PARTITIONS = 3
@@ -15,6 +17,7 @@ SECRET_KEYS = (
     "CABINET_ALPHA_DEV_PG_OWNER_PASSWORD",
     "CABINET_ALPHA_DEV_PG_APP_PASSWORD",
     "CABINET_ALPHA_DEV_READ_TOKEN",
+    "CABINET_ALPHA_DEV_JWT_SECRET",
 )
 OPS_DIR = Path(__file__).resolve().parents[1] / "services/analytics/ops"
 KAFKA_IMAGE_FILE = Path(__file__).resolve().parents[1] / "ci/alpha/kafka-image.txt"
@@ -45,7 +48,9 @@ class AlphaDev:
             raise ValueError("Поколение Dev требует g и 16 строчных шестнадцатеричных символов")
         secrets = [values.get(key, "") for key in SECRET_KEYS]
         for key, secret in zip(SECRET_KEYS, secrets):
-            if not re.fullmatch(r"[A-Za-z0-9_-]{32,128}", secret) or secret.startswith("dev-") or "CHANGE_ME" in secret:
+            minimum = 48 if key == "CABINET_ALPHA_DEV_JWT_SECRET" else 32
+            if (not minimum <= len(secret) <= 128 or not re.fullmatch(r"[A-Za-z0-9_-]+", secret)
+                    or secret.startswith("dev-") or "CHANGE_ME" in secret):
                 raise ValueError(f"Нужен отдельный случайный {key}")
         other_values = {value for key, value in values.items() if key not in SECRET_KEYS}
         if len(set(secrets)) != len(secrets) or other_values.intersection(secrets):
@@ -67,11 +72,13 @@ class AlphaDev:
     @property
     def kafka_image(self):
         image = KAFKA_IMAGE_FILE.read_text(encoding="utf-8").strip()
-        if not re.fullmatch(r"apache/kafka:[0-9.]+@sha256:[0-9a-f]{64}", image):
+        if not KAFKA_IMAGE.fullmatch(image):
             raise ValueError("Требуется закреплённый образ Apache Kafka")
         return image
 
     def environment(self, release):
+        if release.alpha_dev["kafka_image"] != self.kafka_image:
+            raise ValueError("Digest Kafka из manifest не совпадает с закреплённым в ревизии")
         return {
             "CABINET_ALPHA_DEV_KAFKA_IMAGE": self.kafka_image,
             "CABINET_ALPHA_DEV_TOPIC": self.topic,

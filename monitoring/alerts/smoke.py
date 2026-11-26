@@ -134,17 +134,17 @@ def go_query(origin, token, query, **variables):
     return result["data"]
 
 
-def create_oncall(query, first_user, backup_user):
+def create_oncall(query, first_user, backup_user, name="Cabinet Smoke"):
     schedule = query(
         """mutation($input: CreateScheduleInput!) {
             createSchedule(input: $input) { id }
         }""",
         input=dict(
-            name="Cabinet Smoke Schedule",
+            name=f"{name} Schedule",
             timeZone="UTC",
             targets=[dict(
                 newRotation=dict(
-                    name="Cabinet Smoke Rotation", timeZone="UTC",
+                    name=f"{name} Rotation", timeZone="UTC",
                     start=(datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
                     type="weekly", userIDs=[first_user],
                 ),
@@ -160,9 +160,9 @@ def create_oncall(query, first_user, backup_user):
             }
         }""",
         input=dict(
-            name="Cabinet Smoke",
+            name=name,
             newEscalationPolicy=dict(
-                name="Cabinet Smoke Escalation", repeat=0, steps=[
+                name=f"{name} Escalation", repeat=0, steps=[
                     dict(delayMinutes=1, targets=[dict(id=schedule["id"], type="schedule")]),
                     dict(delayMinutes=1, targets=[dict(id=backup_user, type="user")]),
                 ],

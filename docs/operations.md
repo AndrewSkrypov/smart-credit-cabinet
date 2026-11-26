@@ -113,7 +113,8 @@ helm repo add vector https://helm.vector.dev
 helm dependency build "$stage"
 helm lint "$stage" -f helm/observability/probes.yaml
 helm upgrade --install cabinet-observability "$stage" --namespace monitoring \
-  -f helm/observability/probes.yaml --wait --timeout 10m
+  -f helm/observability/probes.yaml --set global.cabinetAppNamespace=cabinet-prod \
+  --wait --timeout 10m
 ```
 
 Установка приложения задаёт `app.otlpEndpoint=http://tempo.monitoring.svc:4318/v1/traces`

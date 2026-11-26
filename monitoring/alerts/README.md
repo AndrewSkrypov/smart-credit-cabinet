@@ -56,6 +56,46 @@ kubectl -n monitoring exec -it deployment/cabinet-goalert -- \
    Отдельно оставьте тестовый инцидент без ack до второй ступени и проверьте статус
    доставки оператору в истории GoAlert.
 
+## Отдельная БД и проверка контактов
+
+Для внутреннего PostgreSQL добавьте к Helm-релизу `-f helm/observability/goalert-values.yaml`
+и `-f helm/observability/goalert-db-values.yaml`. Перед установкой один раз создайте
+парные Secrets сервисной командой с указанным новым kubeconfig:
+
+```bash
+python3 helm/observability/provision-goalert-secrets.py --kubeconfig "$PUMP_PROD_KUBECONFIG" \
+  --context kubernetes-admin@alfa-cluster-2
+```
+
+Команда создаёт пароли через защищённые файлы и при повторе проверяет согласованность.
+`goalert_admin` инициализирует `pgcrypto`. Роль `goalert` владеет только своей БД
+и выполняет миграции без прав суперпользователя, создания БД и ролей. БД использует
+PVC 8 GiB и SCRAM. Сетевой доступ разрешён только GoAlert. DSN внутри изолированной
+сети использует `sslmode=disable`. Для ротации пароля существующего PVC обновите роль
+в PostgreSQL и соответствующие Secrets в одной согласованной операции.
+
+Для синтетических контактов добавьте `-f helm/observability/goalert-test-contacts-values.yaml`.
+Этот режим исключает внешний Alertmanager paging. GoAlert может подключаться к
+своей БД, DNS кластера и временному Mailpit. У Mailpit нет наружного маршрута.
+Тестовые адреса оканчиваются на `example.invalid`, сообщения хранятся в памяти.
+
+Откройте порт-форварды к `svc/cabinet-goalert 8081:8081` и
+`svc/cabinet-goalert-mailpit 8025:8025` в namespace `monitoring`. После создания
+тестовой записи администратора по инструкции выше подайте её пароль из файла
+с правами `0600`:
+
+```bash
+python3 monitoring/alerts/test-contacts.py --admin-user "$GOALERT_TEST_ADMIN_USER" \
+  --admin-password-file "$GOALERT_TEST_ADMIN_PASSWORD_FILE"
+```
+
+Сценарий подтверждает два синтетических email-контакта, отправляет событие на отдельный
+внутренний webhook GoAlert и проверяет сообщения основному и резервному контактам,
+ACK и закрытие по resolved. Локальный `smoke.py` отдельно проверяет переходы Prometheus
+и доставку Alertmanager. После приёмки удалите синтетические сервис, политику, расписание,
+ротацию и контакты через GoAlert, замените временный SMTP настройками согласованных контактов
+и уберите тестовый Helm-оверлей перед включением внешних маршрутов.
+
 ## Документация
 
 [Нативный webhook GoAlert](https://goalert.me/docs/alerting/alerting-from-prometheus/),

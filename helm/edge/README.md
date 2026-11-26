@@ -89,3 +89,14 @@ the Issuer and Certificate, verify a successful cert-manager
 `CertificateRequest` and a populated renewal time. If the existing certificate
 continues to be served, check the presented certificate serial and the
 CertificateRequest status before declaring the handover complete.
+
+## Canonical hostname
+
+After `cabinet-prod-tls` is ready, apply the redirect for
+`www.credit-cabinet.ru`. The redirect keeps the original path and query.
+
+```sh
+kubectl apply -f helm/edge/routing/www.yaml
+kubectl -n cabinet-prod rollout status deployment/cabinet-www-redirect
+curl -I 'https://www.credit-cabinet.ru/?probe=redirect'
+```

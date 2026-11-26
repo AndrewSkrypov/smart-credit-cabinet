@@ -1,0 +1,14 @@
+# Optional local include from .gitlab-ci.yml. See docs/alpha-pilot-operations.md.
+alpha-pilot-infrastructure:
+  extends: .quality
+  stage: verify
+  timeout: 10 minutes
+  rules:
+    - if: '$CABINET_ALPHA_PILOT == "1"'
+  script:
+    - mkdir -p ci-artifacts
+    - bash ci/alpha/smoke.sh > ci-artifacts/alpha-infrastructure.tsv
+  artifacts:
+    expire_in: 14 days
+    paths:
+      - ci-artifacts/alpha-infrastructure.tsv

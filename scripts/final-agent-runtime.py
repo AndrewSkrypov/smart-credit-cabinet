@@ -227,7 +227,7 @@ def start(args, directory, state, persist):
     state["listeners"] = {name: f"{host}:{port}" for name, (host, port) in addresses.items()}
     state["uploads_enabled"] = args.clamd is not None
     state["uploads_mode"] = "clamav" if args.clamd else "disabled"
-    if bool(args.clamd) != bool(args.clam_db):
+    if bool(args.clamd) != bool(args.clam_db) or (args.clam_certs and not args.clamd):
         raise ValueError("Для загрузки документов нужны и clamd, и каталог сигнатур")
     java = executable(args.java)
     nginx = executable(args.nginx)
@@ -322,7 +322,7 @@ def start(args, directory, state, persist):
               "ANALYTICS_STATUS_READ_ENABLED": "false"}
     (directory / "uploads").mkdir()
     if args.clamd:
-        start_clam(args, directory, addresses["clamd"], launch)
+        start_clam(args, directory, addresses["clamd"], launch, env)
     for name in DATABASES:
         run(f"{name}-migration", [java, "-XX:ActiveProcessorCount=2", "-Xmx256m", "-jar", str(jars[name])],
             {**common, "MIGRATION_ONLY": "true", "DB_NAME": name, "DB_USER": f"{name}_owner", "DB_PASSWORD": db[name][1]})
@@ -337,7 +337,7 @@ def start(args, directory, state, persist):
     wait_for(lambda: request(endpoints["gateway"] + "/api/v1/products")[0] == 200, "Gateway", gateway)
 
 
-def start_clam(args, directory, address, launch):
+def start_clam(args, directory, address, launch, env):
     clamd = executable(args.clamd)
     db = args.clam_db.resolve(strict=True)
     if not db.is_dir() or any(char.isspace() for char in str(db)):
@@ -347,7 +347,12 @@ def start_clam(args, directory, address, launch):
     host, port = address
     config = directory / "clamd.conf"
     config.write_text(f"Foreground yes\nTCPAddr {host}\nTCPSocket {port}\nDatabaseDirectory {db}\n" + settings)
-    process = launch("clamd", [clamd, "-c", str(config)])
+    if args.clam_certs:
+        certificates = args.clam_certs.resolve(strict=True)
+        if not certificates.is_dir():
+            raise ValueError("Каталог сертификатов ClamAV недоступен")
+        env = {**env, "CVD_CERTS_DIR": str(certificates)}
+    process = launch("clamd", [clamd, "-c", str(config)], env)
 
     def fresh_signatures():
         with socket.create_connection(address, timeout=1) as connection:
@@ -444,6 +449,7 @@ def main():
     up.add_argument("--private-host", default="127.77.0.1")
     up.add_argument("--clamd", type=Path)
     up.add_argument("--clam-db", type=Path)
+    up.add_argument("--clam-certs", type=Path)
     for command in ("status", "smoke", "down"):
         commands.add_parser(command)
     args = parser.parse_args()
@@ -479,7 +485,9 @@ def main():
                 stop(state)
             report = smoke(state) if args.command == "smoke" else status(state)
             print(json.dumps(report, ensure_ascii=False, indent=2))
-            if args.command == "status" and any(code != 200 for code in report["health"].values()):
+            if args.command == "status" and (
+                not report["health"] or any(code != 200 for code in report["health"].values())
+            ):
                 return 1
     except KeyboardInterrupt:
         return 130

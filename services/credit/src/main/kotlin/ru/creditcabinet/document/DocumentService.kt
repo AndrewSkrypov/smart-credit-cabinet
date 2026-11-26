@@ -210,7 +210,9 @@ class DocumentService(
     override fun open(applicationId: UUID, documentId: UUID): Pair<ApplicationDocument, StoredFile> {
         val application = applications.get(applicationId)
         val document = readableDocument(application, documentId, CurrentCaller.claims())
-        val file = (if (boundary?.remote == true) boundary.bytes(document) else store.get(document.storedName, document.storageBackend)) ?: throw NotFoundException("Файл документа не найден в хранилище")
+        val file =
+            (if (boundary?.remote == true) boundary.bytes(document) else store.get(document.storedName, document.storageBackend))
+                ?: throw NotFoundException("Файл документа не найден в хранилище")
         return document to file
     }
 

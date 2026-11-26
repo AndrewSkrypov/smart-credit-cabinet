@@ -18,7 +18,10 @@ import java.time.Instant
 import java.util.UUID
 
 @Component
-class JdbcChatData(private val jdbc: NamedParameterJdbcTemplate, private val documentBoundary: ru.creditcabinet.document.infrastructure.DocumentsBoundary? = null) : ChatData {
+class JdbcChatData(
+    private val jdbc: NamedParameterJdbcTemplate,
+    private val documentBoundary: ru.creditcabinet.document.infrastructure.DocumentsBoundary? = null,
+) : ChatData {
     private val mapper = RowMapper { rs, _ ->
         ChatMessage(
             id = rs.getObject("id", UUID::class.java), applicationId = rs.getObject("application_id", UUID::class.java),
@@ -180,11 +183,24 @@ class JdbcChatData(private val jdbc: NamedParameterJdbcTemplate, private val doc
     private fun withFiles(messages: List<ChatMessage>): List<ChatMessage> {
         if (messages.isEmpty()) return messages
         if (documentBoundary?.remote == true) {
-            val references = jdbc.query("select message_id,application_id,document_id from message_attachments where message_id in (:ids)", mapOf("ids" to messages.map { it.id })) { rs, _ ->
-                Triple(rs.getObject("message_id", UUID::class.java), rs.getObject("application_id", UUID::class.java), rs.getObject("document_id", UUID::class.java))
+            val references = jdbc.query(
+                "select message_id,application_id,document_id from message_attachments where message_id in (:ids)",
+                mapOf(
+                    "ids" to messages.map { it.id },
+                ),
+            ) { rs, _ ->
+                Triple(
+                    rs.getObject("message_id", UUID::class.java),
+                    rs.getObject("application_id", UUID::class.java),
+                    rs.getObject("document_id", UUID::class.java),
+                )
             }
             val records = references.map { it.second }.distinct().associateWith { documentBoundary.all(it).associateBy { record -> record.id } }
-            val attachments = references.sortedWith(compareBy({ records[it.second]?.get(it.third)?.uploadedAt }, { it.third })).mapNotNull { (message, application, document) ->
+            val attachments = references.sortedWith(
+                compareBy({
+                    records[it.second]?.get(it.third)?.uploadedAt
+                }, { it.third }),
+            ).mapNotNull { (message, application, document) ->
                 records[application]?.get(document)?.takeIf { !it.privateToBank }?.let { message to ChatFile(it.id, it.fileName, it.sizeBytes) }
             }.groupBy({ it.first }, { it.second })
             return messages.map { it.copy(attachments = attachments[it.id].orEmpty()) }

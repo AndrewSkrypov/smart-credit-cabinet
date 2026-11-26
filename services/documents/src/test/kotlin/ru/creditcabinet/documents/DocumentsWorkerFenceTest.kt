@@ -34,11 +34,15 @@ class DocumentsWorkerFenceTest {
                 invocation.getArgument<TransactionCallback<Any>>(0).doInTransaction(SimpleTransactionStatus())
             }
             val scope = DocumentScope(UUID.randomUUID(), UUID.randomUUID())
-            val input = ArtifactInput(scope.applicationId, 1, UUID.randomUUID(), "Снимок", "000100000004", "Продукт", 1000, 1,
-                LoanMath.calculate(1000, BigDecimal("12.00"), 1, false), ArtifactPhase.FINAL, "Условия", null, true, null, "proof", Instant.EPOCH)
+            val input = ArtifactInput(
+                scope.applicationId, 1, UUID.randomUUID(), "Снимок", "000100000004", "Продукт", 1000, 1,
+                LoanMath.calculate(1000, BigDecimal("12.00"), 1, false), ArtifactPhase.FINAL, "Условия", null, true, null, "proof", Instant.EPOCH,
+            )
             val frozen = mapper.writeValueAsString(input)
-            val record = ArtifactRecord(UUID.randomUUID(), scope, input.offerId, "CONTRACT_PDF", "FINAL", 2, sha256(frozen.toByteArray()), frozen,
-                "Условия", "contract.pdf", "application/pdf", "generated-${UUID.randomUUID()}.pdf", "LOCAL", Instant.EPOCH)
+            val record = ArtifactRecord(
+                UUID.randomUUID(), scope, input.offerId, "CONTRACT_PDF", "FINAL", 2, sha256(frozen.toByteArray()), frozen,
+                "Условия", "contract.pdf", "application/pdf", "generated-${UUID.randomUUID()}.pdf", "LOCAL", Instant.EPOCH,
+            )
             Mockito.`when`(jdbc.queryForList(anyString())).thenReturn(listOf(mapOf("id" to record.id, "metadata" to mapper.writeValueAsString(record))))
             Mockito.doAnswer {
                 gate = mapOf("owner" to next.first, "epoch" to next.second)
@@ -46,7 +50,10 @@ class DocumentsWorkerFenceTest {
             }.`when`(renderer).render(any(), any())
             val store = DocumentsStore(jdbc, mapper, tx, Mockito.mock(FileStore::class.java), DocumentScanner {}, renderer, JdbcDocumentMetadata(jdbc, mapper))
             store.generateOne()
-            val errorWrites = Mockito.mockingDetails(jdbc).invocations.filter { it.method.name == "update" && it.arguments.first().toString().contains("status='ERROR'") }
+            val errorWrites = Mockito.mockingDetails(jdbc).invocations.filter {
+                it.method.name == "update" &&
+                    it.arguments.first().toString().contains("status='ERROR'")
+            }
             assertEquals(if (next == ("DOCUMENTS" to 1L)) 1 else 0, errorWrites.size)
             errorWrites.forEach { invocation ->
                 val sql = invocation.arguments.first().toString()

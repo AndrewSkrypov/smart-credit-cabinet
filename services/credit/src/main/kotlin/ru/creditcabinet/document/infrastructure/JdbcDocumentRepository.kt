@@ -1,6 +1,5 @@
 package ru.creditcabinet.document.infrastructure
 
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Component
@@ -8,13 +7,7 @@ import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentContext
 import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.DocumentType
-import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.domain.StorageBackend
-import ru.creditcabinet.document.domain.StoredFile
-import java.io.InputStream
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID

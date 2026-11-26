@@ -238,10 +238,19 @@ test.describe('Финальное агентское финансировани�
     const underwriter = await signIn(request, 'underwriter');
     const draft = await createDraft(request, agent, companies.vector);
     try {
-      const selected = await transferRevisedPackage(request, agent, client, underwriter, draft, info);
-      await login(page, 'agent');
-      await page.goto(`/agent/applications/${draft.id}`);
-      await expectFinancingPackage(page);
+      const selected = await transferRevisedPackage(request, agent, client, underwriter, draft, info, async () => {
+        await uploadRequiredDocuments(request, agent, draft);
+        await login(page, 'agent');
+        await page.goto(`/agent/applications/${draft.id}`);
+        await expectFinancingPackage(page);
+        const resend = page.waitForResponse((response) =>
+          response.url().endsWith(`${agentApplication(draft.id)}/request-confirmation`)
+            && response.request().method() === 'POST');
+        await page.getByRole('button', { name: 'Отправить клиенту на подтверждение', exact: true }).click();
+        const response = await resend;
+        expect(response.status(), await response.text()).toBe(200);
+        expect(await response.json()).toMatchObject({ status: 'PENDING_CLIENT_CONFIRMATION' });
+      });
       await logout(page);
       await login(page, companies.vector.account);
       await page.goto(`/client/applications/${draft.id}`);
@@ -309,6 +318,14 @@ async function createDraft(request: APIRequestContext, agent: Session, company: 
 }
 
 async function sendToClient(request: APIRequestContext, agent: Session, draft: Draft) {
+  await uploadRequiredDocuments(request, agent, draft);
+  const pending = await json<Draft>(await request.post(`${agentApplication(draft.id)}/request-confirmation`, {
+    headers: headers(agent),
+  }), 200);
+  expect(pending.status).toBe('PENDING_CLIENT_CONFIRMATION');
+}
+
+async function uploadRequiredDocuments(request: APIRequestContext, agent: Session, draft: Draft) {
   const path = agentApplication(draft.id);
   const current = await json<Draft>(await request.get(path, { headers: headers(agent) }), 200);
   for (const doc of current.requiredDocuments.filter((document) => !document.uploaded)) {
@@ -316,8 +333,6 @@ async function sendToClient(request: APIRequestContext, agent: Session, draft: D
       headers: headers(agent), multipart: { file: syntheticInvoicePdf() },
     }), 201);
   }
-  const pending = await json<Draft>(await request.post(`${path}/request-confirmation`, { headers: headers(agent) }), 200);
-  expect(pending.status).toBe('PENDING_CLIENT_CONFIRMATION');
 }
 
 async function extract(request: APIRequestContext, agent: Session, id: string, info: TestInfo) {
@@ -364,6 +379,7 @@ async function extract(request: APIRequestContext, agent: Session, id: string, i
 
 async function transferRevisedPackage(
   request: APIRequestContext, agent: Session, client: Session, bank: Session, draft: Draft, info: TestInfo,
+  resendFromBrowser?: () => Promise<void>,
 ) {
   const agentPath = `${agentApplication(draft.id)}/financing-scenario`;
   const clientPath = `${application(draft.id)}/financing-scenario`;
@@ -414,7 +430,8 @@ async function transferRevisedPackage(
   const duringEdit = await json<Scenario>(await request.get(clientPath, { headers: headers(client) }), 200);
   expect(duringEdit.revision).toBe(first.revision);
   expect(duringEdit.inputs).toEqual(first.inputs);
-  await sendToClient(request, agent, draft);
+  if (resendFromBrowser) await resendFromBrowser();
+  else await sendToClient(request, agent, draft);
 
   const revised = await json<Scenario>(await request.get(clientPath, { headers: headers(client) }), 200);
   expect(revised.revision).toBeGreaterThan(first.revision);

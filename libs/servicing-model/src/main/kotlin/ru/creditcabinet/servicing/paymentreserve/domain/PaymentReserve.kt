@@ -1,10 +1,10 @@
 package ru.creditcabinet.servicing.paymentreserve.domain
 
-import ru.creditcabinet.servicing.domain.ServicingBadRequest as BadRequestException
 import ru.creditcabinet.servicing.domain.LoanAccount
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
+import ru.creditcabinet.servicing.domain.ServicingBadRequest as BadRequestException
 
 data class PaymentReserveInputs(
     val openingBalance: Long,

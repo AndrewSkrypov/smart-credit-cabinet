@@ -9,7 +9,8 @@ python3 services/servicing/acceptance/run.py \
   --gradle /tmp/alpha-servicing-tools/gradle/bin/gradle \
   --gradle-user-home /tmp/alpha-servicing-gradle \
   --read-only-dependency-cache /home/itech/.gradle/caches \
-  --artifacts /tmp/alpha-servicing-acceptance-UNIQUE
+  --artifacts /tmp/alpha-servicing-acceptance-UNIQUE \
+  --receipt-copy /var/tmp/alpha-servicing-evidence/UNIQUE.json
 ```
 
 Harness сам берёт `/tmp/alpha-heavy-jvm.lock` с ограниченным ожиданием. Его не нужно оборачивать вторым flock. Ни один дочерний JVM/PG не наследует lock descriptor. `--write-locks` допустим только при подготовке собственных Gradle lock-файлов до окончательного кандидата; финальную приёмку повторяют без него на чистом tree.

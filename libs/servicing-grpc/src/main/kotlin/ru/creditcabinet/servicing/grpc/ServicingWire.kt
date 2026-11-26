@@ -28,8 +28,11 @@ class ServicingWire(mapper: ObjectMapper) {
             val child = node.get(field.jsonName) ?: continue
             if (child.isNull) continue
             if (field.javaType == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
-                if (field.isRepeated) child.forEach { decimalStrings(it as ObjectNode, field.messageType) }
-                else decimalStrings(child as ObjectNode, field.messageType)
+                if (field.isRepeated) {
+                    child.forEach { decimalStrings(it as ObjectNode, field.messageType) }
+                } else {
+                    decimalStrings(child as ObjectNode, field.messageType)
+                }
             } else if (field.javaType == Descriptors.FieldDescriptor.JavaType.STRING && child.isNumber) {
                 // valueToTree preserves BigDecimal; no conversion through double occurs.
                 node.put(field.jsonName, child.asText())

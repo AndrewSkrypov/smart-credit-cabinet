@@ -1,7 +1,5 @@
 package ru.creditcabinet.servicing
 
-import ru.creditcabinet.servicing.domain.ServicingBadRequest as BadRequestException
-import ru.creditcabinet.servicing.domain.ServicingConflict as ConflictException
 import ru.creditcabinet.servicing.domain.LoanAccount
 import ru.creditcabinet.servicing.domain.LoanAccountStatus
 import ru.creditcabinet.servicing.domain.LoanPaymentStatus
@@ -15,6 +13,8 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import ru.creditcabinet.servicing.domain.ServicingBadRequest as BadRequestException
+import ru.creditcabinet.servicing.domain.ServicingConflict as ConflictException
 
 class LoanAccountDomainTest {
     private val appId = UUID.randomUUID()

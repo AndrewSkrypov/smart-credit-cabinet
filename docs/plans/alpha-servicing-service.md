@@ -30,4 +30,8 @@ Credit атомарно сохраняет неизменяемую команд
 
 ## Состояние
 
-Дизайн зафиксирован до реализации. Доказательства и незакрытые критерии будут дополнены по точному SHA. PipelineSteps принадлежит владельцу R2; точка интеграции будет отдельным согласованным коммитом. Shared settings/root Gradle/CI объединяет основной чат.
+Дизайн зафиксирован до реализации. Реализация сохранена отдельными коммитами. По согласованию с основным чатом PipelineSteps изменён только в DISBURSEMENT и его зависимости LoanOpening; интеграция отдельным коммитом `6f73a16` и последующим форматированием. Enrich/score и общий run(Unit) не менялись. Shared settings/root Gradle/CI объединяет основной чат.
+
+Предварительные локальные доказательства: core 7/7, 0 skips/failures/errors; main/test compilation всех новых модулей, Servicing и Credit прошла. Собственный native PostgreSQL16 подтвердил V25/V1, forward/reverse checksum, последние SQL-платежи, запрет retired writer/read, owner-only fence, resume/abort и защиту прав после повторного migration grants. Small receipts и hashes в `/var/tmp/alpha-servicing-sql-evidence`. Эти SQL-storage проверки не считаются живой цепочкой runtime.
+
+Полная приёмка ещё открыта до tracked `services/servicing/acceptance/run.py`: fresh owner migrations теми же JAR, no-skips JDBC/authorization/atomicity suites, mTLS отдельного runtime, restart/replay, Credit outbox/ack rollback и обратный перенос последнего настоящего платежа. Финальный source SHA/tree и receipt будут добавлены после прохождения. GitLab, Dev и production не использовались; push/merge не выполнялись.

@@ -70,13 +70,14 @@ class Acceptance:
         self.db_password = secrets.token_hex(24)
         self.env.update(DB_HOST="127.0.0.1", DB_PORT=str(self.pg_port), DB_PASSWORD=self.db_password,
                         JWT_SECRET=self.jwt, SPRING_FLYWAY_ENABLED="false", PIPELINE_ENABLED="false", OUTBOX_WORKER_ENABLED="false",
-                        SERVICING_MODE="local", UPLOAD_DIR=str(self.root / "credit-uploads"),
+                        SERVICING_MODE="local", CABINET_SERVICING_MODE="local", APPLICATION_STATUS_EVENTS_ENABLED="false", IDENTITY_URL="", ENGAGEMENT_URL="", UPLOAD_DIR=str(self.root / "credit-uploads"),
                         ALPHA_SERVICING_TEST_JWT_SECRET=self.jwt, ALPHA_SERVICING_FIXTURE_DIR=str(self.root),
                         ALPHA_SERVICING_LIVE_TLS=str(self.root / "tls"), ALPHA_SERVICING_LIVE_ARTIFACTS=str(self.root),
                         ALPHA_SERVICING_LIVE_PORT=str(self.grpc_port))
-        output = str(self.root / "outputs").replace("\\", "\\\\").replace("'", "\\'")
+        self.outputs = args.outputs_dir.resolve() if args.outputs_dir else self.root / "outputs"
+        output = str(self.outputs).replace("\\", "\\\\").replace("'", "\\'")
         self.init = self.root / "relocate.gradle"
-        self.init.write_text("allprojects { layout.buildDirectory.set(file('" + output + "' + '/' + rootProject.name + project.path.replace(':','_'))); tasks.withType(Test).configureEach { maxHeapSize='256m' } }\n")
+        self.init.write_text("allprojects { layout.buildDirectory.set(file('" + output + "' + '/' + rootProject.name + project.path.replace(':','_'))); tasks.withType(Test).configureEach { maxHeapSize='256m'; outputs.upToDateWhen { false } } }\n")
 
     def git(self, *args):
         return subprocess.check_output(["git", *args], cwd=REPO, text=True).strip()
@@ -97,13 +98,13 @@ class Acceptance:
         env = self.env.copy()
         env.update(extra or {})
         command = [self.args.gradle, "--no-daemon", "--max-workers=1", "-Dorg.gradle.jvmargs=-Xmx512m -XX:MaxMetaspaceSize=384m",
-                   "-Pkotlin.compiler.execution.strategy=in-process", "--project-cache-dir", self.root / "project-cache", "--init-script", self.init, *tasks]
+                   "-Pkotlin.compiler.execution.strategy=in-process", "--project-cache-dir", self.args.project_cache_dir or self.root / "project-cache", "--init-script", self.init, *tasks]
         if self.args.write_locks:
             command.append("--write-locks")
         self.run(label, command, env)
 
     def output(self, module):
-        return self.root / "outputs" / ("smart-credit-cabinet" + module.replace(":", "_"))
+        return self.outputs / ("smart-credit-cabinet" + module.replace(":", "_"))
 
     def tests(self, module, label, minimum=1):
         files = list((self.output(module) / "test-results/test").glob("TEST-*.xml"))
@@ -170,7 +171,7 @@ class Acceptance:
 
     def start_stand(self, label):
         env = self.env.copy()
-        env.update(DB_NAME="servicing", DB_USER="servicing_app", SERVER_PORT=str(self.http_port), CABINET_DATABASE_GUARD_ENABLED="true",
+        env.update(SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{self.pg_port}/servicing", SPRING_DATASOURCE_USERNAME="servicing_app", SPRING_DATASOURCE_PASSWORD=self.db_password, DB_NAME="servicing", DB_USER="servicing_app", SERVER_PORT=str(self.http_port), CABINET_DATABASE_GUARD_ENABLED="true",
                    SERVICING_GRPC_HOST="127.0.0.1", SERVICING_GRPC_PORT=str(self.grpc_port), SERVICING_SERVER_CERTIFICATE=str(self.root / "tls/server.crt"),
                    SERVICING_SERVER_KEY=str(self.root / "tls/server.key"), SERVICING_CLIENT_CA=str(self.root / "tls/ca.crt"))
         log = (self.root / (label + ".log")).open("wb")
@@ -214,13 +215,15 @@ class Acceptance:
             self.sql("credit", "credit_app", query)
 
     def execute(self):
+        if self.receipt["dirty"] and not self.args.write_locks:
+            raise RuntimeError("Final acceptance requires a clean source tree; prepare and commit dependency locks first")
         self.gradle("build", [":libs:servicing-core:test", ":services:servicing:bootJar", ":services:credit:bootJar", ":services:credit:compileTestKotlin", ":services:servicing:compileTestKotlin"])
         self.tests(":libs:servicing-core", "core", 7)
         self.start_pg()
         self.tls()
         self.migrate("credit")
         self.migrate("servicing")
-        local = {"DB_NAME": "credit", "DB_USER": "credit_app"}
+        local = {"DB_NAME": "credit", "DB_USER": "credit_app", "SPRING_DATASOURCE_URL": f"jdbc:postgresql://127.0.0.1:{self.pg_port}/credit", "SPRING_DATASOURCE_USERNAME": "credit_app", "SPRING_DATASOURCE_PASSWORD": self.db_password}
         filters = ["*LoanAccountDomainTest", "*LoanServicingIntegrationTest", "*PaymentReserveIntegrationTest", "*LoanOpeningAtomicityIntegrationTest", "*ServicingLegacyExportFixtureTest"]
         self.gradle("credit-local", [":services:credit:test", *sum((["--tests", name] for name in filters), [])], local)
         self.tests(":services:credit", "credit-local", 10)
@@ -250,10 +253,17 @@ class Acceptance:
         self.sql("servicing", "servicing_app", "select * from loan_accounts;", failure=True)
         self.receipt["checks"]["latest-real-payment-preserved-on-reverse"] = True
         self.receipt["artifacts"] = {db: {"jar": str(self.output(":services:" + db) / "libs/app.jar"), "sha256": sha256((self.output(":services:" + db) / "libs/app.jar").read_bytes()).hexdigest()} for db in ("credit", "servicing")}
-        self.receipt["status"] = "PASSED"
+        changed = bool(self.git("status", "--porcelain")) or self.git("rev-parse", "HEAD") != self.receipt["sourceSha"]
+        self.receipt["status"] = "PREPARATION_PASSED" if self.args.write_locks or changed else "PASSED"
+        if changed and not self.args.write_locks:
+            raise RuntimeError("Source tree changed during acceptance; results are not a final candidate gate")
 
     def write_receipt(self):
-        (self.root / "receipt.json").write_text(json.dumps(self.receipt, indent=2, ensure_ascii=False))
+        text = json.dumps(self.receipt, indent=2, ensure_ascii=False)
+        (self.root / "receipt.json").write_text(text)
+        if self.args.receipt_copy:
+            self.args.receipt_copy.parent.mkdir(parents=True, exist_ok=True)
+            self.args.receipt_copy.write_text(text)
 
     def close(self):
         self.stop_stand()
@@ -272,7 +282,10 @@ def main():
     parser.add_argument("--gradle-user-home", type=Path, required=True)
     parser.add_argument("--read-only-dependency-cache", type=Path)
     parser.add_argument("--artifacts", type=Path, required=True)
+    parser.add_argument("--outputs-dir", type=Path, help="Reuse own build outputs outside artifact directory")
+    parser.add_argument("--project-cache-dir", type=Path, help="Reuse own Gradle task cache")
     parser.add_argument("--write-locks", action="store_true")
+    parser.add_argument("--receipt-copy", type=Path, help="Optional small receipt outside tmpfs artifacts")
     parser.add_argument("--lock-timeout", type=int, default=30)
     args = parser.parse_args()
     if not 0 <= args.lock_timeout <= 60:

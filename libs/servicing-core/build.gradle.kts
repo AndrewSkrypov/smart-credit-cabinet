@@ -1,4 +1,7 @@
-plugins { id("cabinet.kotlin-conventions"); `java-library` }
+plugins {
+    id("cabinet.kotlin-conventions")
+    `java-library`
+}
 dependencies {
     api(project(":libs:servicing-model"))
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5:2.1.21")

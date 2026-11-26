@@ -10,7 +10,6 @@ import ru.creditcabinet.servicing.contract.v1.*
 import ru.creditcabinet.servicing.domain.LoanAccount
 import ru.creditcabinet.servicing.paymentreserve.domain.*
 import java.time.Clock
-import java.time.ZoneId
 import java.util.UUID
 
 /** Demo visibility and mandates stay in Credit; all money mutations go to their owner. */
@@ -21,10 +20,14 @@ class PaymentReserveService(
     private val clock: Clock,
     private val demoAccounts: Boolean,
 ) {
-    fun get(loanId: UUID): PaymentReserveQuote? { owned(loanId); return operations.reserve(loanId) }
+    fun get(loanId: UUID): PaymentReserveQuote? {
+        owned(loanId)
+        return operations.reserve(loanId)
+    }
     fun put(loanId: UUID, inputs: PaymentReserveInputs): PaymentReserveQuote = operations.putReserve(owned(loanId).id, ReserveCommand(actor(), inputs))
     fun receipt(loanId: UUID, event: ReceiptEvent): PaymentReserveQuote = operations.receipt(owned(loanId).id, ReceiptCommand(actor(), event))
-    fun confirm(loanId: UUID, expectedVersion: Long): PaymentReserveQuote = operations.confirmReserve(owned(loanId).id, ConfirmReserveCommand(actor(), expectedVersion))
+    fun confirm(loanId: UUID, expectedVersion: Long): PaymentReserveQuote =
+        operations.confirmReserve(owned(loanId).id, ConfirmReserveCommand(actor(), expectedVersion))
     fun agentSummary(applicationId: UUID): AgentPaymentReserveSummary? {
         requireDemo()
         val (_, application) = agentApplications.ownAgentApplication(applicationId)
@@ -42,6 +45,8 @@ class PaymentReserveService(
         val (caller, companyId) = CurrentCaller.requireClient()
         return ServicingActor(caller.userId, companyId)
     }
-    private fun requireDemo() { if (!demoAccounts) throw missing() }
+    private fun requireDemo() {
+        if (!demoAccounts) throw missing()
+    }
     private fun missing() = NotFoundException("Резерв к платежу не найден")
 }

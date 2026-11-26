@@ -112,7 +112,7 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
     }
   };
 
-  function useDate(date: string) {
+  function applyInvoiceDate(date: string) {
     setSelectedSourceDate(date);
     setForm((previous) => ({ ...previous, expectedReceiptDate: date }));
     setDirty(true);
@@ -192,7 +192,7 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
               </Stack>
             )}
             {extraction.dates.length > 0 && (
-              <RadioGroup aria-label="Подтвердить дату поступления" value={selectedSourceDate} onChange={(_, value) => useDate(value)}>
+              <RadioGroup aria-label="Подтвердить дату поступления" value={selectedSourceDate} onChange={(_, value) => applyInvoiceDate(value)}>
                 {extraction.dates.map((candidate) => (
                   <FormControlLabel key={candidate.value} value={candidate.value} control={<Radio />} disabled={fieldDisabled}
                     label={`${formatDate(candidate.value)} · стр. ${candidate.page} · ${candidate.quote}`} />

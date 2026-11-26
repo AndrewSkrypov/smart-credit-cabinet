@@ -91,6 +91,16 @@ class ServicingLiveGrpcTest {
             val wrong = servicingTlsChannel("localhost",port,tls.resolve("other.crt").toFile(),tls.resolve("other.key").toFile(),tls.resolve("ca.crt").toFile())
             try { assertFailsWith<ForbiddenException> { ServicingGrpcClient(wrong,mapper,{null}).open(command.copy(applicationId=UUID.randomUUID(),commandId=UUID.randomUUID())) } }
             finally { wrong.shutdownNow() }
+            authorization = token(Roles.CLIENT,command.companyId,actor.userId)
+            val beforeOutage = client.byApplication(command.applicationId)
+            val unavailablePort = java.net.ServerSocket(0).use { it.localPort }
+            val unavailable = servicingTlsChannel("localhost",unavailablePort,tls.resolve("credit.crt").toFile(),tls.resolve("credit.key").toFile(),tls.resolve("ca.crt").toFile())
+            try {
+                val failed = ServicingGrpcClient(unavailable,mapper,{authorization},500)
+                assertFailsWith<ServicingUnavailable> { failed.byId(account.id) }
+                assertFailsWith<ServicingUnavailable> { failed.draw(account.id,DrawCommand(actor,1_000)) }
+            } finally { unavailable.shutdownNow() }
+            assertEquals(beforeOutage,client.byApplication(command.applicationId))
         } finally { channel.shutdownNow() }
     }
 }

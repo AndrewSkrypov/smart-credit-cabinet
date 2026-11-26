@@ -55,7 +55,7 @@ begin
       execute format('revoke update,delete on public.%I from __APP__',item);
     end if;
   end loop;
-  foreach item in array array['flyway_schema_history','application_status_generation']
+  foreach item in array array['flyway_schema_history','application_status_generation','servicing_writer_fence']
   loop
     if to_regclass('public.' || item) is not null then
       execute format('revoke insert,update,delete on public.%I from __APP__',item);

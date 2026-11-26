@@ -106,3 +106,5 @@ export function privateStatementPdf() {
     buffer: textPdf(['FURNITURE_PRIVATE_QA_470396', 'Synthetic account statement. Closing balance 1900000 RUB.']),
   };
 }
+
+export const privateStatementApplicationId = '966f5c83-5359-4175-a3c6-c3f3b6ed0310';

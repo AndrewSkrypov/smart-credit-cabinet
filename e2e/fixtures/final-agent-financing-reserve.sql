@@ -1,4 +1,4 @@
--- Seed after Credit migrations on the disposable stand. Keep both ledgers across confirmation retries.
+-- Seed after Credit migrations on the disposable stand. Keep the two existing lines and a separate document request.
 \set ON_ERROR_STOP on
 begin;
 set local lock_timeout = '5s';
@@ -74,5 +74,31 @@ select gen_random_uuid(), a.id, point + 1, ('2026-12-21'::date + point * interva
        case when point = 11 then a.disbursed_amount else 0 end, 0,
        case when point = 11 then 0 else a.disbursed_amount end, 'SCHEDULED'
 from seeded_accounts a cross join generate_series(0, 11) as point;
+
+-- This case isolates document access from scheduling and the risk model.
+-- It is an agent-originated application with a genuinely open, post-submission bank request.
+insert into applications (
+    id, company_id, company_inn, company_name, legal_form, created_by,
+    product_code, product_version, product_catalog_snapshot, purpose, amount, term_months,
+    bureau_consent, status, created_at, updated_at, submitted_at, status_changed_at, version, agent_id
+)
+select '966f5c83-5359-4175-a3c6-c3f3b6ed0310', '6f1d4c1e-0b8e-4c55-9a51-000000000002',
+       '0001001014', 'ООО «Северная мебель»', 'LEGAL_ENTITY',
+       '9b2f0c4a-6d1e-4f2a-8c3b-000000000201',
+       p.code, p.current_version, jsonb_build_object(p.code, p.current_version),
+       'EQUIPMENT', 1500000, 12, true, 'INFO_REQUESTED',
+       now() - interval '2 days', now() - interval '1 hour',
+       now() - interval '1 day', now() - interval '1 hour', 6,
+       '9b2f0c4a-6d1e-4f2a-8c3b-000000000201'
+from products p where p.code = 'INVESTMENT'
+on conflict (id) do nothing;
+
+insert into info_requests (id, application_id, items, comment, deadline, requested_by_type, created_at)
+values (
+    '16859b9b-9cd3-46df-8fb4-1ea824e00310', '966f5c83-5359-4175-a3c6-c3f3b6ed0310',
+    '[{"documentType":"BANK_STATEMENT","question":null}]', 'Синтетический дозапрос выписки',
+    now() + interval '3 days', 'UNDERWRITER', now() - interval '1 hour'
+)
+on conflict (id) do nothing;
 
 commit;

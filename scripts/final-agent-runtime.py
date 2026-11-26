@@ -48,7 +48,8 @@ def source(revision, path):
 
 
 def executable(path):
-    path = path.resolve(strict=True)
+    # Debian's Valkey entry point is a symlink to a multicall binary that uses argv[0].
+    path = path.absolute()
     if not path.is_file() or not os.access(path, os.X_OK):
         raise ValueError(f"Исполняемый файл недоступен: {path}")
     return str(path)
@@ -93,10 +94,6 @@ def wait_for(check, label, process=None, timeout=100):
         time.sleep(0.35)
     raise RuntimeError(f"{label} не готов за {timeout} секунд. Смотрите журнал в каталоге запуска.")
 
-
-def port_open(host, port):
-    with socket.create_connection((host, port), timeout=1):
-        return True
 
 
 def stop(state):
@@ -299,7 +296,14 @@ def start(args, directory, state, persist):
     redis_config.write_text(f'bind {redis_host}\nport {redis_port}\nprotected-mode yes\ndaemonize no\n'
                             f'save ""\nappendonly no\nrequirepass {redis_secret}\n')
     redis = launch("valkey", [valkey, str(redis_config)])
-    wait_for(lambda: port_open(redis_host, redis_port), "Valkey", redis, 20)
+    def valkey_ready():
+        with socket.create_connection((redis_host, redis_port), timeout=1) as connection:
+            authenticate = f"*2\r\n$4\r\nAUTH\r\n${len(redis_secret)}\r\n{redis_secret}\r\n"
+            connection.sendall(authenticate.encode("ascii") + b"*1\r\n$4\r\nPING\r\n")
+            with connection.makefile("rb") as response:
+                return response.readline(256) == b"+OK\r\n" and response.readline(256) == b"+PONG\r\n"
+
+    wait_for(valkey_ready, "Valkey", redis, 20)
     endpoints = state["endpoints"]
     common = {**env, "JWT_SECRET": secrets.token_hex(32), "SIM_API_KEY": secrets.token_hex(24),
               "IDENTITY_LINK_KEY": secrets.token_hex(32), "SERVER_ADDRESS": args.private_host,

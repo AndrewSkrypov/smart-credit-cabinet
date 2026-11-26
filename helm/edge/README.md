@@ -1,8 +1,9 @@
 # Production ingress controller
 
 Use Traefik chart 42.4.3 and Kubernetes Ingress resources with the
-`cabinet-public` class in `cabinet-prod`. The application Ingress references
-`cabinet-prod-tls` in that namespace. Configure the cert-manager HTTP-01 solver
+`cabinet-public` class in `cabinet-prod` and `monitoring`. The application
+Ingress references `cabinet-prod-tls` in `cabinet-prod`, and the Grafana
+Ingress references `grafana-prod-tls` in `monitoring`. Configure the cert-manager HTTP-01 solver
 with `ingressClassName: cabinet-public`. The solver route takes precedence over
 the HTTP-to-HTTPS redirect.
 
@@ -13,9 +14,10 @@ helm template cabinet-edge traefik --repo https://traefik.github.io/charts \
   --version 42.4.3 --namespace cabinet-prod --skip-crds -f helm/edge/values.yaml
 ```
 
-Install from an authenticated context for the target cluster. The chart
-installs the IngressClass and controller RBAC, so use the cluster bootstrap identity.
-The controller reads Secrets only in `cabinet-prod`.
+Install from an authenticated context for the target cluster. Create the
+`monitoring` namespace before installing or upgrading the chart. The chart
+installs the IngressClass and controller RBAC, so use the cluster bootstrap
+identity. The controller reads Secrets in `cabinet-prod` and `monitoring`.
 
 ```sh
 helm upgrade --install cabinet-edge traefik --repo https://traefik.github.io/charts \
@@ -67,6 +69,17 @@ kubectl apply -f helm/edge/acme/production.yaml
 kubectl -n cabinet-prod wait certificate/cabinet-prod --for=condition=Ready --timeout=5m
 kubectl -n cabinet-prod get certificate cabinet-prod \
   -o 'custom-columns=NAME:.metadata.name,EXPIRES:.status.notAfter,RENEWAL:.status.renewalTime'
+```
+
+When `grafana.credit-cabinet.ru` resolves to the same LB and port 80 reaches
+Traefik, apply the separate Grafana Issuer and Certificate:
+
+```sh
+kubectl apply -f helm/edge/acme/grafana.yaml
+kubectl -n monitoring wait certificate/grafana-prod --for=condition=Ready --timeout=5m
+kubectl -n monitoring get certificate grafana-prod \
+  -o 'custom-columns=NAME:.metadata.name,EXPIRES:.status.notAfter,RENEWAL:.status.renewalTime'
+curl --silent --show-error --head https://grafana.credit-cabinet.ru/
 ```
 
 If a temporary, publicly trusted DNS-01 certificate already populates

@@ -1,0 +1,32 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cabinet-letsencrypt
+  namespace: cabinet-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: cabinet-letsencrypt-account
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: cabinet-public
+            ingressTemplate:
+              metadata:
+                annotations:
+                  traefik.ingress.kubernetes.io/router.entrypoints: web
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cabinet-prod
+  namespace: cabinet-prod
+spec:
+  secretName: cabinet-prod-tls
+  issuerRef:
+    name: cabinet-letsencrypt
+    kind: Issuer
+  dnsNames:
+    - credit-cabinet.ru
+    - www.credit-cabinet.ru

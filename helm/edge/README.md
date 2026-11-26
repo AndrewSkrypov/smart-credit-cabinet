@@ -44,3 +44,27 @@ for name in credit-cabinet.ru www.credit-cabinet.ru; do
 done
 kubectl -n cabinet-prod get certificate
 ```
+
+## Certificate issuance
+
+Bootstrap cert-manager as a separate Helm release. Check that the cluster does
+not already have a cert-manager installation before installing it.
+
+```sh
+helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+  --version v1.21.3 --namespace cert-manager --create-namespace \
+  --set crds.enabled=true --set global.leaderElection.namespace=cert-manager \
+  --wait --timeout 5m
+```
+
+Apply the namespaced Issuer and Certificate only after both public names
+resolve to the intended LB and port 80 reaches Traefik. The application
+Ingress can reference the Secret directly. Issuance and renewal belong to
+the explicit Certificate resource.
+
+```sh
+kubectl apply -f helm/edge/acme/production.yaml
+kubectl -n cabinet-prod wait certificate/cabinet-prod --for=condition=Ready --timeout=5m
+kubectl -n cabinet-prod get certificate cabinet-prod \
+  -o 'custom-columns=NAME:.metadata.name,EXPIRES:.status.notAfter,RENEWAL:.status.renewalTime'
+```

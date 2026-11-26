@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seed or recover the existing Dev Compose credentials through Vault KV v2."""
+"""Seed, verify or recover the existing Dev Compose credentials through Vault KV v2."""
 import argparse
 from contextlib import contextmanager
 import fcntl
@@ -69,12 +69,17 @@ def read_private(path, limit):
 
 
 @contextmanager
-def deployment_lock(state):
+def deployment_lock(state, read_only=False):
     require_private(state.lstat(), 0o700, directory=True)
-    descriptor = os.open(state / "deploy.lock", os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
-    with os.fdopen(descriptor, "wb") as lock:
+    flags = os.O_RDONLY if read_only else os.O_CREAT | os.O_WRONLY
+    descriptor = os.open(state / "deploy.lock", flags | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+    with os.fdopen(descriptor, "rb" if read_only else "wb") as lock:
         require_private(os.fstat(lock.fileno()), 0o600)
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            mode = fcntl.LOCK_SH | fcntl.LOCK_NB if read_only else fcntl.LOCK_EX
+            fcntl.flock(lock, mode)
+        except BlockingIOError:
+            raise MigrationError("The Dev deploy lock is busy. Retry the read-only check after the writer exits.") from None
         yield
 
 
@@ -340,7 +345,7 @@ def existing_matches(env, secrets, include_smtp):
 
 
 def execute(args, state=STATE_DIR):
-    with deployment_lock(state):
+    with deployment_lock(state, read_only=args.operation == "verify"):
         path = state / "cabinet.env"
         raw, metadata = read_private(path, MAX_ENV_BYTES)
         env = CabinetEnv(raw)
@@ -369,6 +374,10 @@ def execute(args, state=STATE_DIR):
         validate_secrets(values, env.values, args.include_service_smtp)
         existing_matches(env, values, args.include_service_smtp)
         updated = env.with_missing(values)
+        if args.operation == "verify":
+            if updated != raw:
+                raise MigrationError("The Dev stage is missing Vault fields. Nothing was changed.")
+            return f"Dev stage dry-run passed: {len(values)}/{len(values)} credentials match Vault KV version {version}."
         if updated == raw:
             return f"Verified cabinet.env parity with Vault Dev Compose KV version {version}."
         env.check_write_allowed(state)
@@ -382,7 +391,7 @@ def execute(args, state=STATE_DIR):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="operation", required=True)
-    for operation in ("seed", "apply"):
+    for operation in ("seed", "verify", "apply"):
         command = commands.add_parser(operation)
         command.add_argument("--vault-origin", required=True)
         command.add_argument("--connect-ip", help="optional explicit IPv4 route; verify TLS against the HTTPS origin")

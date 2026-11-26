@@ -89,6 +89,39 @@ class DevEnvTests(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), raw)
         self.assertEqual(self.backup_paths(), [])
 
+    def test_verify_uses_existing_lock_and_leaves_active_alpha_and_pending_untouched(self):
+        self.path.write_bytes(self.before.replace(b"DEV_ENABLED=false", b"DEV_ENABLED=true"))
+        pending = self.state / "pending.json"
+        pending.write_bytes(b"synthetic-state")
+        lock = self.state / "deploy.lock"
+        lock.touch(mode=0o600)
+        files = (self.path, pending, lock)
+        before = [(file.stat().st_mtime_ns, file.read_bytes()) for file in files]
+        self.assertIn("dry-run passed", self.call("verify"))
+        self.assertEqual(before, [(file.stat().st_mtime_ns, file.read_bytes()) for file in files])
+        self.assertEqual(self.backup_paths(), [])
+        self.vault.seed.assert_not_called()
+
+    def test_verify_refuses_busy_or_missing_lock_without_touching_vault(self):
+        lock = self.state / "deploy.lock"
+        with self.assertRaises(FileNotFoundError):
+            self.call("verify")
+        self.assertFalse(lock.exists())
+        lock.touch(mode=0o600)
+        with lock.open("rb") as writer:
+            fcntl.flock(writer, fcntl.LOCK_EX)
+            with self.assertRaisesRegex(adapter.MigrationError, "lock is busy"):
+                self.call("verify")
+        self.vault.read.assert_not_called()
+
+    def test_verify_refuses_recovery_without_creating_snapshot_or_changing_env(self):
+        (self.state / "deploy.lock").touch(mode=0o600)
+        self.path.write_bytes(self.settings)
+        with self.assertRaisesRegex(adapter.MigrationError, "missing Vault fields"):
+            self.call("verify")
+        self.assertEqual(self.path.read_bytes(), self.settings)
+        self.assertEqual(self.backup_paths(), [])
+
     def test_restore_missing_preserves_original_bytes_and_allows_rollback(self):
         missing_key = "JWT_SECRET"
         before = self.settings + self.format_secrets({k: v for k, v in self.values.items() if k != missing_key})

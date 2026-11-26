@@ -42,6 +42,14 @@ key in a separate protected file variable. Install
 path. The account `cabinet-deploy` can run Docker on the dedicated Dev VM. Keep
 its host environment and Registry read-only login private. See
 [the Dev runbook](../../deploy/README.md) for initial setup and recovery.
+
+Set the dedicated Dev runner's service and login-shell umask to `0077`. Before
+releasing TCP 80/443 from the bootstrap Caddy, confirm that GitLab creates the
+deployment SSH file variable with mode `0600`. Check the mode using
+`test "$(stat -c '%a' "$CABINET_DEV_SSH_KEY")" = 600` without reading the file.
+If the job stops before the app Caddy binds, start the bootstrap Caddy again
+with its existing TLS volumes and verify HTTPS before retrying the same release.
+
 Enable monitoring in the host environment with `CABINET_OPTIONAL_PROFILES=monitoring`.
 The deployment applies `monitoring/compose.ops.yaml` after the runtime overlays.
 The dedicated Dev host can add `monitoring/compose.paging.yml` last by setting

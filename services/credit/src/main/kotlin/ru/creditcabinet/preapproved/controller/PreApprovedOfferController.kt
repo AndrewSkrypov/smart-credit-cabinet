@@ -3,9 +3,11 @@ package ru.creditcabinet.preapproved.controller
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
@@ -56,6 +58,15 @@ data class PreApprovedApplicationView(
     }
 }
 
+data class GeneratePreApprovedRequest(
+    val companyId: UUID,
+    val productCode: String,
+    val annualRevenue: Long,
+    val bureauWorstOverdueDays: Int = 0,
+    val existingMonthlyPayments: Long = 0L,
+    val validDays: Long = 30L,
+)
+
 @Tag(name = "Предодобренные предложения")
 @RestController
 @RequestMapping("/api/v1/pre-approved-offers")
@@ -76,6 +87,21 @@ class PreApprovedOfferController(
     @ResponseStatus(HttpStatus.CREATED)
     fun apply(@PathVariable id: UUID): PreApprovedApplicationView =
         PreApprovedApplicationView.of(service.applyForClient(id))
+
+    @Operation(summary = "Сгенерировать предодобренное предложение по оборотам и данным БКИ (сотрудники банка)")
+    @PostMapping("/generate")
+    fun generate(@RequestBody request: GeneratePreApprovedRequest): ResponseEntity<PreApprovedOfferView> {
+        val offer = service.generateForCompany(
+            companyId = request.companyId,
+            productCode = request.productCode,
+            annualRevenue = request.annualRevenue,
+            bureauWorstOverdueDays = request.bureauWorstOverdueDays,
+            existingMonthlyPayments = request.existingMonthlyPayments,
+            validDays = request.validDays,
+        ) ?: return ResponseEntity.noContent().build()
+        val productName = products.find(offer.productCode)?.name ?: offer.productCode
+        return ResponseEntity.status(HttpStatus.CREATED).body(offer.toView(productName))
+    }
 
     private fun PreApprovedOffer.toView(productName: String) =
         PreApprovedOfferView(

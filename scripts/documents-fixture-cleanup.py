@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kill only recorded native fixture processes with matching Linux start time and scope."""
+"""Stop only recorded fixture identities; never remove data while a process may use it."""
 import argparse
 import json
 import os
@@ -11,7 +11,8 @@ import time
 
 def identity(pid):
     try:
-        return Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()[19]
+        fields=Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()
+        return None if fields[0]=='Z' else fields[19]
     except (OSError, IndexError):
         return None
 
@@ -22,23 +23,48 @@ def cleanup(path, expected=None):
     if expected and any(receipt.get(key)!=value for key,value in expected.items()):
         raise ValueError('Fixture cleanup scope mismatch')
     scope=receipt['scope']
-    for process in reversed(receipt['processes']):
+    scratch=Path(receipt.get('scratch',''))
+    valid_scratch=scratch.parent in (Path('/tmp'),Path('/var/tmp')) and scratch.name.startswith('alpha-documents-runtime-')
+    marker=scratch/'fixture-scope.json'
+    if scratch.exists() and (not valid_scratch or not marker.is_file() or json.loads(marker.read_text())!={'scope':scope,'source':receipt['source']}):
+        raise ValueError('Fixture directory ownership mismatch')
+    processes=list(receipt['processes'])
+    native=receipt.get('nativePg')
+    if native and scratch.exists():
+        directory=scratch/'db'
+        if native['directory']!=str(directory): raise ValueError('Native PostgreSQL directory mismatch')
+        if not any(item['marker']==str(directory) for item in processes):
+            # Planned identity is written atomically before exec. A hard kill between exec
+            # and PID publication may leave only the postmaster's own pid file.
+            deadline=time.monotonic()+3
+            while not (directory/'postmaster.pid').exists() and time.monotonic()<deadline: time.sleep(.1)
+            if not (directory/'postmaster.pid').exists():
+                raise RuntimeError('PostgreSQL startup state unresolved; owned data retained')
+            pid=int((directory/'postmaster.pid').read_text().splitlines()[0])
+            started=identity(pid)
+            if started is not None:
+                processes.insert(0,{'pid':pid,'start':started,'marker':str(directory)})
+    for process in reversed(processes):
         pid=int(process['pid'])
         if identity(pid)!=process['start']: continue
         try: arguments=Path(f'/proc/{pid}/cmdline').read_bytes().split(b'\0')
         except OSError: continue
         if process['marker'].encode() not in arguments: continue
-        if process['marker'] != f'-Dcabinet.documents.fixture.scope={scope}' and not process['marker'].startswith('/tmp/alpha-documents-runtime-') and not process['marker'].startswith('/var/tmp/alpha-documents-runtime-') and not process['marker'].startswith('-dir=/tmp/alpha-documents-runtime-') and not process['marker'].startswith('-dir=/var/tmp/alpha-documents-runtime-'):
-            raise ValueError('Unexpected fixture marker')
-        os.kill(pid,signal.SIGTERM)
-        deadline=time.monotonic()+5
+        is_pg=process['marker']==str(scratch/'db')
+        valid_marker=process['marker']==f'-Dcabinet.documents.fixture.scope={scope}' or is_pg or process['marker']==f'-dir={scratch}/s3/data'
+        if not valid_marker: raise ValueError('Unexpected fixture marker')
+        if identity(pid)!=process['start']: continue
+        os.kill(pid,signal.SIGINT if is_pg else signal.SIGTERM)
+        deadline=time.monotonic()+10
         while identity(pid)==process['start'] and time.monotonic()<deadline: time.sleep(.1)
-        if identity(pid)==process['start']: os.kill(pid,signal.SIGKILL)
-    scratch=Path(receipt.get('scratch',''))
-    if scratch.exists() and scratch.parent in (Path('/tmp'),Path('/var/tmp')) and scratch.name.startswith('alpha-documents-runtime-'):
-        marker=scratch/'fixture-scope.json'
-        if marker.is_file() and json.loads(marker.read_text())=={'scope':scope,'source':receipt['source']}:
-            shutil.rmtree(scratch)
+        if identity(pid)==process['start']:
+            os.kill(pid,signal.SIGKILL)
+            deadline=time.monotonic()+2
+            while identity(pid)==process['start'] and time.monotonic()<deadline: time.sleep(.1)
+        if identity(pid)==process['start']:
+            raise RuntimeError('Owned fixture process remains alive; data retained')
+    if scratch.exists() and valid_scratch:
+        shutil.rmtree(scratch)
 
 
 if __name__=='__main__':

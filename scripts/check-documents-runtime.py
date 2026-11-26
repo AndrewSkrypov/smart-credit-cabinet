@@ -34,11 +34,14 @@ def main():
     parser.add_argument('--postgres-image', default=os.environ.get('DOCUMENTS_TEST_POSTGRES_IMAGE'))
     parser.add_argument('--report-dir', default='ci-artifacts/documents-r3')
     parser.add_argument('--skip-build', action='store_true')
+    parser.add_argument('--verify-startup-cancellation',action='store_true')
     parser.add_argument('--storage-backend', choices=('local','s3'), default='local')
     parser.add_argument('--s3-binary', default=os.environ.get('DOCUMENTS_TEST_S3_BINARY'))
     parser.add_argument('--s3-sha256', default=os.environ.get('DOCUMENTS_TEST_S3_BINARY_SHA256'))
     parser.add_argument('--s3-image', default=os.environ.get('DOCUMENTS_TEST_S3_IMAGE'))
     args = parser.parse_args()
+    if args.verify_startup_cancellation and (args.postgres_image or args.storage_backend!='local'):
+        parser.error('Startup cancellation probe requires the private native LOCAL fixture')
     report = (ROOT / args.report_dir).resolve()
     report.mkdir(parents=True, exist_ok=True)
     scratch = Path(tempfile.mkdtemp(prefix='alpha-documents-runtime-'))
@@ -46,12 +49,17 @@ def main():
     handles = []
     container = None
     pg_started = False
+    pg_process = None
+    spawning_process = False
+    deferred_signal = None
     s3 = None
     scanner_stop = threading.Event()
     admin = 'documents_it_admin'
     admin_password = secrets.token_hex(24)
     credit_password = secrets.token_hex(24)
+    credit_app_password = secrets.token_hex(24)
     own_password = secrets.token_hex(24)
+    own_app_password = secrets.token_hex(24)
     jwt = secrets.token_hex(32)
     pg_port, grpc_port, http_port, scanner_port = [free_port() for _ in range(4)]
     pg_bin = Path(args.pg_bin)
@@ -82,8 +90,15 @@ def main():
         else: pid=process.pid
         start=Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()[19]
         ledger['processes'].append({'pid':pid,'start':start,'marker':marker})
-        ledger_path.write_text(json.dumps(ledger)+'\n')
-    def terminate(signum,frame): raise SystemExit(128+signum)
+        temporary=ledger_path.with_suffix('.new')
+        temporary.write_text(json.dumps(ledger)+'\n')
+        temporary.replace(ledger_path)
+    def terminate(signum,frame):
+        nonlocal deferred_signal
+        if spawning_process:
+            deferred_signal=signum
+        else:
+            raise SystemExit(128+signum)
     signal.signal(signal.SIGTERM,terminate)
     signal.signal(signal.SIGINT,terminate)
     java = str(Path(os.environ['JAVA_HOME']) / 'bin/java')
@@ -148,9 +163,20 @@ def main():
             command = [str(pg_bin / 'initdb'), '-D', str(scratch / 'db'), '--username', admin, '--no-locale', '--encoding=UTF8', '--auth-local=trust', '--auth-host=scram-sha-256', f'--pwfile={scratch / "password"}']
             if args.pg_share: command += ['-L', args.pg_share]
             run(command, 'postgres')
-            run([str(pg_bin / 'pg_ctl'), '-D', str(scratch / 'db'), '-l', str(report / 'postgres-server.log'), '-o', f'-h 127.0.0.1 -p {pg_port} -k {scratch}', '-w', 'start'], 'postgres')
             pg_started = True
-            register(int((scratch/'db/postmaster.pid').read_text().splitlines()[0]),str(scratch/'db'))
+            spawning_process = True
+            handle=(report/'postgres-server.log').open('ab')
+            handles.append(handle)
+            ledger['nativePg']={'directory':str(scratch/'db'),'binary':str(pg_bin/'postgres')}
+            temporary=ledger_path.with_suffix('.new'); temporary.write_text(json.dumps(ledger)+'\n'); temporary.replace(ledger_path)
+            try:
+                pg_process=subprocess.Popen([str(pg_bin/'postgres'),'-D',str(scratch/'db'),'-h','127.0.0.1','-p',str(pg_port),'-k',str(scratch)],env=base_env,stdout=handle,stderr=subprocess.STDOUT)
+                if args.verify_startup_cancellation: os.kill(os.getpid(),signal.SIGTERM)
+                register(pg_process,str(scratch/'db'))
+            finally:
+                spawning_process=False
+            if deferred_signal is not None: raise SystemExit(128+deferred_signal)
+            wait_port(pg_port,pg_process)
         deadline = time.monotonic() + 60
         while True:
             try:
@@ -159,7 +185,7 @@ def main():
             except subprocess.CalledProcessError:
                 if time.monotonic() > deadline: raise
                 time.sleep(1)
-        sql('postgres', f"create role credit_owner login password '{credit_password}'; create role credit_app login password '{credit_password}'; create role documents_owner login password '{own_password}'; create role documents_app login password '{own_password}';")
+        sql('postgres', f"create role credit_owner login password '{credit_password}'; create role credit_app login password '{credit_app_password}'; create role documents_owner login password '{own_password}'; create role documents_app login password '{own_app_password}';")
         sql('postgres', 'create database credit owner credit_owner; create database documents owner documents_owner;')
         for path in sorted((ROOT / 'services/credit/src/main/resources/db/migration').glob('V*.sql'), key=lambda p: int(p.name.split('__')[0][1:])):
             sql('credit', path.read_text(), user='credit_owner', password=credit_password)
@@ -239,7 +265,7 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         threading.Thread(target=scanner, daemon=True).start()
         sql('documents', "update document_ownership set owner='DOCUMENTS';", user='documents_owner', password=own_password)
         sql('credit', "update document_ownership set owner='REMOTE';", user='credit_owner', password=credit_password)
-        own_env = base_env | {'DOCUMENTS_DATABASE_URL': f'jdbc:postgresql://127.0.0.1:{pg_port}/documents', 'DOCUMENTS_DATABASE_USER':'documents_app','DOCUMENTS_DATABASE_PASSWORD':own_password,
+        own_env = base_env | {'DOCUMENTS_DATABASE_URL': f'jdbc:postgresql://127.0.0.1:{pg_port}/documents', 'DOCUMENTS_DATABASE_USER':'documents_app','DOCUMENTS_DATABASE_PASSWORD':own_app_password,
             'DOCUMENTS_GRPC_PORT':str(grpc_port),'DOCUMENTS_TLS_CERTIFICATE':str(certs/'server.crt'),'DOCUMENTS_TLS_KEY':str(certs/'server.key'),'DOCUMENTS_TLS_CA':str(certs/'ca.crt')}
         if s3: own_env['SPRING_APPLICATION_JSON']=json.dumps({'cabinet':{'storage':{'s3':s3.configuration('target')}}})
         own = start([java,'-Xmx256m','-jar','services/documents/build/libs/app.jar','--spring.flyway.enabled=false',f'--cabinet.storage.local-dir={target_files}',f'--cabinet.antivirus.port={scanner_port}',f'--cabinet.storage.mode={args.storage_backend}','--cabinet.documents.grpc.host=127.0.0.1'], 'documents', own_env)
@@ -247,11 +273,11 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         replica_port = free_port()
         replica = start([*own.args,f'--cabinet.documents.grpc.port={replica_port}'],'documents-replica',own_env)
         wait_port(replica_port,replica)
-        credit_env = base_env | {'DB_HOST':'127.0.0.1','DB_PORT':str(pg_port),'DB_NAME':'credit','DB_USER':'credit_app','DB_PASSWORD':credit_password,'SERVER_PORT':str(http_port),'JWT_SECRET':jwt,'PIPELINE_ENABLED':'true','OUTBOX_WORKER_ENABLED':'false','IDENTITY_URL':'','ANTIVIRUS_ENABLED':'false','STORAGE_BACKEND':args.storage_backend,'UPLOAD_DIR':str(credit_files)}
-        credit = start([java,'-Xmx320m','-jar','services/credit/build/libs/app.jar','--spring.flyway.enabled=false','--server.address=127.0.0.1','--cabinet.documents.mode=remote','--cabinet.documents.epoch=2','--cabinet.documents.grpc.host=127.0.0.1',f'--cabinet.documents.grpc.port={grpc_port}',f'--cabinet.documents.grpc.certificate={certs/"credit.crt"}',f'--cabinet.documents.grpc.key={certs/"credit.key"}',f'--cabinet.documents.grpc.ca={certs/"ca.crt"}'], 'credit', credit_env)
+        credit_env = base_env | {'DB_HOST':'127.0.0.1','DB_PORT':str(pg_port),'DB_NAME':'credit','DB_USER':'credit_app','DB_PASSWORD':credit_app_password,'SERVER_PORT':str(http_port),'JWT_SECRET':jwt,'PIPELINE_ENABLED':'true','OUTBOX_WORKER_ENABLED':'false','IDENTITY_URL':'','ANTIVIRUS_ENABLED':'false','STORAGE_BACKEND':args.storage_backend,'UPLOAD_DIR':str(credit_files)}
+        credit = start([java,'-Xmx320m','-jar','services/credit/build/libs/app.jar','--spring.flyway.enabled=false','--server.address=127.0.0.1','--spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration','--cabinet.documents.mode=remote','--cabinet.documents.epoch=2','--cabinet.documents.grpc.host=127.0.0.1',f'--cabinet.documents.grpc.port={grpc_port}',f'--cabinet.documents.grpc.certificate={certs/"credit.crt"}',f'--cabinet.documents.grpc.key={certs/"credit.key"}',f'--cabinet.documents.grpc.ca={certs/"ca.crt"}'], 'credit', credit_env)
         wait_port(http_port, credit)
         test_env = base_env | {'DOCUMENTS_TEST_STORAGE_BACKEND':args.storage_backend.upper(),'DOCUMENTS_TEST_CERTS':str(certs),'DOCUMENTS_TEST_GRPC_PORT':str(grpc_port),'DOCUMENTS_TEST_APPLICATION':application,'DOCUMENTS_TEST_COMPANY':company,'DOCUMENTS_TEST_HIDDEN':hidden,'DOCUMENTS_TEST_VISIBLE':visible,'DOCUMENTS_TEST_PRIVATE':private,'DOCUMENTS_TEST_REVOKED_AGENT':revoked_agent,
-            'DOCUMENTS_TEST_CREDIT_URL':f'http://127.0.0.1:{http_port}','DOCUMENTS_TEST_JWT_SECRET':jwt,'DOCUMENTS_TEST_DATABASE_BASE':f'jdbc:postgresql://127.0.0.1:{pg_port}','DOCUMENTS_TEST_ADMIN_USER':admin,'DOCUMENTS_TEST_ADMIN_PASSWORD':admin_password}
+            'DOCUMENTS_TEST_CREDIT_URL':f'http://127.0.0.1:{http_port}','DOCUMENTS_TEST_JWT_SECRET':jwt,'DOCUMENTS_TEST_DATABASE_BASE':f'jdbc:postgresql://127.0.0.1:{pg_port}','DOCUMENTS_TEST_ADMIN_USER':admin,'DOCUMENTS_TEST_ADMIN_PASSWORD':admin_password,'DOCUMENTS_TEST_CREDIT_APP_PASSWORD':credit_app_password,'DOCUMENTS_TEST_DOCUMENTS_APP_PASSWORD':own_app_password}
         run([gradle,'--no-daemon','--max-workers=1','-Pkotlin.compiler.execution.strategy=in-process','-Dorg.gradle.jvmargs=-Xmx512m -XX:MaxMetaspaceSize=384m',':services:documents:documentsRuntimeTest','--rerun-tasks'], 'tests', env=test_env)
         xml_paths = sorted((ROOT/'services/documents/build/test-results/documentsRuntimeTest').glob('TEST-*.xml'))
         assert xml_paths
@@ -306,7 +332,19 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         input_conflict=json.loads(artifact['inputJson']); input_conflict['companyName']='Conflicting source input'
         values=[artifact['id'],artifact['scope']['applicationId'],artifact['offerId'],artifact['kind'],artifact['phase']]
         sql('credit',"alter table generated_artifacts disable trigger artifacts_owner_fence; insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,status,next_attempt_at,created_at,updated_at) values("+','.join(quoted(value) for value in values)+f",{artifact['templateVersion']},"+quoted(artifact['inputHash'])+','+quoted(json.dumps(input_conflict))+"::jsonb,"+','.join(quoted(artifact[key]) for key in ('title','fileName','contentType'))+','+quoted(conflict_name)+','+quoted(artifact['backend'])+",'PENDING',now(),"+quoted(artifact['createdAt'])+",now()); alter table generated_artifacts enable trigger artifacts_owner_fence;",user='credit_owner',password=credit_password,name='conflict-fixture')
+        actual_name=artifact['storedName']
+        def source_snapshot(name):
+            if not s3:
+                path=credit_files/name
+                return path.read_bytes() if path.is_file() else None
+            try: return s3.request('source','GET',name)[1]
+            except __import__('urllib.error',fromlist=['HTTPError']).HTTPError as failure:
+                if failure.code==404: return None
+                raise
+        actual_before=source_snapshot(actual_name)
         expected_conflict('reverse-artifact-conflict')
+        assert source_snapshot(actual_name)==actual_before, 'Rejected reverse copied or changed actual artifact storedName'
+
         sql('credit',f"do $$ begin if not exists(select 1 from generated_artifacts where id='{artifact['id']}' and stored_name='{conflict_name}' and input_json->>'companyName'='Conflicting source input') then raise exception 'Artifact conflict overwritten'; end if; end $$;",user='credit_owner',password=credit_password,name='conflict-verification')
         if s3: s3.verify('source',conflict_name,len(conflict_bytes),hashlib.sha256(conflict_bytes).hexdigest())
         else: assert (credit_files/conflict_name).read_bytes()==conflict_bytes
@@ -329,7 +367,17 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         for process in reversed(processes): stop(process)
         for handle in handles: handle.close()
         if container: subprocess.run(['docker','rm','-fv',container],env=docker_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        elif pg_started: subprocess.run([str(pg_bin/'pg_ctl'),'-D',str(scratch/'db'),'-m','fast','-w','stop'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        shutil.rmtree(scratch)
+        elif pg_started and pg_process is not None:
+            if pg_process.poll() is None:
+                stopped=subprocess.run([str(pg_bin/'pg_ctl'),'-D',str(scratch/'db'),'-m','fast','-t','20','-w','stop'],env=base_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=25)
+                if stopped.returncode!=0 and pg_process.poll() is None:
+                    # postmaster.pid may not exist yet; its direct Popen identity is already owned.
+                    pg_process.send_signal(signal.SIGINT)
+            try: pg_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                # Keep the directory and ownership ledger for guarded after_script cleanup.
+                raise RuntimeError('Owned PostgreSQL did not stop; fixture directory retained')
+        if pg_process is None or pg_process.poll() is not None:
+            shutil.rmtree(scratch)
 
 if __name__ == '__main__': main()

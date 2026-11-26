@@ -85,6 +85,7 @@ class Acceptance:
         output = str(self.outputs).replace("\\", "\\\\").replace("'", "\\'")
         self.init = self.root / "relocate.gradle"
         self.init.write_text("allprojects { layout.buildDirectory.set(file('" + output + "' + '/' + rootProject.name + project.path.replace(':','_'))); tasks.withType(Test).configureEach { maxHeapSize='256m'; outputs.upToDateWhen { false } } }\n")
+        self.write_receipt()
 
     def git(self, *args):
         return subprocess.check_output(["git", *args], cwd=REPO, text=True).strip()
@@ -234,6 +235,32 @@ class Acceptance:
         self.receipt["checks"]["forward"] = {"sha256": source["sha256"], "counts": {table: len(rows) for table, rows in source["tables"].items()}}
         self.receipt["checks"]["postactivation-new-payment-preserved"] = True
 
+    def reverse_with_abort_fault(self):
+        tool = REPO / "services/servicing/cutover/transfer.py"
+        options = ["local", "--credit-service", "credit_owner", "--servicing-service", "servicing_owner"]
+        directory = self.root / "reverse-abort-checkpoint"
+        self.run("reverse-before-activation", [sys.executable, tool, *options, "--artifacts", directory, "--test-fail-before-target-activation"], accepted_codes=(1,))
+        manifest = directory / "source-fenced.json"
+        self.run("abort-after-source-reactivation", [sys.executable, tool, *options, "--recover-manifest", manifest, "--abort", "--test-fail-after-source-reactivation"], accepted_codes=(1,))
+        if self.sql("servicing", "servicing_owner", "select writer from servicing_writer_fence where singleton;") != "REMOTE" or self.sql("credit", "credit_owner", "select writer from servicing_writer_fence where singleton;") != "FENCED":
+            raise RuntimeError("Abort fault did not leave the expected source-active checkpoint")
+        legacy = json.loads((self.root / "legacy-after-draw.json").read_text())
+        loan_id = str(uuid.UUID(legacy["id"]))
+        self.sql("servicing", "servicing_app", f"""begin;
+        update loan_accounts a set outstanding_principal=a.outstanding_principal-p.principal_amount,updated_at=now()
+          from loan_payments p where p.loan_account_id=a.id and a.id='{loan_id}' and p.payment_number=2;
+        update loan_payments set status='PAID',paid_at=now() where loan_account_id='{loan_id}' and payment_number=2;
+        commit;""")
+        before = self.sql("servicing", "servicing_app", f"select outstanding_principal::text from loan_accounts where id='{loan_id}';")
+        for label in ("post-abort-completion", "post-abort-repeat"):
+            self.run(label, [sys.executable, tool, *options, "--recover-manifest", manifest, "--abort"])
+            if self.sql("servicing", "servicing_app", f"select outstanding_principal::text from loan_accounts where id='{loan_id}';") != before:
+                raise RuntimeError("Post-abort completion overwrote the reactivated source payment")
+        self.receipt["checks"]["post-abort-source-payment-preserved"] = True
+        self.transfer("local", "reverse")
+        if self.sql("credit", "credit_app", f"select status from loan_payments where loan_account_id='{loan_id}' and payment_number=2;") != "PAID":
+            raise RuntimeError("Final reverse lost the source payment after abort")
+
     def start_stand(self, label):
         env = self.env.copy()
         env.update(SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{self.pg_port}/servicing", SPRING_DATASOURCE_USERNAME="servicing_app", SPRING_DATASOURCE_PASSWORD=self.passwords["servicing_app"], DB_PASSWORD=self.passwords["servicing_app"], DB_NAME="servicing", DB_USER="servicing_app", SERVER_PORT=str(self.http_port), CABINET_DATABASE_GUARD_ENABLED="true",
@@ -309,13 +336,19 @@ class Acceptance:
         self.tests(":services:credit", "credit-live-delivery")
         self.seed_fixture_counterparts()
         self.stop_stand()
-        self.transfer("local", "reverse")
+        self.reverse_with_abort_fault()
         latest = json.loads((self.root / "latest-payment-account.json").read_text())
         value = self.sql("credit", "credit_app", f"select outstanding_principal::text from loan_accounts where id='{uuid.UUID(latest['id'])}';")
         from decimal import Decimal
         if Decimal(value) != Decimal(str(latest["outstandingPrincipal"])):
             raise RuntimeError("Latest real payment was lost during reverse import")
         self.sql("servicing", "servicing_app", "select * from loan_accounts;", failure=True)
+        legacy = json.loads((self.root / "legacy-after-draw.json").read_text())
+        imported = self.sql("credit", "credit_app", f"select string_agg(id::text,',' order by payment_number) from loan_payments where loan_account_id='{uuid.UUID(legacy['id'])}';")
+        expected_ids = ",".join(row["id"] for row in sorted(legacy["payments"], key=lambda row: row["paymentNumber"]))
+        if imported != expected_ids:
+            raise RuntimeError("Reverse import did not preserve the real rescheduled payment identities")
+        self.receipt["checks"]["legacy-real-draw-reschedule-reverse"] = True
         self.receipt["checks"]["latest-real-payment-preserved-on-reverse"] = True
         self.receipt["artifacts"] = {db: {"jar": str(self.output(":services:" + db) / "libs/app.jar"), "sha256": sha256((self.output(":services:" + db) / "libs/app.jar").read_bytes()).hexdigest()} for db in ("credit", "servicing")}
         changed = bool(self.git("status", "--porcelain")) or self.git("rev-parse", "HEAD") != self.receipt["sourceSha"]
@@ -336,7 +369,11 @@ class Acceptance:
             self.ci_postgres.close()
         if self.pg_started:
             with (self.root / "pg-stop.log").open("wb") as log:
-                subprocess.run([self.pg_bin / "pg_ctl", "-D", self.root / "pg-data", "-m", "fast", "-w", "stop"], env=self.env, stdout=log, stderr=subprocess.STDOUT, close_fds=True)
+                stopped = subprocess.run([self.pg_bin / "pg_ctl", "-D", self.root / "pg-data", "-m", "fast", "-w", "stop"], env=self.env, stdout=log, stderr=subprocess.STDOUT, close_fds=True)
+                if stopped.returncode:
+                    self.receipt.update(status="FAILED", failedStage="pg-cleanup", reason="Owned PostgreSQL did not stop")
+                    self.write_receipt()
+                    raise RuntimeError("Owned PostgreSQL cleanup failed")
         self.write_receipt()
 
 

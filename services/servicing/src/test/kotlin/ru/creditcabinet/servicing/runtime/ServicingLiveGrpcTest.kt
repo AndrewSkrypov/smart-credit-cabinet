@@ -2,6 +2,7 @@
 
 package ru.creditcabinet.servicing.runtime
 
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
@@ -29,7 +30,9 @@ import kotlin.test.*
 /** Connects to the independently launched candidate bootJar over real mTLS and PostgreSQL. */
 @EnabledIfEnvironmentVariable(named = "ALPHA_SERVICING_LIVE_PHASE", matches = "open|replay")
 class ServicingLiveGrpcTest {
-    private val mapper = ObjectMapper().registerKotlinModule().registerModule(JavaTimeModule()).disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+    private val mapper = ObjectMapper().registerKotlinModule().registerModule(JavaTimeModule())
+        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
     private val directory = Path.of(System.getenv("ALPHA_SERVICING_LIVE_ARTIFACTS"))
     private val tls = Path.of(System.getenv("ALPHA_SERVICING_LIVE_TLS"))
     private val port = System.getenv("ALPHA_SERVICING_LIVE_PORT").toInt()
@@ -125,14 +128,14 @@ class ServicingLiveGrpcTest {
             val paid = client.payNext(account.id, actor)
             assertTrue(paid.outstandingPrincipal < BigDecimal("630000.00"))
             mapper.writeValue(directory.resolve("latest-payment-account.json").toFile(), client.byApplication(command.applicationId))
-            val legacy = mapper.readValue(directory.resolve("legacy-account.json").toFile(),LoanAccount::class.java)
-            val legacyActor = ServicingActor(UUID.randomUUID(),legacy.companyId)
-            authorization = token(Roles.CLIENT,legacy.companyId,legacyActor.userId)
+            val legacy = mapper.readValue(directory.resolve("legacy-account.json").toFile(), LoanAccount::class.java)
+            val legacyActor = ServicingActor(UUID.randomUUID(), legacy.companyId)
+            authorization = token(Roles.CLIENT, legacy.companyId, legacyActor.userId)
             val oldSchedule = assertNotNull(client.byApplication(legacy.applicationId))
-            val drawn = client.draw(legacy.id,DrawCommand(legacyActor,50_000,"Reschedule before reverse acceptance"))
-            assertEquals(550_000L,drawn.disbursedAmount)
+            val drawn = client.draw(legacy.id, DrawCommand(legacyActor, 50_000, "Reschedule before reverse acceptance"))
+            assertEquals(550_000L, drawn.disbursedAmount)
             assertTrue(drawn.payments.filter { it.status == LoanPaymentStatus.SCHEDULED }.none { row -> oldSchedule.payments.any { it.id == row.id } })
-            mapper.writeValue(directory.resolve("legacy-after-draw.json").toFile(),client.byApplication(legacy.applicationId))
+            mapper.writeValue(directory.resolve("legacy-after-draw.json").toFile(), client.byApplication(legacy.applicationId))
         } finally {
             channel.shutdownNow()
         }

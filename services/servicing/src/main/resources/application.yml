@@ -13,6 +13,10 @@ spring:
   flyway:
     enabled: ${SPRING_FLYWAY_ENABLED:false}
 cabinet:
+  database:
+    guard-enabled: true
+  identity:
+    url: ${IDENTITY_URL:}
   auth:
     jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}
   servicing:

@@ -16,7 +16,7 @@ MIGRATION_ONLY=true DB_HOST=localhost DB_PORT=5432 DB_NAME=servicing \
   java -jar services/servicing/build/libs/app.jar
 ```
 
-HTTP runtime использует `servicing_app`, Flyway выключен. Обязательны существующие PEM server certificate/key и CA доверенного Credit client. По умолчанию БД FENCED и финансовые операции закрыты до принятого переноса.
+HTTP runtime использует `servicing_app`, Flyway выключен, общий runtime database guard включён во всех профилях. Обязательны существующие PEM server certificate/key и CA доверенного Credit client. По умолчанию БД FENCED и финансовые операции закрыты до принятого переноса.
 
 ```bash
 DB_HOST=localhost DB_PORT=5432 DB_NAME=servicing DB_USER=servicing_app \
@@ -49,7 +49,7 @@ python3 services/servicing/cutover/transfer.py local \
   --credit-service credit_owner --servicing-service servicing_owner --artifacts /secure/r3-reverse
 ```
 
-После успешного reverse и проверки последнего платежа запустить Credit local. Source Servicing остаётся FENCED. При ошибке импорта/контрольной суммы не включать writer: использовать сохранённые `source-fenced.json` и `target-before.json` для разбирательства. Проверяемое продолжение незавершённого переноса использует `--recover-manifest /secure/r3-forward/source-fenced.json` вместо `--artifacts`: оба writers должны оставаться FENCED, checksum исходной БД должен по-прежнему совпадать со снимком. Добавление `--abort` при тех же проверках возвращает право записи неизменившемуся source. Повреждённый manifest и изменившийся source не позволяют активацию. Эти действия выполняет отдельный owner, runtime не получает права восстановления.
+После успешного reverse и проверки последнего платежа запустить Credit local. Source Servicing остаётся FENCED. При ошибке импорта/контрольной суммы не включать writer: использовать сохранённые `source-fenced.json` и `target-before.json` для разбирательства. Проверяемое продолжение незавершённого переноса использует `--recover-manifest /secure/r3-forward/source-fenced.json` вместо `--artifacts`: до активации оба writers должны оставаться FENCED, checksum исходной БД должен по-прежнему совпадать со снимком. Добавление `--abort` при тех же проверках возвращает право записи неизменившемуся source. После уже завершённой target activation тот же resume сверяет accepted manifest, неизменившийся fenced source и права writers; данные активного target не импортируются повторно, поэтому новые платежи сохраняются. Abort при active target запрещён — требуется полный reverse его последнего состояния. Если abort уже успел вернуть source, повтор того же abort проверяет accepted manifest, права active source и неизменившийся retired target, завершает Credit marker без импорта и сохраняет новые source-платежи. Fenced target с неожиданными новыми изменениями тоже не перезаписывается старым снимком. Повреждённый manifest и изменившийся source не позволяют активацию. Эти действия выполняет отдельный owner, runtime не получает права восстановления.
 
 ## Проверки
 

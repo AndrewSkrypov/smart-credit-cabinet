@@ -109,8 +109,8 @@ def import_snapshot(service, data):
     # Detach only obsolete reserve FKs before removing superseded tranche identities.
     # The authoritative reserve (including its confirmation) is restored in this same transaction.
     tranche_ids = literal(json.dumps(data["loan_tranches"], ensure_ascii=False))
-    statements.append("update payment_reserves set confirmed_version=null,drawn_tranche_id=null,drawn_amount=null,confirmed_by=null,confirmed_at=null "
-                      "where drawn_tranche_id is not null and not exists(select 1 from jsonb_populate_recordset(null::loan_tranches," + tranche_ids + "::jsonb) source where source.id=drawn_tranche_id);")
+    statements.append("update payment_reserves target set confirmed_version=null,drawn_tranche_id=null,drawn_amount=null,confirmed_by=null,confirmed_at=null "
+                      "where target.drawn_tranche_id is not null and not exists(select 1 from jsonb_populate_recordset(null::loan_tranches," + tranche_ids + "::jsonb) source where source.id=target.drawn_tranche_id);")
     # Delete superseded child identities BEFORE insertion: payment number is also unique.
     for table in reversed(TABLES):
         if table == "loan_accounts":
@@ -177,7 +177,7 @@ def finish_credit_marker(credit, direction, digest):
     sql(credit, "update servicing_writer_fence set writer='REMOTE',manifest_sha256=" + literal(digest) + ",epoch=epoch+1,changed_at=now() where singleton and writer='FENCED';")
 
 
-def recover(credit, servicing, direction, manifest, abort):
+def recover(credit, servicing, direction, manifest, abort, fail_after_source_activation=False):
     validate_databases(credit, servicing)
     source, target = (credit, servicing) if direction == "remote" else (servicing, credit)
     source_writer, target_writer = ("LOCAL", "REMOTE") if direction == "remote" else ("REMOTE", "LOCAL")
@@ -187,6 +187,21 @@ def recover(credit, servicing, direction, manifest, abort):
         if sql(credit, "select count(*) from servicing_open_outbox where state <> 'CONFIRMED';") != "0":
             raise SystemExit("Unconfirmed commands prevent recovery")
         source_info, target_info = fence_info(source), fence_info(target)
+        if abort and source_info["writer"] == source_writer and source_info["manifest_sha256"] == digest:
+            # The previous abort already reactivated its verified source. It may now have later payments.
+            target_is_retired = target_info["writer"] == "FENCED" or (direction == "local" and target_info["writer"] == "REMOTE" and target_info["manifest_sha256"] == digest)
+            if not target_is_retired:
+                raise SystemExit("Post-abort completion requires the other writer to remain retired")
+            require_grants(source, True)
+            require_grants(target, False)
+            backup = load_manifest(manifest.parent / "target-before.json")
+            if checksum(snapshot(target)) not in (digest, checksum(backup)):
+                raise SystemExit("Retired target changed after abort; do not restore stale state")
+            if direction == "local":
+                finish_credit_marker(credit, "remote", digest)
+            print(json.dumps({"recovery": "completed-after-abort", "direction": direction, "sha256": digest,
+                              "currentSourceSha256": checksum(snapshot(source))}, sort_keys=True))
+            return
         source_is_retired = source_info["writer"] == "FENCED" or (direction == "remote" and source_info["writer"] == "REMOTE" and source_info["manifest_sha256"] == digest)
         if not source_is_retired or checksum(snapshot(source)) != digest:
             raise SystemExit("Source is not fenced and unchanged at the recorded snapshot")
@@ -207,6 +222,8 @@ def recover(credit, servicing, direction, manifest, abort):
                 raise SystemExit("Fenced target contains later changes; use a full reverse of its latest state")
             if abort:
                 activate(source, source_writer, digest)
+                if fail_after_source_activation:
+                    raise RuntimeError("INJECTED_AFTER_SOURCE_REACTIVATION")
                 if direction == "local":
                     finish_credit_marker(credit, "remote", digest)
                 outcome = "aborted"
@@ -222,7 +239,7 @@ def recover(credit, servicing, direction, manifest, abort):
     print(json.dumps({"recovery": outcome, "direction": direction, "sha256": digest}, sort_keys=True))
 
 
-def transfer(credit, servicing, direction, directory, fail_after_activation=False):
+def transfer(credit, servicing, direction, directory, fail_after_activation=False, fail_before_activation=False):
     source, target = (credit, servicing) if direction == "remote" else (servicing, credit)
     source_writer, target_writer = ("LOCAL", "REMOTE") if direction == "remote" else ("REMOTE", "LOCAL")
     validate_databases(credit, servicing)
@@ -245,6 +262,8 @@ def transfer(credit, servicing, direction, directory, fail_after_activation=Fals
             raise SystemExit("Target checksum mismatch; both writers remain fenced")
         digest = checksum(data)
         # Runtime cannot enable itself: fence UPDATE is owner-only.
+        if fail_before_activation:
+            raise RuntimeError("INJECTED_BEFORE_TARGET_ACTIVATION")
         activate(target, target_writer, digest)
         if fail_after_activation:
             raise RuntimeError("INJECTED_AFTER_TARGET_ACTIVATION")
@@ -260,19 +279,25 @@ def main():
     parser.add_argument("--servicing-service", required=True)
     parser.add_argument("--artifacts", type=Path)
     parser.add_argument("--recover-manifest", type=Path)
+    parser.add_argument("--test-fail-before-target-activation", action="store_true", help="Acceptance-only preactivation checkpoint")
+    parser.add_argument("--test-fail-after-source-reactivation", action="store_true", help="Acceptance-only abort checkpoint")
     parser.add_argument("--test-fail-after-target-activation", action="store_true", help="Acceptance-only crash checkpoint; leaves an active verified target")
     parser.add_argument("--abort", action="store_true", help="Reactivate the unchanged fenced source after an incomplete transfer")
     args = parser.parse_args()
+    if args.test_fail_after_source_reactivation and not (args.recover_manifest and args.abort):
+        parser.error("Source reactivation checkpoint requires recovery abort")
+    if args.recover_manifest and (args.test_fail_before_target_activation or args.test_fail_after_target_activation):
+        parser.error("Target activation checkpoints require a normal transfer")
     try:
         if args.recover_manifest:
-            recover(args.credit_service, args.servicing_service, args.direction, args.recover_manifest, args.abort)
+            recover(args.credit_service, args.servicing_service, args.direction, args.recover_manifest, args.abort, args.test_fail_after_source_reactivation)
         else:
             if args.artifacts is None or args.abort:
                 parser.error("Normal transfer requires --artifacts; --abort requires --recover-manifest")
-            transfer(args.credit_service, args.servicing_service, args.direction, args.artifacts, args.test_fail_after_target_activation)
+            transfer(args.credit_service, args.servicing_service, args.direction, args.artifacts, args.test_fail_after_target_activation, args.test_fail_before_target_activation)
     except subprocess.CalledProcessError as error:
         # Do not print DSNs, credentials or full SQL containing financial snapshots.
-        raise SystemExit("PostgreSQL cutover operation failed; keep writers fenced and inspect local operator logs") from error
+        raise SystemExit("PostgreSQL cutover operation failed; inspect recorded authority and manifest before verified recovery") from error
 
 
 if __name__ == "__main__":

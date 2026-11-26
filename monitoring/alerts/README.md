@@ -234,7 +234,9 @@ Dev привязывается к gateway приватной Compose-сети `c
 При откате на старую версию overlay добавьте после неё защищённое переопределение
 `/etc/pump/monitoring/compose.telegram-live.yaml`, содержащее только команду
 Alertmanager с этим `--config.file` и существующим `--storage.path=/alertmanager`.
-Проверяйте rollout через `amtool check-config` и `/-/ready` внутри контейнера.
+После подтверждённого CI/CD rollout `reapply-dev.py SHA` проверяет этот overlay
+под lock выпуска. `reapply-dev.py SHA --apply` при необходимости пересоздаёт только
+Alertmanager. Скрипт проверяет manifest, `amtool check-config` и `/-/ready`.
 
 Prod слушает `18443/TCP` на выделенном IPv4 с TLS после подтверждения правила
 Edge. Firewall разрешает доступ только от проверенного SNAT-адреса Prod, а relay

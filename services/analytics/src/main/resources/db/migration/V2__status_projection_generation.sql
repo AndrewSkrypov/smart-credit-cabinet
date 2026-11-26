@@ -6,3 +6,11 @@ CREATE TABLE application_status_generation (
 );
 
 COMMENT ON TABLE application_status_generation IS 'Projection database binding to exactly one Kafka topic and bootstrap snapshot.';
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'analytics_app') THEN
+        REVOKE INSERT, UPDATE, DELETE ON application_status_generation FROM analytics_app;
+    END IF;
+END
+$$;

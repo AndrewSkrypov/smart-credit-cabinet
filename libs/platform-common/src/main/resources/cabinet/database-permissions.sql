@@ -55,8 +55,11 @@ begin
       execute format('revoke update,delete on public.%I from __APP__',item);
     end if;
   end loop;
-  if to_regclass('public.flyway_schema_history') is not null then
-    revoke insert,update,delete on public.flyway_schema_history from __APP__;
-  end if;
+  foreach item in array array['flyway_schema_history','application_status_generation']
+  loop
+    if to_regclass('public.' || item) is not null then
+      execute format('revoke insert,update,delete on public.%I from __APP__',item);
+    end if;
+  end loop;
 end $$;
 commit;

@@ -3,8 +3,8 @@ package ru.creditcabinet.document.application
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionTemplate
 import ru.creditcabinet.application.application.ApplicationAccess
+import ru.creditcabinet.application.application.CreditTransactions
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.common.exception.ConflictException
@@ -49,7 +49,7 @@ class GeneratedArtifacts(
     private val signing: SigningSessions,
     private val files: FileStore,
     private val renderer: ArtifactRendering,
-    private val tx: TransactionTemplate,
+    private val tx: CreditTransactions,
     private val clock: Clock,
     private val notifications: PlatformNotifications,
 ) : GeneratedArtifactOperations, GeneratedArtifactJobs {
@@ -132,7 +132,7 @@ class GeneratedArtifacts(
                     ),
                 )
                 true
-            }!!
+            }
         }
 
     /** The row lock spans the bounded write, and retries reuse the same object name. */
@@ -150,7 +150,7 @@ class GeneratedArtifacts(
             log.warn("Artifact generation failed for {}: {}", artifact.id, failure.javaClass.simpleName)
         }
         true
-    }!!
+    }
 
     @Transactional
     override fun retry(applicationId: UUID, artifactId: UUID): ArtifactRecord {

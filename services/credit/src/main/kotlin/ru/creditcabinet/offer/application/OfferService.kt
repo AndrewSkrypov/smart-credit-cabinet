@@ -3,6 +3,7 @@ package ru.creditcabinet.offer.application
 import org.springframework.stereotype.Service
 import ru.creditcabinet.application.application.ApplicationAccess
 import ru.creditcabinet.application.application.CommitTransition
+import ru.creditcabinet.application.application.CreditTransactions
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.LoanApplication
@@ -41,7 +42,7 @@ class OfferService(
     private val jobs: PipelineJobs,
     private val products: ProductCatalog,
     private val contracts: ContractTexts,
-    private val transactions: OfferTransactions,
+    private val transactions: CreditTransactions,
     private val clock: Clock,
 ) : OfferActions {
     /** T16, then a signing code is issued right away (if the signing service is down, the client asks again). */

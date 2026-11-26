@@ -1,11 +1,11 @@
-package ru.creditcabinet.offer.infrastructure
+package ru.creditcabinet.application.infrastructure
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
-import ru.creditcabinet.offer.application.OfferTransactions
+import ru.creditcabinet.application.application.CreditTransactions
 
 @Component
-class SpringOfferTransactions(private val transaction: TransactionTemplate) : OfferTransactions {
+class SpringCreditTransactions(private val transaction: TransactionTemplate) : CreditTransactions {
     override fun <T : Any> execute(action: () -> T): T =
         checkNotNull(transaction.execute { action() })
 }

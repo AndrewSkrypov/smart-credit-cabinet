@@ -137,7 +137,13 @@ class ApplicationApiIntegrationTest {
             header("Authorization", "Bearer $client")
             contentType = MediaType.APPLICATION_JSON
             content = body()
-        }.andExpect { status { isConflict() } }
+        }.andExpect {
+            status { isConflict() }
+            jsonPath("$.status") { value(409) }
+            jsonPath("$.error") { value("Conflict") }
+            jsonPath("$.message") { value("Заявка уже отправлена — изменить её можно только по запросу банка") }
+            jsonPath("$.path") { value("/api/v1/applications/$id") }
+        }
 
         val withdrawn = json(
             mockMvc.post("/api/v1/applications/$id/withdraw") {

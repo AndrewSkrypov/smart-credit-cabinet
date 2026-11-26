@@ -2,6 +2,7 @@ package ru.creditcabinet.application
 
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
+import ru.creditcabinet.application.domain.ApplicationConflictException
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationEvent.ACCEPT_OFFER
 import ru.creditcabinet.application.domain.ApplicationEvent.AGENT_CANCEL
@@ -49,7 +50,6 @@ import ru.creditcabinet.application.domain.CloseReason
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.product.domain.FinancingPurpose
 import java.time.Instant
 import java.util.UUID
@@ -124,16 +124,16 @@ class ApplicationStateMachineTest {
             for (event in ApplicationEvent.entries) {
                 if (documented.any { it.first == status && it.second == event }) continue
                 val before = application(status)
-                assertFailsWith<ConflictException>("$status + $event") { before.move(event, actorFor(event), now) }
+                assertFailsWith<ApplicationConflictException>("$status + $event") { before.move(event, actorFor(event), now) }
             }
         }
     }
 
     @Test
     fun `an event caused by the wrong actor is refused even where the transition exists`() {
-        assertFailsWith<ConflictException> { application(SUBMITTED).move(DATA_COMPLETE, client, now) }
-        assertFailsWith<ConflictException> { application(MANUAL_REVIEW).move(APPROVE, Actor(ActorType.MANAGER, UUID.randomUUID()), now) }
-        assertFailsWith<ConflictException> { application(DRAFT).move(SUBMIT, Actor.SYSTEM, now) }
+        assertFailsWith<ApplicationConflictException> { application(SUBMITTED).move(DATA_COMPLETE, client, now) }
+        assertFailsWith<ApplicationConflictException> { application(MANUAL_REVIEW).move(APPROVE, Actor(ActorType.MANAGER, UUID.randomUUID()), now) }
+        assertFailsWith<ApplicationConflictException> { application(DRAFT).move(SUBMIT, Actor.SYSTEM, now) }
     }
 
     @Test
@@ -159,7 +159,7 @@ class ApplicationStateMachineTest {
 
     @Test
     fun `a running system step cannot be withdrawn, a finished application cannot change at all`() {
-        assertTrue(assertFailsWith<ConflictException> { application(SCORING).move(WITHDRAW, client, now) }.message!!.contains("автоматический шаг"))
+        assertTrue(assertFailsWith<ApplicationConflictException> { application(SCORING).move(WITHDRAW, client, now) }.message.contains("автоматический шаг"))
         for (terminal in ApplicationStatus.entries.filter { it.terminal }) {
             assertTrue(ApplicationStateMachine.eventsFrom(terminal, ActorType.CLIENT).isEmpty(), "$terminal")
             assertTrue(ApplicationStateMachine.eventsFrom(terminal, ActorType.SYSTEM).isEmpty(), "$terminal")

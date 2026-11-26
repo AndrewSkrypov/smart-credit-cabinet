@@ -34,8 +34,8 @@ class NoRedirect(HTTPRedirectHandler):
 HTTP = build_opener(ProxyHandler({}), NoRedirect())
 
 
-def git(*args):
-    return subprocess.check_output(["git", "-C", str(ROOT), *args])
+def git(*args, repo=ROOT):
+    return subprocess.check_output(["git", "-C", str(repo), *args])
 
 
 def digest(path):
@@ -43,8 +43,8 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def source(revision, path):
-    return git("show", f"{revision}:{path}").decode()
+def source(revision, path, repo=ROOT):
+    return git("show", f"{revision}:{path}", repo=repo).decode()
 
 
 def executable(path):
@@ -120,20 +120,26 @@ def stop(state):
 def verify_artifacts(args):
     artifacts = args.artifacts.resolve(strict=True)
     revision = args.revision
-    if not re.fullmatch(r"[a-f0-9]{40}", revision) or git("rev-parse", "--verify", f"{revision}^{{commit}}").decode().strip() != revision:
+    if not re.fullmatch(r"[a-f0-9]{40}", revision):
+        raise ValueError("Укажите полный SHA исходного коммита")
+    resolved = git("rev-parse", "--verify", f"{revision}^{{commit}}", repo=args.source_checkout).decode().strip()
+    if resolved != revision:
         raise ValueError("Укажите полный SHA исходного коммита, доступного в Git")
     recorded = artifacts / "source-revision.txt"
     if not recorded.is_file() or recorded.read_text().strip() != revision:
         raise ValueError("SHA артефактов отличается от выбранной ревизии")
     jars = {name: artifacts / f"{name}.jar" for name in SERVICES}
-    spa = artifacts / "frontend"
-    if not (spa / "index.html").is_file() or any(not path.is_file() for path in jars.values()):
-        raise ValueError("Нужны четыре JAR и собранный frontend/index.html")
+    spa = None if args.api_only else artifacts / "frontend"
+    if any(not path.is_file() for path in jars.values()):
+        raise ValueError("Нужны четыре JAR из одного исходного SHA")
     content = {path.name: digest(path) for path in jars.values()}
-    content.update({str(path.relative_to(artifacts)): digest(path)
-                    for path in sorted(spa.rglob("*")) if path.is_file()})
-    if not any(path.startswith("frontend/assets/") and path.endswith(".js") for path in content):
-        raise ValueError("В сборке frontend отсутствуют JavaScript-артефакты")
+    if spa:
+        if not (spa / "index.html").is_file():
+            raise ValueError("Отсутствует собранный frontend/index.html")
+        content.update({str(path.relative_to(artifacts)): digest(path)
+                        for path in sorted(spa.rglob("*")) if path.is_file()})
+        if not any(path.startswith("frontend/assets/") and path.endswith(".js") for path in content):
+            raise ValueError("В сборке frontend отсутствуют JavaScript-артефакты")
     return jars, spa, content
 
 
@@ -162,10 +168,10 @@ def nginx_path(path):
     return f'"{value}"'
 
 
-def render_gateway(directory, revision, addresses, spa):
+def render_gateway(directory, revision, addresses, spa, repo=ROOT):
     fragments = directory / "gateway"
     fragments.mkdir()
-    base = source(revision, f"{GATEWAY}/nginx.conf")
+    base = source(revision, f"{GATEWAY}/nginx.conf", repo)
     base = base.replace("/etc/nginx/cabinet-gateway/", f"{fragments}/")
     base = re.sub(r"(^\s*include )([^;]+)(;)", lambda line: line[1] + nginx_path(line[2]) + line[3], base, flags=re.M)
     base = base.replace("listen 80;", f"listen {addresses['gateway'][0]}:{addresses['gateway'][1]};")
@@ -175,9 +181,9 @@ def render_gateway(directory, revision, addresses, spa):
     # The single native gateway serves the built SPA; the API locations still use committed fragments.
     base = re.sub(r"^\s*set \$(frontend|swagger) .*?;\n", "\n", base, flags=re.M)
     (fragments / "cabinet.conf").write_text(base)
-    for entry in git("ls-tree", "-r", "--name-only", revision, "--", f"{GATEWAY}/conf.d").decode().splitlines():
+    for entry in git("ls-tree", "-r", "--name-only", revision, "--", f"{GATEWAY}/conf.d", repo=repo).decode().splitlines():
         name = Path(entry).name
-        configuration = source(revision, entry)
+        configuration = source(revision, entry, repo)
         if name == "upstreams.conf":
             configuration = re.sub(r"^resolver(?:_timeout)? .+;\n", "", configuration, flags=re.M)
             configuration = configuration.replace("credit:8080 resolve", "%s:%s" % addresses["credit"])
@@ -225,6 +231,7 @@ def start(args, directory, state, persist):
     state["endpoints"] = {name: f"http://{host}:{port}" for name, (host, port) in addresses.items()
                           if name in (*SERVICES, "gateway")}
     state["listeners"] = {name: f"{host}:{port}" for name, (host, port) in addresses.items()}
+    state["serve_spa"] = spa is not None
     state["uploads_enabled"] = args.clamd is not None
     state["uploads_mode"] = "clamav" if args.clamd else "disabled"
     if bool(args.clamd) != bool(args.clam_db) or (args.clam_certs and not args.clamd):
@@ -238,7 +245,10 @@ def start(args, directory, state, persist):
     env = {"PATH": os.pathsep.join(paths), "HOME": str(directory), "TMPDIR": str(directory),
            "LC_ALL": "C.UTF-8", "TZ": "UTC"}
     env.update({key: value for key, value in (("LD_LIBRARY_PATH", args.native_libs),) if value})
-    config = render_gateway(directory, args.revision, addresses, spa)
+    if spa is None:
+        spa = directory / "api-only-root"
+        spa.mkdir(mode=0o700)
+    config = render_gateway(directory, args.revision, addresses, spa, args.source_checkout)
     nginx_args = [nginx, "-p", str(directory), "-c", str(config), "-g", "daemon off;"]
     persist()
 
@@ -282,8 +292,8 @@ def start(args, directory, state, persist):
     admin_env = {**env, "PGHOST": str(pg_socket), "PGPORT": str(db_port), "PGUSER": "cabinet", "PGDATABASE": "postgres"}
     run("create-bootstrap-db", [psql, "-X", "-v", "ON_ERROR_STOP=1", "-c", "CREATE DATABASE cabinet"], admin_env)
     permissions = directory / "database-permissions.sql"
-    permissions.write_text(source(args.revision, PERMISSIONS))
-    bootstrap = source(args.revision, "docker/postgres/bootstrap.sh")
+    permissions.write_text(source(args.revision, PERMISSIONS, args.source_checkout))
+    bootstrap = source(args.revision, "docker/postgres/bootstrap.sh", args.source_checkout)
     bootstrap = bootstrap.replace("/cabinet/database-permissions.sql", shlex.quote(str(permissions)))
     for name, (app_password, owner_password) in db.items():
         admin_env[f"{name.upper()}_DB_PASSWORD"] = app_password
@@ -342,7 +352,7 @@ def start_clam(args, directory, address, launch, env):
     db = args.clam_db.resolve(strict=True)
     if not db.is_dir() or any(char.isspace() for char in str(db)):
         raise ValueError("Каталог сигнатур ClamAV должен существовать. Пробелы в пути не поддерживаются.")
-    settings = source(args.revision, "docker/clamav/clamd.conf")
+    settings = source(args.revision, "docker/clamav/clamd.conf", args.source_checkout)
     settings = re.sub(r"^(?:LogFile|LocalSocket|TCPSocket|User|DatabaseDirectory) .*\n", "", settings, flags=re.M)
     host, port = address
     config = directory / "clamd.conf"
@@ -392,6 +402,7 @@ def status(state):
         "health": health,
         "processes": {name: live(process) for name, process in state["processes"].items()},
         "uploads_mode": state.get("uploads_mode"),
+        "serve_spa": state.get("serve_spa", True),
     }
 
 
@@ -407,7 +418,7 @@ def smoke(state):
             raise RuntimeError(f"GET {path}: ожидался HTTP {expected}, получен {code}")
         return payload
 
-    if b"/assets/" not in get("/sign-in"):
+    if result["serve_spa"] and b"/assets/" not in get("/sign-in"):
         raise RuntimeError("Шлюз не отдаёт собранную SPA")
     get("/api/v1/products")
     get("/api/v1/auth/options")
@@ -428,7 +439,8 @@ def smoke(state):
         raise RuntimeError("Синтетический агент не видит свой портфель")
     get("/api/v1/agent/clients", 403, token=sessions["CLIENT"])
     get("/api/v1/analytics/funnel", token=sessions["MANAGER"])
-    return {**result, "smoke": {"spa": 200, "products": 200, "auth_options": 200, "internal": 404,
+    return {**result, "smoke": {**({"spa": 200} if result["serve_spa"] else {}),
+                               "products": 200, "auth_options": 200, "internal": 404,
                                "anonymous_portfolio": 401, "client_portfolio": 403, "agent_portfolio": 200,
                                "agent_companies": len(companies), "manager_funnel": 200}}
 
@@ -440,6 +452,8 @@ def main():
     up = commands.add_parser("up")
     up.add_argument("--artifacts", type=Path, required=True)
     up.add_argument("--revision", required=True)
+    up.add_argument("--source-checkout", type=Path, default=ROOT)
+    up.add_argument("--api-only", action="store_true")
     up.add_argument("--java", type=Path, required=True)
     up.add_argument("--pg-bin", type=Path, required=True)
     up.add_argument("--nginx", type=Path, required=True)

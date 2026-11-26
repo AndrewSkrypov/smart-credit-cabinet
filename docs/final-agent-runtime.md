@@ -23,6 +23,7 @@ ClamAV из отдельного пакета укажите также `--clam-
 В отдельном чистом checkout выбранного полного SHA выполните:
 
 ```bash
+set -euo pipefail
 export JAVA_HOME=/home/itech/.jdks/corretto-21.0.9
 export PATH="$JAVA_HOME/bin:$PATH"
 export GRADLE_USER_HOME="$(mktemp -d /tmp/alpha-final-gradle.XXXXXXXX)"
@@ -71,7 +72,11 @@ python3 scripts/final-agent-runtime.py --state-dir "$run_state" smoke \
 
 Чтобы проверить интегрированный пакет, соберите в отдельном checkout
 все четыре сервиса и SPA одного полного SHA. Запустите их в новом
-каталоге состояния с тем же `--revision`. Сценарные SQL-фикстуры
+каталоге состояния с тем же `--revision`. Если кандидат лежит в другой
+Git-копии, передайте её путь через `--source-checkout`. Когда доступны
+только JAR, можно запустить `up --api-only` и проверить API и OpenAPI.
+Для проверки в браузере поднимите отдельный полный запуск с собранной SPA.
+Сценарные SQL-фикстуры
 интегрированного кандидата применяйте по инструкции QA только к
 синтетической БД. Её административный сокет находится в
 `$run_state/pg-socket`, порт PostgreSQL равен базовому порту плюс пять,

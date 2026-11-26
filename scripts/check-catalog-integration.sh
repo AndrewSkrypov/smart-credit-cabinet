@@ -161,7 +161,8 @@ server_port=$(free_port)
 export CABINET_CATALOG_GRPC_DATABASE_PASSWORD="$CATALOG_APP_PASSWORD"
 "$JAVA_HOME/bin/java" -Xmx256m -XX:ActiveProcessorCount=2 -jar services/catalog-grpc/build/libs/app.jar \
     --cabinet.catalog.grpc.database.url="$CATALOG_TEST_JDBC_URL" --cabinet.catalog.grpc.database.user=catalog_app \
-    --cabinet.catalog.grpc.server.port="$server_port" --cabinet.catalog.grpc.server.certificate="$tls/server.crt" \
+    --cabinet.catalog.grpc.server.host=127.0.0.1 --cabinet.catalog.grpc.server.port="$server_port" \
+    --cabinet.catalog.grpc.server.certificate="$tls/server.crt" \
     --cabinet.catalog.grpc.server.key="$tls/server.key" --cabinet.catalog.grpc.server.client-ca="$tls/ca.crt" \
     > "$scratch/catalog.log" 2>&1 &
 catalog_pid=$!
@@ -180,7 +181,8 @@ if ! catalog_ready; then
     exit 1
 fi
 
-export DB_HOST=127.0.0.1 DB_PORT="$db_port" DB_NAME=credit DB_USER=credit_app DB_PASSWORD="$CREDIT_APP_PASSWORD"
+export SPRING_DATASOURCE_URL="jdbc:postgresql://127.0.0.1:$db_port/credit"
+export SPRING_DATASOURCE_USERNAME=credit_app SPRING_DATASOURCE_PASSWORD="$CREDIT_APP_PASSWORD"
 export CATALOG_TEST_OWNER_JDBC_URL="$CATALOG_TEST_JDBC_URL" CATALOG_TEST_OWNER_DATABASE_USER=catalog_owner
 export CATALOG_TEST_OWNER_DATABASE_PASSWORD="$CATALOG_OWNER_PASSWORD"
 export SPRING_APPLICATION_JSON=$(python3 - "$server_port" "$tls" <<'PY'

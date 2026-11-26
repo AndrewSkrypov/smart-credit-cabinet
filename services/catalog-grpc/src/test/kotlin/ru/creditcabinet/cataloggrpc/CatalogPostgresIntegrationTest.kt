@@ -37,17 +37,17 @@ class CatalogPostgresIntegrationTest {
     @Test
     fun `the independent TLS runtime enforces caller identity and commits one audited replacement`() {
         SpringApplicationBuilder(CatalogGrpcApplication::class.java).web(WebApplicationType.NONE)
-            .properties(
-                "cabinet.catalog.grpc.database.url=${env("CATALOG_TEST_JDBC_URL")}",
-                "cabinet.catalog.grpc.database.user=${env("CATALOG_TEST_DATABASE_USER")}",
-                "cabinet.catalog.grpc.database.password=${System.getenv("CATALOG_TEST_DATABASE_PASSWORD").orEmpty()}",
-                "cabinet.catalog.grpc.server.port=0",
-                "cabinet.catalog.grpc.server.certificate=${certificates.resolve("server.crt")}",
-                "cabinet.catalog.grpc.server.key=${certificates.resolve("server.key")}",
-                "cabinet.catalog.grpc.server.client-ca=${certificates.resolve("ca.crt")}",
-                "JWT_SECRET=$secret",
-            )
-            .run().use { context ->
+            .run(
+                "--cabinet.catalog.grpc.database.url=${env("CATALOG_TEST_JDBC_URL")}",
+                "--cabinet.catalog.grpc.database.user=${env("CATALOG_TEST_DATABASE_USER")}",
+                "--cabinet.catalog.grpc.database.password=${System.getenv("CATALOG_TEST_DATABASE_PASSWORD").orEmpty()}",
+                "--cabinet.catalog.grpc.server.host=127.0.0.1",
+                "--cabinet.catalog.grpc.server.port=0",
+                "--cabinet.catalog.grpc.server.certificate=${certificates.resolve("server.crt")}",
+                "--cabinet.catalog.grpc.server.key=${certificates.resolve("server.key")}",
+                "--cabinet.catalog.grpc.server.client-ca=${certificates.resolve("ca.crt")}",
+                "--JWT_SECRET=$secret",
+            ).use { context ->
                 val port = context.getBean(Server::class.java).port
                 val valid = catalogTlsChannel(
                     "127.0.0.1",

@@ -268,7 +268,7 @@ class DocumentsMigration(
             },
         )
         target.query(
-            "select metadata from artifact_records order by id",
+            "select metadata,attempts,next_attempt_at from artifact_records order by id",
             org.springframework.jdbc.core.RowCallbackHandler { rs ->
                 val a = mapper.readValue<ArtifactRecord>(rs.getString(1))
                 check(credit.queryForObject("select company_id from applications where id=?", UUID::class.java, a.scope.applicationId) == a.scope.companyId)
@@ -352,7 +352,7 @@ class DocumentsMigration(
                 }
                 if (a.status == "READY") copy(creditStore(a.backend), a.storedName, a.backend, read(files, a.storedName, a.backend, a.sizeBytes!!, a.checksum))
                 credit.update(
-                    """insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,status,size_bytes,checksum,created_at,updated_at,ready_at,next_attempt_at)
+                    """insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,status,size_bytes,checksum,created_at,updated_at,ready_at,next_attempt_at,attempts)
                 values(?,
                     ?,
                     ?,
@@ -372,10 +372,10 @@ class DocumentsMigration(
                     ?,
                     now(),
                     ?,
-                    now()) on conflict(id) do update set status=excluded.status,
+                    ?,?) on conflict(id) do update set status=excluded.status,
                     size_bytes=excluded.size_bytes,
                     checksum=excluded.checksum,
-                    ready_at=excluded.ready_at""",
+                    ready_at=excluded.ready_at,next_attempt_at=excluded.next_attempt_at,attempts=excluded.attempts""",
                     a.id,
                     a.scope.applicationId,
                     a.offerId,
@@ -397,6 +397,8 @@ class DocumentsMigration(
                         a.createdAt,
                     ),
                     a.readyAt?.let(Timestamp::from),
+                    rs.getTimestamp("next_attempt_at"),
+                    rs.getInt("attempts"),
                 )
             },
         )

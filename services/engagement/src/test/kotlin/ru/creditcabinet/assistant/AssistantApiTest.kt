@@ -275,20 +275,20 @@ class AssistantApiTest {
     fun `with a model the prompt holds the rules, the reference and the facts, and the model answers`() {
         whenever(model.available()).thenReturn(true)
         whenever(model.chat(any())).thenReturn(
-            "## Ответ\n**Нагрузка** — доля месячной выручки на платежи.\n1. Считаются все кредиты, включая новый",
+            "## Ответ\n**Реестр** — содержит статус и вид деятельности.\n1. ФНС сообщает выручку и налоговую задолженность",
         )
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
-        val answer = mapper.readTree(ask("Что такое долговая нагрузка?").getContentAsString(Charsets.UTF_8))
+        val answer = mapper.readTree(ask("Что банк узнаёт из ЕГРЮЛ и ФНС?").getContentAsString(Charsets.UTF_8))
         assertEquals("MODEL", answer["mode"].asText())
         assertEquals(
-            "Ответ\nНагрузка — доля месячной выручки на платежи.\n— Считаются все кредиты, включая новый",
+            "Ответ\nРеестр — содержит статус и вид деятельности.\n— ФНС сообщает выручку и налоговую задолженность",
             answer["text"].asText(),
             "markup is turned into plain text",
         )
         val messages = argumentCaptor<List<ChatMessage>>().also { verify(model).chat(it.capture()) }.firstValue
         assertEquals("system", messages.first().role)
         assertTrue(messages.first().content.contains("Не придумывай суммы"))
-        assertTrue(messages.last().content.contains("Долговая нагрузка:"), "the reference article is in the prompt")
+        assertTrue(messages.last().content.contains("Прозрачный бизнес"), "the reference article is in the prompt")
         assertTrue(messages.last().content.contains("64% выручки"), "the facts are in the prompt")
     }
 
@@ -328,29 +328,20 @@ class AssistantApiTest {
     }
 
     @Test
-    fun `debt burden retellings keep the monthly revenue period`() {
+    fun `debt burden is explained from the reference without generation`() {
         whenever(model.available()).thenReturn(true)
-        val question = "Как считается долговая нагрузка?"
-        val incomplete = "Долговая нагрузка — это процент от выручки, который уходит на все ваши кредиты, включая новый."
-        for (reply in listOf(
-            incomplete,
-            "Долговая нагрузка — доля месячных платежей от выручки по всем кредитам, включая новый.",
-            incomplete.replace("от выручки", "от выручки бизнеса за несколько месяцев"),
-            incomplete.replace("от выручки", "от двухмесячной выручки"),
+        val reference = Knowledge.articles.single { it.id == "load" }
+        for (question in listOf(
+            "Как считается долговая нагрузка?",
+            "Долговая нагрузка считается по выручке за месяц с половиной?",
+            "Долговая нагрузка считается по годовой выручке, а не по месячной?",
+            "В долговую нагрузку включают новый кредит?",
         )) {
-            whenever(model.chat(any())).thenReturn(reply)
-            val fallback = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
-            assertEquals("RULES", fallback["mode"].asText(), reply)
-            assertTrue(fallback["text"].asText().contains("месячной выручки"))
-        }
-
-        for (revenue in listOf("месячной выручки", "выручки бизнеса за месяц", "выручки за один календарный месяц")) {
-            val complete = incomplete.replace("от выручки", "от $revenue")
-            whenever(model.chat(any())).thenReturn(complete)
             val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
-            assertEquals("MODEL", answer["mode"].asText(), complete)
-            assertEquals(complete, answer["text"].asText())
+            assertEquals("RULES", answer["mode"].asText(), question)
+            assertTrue(answer["text"].asText().startsWith(reference.text), question)
         }
+        verify(model, org.mockito.kotlin.never()).chat(any())
     }
 
     @Test
@@ -416,20 +407,6 @@ class AssistantApiTest {
     }
 
     @Test
-    fun `load explanation must include the new loan and cannot recommend reducing revenue`() {
-        whenever(model.available()).thenReturn(true)
-        for (reply in listOf(
-            "Долговая нагрузка — доля месячной выручки на платежи по всем кредитам. Банк проверяет установленный порог.",
-            "Доля месячной выручки на платежи по всем кредитам, включая новый. Снизить нагрузку можно, уменьшив выручку.",
-        )) {
-            whenever(model.chat(any())).thenReturn(reply)
-            val answer = mapper.readTree(ask("Как считается долговая нагрузка?", application = null).getContentAsString(Charsets.UTF_8))
-            assertEquals("RULES", answer["mode"].asText())
-            assertTrue(answer["text"].asText().contains("включая новый"))
-        }
-    }
-
-    @Test
     fun `approval guarantees and bureau consent use authoritative procedures before generation`() {
         whenever(model.available()).thenReturn(true)
         for ((question, expected) in listOf(
@@ -458,11 +435,12 @@ class AssistantApiTest {
     @Test
     fun `an answer with a figure that is in no data is replaced by the rules answer`() {
         whenever(model.available()).thenReturn(true)
-        whenever(model.chat(any())).thenReturn("Нагрузка считается от суммы 500 000 ₽ за 18 месяцев.")
+        whenever(model.chat(any())).thenReturn("В ЕГРЮЛ видна выручка от 500 000 ₽ за 18 месяцев.")
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
-        val answer = mapper.readTree(ask("Что такое долговая нагрузка?").getContentAsString(Charsets.UTF_8))
+        val answer = mapper.readTree(ask("Что банк узнаёт из ЕГРЮЛ и ФНС?").getContentAsString(Charsets.UTF_8))
         assertEquals("RULES", answer["mode"].asText())
-        assertTrue(answer["text"].asText().startsWith("Долговая нагрузка — доля месячной выручки"), answer["text"].asText())
+        assertTrue(answer["text"].asText().startsWith("Из ЕГРЮЛ и ЕГРИП банк берёт статус компании"), answer["text"].asText())
+        verify(model).chat(any())
     }
 
     @Test

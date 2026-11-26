@@ -150,15 +150,15 @@ spec:
             - {name: MANAGEMENT_OTLP_TRACING_EXPORT_ENABLED, value: "false"}
             {{- end }}
             {{- include "cabinet.secret" (list $root "JWT_SECRET" "JWT_SECRET") | nindent 12 }}
+            - {name: CABINET_VALKEY_ENABLED, value: "true"}
+            - {name: CABINET_VALKEY_HOST, value: valkey}
+            {{- include "cabinet.secret" (list $root "CABINET_VALKEY_PASSWORD" "VALKEY_PASSWORD") | nindent 12 }}
             {{- if $db }}
             - {name: SPRING_FLYWAY_ENABLED, value: "false"}
             - {name: CABINET_DATABASE_GUARD_ENABLED, value: "true"}
-            - {name: CABINET_VALKEY_ENABLED, value: "true"}
-            - {name: CABINET_VALKEY_HOST, value: valkey}
             - {name: CABINET_MAIL_PUBLICCABINETURL, value: {{ $publicURL | quote }}}
             {{- include "cabinet.db-env" (list $name "app") | nindent 12 }}
             {{- include "cabinet.secret" (list $root "DB_PASSWORD" (printf "%s_DB_PASSWORD" (upper $name))) | nindent 12 }}
-            {{- include "cabinet.secret" (list $root "CABINET_VALKEY_PASSWORD" "VALKEY_PASSWORD") | nindent 12 }}
             {{- end }}
             {{- if ne $name "engagement" }}
             {{- include "cabinet.secret" (list $root "SIM_API_KEY" "SIM_API_KEY") | nindent 12 }}

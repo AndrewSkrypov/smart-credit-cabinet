@@ -10,6 +10,8 @@ from urllib.parse import urlparse
 from registry_release import RegistryRelease
 
 ROOT = Path(__file__).resolve().parent.parent
+DEMO_PROJECT = "cabinet-dev-demo"
+DEMO_DOMAIN = "demo.dev.credit-cabinet.ru"
 
 
 class Deployment:
@@ -55,6 +57,26 @@ class Deployment:
         if not optional <= {"ai", "monitoring"}:
             raise ValueError("CABINET_OPTIONAL_PROFILES поддерживает ai,monitoring")
         self.profiles.update(optional)
+        demo_edge = self.values.get("CABINET_DEV_PUBLIC_DEMO_EDGE", "false")
+        if demo_edge not in {"true", "false"}:
+            raise ValueError("CABINET_DEV_PUBLIC_DEMO_EDGE должен быть true или false")
+        if demo_edge == "true":
+            if local or project != "cabinet-dev" or self.values.get("CABINET_DOMAIN") != "dev.credit-cabinet.ru":
+                raise ValueError("Маршрут публичного демо доступен только обычному HTTPS Dev")
+            if self.values.get("CABINET_GRAFANA_CADDYFILE"):
+                raise ValueError("Маршрут публичного демо требует Caddyfile из выбранного выпуска")
+        isolated_demo = self.values.get("CABINET_ISOLATED_DEMO", "false")
+        if isolated_demo not in {"true", "false"} or (isolated_demo == "true") != (project == DEMO_PROJECT):
+            raise ValueError("Для cabinet-dev-demo нужен явный CABINET_ISOLATED_DEMO=true; в других проектах он запрещён")
+        self.isolated_demo = isolated_demo == "true"
+        if self.isolated_demo:
+            if local or optional or backend != "local" or enabled != "false":
+                raise ValueError("Публичное демо требует изолированные локальные данные без дополнительных профилей")
+            if self.values.get("CABINET_DOMAIN") != DEMO_DOMAIN:
+                raise ValueError("Недопустимый домен публичного демо")
+            if self.values.get("EDGE_SUBNET") != "172.30.41.0/28":
+                raise ValueError("Для публичного демо нужна отдельная EDGE_SUBNET=172.30.41.0/28")
+
         ollama_ssh = self.values.get("CABINET_DEV_OLLAMA_SSH", "false")
         if ollama_ssh not in {"true", "false"}:
             raise ValueError("CABINET_DEV_OLLAMA_SSH должен быть true или false")
@@ -125,6 +147,10 @@ class Deployment:
                 self.command.extend(["-f", str(ROOT / "monitoring/compose.paging.yml")])
         if grafana_https == "true":
             self.command.extend(["-f", str(ROOT / "monitoring/compose.grafana-https.yml")])
+        if self.isolated_demo:
+            self.command.extend(["-f", str(ROOT / "deploy/compose.demo.yaml")])
+        if demo_edge == "true":
+            self.command.extend(["-f", str(ROOT / "deploy/compose.dev-demo-edge.yaml")])
         if self.ollama_ssh:
             self.command.extend(["-f", str(ROOT / "deploy/compose.ollama-ssh.yaml")])
         for profile in sorted(self.profiles):

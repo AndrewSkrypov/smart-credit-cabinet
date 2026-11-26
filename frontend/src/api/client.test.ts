@@ -64,4 +64,33 @@ describe('session response ordering', () => {
     await expect(artifactsApi.download('application', 'file', 'schedule.pdf')).rejects.toThrow('Файл временно недоступен. Повторите создание.');
     expect(readSession()?.token).toBe('file-session');
   });
+
+  it('keeps demo requests, their token and session expiry in the demo scope', async () => {
+    writeSession(session('ordinary-session'));
+    vi.resetModules();
+    let redirected!: (url: string) => void;
+    const nextUrl = new Promise<string>((resolve) => { redirected = resolve; });
+    vi.stubGlobal('window', { location: {
+      origin: 'https://credit-cabinet.ru',
+      pathname: '/demo/client/applications/fixture',
+      search: '?tab=overview',
+      assign: redirected
+    } });
+    const { api: demoApi, authApi: demoAuth } = await import('./client');
+    const demoSession = await import('../auth/session');
+    expect(demoSession.readSession()).toBeNull();
+    demoSession.writeSession(session('demo-session'));
+    demoApi.defaults.adapter = async (config) => {
+      expect(demoApi.getUri(config)).toBe('/demo/api/v1/auth/session');
+      expect(config.headers.Authorization).toBe('Bearer demo-session');
+      throw new AxiosError('expired', 'ERR_BAD_REQUEST', config, undefined, {
+        status: 401, statusText: 'Unauthorized', headers: {}, config, data: {}
+      });
+    };
+    void demoAuth.session();
+    const expectedNext = encodeURIComponent('/client/applications/fixture?tab=overview');
+    expect(await nextUrl).toBe(`/demo/sign-in?expired=1&next=${expectedNext}`);
+    expect(demoSession.readSession()).toBeNull();
+    expect(readSession()?.token).toBe('ordinary-session');
+  });
 });

@@ -1,7 +1,7 @@
 {{- $root := . }}
 {{- $allowed := dict
   "postgres" (dict "port" 5432 "sources" (list "identity" "credit" "engagement" "db-maintenance"))
-  "valkey" (dict "port" 6379 "sources" (list "identity" "credit" "engagement" "db-maintenance"))
+  "valkey" (dict "port" 6379 "sources" (list "identity" "credit" "engagement" "external-sim" "db-maintenance"))
   "clamav" (dict "port" 3310 "sources" (list "credit")) }}
 {{- if .Values.app.enabled }}
 {{- $_ := set $allowed "frontend" (dict "port" 8080 "sources" (list "gateway")) }}

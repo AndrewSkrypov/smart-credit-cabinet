@@ -29,10 +29,11 @@ spec:
           args:
             - |
               # Use the source bundled with this revision, even on pre-upgrade.
+              # Kubelet turns doubled dollar signs in container arguments into a single dollar sign.
               cd /tmp
               mkdir -p cabinet
               cat > cabinet/database-permissions.sql <<'CABINET_PERMISSIONS'
-              {{- $root.Files.Get "files/database-permissions.sql" | trimSuffix "\n" | nindent 14 }}
+              {{- $root.Files.Get "files/database-permissions.sql" | replace "$$" "$$$$" | trimSuffix "\n" | nindent 14 }}
               CABINET_PERMISSIONS
               cat > cabinet/bootstrap.sh <<'CABINET_BOOTSTRAP'
               {{- $root.Files.Get "files/bootstrap.sh" | replace "/cabinet/database-permissions.sql" "/tmp/cabinet/database-permissions.sql" | trimSuffix "\n" | nindent 14 }}

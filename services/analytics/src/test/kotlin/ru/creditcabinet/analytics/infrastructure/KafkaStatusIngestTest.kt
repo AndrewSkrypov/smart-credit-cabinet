@@ -24,6 +24,9 @@ import kotlin.test.assertFailsWith
 class KafkaStatusIngestTest {
     private val mapper = ObjectMapper()
     private val projection = Mockito.mock(UpdateStatusProjection::class.java)
+    private val generation = Mockito.mock(StatusProjectionGeneration::class.java).apply {
+        Mockito.`when`(isInitialized(TOPIC)).thenReturn(true)
+    }
 
     @Suppress("UNCHECKED_CAST")
     private val kafka = Mockito.mock(KafkaTemplate::class.java) as KafkaTemplate<Any, Any>
@@ -33,7 +36,19 @@ class KafkaStatusIngestTest {
 
     private val metrics = SimpleMeterRegistry()
     private val acknowledgment = Mockito.mock(Acknowledgment::class.java)
-    private val ingest = KafkaStatusIngest(projection, kafka, mapper, metrics, "localhost:9092", TOPIC, "analytics-test", DLQ_TOPIC)
+    private val ingest = KafkaStatusIngest(projection, generation, kafka, mapper, metrics, "localhost:9092", TOPIC, "analytics-test", DLQ_TOPIC)
+
+    @Test
+    fun `rejects an uninitialized or different generation without acknowledging a record`() {
+        val restoredTopic = "$TOPIC.restored"
+        assertFailsWith<IllegalStateException> {
+            KafkaStatusIngest(projection, generation, kafka, mapper, metrics, "localhost:9092", restoredTopic, "analytics-restored", DLQ_TOPIC)
+        }
+        assertFailsWith<IllegalStateException> {
+            ingest.ingest(ConsumerRecord(restoredTopic, 2, 17, APPLICATION_ID, payload), acknowledgment)
+        }
+        Mockito.verifyNoInteractions(projection, acknowledgment, kafka)
+    }
 
     @Test
     fun `acknowledges only after the projection completes`() {

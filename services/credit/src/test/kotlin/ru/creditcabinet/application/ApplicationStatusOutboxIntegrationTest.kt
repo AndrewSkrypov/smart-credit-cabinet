@@ -13,16 +13,19 @@ import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
+import ru.creditcabinet.application.domain.ApplicationStatusEvent
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
+import ru.creditcabinet.application.infrastructure.JdbcApplicationStatusOutbox
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.application.service.Transitions
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.ProductCatalog
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 import kotlin.test.Test
@@ -34,6 +37,7 @@ import kotlin.test.assertNotNull
     properties = [
         "cabinet.application-status-events.enabled=true",
         "cabinet.application-status-events.worker-enabled=false",
+        "cabinet.application-status-events.topic=alpha.status.test.current",
         "cabinet.outbox.worker-enabled=false",
     ],
 )
@@ -61,6 +65,51 @@ class ApplicationStatusOutboxIntegrationTest {
 
     @Autowired
     private lateinit var mapper: ObjectMapper
+
+    @Autowired
+    private lateinit var statusOutbox: JdbcApplicationStatusOutbox
+
+    @Test
+    fun `restored overdue rows and legacy rows are never claimed for a new topic`() {
+        val now = Instant.parse("2026-09-01T12:00:00Z")
+        val legacy = UUID.randomUUID()
+        val retired = UUID.randomUUID()
+        val current = UUID.randomUUID()
+
+        assertFailsWith<ForcedRollback> {
+            transactions.executeWithoutResult {
+                for ((id, topic) in listOf(legacy to null, retired to "alpha.status.test.retired")) {
+                    jdbc.update(
+                        """
+                        insert into application_status_outbox
+                            (id, channel, event_key, payload, stream_generation, next_attempt_at)
+                        values (?, 'application-status', ?, '{}'::jsonb, ?, '2026-01-01T00:00:00Z')
+                        """.trimIndent(),
+                        id,
+                        id.toString(),
+                        topic,
+                    )
+                }
+                statusOutbox.append(ApplicationStatusEvent(current, UUID.randomUUID(), 2, ApplicationStatus.SUBMITTED, now))
+
+                val deliveryTime = Instant.now().plusSeconds(10)
+                val outbox = statusOutbox.outbox
+                val claim = assertNotNull(outbox.claim(deliveryTime, Duration.ofSeconds(30), 3))
+                assertEquals(current.toString(), mapper.readTree(claim.payload)["eventId"].textValue())
+                assertEquals(null, outbox.claim(deliveryTime, Duration.ofSeconds(30), 3))
+                assertEquals(true, outbox.complete(claim, deliveryTime))
+                assertEquals(
+                    listOf("PENDING", "PENDING"),
+                    jdbc.queryForList("select state from application_status_outbox where id in (?, ?)", String::class.java, legacy, retired),
+                )
+                assertEquals(
+                    "alpha.status.test.current",
+                    jdbc.queryForObject("select stream_generation from application_status_outbox where id = ?", String::class.java, claim.id),
+                )
+                throw ForcedRollback()
+            }
+        }
+    }
 
     @Test
     fun `client confirmation rolls back status, journal, both outboxes and the pipeline job together`() {

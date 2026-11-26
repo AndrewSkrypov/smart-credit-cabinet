@@ -18,11 +18,12 @@ import java.util.concurrent.TimeUnit
 @ConditionalOnProperty(prefix = "cabinet.analytics.kafka", name = ["enabled"], havingValue = "true")
 class KafkaStatusIngest(
     private val projection: UpdateStatusProjection,
+    generation: StatusProjectionGeneration,
     private val kafka: KafkaTemplate<Any, Any>,
     private val mapper: ObjectMapper,
     private val metrics: MeterRegistry,
     @Value("\${spring.kafka.bootstrap-servers}") bootstrapServers: String,
-    @Value("\${cabinet.analytics.kafka.topic}") sourceTopic: String,
+    @Value("\${cabinet.analytics.kafka.topic}") private val sourceTopic: String,
     @Value("\${cabinet.analytics.kafka.group-id}") groupId: String,
     @Value("\${cabinet.analytics.kafka.dlq-topic}") private val deadLetterTopic: String,
 ) {
@@ -34,6 +35,7 @@ class KafkaStatusIngest(
             "Analytics Kafka requires bootstrap servers, a consumer group, a source topic and a dead-letter topic"
         }
         require(sourceTopic != deadLetterTopic) { "Analytics Kafka requires distinct source and dead-letter topics" }
+        check(generation.isInitialized(sourceTopic)) { "Initialize the Analytics database for the configured Kafka topic first" }
     }
 
     @KafkaListener(
@@ -43,6 +45,7 @@ class KafkaStatusIngest(
         containerFactory = "analyticsKafkaListenerContainerFactory",
     )
     fun ingest(record: ConsumerRecord<String, String>, acknowledgment: Acknowledgment) {
+        check(record.topic() == sourceTopic) { "Application status record belongs to a different stream generation" }
         val outcome = when (val decoded = decoder.decode(record.key(), record.value())) {
             is DecodedStatusEvent.Rejected -> quarantine(record, decoded.reason)
             is DecodedStatusEvent.Valid -> {

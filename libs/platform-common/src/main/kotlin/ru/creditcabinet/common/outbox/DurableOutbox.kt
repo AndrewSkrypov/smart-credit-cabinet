@@ -23,38 +23,54 @@ class DurableOutbox(
     private val mapper: ObjectMapper,
     private val tracing: OutboxTracing? = null,
     table: DeliveryOutboxTable = DeliveryOutboxTable.NOTIFICATIONS,
+    streamGeneration: String? = null,
 ) {
     private val tableName = table.sqlName
+    private val generationParameters = streamGeneration?.let { mapOf("streamGeneration" to it) }.orEmpty()
+    private val generationColumn = if (streamGeneration == null) "" else ", stream_generation"
+    private val generationValue = if (streamGeneration == null) "" else ", :streamGeneration"
+    private val generationFilter = if (streamGeneration == null) "" else " and stream_generation = :streamGeneration"
+
+    init {
+        require((table == DeliveryOutboxTable.APPLICATION_STATUS) == (streamGeneration != null)) {
+            "Application status outbox requires a stream generation"
+        }
+        require(streamGeneration == null || streamGeneration.isNotBlank()) { "Stream generation cannot be blank" }
+    }
 
     fun enqueue(channel: String, key: String, payload: String): UUID {
         check(TransactionSynchronizationManager.isActualTransactionActive()) { "Outbox enqueue requires the business transaction" }
         require(channel.length in 1..32 && key.length in 1..255) { "Invalid outbox address" }
         val id = UUID.randomUUID()
-        val parameters = mapOf("id" to id, "channel" to channel, "key" to key, "payload" to payload, "traceParent" to tracing?.traceParent())
+        val parameters =
+            mapOf("id" to id, "channel" to channel, "key" to key, "payload" to payload, "traceParent" to tracing?.traceParent()) +
+                generationParameters
         val inserted = jdbc.query(
             """
-            insert into $tableName (id, channel, event_key, payload, trace_parent)
-            values (:id, :channel, :key, cast(:payload as jsonb), :traceParent)
+            insert into $tableName (id, channel, event_key, payload, trace_parent$generationColumn)
+            values (:id, :channel, :key, cast(:payload as jsonb), :traceParent$generationValue)
             on conflict (channel, event_key) do nothing returning id
             """.trimIndent(),
             parameters,
         ) { rs, _ -> rs.getObject("id", UUID::class.java) }.firstOrNull()
         if (inserted != null) return inserted
         return jdbc.query(
-            "select id, payload::text from $tableName where channel=:channel and event_key=:key",
+            "select id, payload::text from $tableName where channel=:channel and event_key=:key$generationFilter",
             parameters,
         ) { rs, _ ->
             require(mapper.readTree(rs.getString("payload")) == mapper.readTree(payload)) { "Outbox key already belongs to another payload" }
             rs.getObject("id", UUID::class.java)
-        }.single()
+        }.singleOrNull() ?: error("Outbox key belongs to another stream generation")
     }
 
     fun claim(now: Instant, lease: Duration, maxAttempts: Int): DeliveryClaim? = transaction.execute {
-        val parameters = mapOf("now" to Timestamp.from(now), "until" to Timestamp.from(now.plus(lease)), "max" to maxAttempts, "token" to UUID.randomUUID())
+        val parameters =
+            mapOf("now" to Timestamp.from(now), "until" to Timestamp.from(now.plus(lease)), "max" to maxAttempts, "token" to UUID.randomUUID()) +
+                generationParameters
         jdbc.update(
             """
             update $tableName set state='FAILED', claim_token=null, locked_until=null, updated_at=:now
-            where attempts >= :max and ((state='RUNNING' and locked_until <= :now) or state='PENDING')
+            where attempts >= :max and ((state='RUNNING' and locked_until <= :now) or state='PENDING')$generationFilter
             """.trimIndent(),
             parameters,
         )
@@ -62,7 +78,7 @@ class DurableOutbox(
             """
             with candidate as (
                 select id from $tableName
-                where attempts < :max and ((state='PENDING' and next_attempt_at <= :now) or (state='RUNNING' and locked_until <= :now))
+                where attempts < :max and ((state='PENDING' and next_attempt_at <= :now) or (state='RUNNING' and locked_until <= :now))$generationFilter
                 order by next_attempt_at, id for update skip locked limit 1
             )
             update $tableName o set state='RUNNING', attempts=attempts+1, claim_token=:token, locked_until=:until, updated_at=:now
@@ -92,7 +108,7 @@ class DurableOutbox(
             update $tableName set state=:state, next_attempt_at=:next, updated_at=:now,
                 delivered_at=case when :state='DELIVERED' then cast(:now as timestamptz) else null end,
                 last_error_code=:error, claim_token=null, locked_until=null
-            where id=:id and state='RUNNING' and claim_token=:token
+            where id=:id and state='RUNNING' and claim_token=:token$generationFilter
             """.trimIndent(),
             mapOf(
                 "id" to claim.id,
@@ -101,6 +117,6 @@ class DurableOutbox(
                 "next" to Timestamp.from(nextAttemptAt),
                 "now" to Timestamp.from(now),
                 "error" to errorCode,
-            ),
+            ) + generationParameters,
         ) == 1
 }

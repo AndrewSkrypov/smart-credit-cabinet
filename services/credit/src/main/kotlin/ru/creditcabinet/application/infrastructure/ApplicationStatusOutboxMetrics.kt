@@ -8,7 +8,11 @@ import ru.creditcabinet.common.outbox.DeliveryObservation
 import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
 
-class ApplicationStatusOutboxMetrics(private val registry: MeterRegistry, dataSource: DataSource) : DeliveryObservation {
+class ApplicationStatusOutboxMetrics(
+    private val registry: MeterRegistry,
+    dataSource: DataSource,
+    private val topic: String,
+) : DeliveryObservation {
     private val jdbc = JdbcTemplate(dataSource).apply { queryTimeout = 3 }
     private data class Backlog(val messages: Double, val oldestSeconds: Double)
 
@@ -30,10 +34,12 @@ class ApplicationStatusOutboxMetrics(private val registry: MeterRegistry, dataSo
                 """
                 select state, count(*) as messages, greatest(0, extract(epoch from now() - min(created_at))) as oldest_seconds
                 from application_status_outbox
-                where state in ('PENDING', 'RUNNING', 'FAILED')
+                where stream_generation = ? and state in ('PENDING', 'RUNNING', 'FAILED')
                 group by state
                 """.trimIndent(),
-            ) { rs, _ -> rs.getString("state") to Backlog(rs.getDouble("messages"), rs.getDouble("oldest_seconds")) }.toMap()
+                { rs, _ -> rs.getString("state") to Backlog(rs.getDouble("messages"), rs.getDouble("oldest_seconds")) },
+                topic,
+            ).toMap()
         } catch (_: Exception) {
             snapshot = null
             registry.counter("cabinet.application.status.outbox.snapshot.errors").increment()

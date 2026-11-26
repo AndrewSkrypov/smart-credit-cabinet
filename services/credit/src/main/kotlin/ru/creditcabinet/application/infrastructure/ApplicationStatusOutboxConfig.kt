@@ -44,6 +44,7 @@ class ApplicationStatusOutboxConfig {
         transactionManager: PlatformTransactionManager,
         mapper: ObjectMapper,
         tracing: ObjectProvider<OutboxTracing>,
+        @Value("\${cabinet.application-status-events.topic:}") topic: String,
     ): JdbcApplicationStatusOutbox =
         JdbcApplicationStatusOutbox(
             DurableOutbox(
@@ -52,13 +53,17 @@ class ApplicationStatusOutboxConfig {
                 mapper,
                 tracing.ifAvailable,
                 table = DeliveryOutboxTable.APPLICATION_STATUS,
+                streamGeneration = topic,
             ),
             mapper,
         )
 
     @Bean
-    fun applicationStatusOutboxMetrics(registry: MeterRegistry, dataSource: DataSource): ApplicationStatusOutboxMetrics =
-        ApplicationStatusOutboxMetrics(registry, dataSource)
+    fun applicationStatusOutboxMetrics(
+        registry: MeterRegistry,
+        dataSource: DataSource,
+        @Value("\${cabinet.application-status-events.topic:}") topic: String,
+    ): ApplicationStatusOutboxMetrics = ApplicationStatusOutboxMetrics(registry, dataSource, topic)
 
     @Bean("applicationStatusDeliveryScheduler")
     @ConditionalOnProperty(prefix = STATUS_EVENTS_PREFIX, name = ["worker-enabled"], havingValue = "true", matchIfMissing = true)

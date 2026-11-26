@@ -26,6 +26,8 @@ import java.net.InetSocketAddress
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
+import kotlin.math.ceil
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -89,6 +91,16 @@ class ManualReviewSummariesTest {
         assertEquals("RULES", result["mode"].asText())
         assertEquals(listOf(true), callsFor(publicPath()).map { it.hasAuthorization })
         assertEquals(listOf(false, false), callsFor(internalPath()).map { it.hasAuthorization })
+        val timings = List(20) {
+            val token = jwt.tokenFor(UUID.randomUUID(), "UNDERWRITER")
+            val start = System.nanoTime()
+            val response = summary(token)
+            val millis = (System.nanoTime() - start) / 1_000_000.0
+            assertEquals(200, response.status)
+            assertEquals(expected, mapper.readTree(response.contentAsByteArray)["text"].asText())
+            millis
+        }.sorted()
+        println("Manual review cache hit on contract stub p95_ms=${timings[ceil(timings.size * .95).toInt() - 1]} samples=${timings.size}")
         verify(model, never()).chat(any())
     }
 
@@ -139,6 +151,56 @@ class ManualReviewSummariesTest {
         verify(cache, never()).text(applicationId, previousRevision)
         verify(cache).publish(applicationId, event.eventId, event.eventId, nextRevision, expected)
         verify(model, never()).chat(any())
+    }
+
+    @Test
+    fun `the employee advice is read again when published facts change during the request`() {
+        val old = publicAdvice("Прежний вывод")
+        val current = publicAdvice("Новый вывод")
+        val revised = advice("Новый вывод", nextRevision)
+        replacePublicAdviceAfterFirstRead(old, current)
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(revised))
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+        val expected = "Новый вывод\n— Источник. Сверить данные."
+        whenever(cache.text(applicationId, nextRevision)).thenReturn(expected)
+
+        val response = summary(underwriter)
+        assertEquals(200, response.status)
+        assertEquals(expected, mapper.readTree(response.contentAsByteArray)["text"].asText())
+        assertEquals(listOf(true, true), callsFor(publicPath()).map { it.hasAuthorization })
+        verify(model, never()).chat(any())
+    }
+
+    @Test
+    fun `a 409 during a staff request replaces the original snapshot before ordinary fallback`() {
+        replacePublicAdviceAfterFirstRead(publicAdvice("Прежний вывод"), publicAdvice("Новое решение"))
+        creditReplies[internalPath()] = StubReply(409)
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+
+        val response = summary(underwriter)
+        assertEquals(200, response.status)
+        assertTrue(mapper.readTree(response.contentAsByteArray)["text"].asText().startsWith("Новое решение"))
+        assertEquals(listOf(true, true), callsFor(publicPath()).map { it.hasAuthorization })
+        verify(cache, never()).text(any(), any())
+    }
+
+    @Test
+    fun `a slow private lookup falls back to the employee advice within the foreground timeout`() {
+        creditReplies[publicPath()] = StubReply(200, publicAdvice("Проверенные рекомендации"))
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(advice("Другие рекомендации", nextRevision)), delayMillis = 2_000)
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+
+        val start = System.nanoTime()
+        val response = summary(underwriter)
+        val millis = (System.nanoTime() - start) / 1_000_000.0
+        assertEquals(200, response.status)
+        assertTrue(mapper.readTree(response.contentAsByteArray)["text"].asText().startsWith("Проверенные рекомендации"))
+        assertEquals(1, callsFor(publicPath()).size)
+        verify(cache, never()).text(any(), any())
+        println("Manual review contract stub slow upstream fallback_ms=$millis")
     }
 
     @Test
@@ -211,9 +273,20 @@ class ManualReviewSummariesTest {
         put("adviceRevision", revision)
     }
 
+    private fun publicAdvice(verdict: String): String {
+        val response = advice(verdict, previousRevision)
+        response.remove("adviceRevision")
+        return mapper.writeValueAsString(response)
+    }
+
+    private fun replacePublicAdviceAfterFirstRead(initial: String, current: String) {
+        val path = publicPath()
+        creditReplies[path] = StubReply(200, initial, afterRead = { creditReplies[path] = StubReply(200, current) })
+    }
+
     private fun callsFor(path: String) = creditCalls.filter { it.path == path }
 
-    private data class StubReply(val status: Int, val body: String = "")
+    private data class StubReply(val status: Int, val body: String = "", val delayMillis: Long = 0, val afterRead: (() -> Unit)? = null)
 
     private data class CreditCall(val path: String, val hasAuthorization: Boolean)
 
@@ -221,12 +294,16 @@ class ManualReviewSummariesTest {
         private const val EVENT_PATH = "/internal/v1/assistant/manual-review-events"
         private val creditReplies = ConcurrentHashMap<String, StubReply>()
         private val creditCalls = CopyOnWriteArrayList<CreditCall>()
+        private val creditExecutor = Executors.newVirtualThreadPerTaskExecutor()
         private val credit = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+            executor = creditExecutor
             createContext("/") { exchange ->
                 exchange.use {
                     val path = exchange.requestURI.toString()
                     creditCalls.add(CreditCall(path, exchange.requestHeaders.containsKey("Authorization")))
                     val reply = creditReplies[path] ?: StubReply(404)
+                    reply.afterRead?.invoke()
+                    if (reply.delayMillis > 0) Thread.sleep(reply.delayMillis)
                     val bytes = reply.body.toByteArray(Charsets.UTF_8)
                     exchange.responseHeaders.set("Content-Type", "application/json")
                     exchange.sendResponseHeaders(reply.status, bytes.size.toLong())
@@ -244,6 +321,9 @@ class ManualReviewSummariesTest {
 
         @JvmStatic
         @AfterAll
-        fun stopCredit() = credit.stop(0)
+        fun stopCredit() {
+            credit.stop(0)
+            creditExecutor.shutdownNow()
+        }
     }
 }

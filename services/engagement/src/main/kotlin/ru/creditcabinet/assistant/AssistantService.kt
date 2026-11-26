@@ -151,9 +151,10 @@ class AssistantService(
     private fun summarize(applicationId: UUID, authorization: String): Answer {
         val claims = CurrentCaller.requireBankStaff()
         throttle(claims.userId)
-        val advice = applications.advice(applicationId, authorization)
+        val source = manualReviewSummaries.lookup(applicationId, authorization)
+        val advice = source.advice
             ?: return Answer("Рекомендации сейчас недоступны — данные заявки видны в карточке.", AnswerMode.RULES, emptyList())
-        manualReviewSummaries.ready(applicationId, advice)?.let { return it }
+        source.answer?.let { return it }
         val input = UnderwritingSummaryInput.from(advice)
         if (input.items.isEmpty()) return input.rulesAnswer()
         val context = "Вывод: ${input.verdict}\nПункты:\n" + input.items.joinToString("\n") { "— $it" }

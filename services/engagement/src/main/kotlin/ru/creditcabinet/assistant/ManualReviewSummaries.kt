@@ -20,6 +20,8 @@ data class ManualReviewEvent(val schemaVersion: Int, val eventId: UUID, val appl
 
 data class ManualReviewAdvice(val revision: String, val facts: JsonNode)
 
+data class UnderwritingSummarySource(val advice: JsonNode?, val answer: Answer? = null)
+
 @Hidden
 @RestController
 class ManualReviewEventController(private val outbox: DurableOutbox, private val mapper: ObjectMapper) {
@@ -51,19 +53,23 @@ class ManualReviewSummaries(
         }
     }
 
-    /** The caller must first read the advice with the employee's own credentials. */
-    fun ready(applicationId: UUID, authorizedAdvice: JsonNode): Answer? {
-        if (!cache.enabled) return null
-        return runCatching {
-            val eventId = cache.eventFor(applicationId) ?: return null
-            val current = applications.manualReviewAdvice(applicationId, eventId) ?: return null
-            if (current.facts != authorizedAdvice) return null
-            val input = UnderwritingSummaryInput.from(authorizedAdvice)
-            cache.text(applicationId, current.revision)?.let { return Answer(it, AnswerMode.RULES, input.sources) }
+    fun lookup(applicationId: UUID, authorization: String): UnderwritingSummarySource {
+        val original = UnderwritingSummarySource(applications.advice(applicationId, authorization))
+        if (original.advice == null || !cache.enabled) return original
+        val eventId = runCatching { cache.eventFor(applicationId) }.getOrNull() ?: return original
+        val current = runCatching { applications.manualReviewAdvice(applicationId, eventId, foreground = true) }.getOrElse { return original }
 
-            val fresh = input.rulesAnswer()
-            fresh.takeIf { cache.publish(applicationId, eventId, eventId, current.revision, fresh.text) }
-        }.getOrNull()
+        // A confirmed change disqualifies the earlier employee snapshot, including as a fallback.
+        val authorized = if (current?.facts == original.advice) original.advice else applications.advice(applicationId, authorization)
+        if (current == null || authorized != current.facts) return UnderwritingSummarySource(authorized)
+
+        val input = UnderwritingSummaryInput.from(authorized)
+        val cached = runCatching { cache.text(applicationId, current.revision) }.getOrNull()
+        if (cached != null) return UnderwritingSummarySource(authorized, Answer(cached, AnswerMode.RULES, input.sources))
+
+        val answer = input.rulesAnswer()
+        runCatching { cache.publish(applicationId, eventId, eventId, current.revision, answer.text) }
+        return UnderwritingSummarySource(authorized, answer)
     }
 
     companion object {

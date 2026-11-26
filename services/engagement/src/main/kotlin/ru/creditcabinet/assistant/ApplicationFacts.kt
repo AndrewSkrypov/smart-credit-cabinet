@@ -43,10 +43,13 @@ class CreditApplications(
     @Value("\${cabinet.credit.url:}") creditUrl: String,
     builder: RestClient.Builder,
 ) {
-    private val client: RestClient? = creditUrl.takeIf { it.isNotBlank() }?.let {
+    private val client = creditClient(creditUrl, builder, Duration.ofSeconds(2), Duration.ofSeconds(5))
+    private val reviewCheckClient = creditClient(creditUrl, builder, Duration.ofMillis(300), Duration.ofMillis(500))
+
+    private fun creditClient(url: String, builder: RestClient.Builder, connect: Duration, read: Duration): RestClient? = url.takeIf { it.isNotBlank() }?.let {
         val requestFactory = SimpleClientHttpRequestFactory().apply {
-            setConnectTimeout(Duration.ofSeconds(2))
-            setReadTimeout(Duration.ofSeconds(5))
+            setConnectTimeout(connect)
+            setReadTimeout(read)
         }
         builder.clone().baseUrl(it).requestFactory(requestFactory).build()
     }
@@ -65,8 +68,8 @@ class CreditApplications(
     }
 
     /** Credit binds this private read to the latest transition into manual review. */
-    fun manualReviewAdvice(applicationId: UUID, eventId: UUID): ManualReviewAdvice? {
-        val target = client ?: unavailable()
+    fun manualReviewAdvice(applicationId: UUID, eventId: UUID, foreground: Boolean = false): ManualReviewAdvice? {
+        val target = (if (foreground) reviewCheckClient else client) ?: unavailable()
         val response = try {
             target.get().uri(
                 "/internal/v1/underwriting/applications/{id}/advice?eventId={eventId}",

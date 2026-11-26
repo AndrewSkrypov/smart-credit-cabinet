@@ -19,7 +19,7 @@
 {{- $gateway = replace "X-Forwarded-Proto $scheme;" "X-Forwarded-Proto $cabinet_forwarded_proto;\n    proxy_set_header X-Forwarded-Host $host;\n    proxy_set_header X-Forwarded-Port $cabinet_forwarded_port;\n    proxy_set_header Forwarded \"\";" $gateway }}
 {{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    location = /healthz { access_log off; return 200; }" $gateway }}
 {{/* Kubernetes terminates public traffic at Traefik, without the Compose Caddy restrictions. */}}
-{{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    location ~ ^/(?:sim|swagger|v3/api-docs|actuator|internal|ext)(?:/|$) { return 404; }" $gateway }}
+{{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    location = /sim { return 404; }\n    location = /swagger { return 404; }\n    location ~ ^/(?:sim|swagger|v3/api-docs|actuator|internal|ext)(?:/|$) { return 404; }" $gateway }}
 {{- if and .Values.ingress.enabled .Values.ingress.aliases }}
 {{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    if ($cabinet_canonical_host != \"\") { return 308 https://$cabinet_canonical_host$request_uri; }" $gateway }}
 {{- end }}

@@ -230,7 +230,7 @@ shared-state:
     - python3 load/shared-state.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --report-name ci-shared-state
     - |
       python3 load/gateway-fault.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --label ci-gateway --expect-hardened
-      python3 load/gateway-write-refusal.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --label ci-gateway-refusal
+      python3 load/gateway-write-refusal.py --project "$COMPOSE_PROJECT_NAME" --label ci-gateway-refusal
       python3 load/gateway-write-fault.py --base "$CABINET_URL" --project "$COMPOSE_PROJECT_NAME" --label ci-gateway-writes
   artifacts:
     when: always

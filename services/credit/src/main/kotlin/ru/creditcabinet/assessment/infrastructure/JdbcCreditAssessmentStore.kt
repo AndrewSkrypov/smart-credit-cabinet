@@ -124,15 +124,21 @@ class JdbcCreditAssessmentStore(
         ) == 1)
     }
 
-    override fun finishJob(job: PipelineJob) = updateJob(job, "DONE", null, null)
-    override fun reschedule(job: PipelineJob, at: Instant, error: String?) = updateJob(job, "PENDING", at, error)
-    override fun failJob(job: PipelineJob, error: String?) = updateJob(job, "FAILED", null, error)
+    override fun finishJob(job: PipelineJob) {
+        check(updateJob(job, "DONE", null, null) == 1) { "Assessment job lease expired before commit" }
+    }
+    override fun reschedule(job: PipelineJob, at: Instant, error: String?) {
+        updateJob(job, "PENDING", at, error)
+    }
+    override fun failJob(job: PipelineJob, error: String?) {
+        updateJob(job, "FAILED", null, error)
+    }
 
-    private fun updateJob(job: PipelineJob, status: String, at: Instant?, error: String?) {
+    private fun updateJob(job: PipelineJob, status: String, at: Instant?, error: String?): Int =
         jdbc.update(
             """
             update pipeline_jobs set status=:status,run_at=coalesce(:at,run_at),locked_until=null,updated_at=now(),last_error=:error
-            where id=:id and application_id=:app and step=:step and status='RUNNING' and attempts=:attempt
+            where id=:id and application_id=:app and step=:step and status='RUNNING' and attempts=:attempt and locked_until>:now
             """.trimIndent(),
             mapOf(
                 "id" to job.id,
@@ -142,7 +148,7 @@ class JdbcCreditAssessmentStore(
                 "status" to status,
                 "at" to at?.let(Timestamp::from),
                 "error" to error?.take(2000),
+                "now" to Timestamp.from(clock.instant()),
             ),
         )
-    }
 }

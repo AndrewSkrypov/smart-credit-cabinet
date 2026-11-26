@@ -183,7 +183,7 @@ class PipelineSteps(
     private fun remoteEnrichment(job: PipelineJob): Boolean = tx.execute {
         if (!assessmentStore.lock(job)) return@execute true
         val application = applications.find(job.applicationId)
-        if (application?.status != ApplicationStatus.ENRICHMENT) {
+        if (application == null || application.status != ApplicationStatus.ENRICHMENT) {
             assessmentStore.finishJob(job)
             return@execute true
         }
@@ -246,7 +246,7 @@ class PipelineSteps(
     private fun remoteScoring(job: PipelineJob): Boolean = tx.execute {
         if (!assessmentStore.lock(job)) return@execute true
         val application = applications.find(job.applicationId)
-        if (application?.status != ApplicationStatus.SCORING) {
+        if (application == null || application.status != ApplicationStatus.SCORING) {
             assessmentStore.finishJob(job)
             return@execute true
         }
@@ -258,7 +258,9 @@ class PipelineSteps(
         }
         val now = clock.instant()
         if (!canApply(request)) {
-            incompleteAssessment(job, application, cycle, emptySet(), now, ApplicationEvent.TO_MANUAL_REVIEW)
+            enrichment.clearNonBank(application.id)
+            val missing = SourceKind.entries.toSet() - enrichment.load(application.id).keys
+            incompleteAssessment(job, application, cycle, missing, now, ApplicationEvent.TO_MANUAL_REVIEW)
             return@execute true
         }
         val result = checkNotNull(cycle.result)
@@ -473,7 +475,7 @@ class PipelineSteps(
     private fun canApplyLocal(job: PipelineJob, expected: LoanApplication): Boolean {
         if (!assessmentStore.lock(job)) return false
         val current = applications.find(job.applicationId)
-        if (current?.status != expected.status) {
+        if (current == null || current.status != expected.status) {
             assessmentStore.finishJob(job)
             return false
         }

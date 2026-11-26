@@ -54,6 +54,9 @@ interface OnboardingContextValue {
   resetTour: () => void;
 }
 
+/** Height of the sticky cabinet header on phones, so a highlighted block is not hidden under it. */
+const MOBILE_HEADER_OFFSET = 88;
+
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
 function findVisibleTarget(selector: string): HTMLElement | null {
@@ -186,7 +189,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!open || !currentStep) return;
     const target = findVisibleTarget(currentStep.selector);
-    if (target && typeof target.scrollIntoView === 'function') {
+    if (target && isMobile) {
+      // On a phone the step card covers the lower part of the screen: put the block right under the header.
+      const top = target.getBoundingClientRect().top + window.scrollY - MOBILE_HEADER_OFFSET;
+      if (typeof window.scrollTo === 'function') window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    } else if (target && typeof target.scrollIntoView === 'function') {
       target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     }
     measureCurrentTarget();
@@ -198,7 +205,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('resize', measureCurrentTarget);
       window.removeEventListener('scroll', measureCurrentTarget, true);
     };
-  }, [currentStep, measureCurrentTarget, open]);
+  }, [currentStep, isMobile, measureCurrentTarget, open]);
 
   useEffect(() => {
     if (!open) return;

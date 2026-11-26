@@ -12,3 +12,17 @@ alpha-pilot-infrastructure:
     expire_in: 14 days
     paths:
       - ci-artifacts/alpha-infrastructure.tsv
+
+alpha-pilot-analytics-jar:
+  extends: .quality
+  stage: verify
+  timeout: 30 minutes
+  dependencies: []
+  rules:
+    - if: '$CABINET_ALPHA_PILOT == "1"'
+  script:
+    - bash ci/alpha/build-analytics.sh
+  artifacts:
+    expire_in: 14 days
+    paths:
+      - ci-artifacts/alpha-analytics/

@@ -58,13 +58,23 @@ alpha_compose=(docker compose --env-file /dev/null -f ci/alpha/compose.yaml
 ```
 
 В изолированном CI задайте `CABINET_ALPHA_PILOT=1` и тот же
-`ALPHA_PILOT_KAFKA_IMAGE`. Job использует существующий `.quality` и daemon
-`cabinet-ci`. Для проверки приложений подключите отдельную команду на этом
-же раннере после согласования настроек интегрированного кандидата.
-Существующая backend-проверка требует четыре штатных JAR. Перед CI-прогоном
-с Analytics проверьте согласованный режим включения модуля в Gradle и
-состав штатных checksum. Храните JAR, результаты миграций и манифест пилота
-отдельно от штатного `release.json`.
+`ALPHA_PILOT_KAFKA_IMAGE`. Оба задания используют существующий `.quality`.
+Инфраструктурное задание запускает зависимости, отдельное задание
+`alpha-pilot-analytics-jar` собирает Analytics на интегрированном SHA.
+
+Для локальной сборки используйте отдельное чистое рабочее дерево кандидата:
+
+```bash
+bash ci/alpha/build-analytics.sh
+(cd ci-artifacts/alpha-analytics && sha256sum -c app.jar.sha256)
+```
+
+Скрипт передаёт `-PalphaAnalytics=true` только вызову
+`:services:analytics:bootJar` и сохраняет JAR, его SHA-256 и Git SHA в
+`ci-artifacts/alpha-analytics/`. Штатный backend проверяет ровно четыре
+`app.jar`. Запускайте его в своём чистом рабочем дереве, чтобы glob не
+захватил оставшийся от пилотной сборки JAR Analytics. Храните результаты
+миграций и манифест пилота отдельно от штатного `release.json`.
 
 ## Возврат к SQL и восстановление
 

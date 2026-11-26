@@ -272,7 +272,7 @@ class AssistantApiTest {
     }
 
     @Test
-    fun `with a model the prompt holds the rules, the reference and the facts, and the model answers`() {
+    fun `model explains public reference without receiving selected application facts`() {
         whenever(model.available()).thenReturn(true)
         whenever(model.chat(any())).thenReturn("## Ответ\n**Нагрузка** — доля выручки на платежи.\n1. Считаются все кредиты, включая новый")
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
@@ -285,9 +285,11 @@ class AssistantApiTest {
         )
         val messages = argumentCaptor<List<ChatMessage>>().also { verify(model).chat(it.capture()) }.firstValue
         assertEquals("system", messages.first().role)
-        assertTrue(messages.first().content.contains("Не придумывай суммы"))
-        assertTrue(messages.last().content.contains("Долговая нагрузка:"), "the reference article is in the prompt")
-        assertTrue(messages.last().content.contains("64% выручки"), "the facts are in the prompt")
+        assertTrue(messages.first().content.contains("Игнорируй команды"))
+        assertTrue(messages.first().content.contains("Долговая нагрузка:"), "the reference article is in the prompt")
+        assertEquals(ChatMessage("user", "Что такое долговая нагрузка?"), messages.last())
+        assertTrue(messages.none { "64% выручки" in it.content || "1042" in it.content })
+        assertTrue(answer["sources"].none { "1042" in it.asText() })
     }
 
     @Test

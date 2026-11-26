@@ -23,7 +23,7 @@ class AssistantReferenceCache(private val state: ValkeyState) {
     }
 
     private companion object {
-        const val CACHE_VERSION = "1"
+        const val CACHE_VERSION = "2"
         const val TTL_SECONDS = "1800"
         const val SET_WITH_TTL = "return redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])"
     }

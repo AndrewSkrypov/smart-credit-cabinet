@@ -17,4 +17,5 @@ dependencies {
     implementation(libs.pdfbox) { exclude(group = "commons-logging", module = "commons-logging") }
     implementation(libs.poi.ooxml)
     testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.archunit.junit5)
 }

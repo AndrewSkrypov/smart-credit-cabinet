@@ -50,7 +50,7 @@ class ServicingLiveGrpcTest {
         try {
             if (System.getenv("ALPHA_SERVICING_LIVE_PHASE") == "replay") {
                 val command = mapper.readValue(directory.resolve("command.json").toFile(), OpenLoanCommand::class.java)
-                val receipt = mapper.readValue(directory.resolve("receipt.json").toFile(), LoanOpenedReceipt::class.java)
+                val receipt = mapper.readValue(directory.resolve("loan-opening-receipt.json").toFile(), LoanOpenedReceipt::class.java)
                 assertEquals(receipt, client.open(command))
                 authorization = token(Roles.CLIENT, command.companyId)
                 val current = assertNotNull(client.byApplication(command.applicationId))
@@ -72,7 +72,7 @@ class ServicingLiveGrpcTest {
             val receipt = client.open(command)
             assertEquals(receipt, client.open(command))
             mapper.writeValue(directory.resolve("command.json").toFile(), command)
-            mapper.writeValue(directory.resolve("receipt.json").toFile(), receipt)
+            mapper.writeValue(directory.resolve("loan-opening-receipt.json").toFile(), receipt)
             assertFailsWith<UnauthorizedException> { client.byApplication(command.applicationId) }
             val actor = ServicingActor(UUID.randomUUID(), command.companyId)
             authorization = token(Roles.CLIENT, command.companyId, actor.userId)

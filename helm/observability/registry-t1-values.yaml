@@ -1,0 +1,24 @@
+# The linux/amd64 manifests below are identical to the pinned Quay builds.
+kube-prometheus-stack:
+  alertmanager:
+    alertmanagerSpec:
+      image:
+        registry: docker.io
+        repository: prom/alertmanager
+        sha: 2e39a6678c8895b1fc5e304e0cd9b45dc30713c51882c70bf4e0e266763c8b82
+  prometheus-node-exporter:
+    image:
+      registry: docker.io
+      repository: prom/node-exporter
+      digest: sha256:bbfbd533202cfef891c70383ddf6f0c32acece66400ad8091a18bed7aad5db6f
+  grafana:
+    sidecar:
+      image:
+        registry: docker.io
+        repository: kiwigrid/k8s-sidecar
+        sha: 84df4f4f53bedc59e72f594f58047a1f98f8aebc4326533f0c7170b2748e6840
+prometheus-blackbox-exporter:
+  image:
+    registry: docker.io
+    repository: prom/blackbox-exporter
+    digest: sha256:66eae352a79e6f677aeddd8c25a9bdb017586dc5fbd230f22329213d891f94bd

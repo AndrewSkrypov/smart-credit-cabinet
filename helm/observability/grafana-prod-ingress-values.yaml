@@ -1,0 +1,39 @@
+# Apply only when Edge watches monitoring and has installed grafana-prod-tls there.
+kube-prometheus-stack:
+  grafana:
+    service:
+      type: ClusterIP
+    ingress:
+      enabled: true
+      ingressClassName: cabinet-public
+      annotations:
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.tls: "true"
+      hosts: [grafana.credit-cabinet.ru]
+      path: /
+      pathType: Prefix
+      tls:
+        - secretName: grafana-prod-tls
+          hosts: [grafana.credit-cabinet.ru]
+    grafana.ini:
+      server:
+        root_url: https://grafana.credit-cabinet.ru/
+        serve_from_sub_path: false
+      auth.anonymous:
+        enabled: false
+      users:
+        allow_sign_up: false
+        allow_org_create: false
+        auto_assign_org: true
+        auto_assign_org_role: Viewer
+      security:
+        cookie_secure: true
+        cookie_samesite: lax
+        allow_embedding: false
+      public_dashboards:
+        enabled: false
+      snapshots:
+        enabled: false
+        external_enabled: false
+      metrics:
+        enabled: false

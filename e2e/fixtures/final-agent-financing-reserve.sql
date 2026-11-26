@@ -2,6 +2,7 @@
 \set ON_ERROR_STOP on
 begin;
 set local lock_timeout = '5s';
+set local time zone 'UTC';
 select set_config('alpha.qa.final_reserve', :'synthetic_fixture', true);
 
 do $$
@@ -19,7 +20,9 @@ end
 $$;
 
 create temporary table final_reserve_fixture on commit drop as
-select * from (values
+select v.*, now() - interval '1 day' as disbursed_at,
+       (current_date - 1 + interval '12 months')::date as maturity_date
+from (values
   ('966f5c83-5359-4175-a3c6-c3f3b6ed0080'::uuid, '71f982b8-cbbb-4340-ab26-06b83d2b0080'::uuid, 320000, 'QA-FINAL-RES-080'),
   ('966f5c83-5359-4175-a3c6-c3f3b6ed0200'::uuid, '71f982b8-cbbb-4340-ab26-06b83d2b0200'::uuid, 200000, 'QA-FINAL-RES-200')
 ) v(application_id, loan_id, disbursed_amount, contract_number);
@@ -27,13 +30,14 @@ select * from (values
 insert into applications (
     id, company_id, company_inn, company_name, legal_form, created_by,
     product_code, product_version, product_catalog_snapshot, purpose, amount, term_months,
-    bureau_consent, status, created_at, updated_at, submitted_at, status_changed_at, version
+    bureau_consent, status, created_at, updated_at, submitted_at, status_changed_at, version, agent_id
 )
 select f.application_id, '6f1d4c1e-0b8e-4c55-9a51-000000000002', '0001001014',
        'ООО «Северная мебель»', 'LEGAL_ENTITY', '9b2f0c4a-6d1e-4f2a-8c3b-000000000002',
        p.code, p.current_version, jsonb_build_object(p.code, p.current_version),
-       'CASH_GAP', 400000, 12, true, 'DISBURSED', '2026-11-20T10:00Z',
-       '2026-11-21T10:00Z', '2026-11-20T11:00Z', '2026-11-21T10:00Z', 8
+       'CASH_GAP', 400000, 12, true, 'DISBURSED', f.disbursed_at - interval '1 day',
+       f.disbursed_at, f.disbursed_at - interval '12 hours', f.disbursed_at, 8,
+       '9b2f0c4a-6d1e-4f2a-8c3b-000000000201'
 from final_reserve_fixture f join products p on p.code = 'OVERDRAFT'
 on conflict (id) do nothing;
 
@@ -42,7 +46,7 @@ insert into loans (
     term_months, rate, revolving, disbursed_at, maturity_date
 )
 select application_id, contract_number, '00000000000000000001', '00000000000000000002',
-       400000, 12, 19.00, true, '2026-11-21T10:00Z', '2027-11-21'
+       400000, 12, 19.00, true, disbursed_at, maturity_date
 from final_reserve_fixture
 on conflict (application_id) do nothing;
 
@@ -54,13 +58,13 @@ with seeded_accounts as (
     )
     select loan_id, application_id, '6f1d4c1e-0b8e-4c55-9a51-000000000002', contract_number,
            400000, disbursed_amount, disbursed_amount, 19.00, 12, true, 'ACTIVE',
-           '2026-11-21T10:00Z', '2027-11-21'
+           disbursed_at, maturity_date
     from final_reserve_fixture
     on conflict (id) do nothing
-    returning id, disbursed_amount
+    returning id, disbursed_amount, disbursed_at
 ), tranches as (
     insert into loan_tranches (id, loan_account_id, tranche_number, amount, purpose, disbursed_at)
-    select gen_random_uuid(), a.id, t.number, t.amount, 'Синтетический транш', '2026-11-21T10:00Z'
+    select gen_random_uuid(), a.id, t.number, t.amount, 'Синтетический транш', a.disbursed_at
     from seeded_accounts a
     cross join lateral (values (1, 200000), (2, a.disbursed_amount - 200000)) t(number, amount)
     where t.amount > 0
@@ -69,7 +73,7 @@ insert into loan_payments (
     id, loan_account_id, payment_number, due_date, payment_amount, principal_amount,
     interest_amount, remaining_balance, status
 )
-select gen_random_uuid(), a.id, point + 1, ('2026-12-21'::date + point * interval '1 month')::date,
+select gen_random_uuid(), a.id, point + 1, (a.disbursed_at::date + (point + 1) * interval '1 month')::date,
        case when point = 11 then a.disbursed_amount else 0 end,
        case when point = 11 then a.disbursed_amount else 0 end, 0,
        case when point = 11 then 0 else a.disbursed_amount end, 'SCHEDULED'

@@ -1,3 +1,11 @@
+const reserveDateBase = new Date();
+
+function reserveDateAfter(days: number): string {
+  const date = new Date(reserveDateBase);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 export const financingFixture = {
   companies: {
     vector: {
@@ -36,8 +44,8 @@ export const financingFixture = {
     expectedReceiptAmount: 140_000,
     payableAmount: 2_000_000,
     targetBuffer: 30_000,
-    controlDate: '2026-12-10',
-    paymentDate: '2026-12-15',
+    controlDate: reserveDateAfter(7),
+    paymentDate: reserveDateAfter(14),
     postedReceipt: 140_000,
     withReceipt: 0,
     withoutReceipt: 130_000,

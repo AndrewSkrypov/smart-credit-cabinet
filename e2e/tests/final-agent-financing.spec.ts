@@ -74,7 +74,14 @@ test.describe('Финальное агентское финансировани�
     const draft = await createDraft(request, agent, companies.vector);
     try {
       const selected = await transferRevisedPackage(request, agent, client, underwriter, draft, info);
-      const confirmed = await json<Draft>(await request.post(`${application(draft.id)}/confirm`, {
+      const foreign = await signIn(request, companies.furniture.account);
+      const draftPath = application(draft.id);
+      await status(await request.get(`${draftPath}/financing-scenario`, { headers: headers(foreign) }), 404);
+      await status(await request.get(`${draftPath}/financing-scenario`, { headers: headers(agent) }), 403);
+      await status(await request.post(`${draftPath}/confirm`, {
+        headers: headers(foreign), data: { acceptedScenarioRevision: selected.revision, bureauConsent: true },
+      }), 404);
+      const confirmed = await json<Draft>(await request.post(`${draftPath}/confirm`, {
         headers: headers(client), data: { acceptedScenarioRevision: selected.revision, bureauConsent: true },
       }), 200);
       expect(confirmed).toMatchObject({ id: draft.id, bureauConsent: true, termMonths: 24 });
@@ -113,7 +120,7 @@ test.describe('Финальное агентское финансировани�
       granted.push({ owner: technopark, id: techGrant.id });
       await status(await request.post('/api/v1/agent/applications', {
         headers: headers(agent), data: await draftInput(request, companies.technopark),
-      }), [403, 404, 409]);
+      }), 409);
       await revoke(request, technopark, techGrant.id);
 
       const draft = await createDraft(request, agent, companies.vector);
@@ -129,6 +136,9 @@ test.describe('Финальное агентское финансировани�
       await status(await request.get(application(draft.id), { headers: headers(bank) }), 404);
       await status(await request.get(`${application(draft.id)}/messages`, { headers: headers(bank) }), 404);
       await sendToClient(request, agent, draft);
+      const workingJournal = await json<Array<{ event: string }>>(
+        await request.get(`${agentApplication(draft.id)}/events`, { headers: headers(agent) }), 200);
+      expect(workingJournal).toEqual(expect.arrayContaining([expect.objectContaining({ event: 'REQUEST_CLIENT_CONFIRMATION' })]));
       await sendChat(request, agent, draft.id, 'Синтетическое сообщение до подачи', 200);
       await status(await request.get(`${application(draft.id)}/messages`, { headers: headers(bank) }), 404);
       const bankNotice = (await notifications(request, bank)).find((row) => row.link?.includes(draft.id));
@@ -541,6 +551,7 @@ async function checkReserve(request: APIRequestContext) {
   const owner = await signIn(request, companies.furniture.account);
   const foreign = await signIn(request, companies.vector.account);
   const agent = await signIn(request, 'agent');
+  const otherAgent = await signIn(request, 'agent2');
   const byApp = async (applicationId: string) => json<Loan>(await request.get(`${application(applicationId)}/loan`, {
     headers: headers(owner),
   }), 200);
@@ -550,15 +561,26 @@ async function checkReserve(request: APIRequestContext) {
   const lowAccountBefore = await byApp(low.applicationId);
   expect(lowAccountBefore.availableLimit).toBe(expected.availableLimit);
   await status(await request.get(lowPath, { headers: headers(owner) }), 204);
-  for (const unauthorised of [foreign, agent]) {
-    await status(await request.get(lowPath, { headers: headers(unauthorised) }), [403, 404]);
-    await status(await request.put(lowPath, { headers: headers(unauthorised), data: reserveInput }), [403, 404]);
+  for (const [unauthorised, denied] of [[foreign, 404], [agent, 403]] as const) {
+    await status(await request.get(lowPath, { headers: headers(unauthorised) }), denied);
+    await status(await request.put(lowPath, { headers: headers(unauthorised), data: reserveInput }), denied);
+    await status(await request.post(`${lowPath}/receipt-event`, {
+      headers: headers(unauthorised), data: { eventId: randomUUID(), status: 'DELAYED' },
+    }), denied);
     await status(await request.post(`${lowPath}/confirm-draw`, {
       headers: headers(unauthorised), data: { expectedVersion: 1 },
-    }), [403, 404]);
+    }), denied);
   }
+  await status(await request.get(lowPath, { headers: headers(owner) }), 204);
   const waiting = await json<PaymentReserve>(await request.put(lowPath, { headers: headers(owner), data: reserveInput }), 200);
   expect(waiting).toMatchObject({ receiptStatus: 'PENDING', canDraw: false });
+  const agentSummaryPath = `${agentApplication(low.applicationId)}/payment-reserve`;
+  const summary = await json<Record<string, unknown>>(
+    await request.get(agentSummaryPath, { headers: headers(agent) }), 200);
+  expect(summary).toEqual({
+    version: waiting.version, receiptStatus: 'PENDING', paymentDate: expected.paymentDate, action: 'WAIT_FOR_RECEIPT',
+  });
+  await status(await request.get(agentSummaryPath, { headers: headers(otherAgent) }), 404);
   await status(await request.post(`${lowPath}/confirm-draw`, {
     headers: headers(owner), data: { expectedVersion: waiting.version },
   }), 409);

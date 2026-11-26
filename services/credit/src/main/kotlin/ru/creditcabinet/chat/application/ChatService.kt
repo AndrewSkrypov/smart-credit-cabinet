@@ -69,7 +69,7 @@ class ChatService(
         }
         ChatRules.requireWritable(status)
         limits.acquire(caller.userId)
-        val attachments = documents.map { files.find(id, it, caller.userId) }
+        val attachments = documents.map { files.find(application, it, caller) }
         val now = clock.instant()
         val message = ChatMessage(
             applicationId = id, seq = seq + 1, authorId = caller.userId,
@@ -131,7 +131,7 @@ class ChatService(
         val hash = ChatRules.uploadHash(upload)
         data.previousUpload(id, caller.userId, key)?.let { previous ->
             if (previous.hash != hash) throw ConflictException("Этот ключ уже использован для другого файла")
-            return files.find(id, previous.documentId, caller.userId)
+            return files.find(application, previous.documentId, caller)
         }
         ChatRules.requireWritable(status)
         val stored = files.upload(application, caller, upload)

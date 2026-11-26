@@ -2,23 +2,32 @@ package ru.creditcabinet.application
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.sun.net.httpserver.HttpServer
 import io.jsonwebtoken.Jwts
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.transaction.annotation.Transactional
+import ru.creditcabinet.analytics.infrastructure.HttpCurrentStatusesProjection
+import ru.creditcabinet.analytics.infrastructure.JdbcAnalyticsQueries
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
+import java.net.InetSocketAddress
+import java.time.Instant
 import java.util.Date
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 @SpringBootTest(properties = ["cabinet.pipeline.enabled=false", "cabinet.outbox.worker-enabled=false"])
 @AutoConfigureMockMvc
@@ -59,6 +68,68 @@ class BankSubmissionVisibilityIntegrationTest {
         assertEquals(1, page["countsByGroup"]["done"].asInt())
         assertEquals(listOf(afterSubmission.toString()), page["items"].map { it["id"].asText() })
         assertEquals(before + 1, read("/api/v1/analytics/funnel", bank)["currentStatuses"]["WITHDRAWN"].asInt())
+    }
+
+    @Test
+    fun `postgres visibility selects SQL for a mixed withdrawal population and projection for a matching one`() {
+        jdbc.execute("create temporary table applications (id uuid, status text, submitted_at timestamptz) on commit drop")
+        jdbc.execute("create temporary table application_status_outbox (stream_generation text, state text) on commit drop")
+        jdbc.update(
+            """
+            insert into pg_temp.applications (id, status, submitted_at) values
+                (gen_random_uuid(), 'DRAFT', null),
+                (gen_random_uuid(), 'PENDING_CLIENT_CONFIRMATION', null),
+                (gen_random_uuid(), 'WITHDRAWN', null),
+                (gen_random_uuid(), 'WITHDRAWN', current_timestamp),
+                (gen_random_uuid(), 'SUBMITTED', current_timestamp)
+            """.trimIndent(),
+        )
+
+        val calls = AtomicInteger()
+        val peer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        peer.createContext("/internal/v1/analytics/current-statuses") { request ->
+            calls.incrementAndGet()
+            val body = """{"generation":"visibility-test","currentStatuses":{"SUBMITTED":1,"WITHDRAWN":1}}""".toByteArray()
+            request.sendResponseHeaders(200, body.size.toLong())
+            request.responseBody.use { it.write(body) }
+        }
+        peer.start()
+        val namedJdbc = NamedParameterJdbcTemplate(jdbc)
+        val metrics = SimpleMeterRegistry()
+        val projection = HttpCurrentStatusesProjection(
+            namedJdbc,
+            mapper,
+            metrics,
+            enabled = true,
+            captureEnabled = true,
+            workerEnabled = true,
+            generation = "visibility-test",
+            url = "http://127.0.0.1:${peer.address.port}",
+            token = "synthetic-analytics-test-only-token",
+            timeoutMs = 2_000,
+        )
+        try {
+            val analytics = JdbcAnalyticsQueries(namedJdbc)
+            val to = Instant.now()
+            val from = to.minusSeconds(86_400)
+            val expected = mapOf("SUBMITTED" to 1, "WITHDRAWN" to 1)
+            val mixedPopulation = projection.readWhenReady()
+            assertNull(mixedPopulation)
+            assertEquals(0, calls.get())
+            assertEquals(expected, analytics.read(from, to, mixedPopulation).currentStatuses)
+            val reads = "cabinet.analytics.current.statuses.read"
+            assertEquals(1.0, metrics.get(reads).tags("source", "sql", "reason", "submission_visibility").counter().count())
+
+            jdbc.update("delete from pg_temp.applications where status = 'WITHDRAWN' and submitted_at is null")
+            assertEquals(expected, projection.readWhenReady())
+            assertEquals(expected, analytics.read(from, to, null).currentStatuses)
+            assertEquals(1, calls.get())
+            assertEquals(1.0, metrics.get(reads).tags("source", "projection", "reason", "ready").counter().count())
+        } finally {
+            projection.close()
+            metrics.close()
+            peer.stop(0)
+        }
     }
 
     @Test

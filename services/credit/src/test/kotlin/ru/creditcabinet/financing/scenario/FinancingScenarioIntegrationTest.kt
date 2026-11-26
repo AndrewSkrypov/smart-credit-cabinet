@@ -23,9 +23,13 @@ import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
 import ru.creditcabinet.agent.domain.AgentAccessDecision
 import ru.creditcabinet.agent.domain.AgentAccessPort
+import ru.creditcabinet.application.domain.Actor
+import ru.creditcabinet.application.domain.ActorType
+import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CompanySnapshot
+import ru.creditcabinet.application.domain.JournalNote
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.assessment.domain.BankInfo
@@ -64,6 +68,8 @@ class FinancingScenarioIntegrationTest {
     @Autowired private lateinit var applications: ApplicationRepository
 
     @Autowired private lateinit var documents: DocumentRepository
+
+    @Autowired private lateinit var journal: ApplicationJournal
 
     @Autowired private lateinit var files: FileStore
 
@@ -173,10 +179,15 @@ class FinancingScenarioIntegrationTest {
         val agentPath = agentPath(application.id)
         val clientPath = clientPath(application.id)
         val handedDocument = document(application.id, privateToBank = false)
+        noteDocument(application, handedDocument)
         assertEquals(200, putScenario(agentPath).status)
         assertEquals(200, post("$agentPath/request-confirmation", agent).status)
         assertEquals(200, post("$clientPath/return-to-agent", client).status)
         val unhandedDocument = document(application.id, privateToBank = false)
+        noteDocument(application, unhandedDocument)
+        assertEquals(List(2) { mapper.createObjectNode() }, documentNotes(agentPath, agent))
+        assertEquals(200, get("$agentPath/documents/$unhandedDocument", agent).status)
+        assertPacketNotes(clientPath, client, handedDocument)
         val remove = mvc.delete("$agentPath/documents/$handedDocument") {
             header("Authorization", "Bearer $agent")
         }.andReturn().response
@@ -211,7 +222,31 @@ class FinancingScenarioIntegrationTest {
         assertEquals("CONFIRMED", snapshot(get(bankPath(application.id), bank))["status"].asText())
         assertEquals(200, get("$clientPath/documents/$handedDocument", bank).status)
         assertEquals(404, get("$clientPath/documents/$unhandedDocument", bank).status)
+        assertPacketNotes(clientPath, bank, handedDocument)
         assertEquals(1, submissionCount(application.id))
+
+        fun sendAttachment(token: String, documentId: UUID) = mvc.post("$clientPath/messages") {
+            header("Authorization", "Bearer $token")
+            header("Idempotency-Key", UUID.randomUUID().toString())
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"text":"Приложен синтетический файл","documentIds":["$documentId"]}"""
+        }.andReturn().response
+
+        for (participant in listOf(client, bank)) {
+            assertEquals(404, sendAttachment(participant, unhandedDocument).status)
+            assertEquals(404, get("$clientPath/documents/$unhandedDocument", participant).status)
+        }
+        val rejectedReferences = jdbc.queryForObject(
+            "select count(*) from message_attachments where document_id = ?",
+            Int::class.java,
+            unhandedDocument,
+        )
+        assertEquals(0, rejectedReferences)
+        val visibleDocument = document(application.id, privateToBank = false)
+        val accepted = sendAttachment(client, visibleDocument)
+        assertEquals(200, accepted.status, accepted.contentAsString)
+        assertEquals(visibleDocument.toString(), snapshot(accepted).at("/attachments/0/id").asText())
+        assertEquals(200, get("$clientPath/documents/$visibleDocument", bank).status)
     }
 
     @Test
@@ -219,7 +254,10 @@ class FinancingScenarioIntegrationTest {
         val application = draft()
         val agentPath = agentPath(application.id)
         val clientPath = clientPath(application.id)
+        val legacyDocument = document(application.id, privateToBank = false)
+        noteDocument(application, legacyDocument)
         assertEquals(200, post("$agentPath/request-confirmation", agent).status)
+        assertEquals(legacyDocument.toString(), documentNotes(clientPath, client).single()["documentId"].asText())
         assertEquals(204, get("$clientPath/financing-scenario", client).status)
         assertEquals(200, confirm(clientPath, revision = null).status)
         assertEquals(204, get(bankPath(application.id), bank).status)
@@ -307,6 +345,28 @@ class FinancingScenarioIntegrationTest {
         files.put(document.storedName, byteArrayOf(1).inputStream(), document.sizeBytes)
         documents.save(document)
         return id
+    }
+
+    private fun noteDocument(application: LoanApplication, documentId: UUID) {
+        journal.append(
+            application.note(
+                JournalNote.DOCUMENT_ADDED,
+                Actor(ActorType.AGENT, agentId),
+                clock.instant(),
+                mapOf("documentId" to documentId, "fileName" to "synthetic.pdf"),
+            ),
+        )
+    }
+
+    private fun documentNotes(path: String, auth: String): List<JsonNode> =
+        snapshot(get("$path/events", auth)).filter { it["event"].asText() == JournalNote.DOCUMENT_ADDED.name }.map { it["payload"] }
+
+    private fun assertPacketNotes(path: String, auth: String, handedDocument: UUID) {
+        val notes = documentNotes(path, auth)
+        assertEquals(
+            listOf(mapper.valueToTree(mapOf("documentId" to handedDocument.toString(), "fileName" to "synthetic.pdf")), mapper.createObjectNode()),
+            notes,
+        )
     }
 
     private fun putScenario(path: String, openingBalance: Long = 150_000, delayDays: Int = 14, alternative: Int = 24, selected: Int = 24) =

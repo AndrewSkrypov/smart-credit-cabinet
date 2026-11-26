@@ -204,21 +204,28 @@ class DocumentService(
 
     override fun open(applicationId: UUID, documentId: UUID): Pair<ApplicationDocument, StoredFile> {
         val application = applications.get(applicationId)
-        val caller = CurrentCaller.claims()
-        val current = documents.find(application.id, documentId)
-        val readable = if (caller.isAgent || current?.context == DocumentContext.CHAT) {
-            current
-        } else {
-            documents.listForPacket(application.id, application.submittedAt, documentId).singleOrNull()
-        }
-        val shared = readable ?: current?.takeIf { documents.isChatAttached(documentId) }
-        val document = shared?.takeIf { it.visibleTo(caller, application) }
-            ?: throw NotFoundException("Документ не найден")
-        if (document.context == DocumentContext.CHAT && document.uploadedBy != caller.userId && !documents.isChatAttached(documentId)) {
-            throw NotFoundException("Документ не найден")
-        }
+        val document = readableDocument(application, documentId, CurrentCaller.claims())
         val file = store.get(document.storedName, document.storageBackend) ?: throw NotFoundException("Файл документа не найден в хранилище")
         return document to file
+    }
+
+    internal fun chatAttachment(application: LoanApplication, documentId: UUID, caller: TokenClaims): ApplicationDocument =
+        readableDocument(application, documentId, caller, attachToChat = true)
+
+    private fun readableDocument(
+        application: LoanApplication,
+        documentId: UUID,
+        caller: TokenClaims,
+        attachToChat: Boolean = false,
+    ): ApplicationDocument {
+        val current = documents.find(application.id, documentId)
+        if (attachToChat && (current == null || current.privateToBank)) throw NotFoundException("Документ не найден")
+        val readable = when {
+            current?.context == DocumentContext.CHAT -> current.takeIf { it.uploadedBy == caller.userId || documents.isChatAttached(it.id) }
+            caller.isAgent -> current
+            else -> documents.listForPacket(application.id, application.submittedAt, documentId).singleOrNull()
+        }
+        return readable?.takeIf { it.visibleTo(caller, application) } ?: throw NotFoundException("Документ не найден")
     }
 
     private fun ApplicationDocument.visibleTo(caller: TokenClaims, application: LoanApplication): Boolean =

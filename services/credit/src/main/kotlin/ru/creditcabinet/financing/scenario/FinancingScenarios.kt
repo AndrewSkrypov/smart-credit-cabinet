@@ -35,6 +35,8 @@ class FinancingScenarios(
         return latest.snapshot.copy(changes = history.getOrNull(1)?.let(latest::changesSince).orEmpty())
     }
 
+    internal fun hasHandedPacket(applicationId: UUID): Boolean = store.latest(applicationId, handedOnly = true) != null
+
     /** Caller locks and authorizes the application in the same transaction. */
     @Transactional(propagation = Propagation.MANDATORY)
     fun saveDraft(application: LoanApplication, inputs: FinancingScenarioInputs): FinancingScenarioSnapshot {

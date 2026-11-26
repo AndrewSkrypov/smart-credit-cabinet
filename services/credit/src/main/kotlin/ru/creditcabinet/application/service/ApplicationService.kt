@@ -225,7 +225,17 @@ class ApplicationService(
         }
     }
 
-    fun journal(id: UUID): List<JournalEntry> = journal.list(get(id).id)
+    @Transactional(readOnly = true)
+    fun journal(id: UUID): List<JournalEntry> {
+        val application = get(id)
+        val entries = journal.list(id)
+        if (application.agentId == null || CurrentCaller.claims().isAgent || !scenarios.hasHandedPacket(id)) return entries
+        val readableIds = documents.listForPacket(id, application.submittedAt).mapTo(mutableSetOf()) { it.id.toString() }
+        return entries.map { entry ->
+            val documentNote = entry.event == JournalNote.DOCUMENT_ADDED.name || entry.event == JournalNote.DOCUMENT_REMOVED.name
+            if (documentNote && entry.payload["documentId"]?.toString() !in readableIds) entry.copy(payload = emptyMap()) else entry
+        }
+    }
 
     fun product(code: String): Product = products.find(code) ?: throw NotFoundException("Продукт не найден")
 

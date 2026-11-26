@@ -14,6 +14,7 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 
 
 FUNNEL = "/api/v1/analytics/funnel"
+INTERNAL = "/internal/v1/analytics/current-statuses"
 ROLES = {
     "anonymous": 401, "invalid": 401, "client": 403, "unrelated_client": 403, "agent": 403,
     "manager": 200, "underwriter": 200, "risk_admin": 200,
@@ -45,27 +46,41 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def fetch(opener, url, token=None):
+def fetch(opener, url, token=None, *, service_token=None, include_readiness=False):
     headers = {"Accept": "application/json"}
     if token is not None:
         headers["Authorization"] = f"Bearer {token}"
+    if service_token is not None:
+        headers["X-Analytics-Read-Token"] = service_token
     try:
         response = opener.open(Request(url, headers=headers), timeout=10)
     except HTTPError as error:
         response = error
     with response:
-        return {"status": response.status, "body": json.load(response)}
+        payload = response.read()
+        result = {"status": response.status, "body": json.loads(payload) if payload else None}
+        if include_readiness:
+            result["readiness"] = response.headers.get("X-Analytics-Readiness")
+        return result
 
 
-def capture(args):
-    url = urlsplit(args.url)
+def loopback_origin(origin):
+    url = urlsplit(origin)
     loopback = url.hostname in {"127.0.0.1", "::1"} and url.port is not None
     origin_only = not (url.username or url.password or url.path.rstrip("/") or url.query or url.fragment)
     require(url.scheme in {"http", "https"} and loopback and origin_only,
             "Use the isolated stack's explicit loopback host and port")
+    return origin.rstrip("/")
+
+
+def local_opener():
+    return build_opener(ProxyHandler({}), NoRedirect())
+
+
+def capture(args):
+    base = loopback_origin(args.url)
     require(re.fullmatch(r"[0-9a-f]{40}", args.sha), "Supply the full Git SHA")
-    base = args.url.rstrip("/")
-    opener = build_opener(ProxyHandler({}), NoRedirect())
+    opener = local_opener()
     tokens = {"anonymous": None, "invalid": "invalid-alpha-qa-token"}
     for role in ROLES.keys() - tokens.keys():
         name = f"ALPHA_QA_{role.upper()}_TOKEN"
@@ -81,6 +96,36 @@ def capture(args):
     openapi = fetch(opener, base + "/v3/api-docs/credit")
     require(openapi["status"] == 200, "Credit OpenAPI returned a non-200 response")
     return {"sha": args.sha, "mode": args.mode, "roles": roles, "periods": periods, "openapi": openapi["body"]}
+
+
+def probe_private(args):
+    url = loopback_origin(args.url) + INTERNAL
+    require(re.fullmatch(r"[0-9a-f]{40}", args.sha), "Supply the full Git SHA")
+    service_token = os.environ.get("ALPHA_QA_ANALYTICS_READ_TOKEN")
+    manager = os.environ.get("ALPHA_QA_MANAGER_TOKEN")
+    require(service_token and manager, "Set ALPHA_QA_ANALYTICS_READ_TOKEN and ALPHA_QA_MANAGER_TOKEN")
+    require(args.expect != "ready" or (args.generation and args.snapshot),
+            "Ready probe requires --generation and --snapshot")
+    require(not args.reason or args.expect == "unready", "--reason requires --expect unready")
+    opener = local_opener()
+    denied = {
+        "missing": fetch(opener, url)["status"],
+        "ordinary_manager": fetch(opener, url, manager)["status"],
+        "wrong": fetch(opener, url, service_token=service_token + "-incorrect")["status"],
+    }
+    require(denied == dict.fromkeys(denied, 401), f"Private route admission codes differ from 401: {denied}")
+    granted = fetch(opener, url, service_token=service_token, include_readiness=True)
+    if args.expect == "ready":
+        require(granted["status"] == 200, f"Private route returned {granted['status']}, expected 200")
+        body = granted["body"]
+        require(body["generation"] == args.generation, "Private route generation differs")
+        _, counts = read_rows(read_json(args.snapshot), "expected snapshot")
+        assert_map(body["currentStatuses"], counts, "private route")
+    else:
+        require(granted["status"] == 503 and granted["readiness"], "Expected 503 with X-Analytics-Readiness")
+        if args.reason:
+            require(granted["readiness"] == args.reason, "Private route readiness reason differs")
+    return {"sha": args.sha, "expected": args.expect, "access": denied, "service": granted}
 
 
 def read_json(path):
@@ -195,7 +240,14 @@ def main():
     capture_parser = commands.add_parser("capture")
     capture_parser.add_argument("--url", required=True)
     capture_parser.add_argument("--sha", required=True)
-    capture_parser.add_argument("--mode", choices=("sql", "shadow", "projected", "off"), required=True)
+    capture_parser.add_argument("--mode", choices=("sql", "shadow", "projected", "fallback", "off"), required=True)
+    private_parser = commands.add_parser("probe-private")
+    private_parser.add_argument("--url", required=True)
+    private_parser.add_argument("--sha", required=True)
+    private_parser.add_argument("--expect", choices=("ready", "unready"), required=True)
+    private_parser.add_argument("--generation")
+    private_parser.add_argument("--snapshot")
+    private_parser.add_argument("--reason")
     verify_parser = commands.add_parser("verify")
     verify_parser.add_argument("--sql", required=True)
     verify_parser.add_argument("--projection")
@@ -204,11 +256,12 @@ def main():
     verify_parser.add_argument("--candidate", action="append", default=[])
     args = parser.parse_args()
     try:
-        if args.command == "capture":
-            json.dump(capture(args), sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
-            print()
-        else:
+        if args.command == "verify":
             verify(args)
+        else:
+            result = capture(args) if args.command == "capture" else probe_private(args)
+            json.dump(result, sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
+            print()
     except (ValueError, KeyError, StopIteration, TypeError, OSError) as error:
         print(f"Alpha QA: {error}", file=sys.stderr)
         return 1

@@ -55,7 +55,7 @@ not already have a cert-manager installation before installing it.
 ```sh
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --version v1.21.3 --namespace cert-manager --create-namespace \
-  --set crds.enabled=true --set global.leaderElection.namespace=cert-manager \
+  -f helm/edge/cert-manager-values.yaml \
   --wait --timeout 5m
 ```
 

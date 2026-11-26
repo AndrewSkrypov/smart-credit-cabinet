@@ -259,21 +259,31 @@ class DockerBoundariesTest(unittest.TestCase):
         with patch.object(diagnostics, "READ_TIMEOUT", timeout), patch.object(subprocess, "Popen", side_effect=launch):
             return diagnostics.docker_read("container", "ls")
 
-    def test_error_categories_do_not_emit_stderr(self):
-        with self.assertRaisesRegex(RuntimeError, "^Docker: disk_full$"):
-            self.run_substitute(f"import sys; print('no space left on device {SECRET}', file=sys.stderr); sys.exit(1)")
-        with self.assertRaisesRegex(RuntimeError, "^Docker: docker_unavailable$"):
-            self.run_substitute(f"import sys; print('failed to connect to the Docker API {SECRET}', file=sys.stderr); sys.exit(1)")
-        with self.assertRaisesRegex(RuntimeError, "^Docker: unclassified$"):
-            self.run_substitute(f"import sys; print('{SECRET}', file=sys.stderr); sys.exit(1)")
+    def test_error_categories_report_the_operation_without_stderr(self):
+        for message, category in (
+            ("no space left on device", "disk_full"),
+            ("failed to connect to the Docker API", "docker_unavailable"),
+            ("template: :1: executing at <index .Config.Labels>: error calling index: index of untyped nil",
+             "template_error"),
+            ("unknown flag: --format", "unsupported_cli"),
+            ("Error response from daemon", "engine_error"),
+        ):
+            with self.subTest(category=category), self.assertRaisesRegex(RuntimeError, f"^Docker container.ls: {category}$"):
+                self.run_substitute(f"import sys; print({message + ' ' + SECRET!r}, file=sys.stderr); sys.exit(1)")
+
+    def test_refuses_operations_outside_the_read_allowlist(self):
+        with patch.object(subprocess, "Popen") as process:
+            with self.assertRaisesRegex(ValueError, "^Неподдерживаемая операция диагностики Docker$"):
+                diagnostics.docker_read("container", "restart", SECRET)
+            process.assert_not_called()
 
     def test_real_subprocess_streams_are_bounded_and_deadlined(self):
-        with self.assertRaisesRegex(RuntimeError, "^Docker: output_limit$"):
+        with self.assertRaisesRegex(RuntimeError, "^Docker container.ls: output_limit$"):
             self.run_substitute("print('s' * 140000)")
-        with self.assertRaisesRegex(RuntimeError, "^Docker: timeout$"):
+        with self.assertRaisesRegex(RuntimeError, "^Docker container.ls: timeout$"):
             self.run_substitute("import time; time.sleep(5)", timeout=0.2)
         with patch.object(subprocess, "Popen", side_effect=FileNotFoundError()):
-            with self.assertRaisesRegex(RuntimeError, "^Docker: docker_unavailable$"):
+            with self.assertRaisesRegex(RuntimeError, "^Docker container.ls: docker_unavailable$"):
                 diagnostics.docker_read("container", "ls")
 
 
@@ -284,7 +294,7 @@ class DiagnosticJobTest(unittest.TestCase):
         self.assertEqual(job["environment"], {"name": "dev", "action": "verify"})
         self.assertEqual(job["resource_group"], pipeline["dev-deploy"]["resource_group"])
         self.assertEqual(job["tags"], pipeline["dev-deploy"]["tags"])
-        self.assertEqual(job["needs"], [])
+        self.assertEqual(job["needs"], [{"job": "dev-diagnostics-docker", "artifacts": False}])
         self.assertEqual(job["variables"]["GIT_DEPTH"], "2")
         self.assertNotIn("dependencies", job)
         self.assertNotIn("image", job)

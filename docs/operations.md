@@ -493,7 +493,9 @@ JSON в Loki с тем же trace ID. Публичный `/actuator/prometheus` 
 `POST /api/v1/assistant/messages` проверяет прирост
 `cabinet_assistant_answer_seconds_count` и режим модели.
 
-Учётка для просмотра выдаётся отдельным запуском после подтверждения TLS.
+Учётка для просмотра может быть подготовлена через локальный kubectl port-forward
+с помощью `--port-forward PORT`. Выдача для публичного входа выполняется после
+подтверждения TLS и повторной проверки без этого параметра.
 Путь `PUMP_GRAFANA_VIEWER_FILE` должен быть вне Git в приватном каталоге оператора.
 
 ```bash

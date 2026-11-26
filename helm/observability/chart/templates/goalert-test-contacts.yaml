@@ -36,6 +36,7 @@ spec:
             - {name: MP_DATABASE, value: /tmp/mailpit.db}
             - {name: MP_MAX_MESSAGES, value: "100"}
             - {name: MP_DISABLE_VERSION_CHECK, value: "true"}
+            - {name: MP_SMTP_DISABLE_RDNS, value: "true"}
           ports:
             - {name: smtp, containerPort: 1025}
             - {name: http, containerPort: 8025}

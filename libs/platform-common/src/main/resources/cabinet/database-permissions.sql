@@ -1,5 +1,5 @@
 -- Used by privileged bootstrap, by the schema owner after migration, and after restore.
--- Identifiers are replaced only from the fixed identity/credit/engagement allowlist.
+-- Identifiers are replaced only from the fixed service database allowlist.
 begin;
 select pg_advisory_xact_lock(17127, 2);
 alter schema public owner to __OWNER__;

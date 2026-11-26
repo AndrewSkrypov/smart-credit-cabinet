@@ -170,7 +170,7 @@ def main():
             sql(db, f'revoke connect,temporary on database {db} from public; grant connect on database {db} to {app};', user=owner, password=password)
         sql('credit', (ROOT / 'services/documents/cutover/credit-grants.sql').read_text(), user='credit_owner', password=credit_password)
         sql('documents', (ROOT / 'services/documents/cutover/grants.sql').read_text(), user='documents_owner', password=own_password)
-        application, company, hidden, visible, private = [str(uuid.uuid4()) for _ in range(5)]
+        application, company, hidden, visible, private, revoked_agent = [str(uuid.uuid4()) for _ in range(6)]
         credit_files = scratch / 'credit-files'
         target_files = scratch / 'documents-files'
         credit_files.mkdir(); target_files.mkdir()
@@ -181,7 +181,7 @@ def main():
             else: (credit_files / f'{identity}.pdf').write_bytes(body)
         sql('credit', f"""
 insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,submitted_at,status_changed_at,agent_id,client_handoff_at,client_managed)
- values('{application}','{company}','000100000004','Документы','ENTREPRENEUR','{uuid.uuid4()}','WORKING_CAPITAL','CASH_GAP',123456,6,'SUBMITTED',now()-interval '2 days',now(),now()-interval '1 hour',now(),'{uuid.uuid4()}',now()-interval '1 day',true);
+ values('{application}','{company}','000100000004','Документы','ENTREPRENEUR','{uuid.uuid4()}','WORKING_CAPITAL','CASH_GAP',123456,6,'SUBMITTED',now()-interval '2 days',now(),now()-interval '1 hour',now(),'{revoked_agent}',now()-interval '1 day',true);
 insert into financing_scenario_revisions(application_id,revision,product_version,snapshot) values('{application}',1,1,'{{}}');
 insert into financing_scenario_publications(application_id,revision,status,document_ids,handed_terms) values('{application}',1,'AWAITING_CLIENT','["{visible}"]','{{}}');
 """, user='credit_owner', password=credit_password)
@@ -250,9 +250,9 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         credit_env = base_env | {'DB_HOST':'127.0.0.1','DB_PORT':str(pg_port),'DB_NAME':'credit','DB_USER':'credit_app','DB_PASSWORD':credit_password,'SERVER_PORT':str(http_port),'JWT_SECRET':jwt,'PIPELINE_ENABLED':'true','OUTBOX_WORKER_ENABLED':'false','IDENTITY_URL':'','ANTIVIRUS_ENABLED':'false','STORAGE_BACKEND':args.storage_backend,'UPLOAD_DIR':str(credit_files)}
         credit = start([java,'-Xmx320m','-jar','services/credit/build/libs/app.jar','--spring.flyway.enabled=false','--server.address=127.0.0.1','--cabinet.documents.mode=remote','--cabinet.documents.epoch=2','--cabinet.documents.grpc.host=127.0.0.1',f'--cabinet.documents.grpc.port={grpc_port}',f'--cabinet.documents.grpc.certificate={certs/"credit.crt"}',f'--cabinet.documents.grpc.key={certs/"credit.key"}',f'--cabinet.documents.grpc.ca={certs/"ca.crt"}'], 'credit', credit_env)
         wait_port(http_port, credit)
-        test_env = base_env | {'DOCUMENTS_TEST_STORAGE_BACKEND':args.storage_backend.upper(),'DOCUMENTS_TEST_CERTS':str(certs),'DOCUMENTS_TEST_GRPC_PORT':str(grpc_port),'DOCUMENTS_TEST_APPLICATION':application,'DOCUMENTS_TEST_COMPANY':company,'DOCUMENTS_TEST_HIDDEN':hidden,'DOCUMENTS_TEST_VISIBLE':visible,'DOCUMENTS_TEST_PRIVATE':private,
+        test_env = base_env | {'DOCUMENTS_TEST_STORAGE_BACKEND':args.storage_backend.upper(),'DOCUMENTS_TEST_CERTS':str(certs),'DOCUMENTS_TEST_GRPC_PORT':str(grpc_port),'DOCUMENTS_TEST_APPLICATION':application,'DOCUMENTS_TEST_COMPANY':company,'DOCUMENTS_TEST_HIDDEN':hidden,'DOCUMENTS_TEST_VISIBLE':visible,'DOCUMENTS_TEST_PRIVATE':private,'DOCUMENTS_TEST_REVOKED_AGENT':revoked_agent,
             'DOCUMENTS_TEST_CREDIT_URL':f'http://127.0.0.1:{http_port}','DOCUMENTS_TEST_JWT_SECRET':jwt,'DOCUMENTS_TEST_DATABASE_BASE':f'jdbc:postgresql://127.0.0.1:{pg_port}','DOCUMENTS_TEST_ADMIN_USER':admin,'DOCUMENTS_TEST_ADMIN_PASSWORD':admin_password}
-        run([gradle,'--no-daemon','--max-workers=1',':services:documents:documentsRuntimeTest','--rerun-tasks'], 'tests', env=test_env)
+        run([gradle,'--no-daemon','--max-workers=1','-Pkotlin.compiler.execution.strategy=in-process','-Dorg.gradle.jvmargs=-Xmx512m -XX:MaxMetaspaceSize=384m',':services:documents:documentsRuntimeTest','--rerun-tasks'], 'tests', env=test_env)
         xml_paths = sorted((ROOT/'services/documents/build/test-results/documentsRuntimeTest').glob('TEST-*.xml'))
         assert xml_paths
         totals = {key: sum(int(ET.parse(path).getroot().get(key,0)) for path in xml_paths) for key in ('tests','failures','errors','skipped')}

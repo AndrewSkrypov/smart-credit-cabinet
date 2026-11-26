@@ -117,6 +117,17 @@ class DocumentsRuntimeTest {
         } finally {
             noCertificate.shutdownNow()
         }
+        val plaintext = NettyChannelBuilder.forAddress("127.0.0.1", port).usePlaintext().build()
+        try {
+            val denied = assertFailsWith<StatusRuntimeException> {
+                DocumentsServiceGrpc.newBlockingStub(plaintext).withDeadlineAfter(3, TimeUnit.SECONDS).listDocuments(
+                    Scope.newBuilder().setCompanyId(scope.companyId.toString()).setApplicationId(scope.applicationId.toString()).setEpoch(2).build(),
+                )
+            }
+            assertEquals(Status.Code.UNAVAILABLE, denied.status.code)
+        } finally {
+            plaintext.shutdownNow()
+        }
     }
 
     @Test
@@ -191,7 +202,9 @@ class DocumentsRuntimeTest {
             }
             db("credit") { connection ->
                 assertFailsWith<java.sql.SQLException> {
-                    connection.prepareStatement("update document_artifact_inputs set input_json=jsonb_set(input_json,'{calculation,rate}','12.0'::jsonb) where application_id=? and offer_id=?").use { statement ->
+                    connection.prepareStatement(
+                        "update document_artifact_inputs set input_json=jsonb_set(input_json,'{calculation,rate}','12.0'::jsonb) where application_id=? and offer_id=?",
+                    ).use { statement ->
                         statement.setObject(1, scope.applicationId)
                         statement.setObject(2, offer)
                         statement.executeUpdate()
@@ -264,13 +277,23 @@ class DocumentsRuntimeTest {
                     statement.executeUpdate()
                 }
             }
-            val legacyInput = recoveryInput.copy(phase = ArtifactPhase.PREVIEW, contractText = "", contractTextHash = null, signedAt = null, contractNumber = null)
+            val legacyInput = recoveryInput.copy(
+                phase = ArtifactPhase.PREVIEW,
+                contractText = "",
+                contractTextHash = null,
+                signedAt = null,
+                contractNumber = null,
+            )
             val legacyJson = mapper.writeValueAsString(legacyInput)
             val legacyId = UUID.randomUUID()
-            val legacy = record.copy(id = legacyId, offerId = legacyInput.offerId, phase = "PREVIEW", kind = "SCHEDULE_PDF", templateVersion = 1,
-                inputJson = legacyJson, inputHash = sha256(legacyJson.toByteArray()), status = "ERROR", storedName = "generated-$legacyId.pdf")
+            val legacy = record.copy(
+                id = legacyId, offerId = legacyInput.offerId, phase = "PREVIEW", kind = "SCHEDULE_PDF", templateVersion = 1,
+                inputJson = legacyJson, inputHash = sha256(legacyJson.toByteArray()), status = "ERROR", storedName = "generated-$legacyId.pdf",
+            )
             db("documents") { connection ->
-                connection.prepareStatement("insert into artifact_records(id,company_id,application_id,offer_id,kind,phase,template_version,input_hash,metadata,status,attempts) values(?,?,?,?,'SCHEDULE_PDF','PREVIEW',1,?,?::jsonb,'ERROR',5)").use { statement ->
+                connection.prepareStatement(
+                    "insert into artifact_records(id,company_id,application_id,offer_id,kind,phase,template_version,input_hash,metadata,status,attempts) values(?,?,?,?,'SCHEDULE_PDF','PREVIEW',1,?,?::jsonb,'ERROR',5)",
+                ).use { statement ->
                     statement.setObject(1, legacy.id)
                     statement.setObject(2, scope.companyId)
                     statement.setObject(3, scope.applicationId)
@@ -374,7 +397,7 @@ class DocumentsRuntimeTest {
         assertEquals(401, http("$base/documents/$visible", "").statusCode())
         assertEquals(404, http("$base/documents/$visible", token(actor, "CLIENT", UUID.randomUUID())).statusCode())
         assertEquals(404, http("$base/documents/$visible", token(actor, "UNKNOWN", scope.companyId)).statusCode())
-        assertEquals(404, http("/api/v1/agent/applications/${scope.applicationId}/documents/$visible", token(actor, "AGENT", null)).statusCode())
+        assertEquals(404, http("/api/v1/agent/applications/${scope.applicationId}/documents/$visible", token(UUID.fromString(env("DOCUMENTS_TEST_REVOKED_AGENT")), "AGENT", null)).statusCode())
         assertEquals(404, http("/internal/documents/v1", client).statusCode())
     }
 

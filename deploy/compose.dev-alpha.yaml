@@ -1,0 +1,133 @@
+# Appended only by the protected cabinet-dev deployment with alpha_dev in its manifest.
+x-analytics-db: &analytics-db
+  DB_HOST: analytics-db
+  DB_PORT: "5432"
+  DB_NAME: analytics
+
+x-analytics-image: &analytics-image
+  image: ${CABINET_IMAGE_ALPHA_ANALYTICS:?Нужен digest образа Analytics}
+  pull_policy: never
+  mem_limit: 576m
+
+services:
+  credit:
+    networks: [cabinet, alpha-stream, alpha-read]
+    environment:
+      APPLICATION_STATUS_EVENTS_ENABLED: "true"
+      APPLICATION_STATUS_EVENTS_WORKER_ENABLED: "true"
+      APPLICATION_STATUS_KAFKA_BOOTSTRAP_SERVERS: analytics-kafka:9092
+      APPLICATION_STATUS_KAFKA_TOPIC: ${CABINET_ALPHA_DEV_TOPIC:?Нужен topic поколения}
+      ANALYTICS_STATUS_READ_ENABLED: ${CABINET_ALPHA_DEV_READ_ENABLED:-false}
+      ANALYTICS_STATUS_READ_URL: http://analytics:8080
+      ANALYTICS_STATUS_READ_TOKEN: ${CABINET_ALPHA_DEV_READ_TOKEN:?Нужен токен Analytics}
+      ANALYTICS_STATUS_READ_TIMEOUT_MS: "500"
+
+  analytics-kafka:
+    image: ${CABINET_ALPHA_DEV_KAFKA_IMAGE:?Нужен закреплённый образ Kafka}
+    platform: linux/amd64
+    networks: [alpha-stream]
+    mem_limit: 1152m
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@analytics-kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://analytics-kafka:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_LOG_RETENTION_MS: "-1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+    volumes:
+      - alpha-kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: [CMD, /opt/kafka/bin/kafka-topics.sh, --bootstrap-server, "analytics-kafka:9092", --list]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
+
+  analytics-db:
+    image: ${CABINET_IMAGE_POSTGRES:?Нужен digest образа PostgreSQL}
+    pull_policy: never
+    networks: [alpha-store]
+    mem_limit: 384m
+    restart: unless-stopped
+    command: [postgres, -c, shared_buffers=64MB, -c, max_connections=30]
+    environment:
+      POSTGRES_DB: analytics
+      POSTGRES_USER: postgres
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_PASSWORD: ${CABINET_ALPHA_DEV_PG_ADMIN_PASSWORD:?Нужен пароль администратора БД Analytics}
+      ALPHA_PILOT_PG_OWNER_PASSWORD: ${CABINET_ALPHA_DEV_PG_OWNER_PASSWORD:?Нужен пароль владельца БД Analytics}
+      ALPHA_PILOT_PG_APP_PASSWORD: ${CABINET_ALPHA_DEV_PG_APP_PASSWORD:?Нужен пароль приложения Analytics}
+    volumes:
+      - alpha-analytics-data:/var/lib/postgresql/data
+      - ./ci/alpha/init-analytics.sql:/docker-entrypoint-initdb.d/10-analytics.sql:ro
+      - ./services/analytics/ops/import-status-snapshot.sql:/alpha/import-status-snapshot.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'PGPASSWORD="$$ALPHA_PILOT_PG_APP_PASSWORD" psql -X -w -h 127.0.0.1 -U analytics_app -d analytics -c "SELECT 1" >/dev/null'
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  analytics-migrate:
+    <<: *analytics-image
+    profiles: [alpha-bootstrap]
+    networks: [alpha-store]
+    environment:
+      <<: *analytics-db
+      DB_USER: analytics_owner
+      DB_PASSWORD: ${CABINET_ALPHA_DEV_PG_OWNER_PASSWORD:?Нужен пароль владельца БД Analytics}
+      MIGRATION_ONLY: "true"
+
+  analytics:
+    <<: *analytics-image
+    networks: [alpha-stream, alpha-store, alpha-read]
+    restart: unless-stopped
+    environment:
+      <<: *analytics-db
+      DB_USER: analytics_app
+      DB_PASSWORD: ${CABINET_ALPHA_DEV_PG_APP_PASSWORD:?Нужен пароль приложения Analytics}
+      SPRING_PROFILES_ACTIVE: prod
+      JWT_SECRET: ${CABINET_ALPHA_DEV_JWT_SECRET:?Нужен отдельный ключ Analytics}
+      SPRING_FLYWAY_ENABLED: "false"
+      ANALYTICS_KAFKA_ENABLED: "true"
+      APPLICATION_STATUS_KAFKA_BOOTSTRAP_SERVERS: analytics-kafka:9092
+      APPLICATION_STATUS_KAFKA_TOPIC: ${CABINET_ALPHA_DEV_TOPIC:?Нужен topic поколения}
+      ANALYTICS_KAFKA_GROUP_ID: ${CABINET_ALPHA_DEV_GROUP:?Нужна consumer group поколения}
+      ANALYTICS_KAFKA_DLQ_TOPIC: ${CABINET_ALPHA_DEV_DLQ_TOPIC:?Нужен DLQ поколения}
+      ANALYTICS_STATUS_READ_ENDPOINT_ENABLED: "true"
+      ANALYTICS_STATUS_READ_TOKEN: ${CABINET_ALPHA_DEV_READ_TOKEN:?Нужен токен Analytics}
+      ANALYTICS_STATUS_READ_MAX_LAG_RECORDS: "0"
+      ANALYTICS_STATUS_READ_KAFKA_TIMEOUT_MS: "250"
+    depends_on:
+      analytics-db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, -fs, "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 24
+
+networks:
+  alpha-stream:
+    internal: true
+  alpha-store:
+    internal: true
+  alpha-read:
+    internal: true
+
+volumes:
+  alpha-kafka-data:
+  alpha-analytics-data:
+    name: cabinet-dev-alpha-analytics-${CABINET_ALPHA_DEV_GENERATION:?Нужно поколение Alpha}

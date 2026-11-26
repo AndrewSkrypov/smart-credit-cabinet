@@ -1,0 +1,33 @@
+# Pilot checks run on the pilot MR and on explicitly selected Dev pipelines.
+.alpha-pilot-verify:
+  extends: .quality
+  stage: verify
+  rules:
+    - if: '$CABINET_ALPHA_PILOT == "1"'
+    - if: >-
+        $CI_PIPELINE_SOURCE == "merge_request_event" &&
+        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-analytics-pilot" &&
+        $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "feat/final-platform-release"
+
+alpha-pilot-infrastructure:
+  extends: .alpha-pilot-verify
+  timeout: 10 minutes
+  script:
+    - python3 ci/alpha/test_dev_rollout.py
+    - mkdir -p ci-artifacts
+    - bash ci/alpha/smoke.sh > ci-artifacts/alpha-infrastructure.tsv
+  artifacts:
+    expire_in: 14 days
+    paths:
+      - ci-artifacts/alpha-infrastructure.tsv
+
+alpha-pilot-analytics-jar:
+  extends: .alpha-pilot-verify
+  timeout: 30 minutes
+  dependencies: []
+  script:
+    - bash ci/alpha/build-analytics.sh
+  artifacts:
+    expire_in: 14 days
+    paths:
+      - ci-artifacts/alpha-analytics/

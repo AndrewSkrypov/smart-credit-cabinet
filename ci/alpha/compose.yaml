@@ -1,0 +1,55 @@
+# Standalone dependencies for synthetic Alpha checks.
+services:
+  kafka:
+    profiles: [alpha-pilot]
+    image: ${ALPHA_PILOT_KAFKA_IMAGE:?Set an immutable apache/kafka image}
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+    healthcheck:
+      test: [CMD, /opt/kafka/bin/kafka-topics.sh, --bootstrap-server, "kafka:9092", --list]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
+
+  analytics-db:
+    profiles: [alpha-pilot]
+    image: postgres:16.15-alpine@sha256:deb28ee471183cb0c303113dac9b2433c51eeeeb678def7af9a9ec5820367815
+    environment:
+      POSTGRES_DB: analytics
+      POSTGRES_USER: postgres
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_PASSWORD: ${ALPHA_PILOT_PG_ADMIN_PASSWORD:?Set a synthetic database admin password}
+      ALPHA_PILOT_PG_OWNER_PASSWORD: ${ALPHA_PILOT_PG_OWNER_PASSWORD:?Set a synthetic analytics owner password}
+      ALPHA_PILOT_PG_APP_PASSWORD: ${ALPHA_PILOT_PG_APP_PASSWORD:?Set a synthetic analytics app password}
+    volumes:
+      - analytics-data:/var/lib/postgresql/data
+      - ./init-analytics.sql:/docker-entrypoint-initdb.d/10-analytics.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'PGPASSWORD="$$ALPHA_PILOT_PG_APP_PASSWORD" psql -X -w -h 127.0.0.1 -U analytics_app -d analytics -c "SELECT 1" >/dev/null'
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+networks:
+  default:
+    internal: true
+
+volumes:
+  analytics-data:

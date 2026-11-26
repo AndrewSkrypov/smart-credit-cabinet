@@ -16,5 +16,6 @@ dependencies {
     implementation(libs.resilience4j.circuitbreaker)
     implementation(libs.pdfbox) { exclude(group = "commons-logging", module = "commons-logging") }
     implementation(libs.poi.ooxml)
+    implementation("org.apache.kafka:kafka-clients")
     testImplementation(libs.mockito.kotlin)
 }

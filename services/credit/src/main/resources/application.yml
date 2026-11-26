@@ -44,6 +44,11 @@ cabinet:
   outbox:
     enabled: true
     worker-enabled: ${OUTBOX_WORKER_ENABLED:true}
+  application-status-events:
+    enabled: ${APPLICATION_STATUS_EVENTS_ENABLED:false}
+    worker-enabled: ${APPLICATION_STATUS_EVENTS_WORKER_ENABLED:true}
+    bootstrap-servers: ${APPLICATION_STATUS_KAFKA_BOOTSTRAP_SERVERS:}
+    topic: ${APPLICATION_STATUS_KAFKA_TOPIC:}
   # The product line, the needs wizard and the calculator are public: the landing page shows
   # them before sign-in, and they carry no personal data. Everything else requires a token.
   security:

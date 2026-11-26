@@ -1,0 +1,14 @@
+[
+  {"name": "invalid-event-id", "field": "eventId", "value": "event-1", "keyword": "format"},
+  {"name": "invalid-application-id", "field": "applicationId", "value": "a4fd57ac61824647bdd2176221bab0c2", "keyword": "format"},
+  {"name": "uppercase-application-id", "field": "applicationId", "value": "A4FD57AC-6182-4647-BDD2-176221BAB0C2", "keyword": "pattern"},
+  {"name": "string-version", "field": "applicationVersion", "value": "2", "keyword": "type"},
+  {"name": "fractional-version", "field": "applicationVersion", "value": 2.5, "keyword": "type"},
+  {"name": "negative-version", "field": "applicationVersion", "value": -1, "keyword": "minimum"},
+  {"name": "version-overflow", "field": "applicationVersion", "value": 9223372036854775808, "keyword": "maximum"},
+  {"name": "unknown-status", "field": "status", "value": "CANCELLED", "keyword": "enum"},
+  {"name": "epoch-timestamp", "field": "occurredAt", "value": 1795694700, "keyword": "type"},
+  {"name": "non-utc-timestamp", "field": "occurredAt", "value": "2026-11-26T15:05:00+03:00", "keyword": "pattern"},
+  {"name": "invalid-calendar-date", "field": "occurredAt", "value": "2026-02-29T12:05:00Z", "keyword": "format"},
+  {"name": "extra-field", "field": "companyId", "value": "92cd0bde-373e-4ae2-abc8-14b5a31b52cb", "keyword": "additionalProperties"}
+]

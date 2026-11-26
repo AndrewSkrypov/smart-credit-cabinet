@@ -29,16 +29,24 @@ data class Analytics(
 )
 
 interface AnalyticsQueries {
-    fun read(from: Instant, to: Instant): Analytics
+    fun read(from: Instant, to: Instant, projectedStatuses: Map<String, Int>?): Analytics
+}
+
+fun interface CurrentStatusesProjection {
+    fun readWhenReady(): Map<String, Int>?
 }
 
 @Service
-class AnalyticsQuery(private val queries: AnalyticsQueries, private val clock: Clock) {
+class AnalyticsQuery(
+    private val queries: AnalyticsQueries,
+    private val clock: Clock,
+    private val projection: CurrentStatusesProjection,
+) {
     fun funnel(from: Instant?, to: Instant?): Analytics {
         CurrentCaller.requireBankStaff()
         val end = to ?: clock.instant()
         val start = from ?: end.minus(Duration.ofDays(30))
         require(start.isBefore(end)) { "Начало периода должно быть раньше конца" }
-        return queries.read(start, end)
+        return queries.read(start, end, projection.readWhenReady())
     }
 }

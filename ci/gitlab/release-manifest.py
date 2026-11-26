@@ -2,7 +2,11 @@
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "deploy"))
+from registry_release import RegistryRelease
 
 SERVICES = {"identity", "credit", "engagement", "external-sim", "frontend", "postgres", "swagger"}
 
@@ -14,10 +18,13 @@ def main():
     parser.add_argument("repository")
     parser.add_argument("--helm-values", type=Path)
     args = parser.parse_args()
-    manifest = json.loads(args.manifest.read_text())
-    if not re.fullmatch(r"[a-f0-9]{40}", args.revision) or manifest["revision"] != args.revision:
+    try:
+        manifest = RegistryRelease(args.manifest)
+    except (OSError, ValueError):
+        parser.error("invalid release manifest")
+    if not re.fullmatch(r"[a-f0-9]{40}", args.revision) or manifest.revision != args.revision:
         parser.error("release revision does not match checkout")
-    images = manifest["images"]
+    images = manifest.images
     if not SERVICES <= set(images) <= (SERVICES | {"ssh-bridge", "clamav"}):
         parser.error("release images have unexpected service names")
     for service, ref in images.items():

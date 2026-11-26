@@ -7,9 +7,10 @@ import json
 import re
 import ssl
 import subprocess
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import HTTPSHandler, HTTPRedirectHandler, build_opener
 
+from alpha_dev import analytics_owner
 from common import Deployment
 from registry_release import APP_SERVICES, REVISION, SERVICE_COMPONENTS
 
@@ -17,6 +18,7 @@ from registry_release import APP_SERVICES, REVISION, SERVICE_COMPONENTS
 IMAGE_ID = re.compile(r"sha256:[0-9a-f]{64}")
 ENTRY = re.compile(r"""<script\b[^>]*\bsrc=["'](/assets/index-[\w-]+\.js)["']""", re.ASCII)
 FRONTEND_ROOT = "/usr/share/nginx/html"
+ALPHA_ROUTE = "/internal/v1/analytics/current-statuses"
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -53,6 +55,53 @@ def fetch(opener, origin, path, limit):
     return body
 
 
+def verify_alpha(deployment, opener, origin, containers):
+    alpha = deployment.alpha_dev
+    kafka = containers["analytics-kafka"]
+    running, image_id = docker(
+        "inspect", "--type", "container", "--format", "{{.State.Running}} {{.Image}}", kafka,
+    ).decode("ascii").strip().split()
+    expected_id = docker("image", "inspect", "--format", "{{.Id}}", alpha.kafka_image).decode("ascii").strip()
+    if running != "true" or not IMAGE_ID.fullmatch(image_id) or image_id != expected_id:
+        raise RuntimeError("Работающий Kafka отличается от закреплённого digest")
+
+    route = "http://analytics:8080" + ALPHA_ROUTE
+    common = ["curl", "-sS", "--noproxy", "*", "--max-time", "3", "-o", "/dev/null", "-w", "%{http_code}"]
+    denied = docker("exec", containers["credit"], *common, route).decode("ascii")
+    authorized = docker(
+        "exec", containers["credit"], "sh", "-eu", "-c",
+        'exec curl -sS --noproxy "*" --max-time 3 -o /dev/null -w "%{http_code}" '
+        '-H "X-Analytics-Read-Token: $ANALYTICS_STATUS_READ_TOKEN" "$1"', "analytics", route,
+    ).decode("ascii")
+    if denied != "401" or authorized not in {"200", "503"}:
+        raise RuntimeError("Внутренний HTTP Analytics не подтвердил проверку токена")
+    try:
+        with opener.open(origin + ALPHA_ROUTE, timeout=15):
+            raise RuntimeError("Внешний gateway допускает доступ к пути Analytics")
+    except HTTPError as error:
+        with error:
+            if error.code != 404:
+                raise RuntimeError("Внешний gateway не подтвердил закрытие пути Analytics") from None
+    except URLError:
+        raise RuntimeError("HTTPS-проверка внешнего пути Analytics не завершена") from None
+
+    marker = analytics_owner(
+        deployment, "-qtA", "-c",
+        "SELECT generation || ' ' || snapshot_sha256 FROM application_status_generation WHERE singleton",
+    ).split()
+    if len(marker) != 2 or marker[0] != alpha.topic or not re.fullmatch(r"[0-9a-f]{64}", marker[1]):
+        raise RuntimeError("Маркер снимка Analytics не соответствует поколению")
+    if alpha.read_enabled and authorized != "200":
+        raise RuntimeError("Analytics пока не подтверждает готовность для активного чтения")
+    return {
+        "topic": alpha.topic, "dlq_topic": alpha.dlq, "consumer_group": alpha.group,
+        "read_enabled": alpha.read_enabled, "snapshot_sha256": marker[1],
+        "http_with_token": int(authorized), "http_without_token": int(denied), "public_http": 404,
+        "kafka": {"container": kafka, "image_id": image_id, "registry_ref": alpha.kafka_image},
+        "jar_sha256": deployment.release.alpha_dev["jar_sha256"],
+    }
+
+
 def verify(deployment, expected_revision):
     if not deployment.local and deployment.values["CABINET_RELEASE"] != expected_revision:
         raise ValueError("CABINET_RELEASE отличается от ожидаемой ревизии")
@@ -64,7 +113,11 @@ def verify(deployment, expected_revision):
         services = (*services, "ollama-ssh-bridge")
     containers = {service: deployment.container(service) for service in services}
     images = {}
+    if deployment.alpha_dev:
+        containers.update({name: deployment.container(name) for name in ("analytics", "analytics-db", "analytics-kafka")})
     for service, container in containers.items():
+        if service == "analytics-kafka":
+            continue
         running, image_id = docker(
             "inspect", "--type", "container", "--format", "{{.State.Running}} {{.Image}}", container,
         ).decode("ascii").strip().split()
@@ -80,7 +133,9 @@ def verify(deployment, expected_revision):
             raise RuntimeError(f"OCI revision работающего образа {service} отличается от ожидаемой")
         images[service] = {"container": container, "image_id": image_id, "revision": revision}
         if deployment.release:
-            images[service]["registry_ref"] = deployment.release.images[component]
+            images[service]["registry_ref"] = (
+                deployment.release.alpha_dev["image"] if component == "analytics" else deployment.release.images[component]
+            )
 
     frontend = containers["frontend"]
     entry = frontend_entry(docker("exec", frontend, "cat", FRONTEND_ROOT + "/index.html"))
@@ -90,6 +145,7 @@ def verify(deployment, expected_revision):
     public_entry = frontend_entry(fetch(opener, origin, "/", 1024 * 1024))
     if public_entry != entry or sha256(fetch(opener, origin, entry, 16 * 1024 * 1024)).hexdigest() != image_hash:
         raise RuntimeError("JavaScript по HTTPS отличается от работающего контейнера frontend")
+    alpha_report = verify_alpha(deployment, opener, origin, containers) if deployment.alpha_dev else None
     if any(deployment.container(service) != container for service, container in containers.items()):
         raise RuntimeError("Состав контейнеров изменился во время проверки")
     return {
@@ -99,6 +155,7 @@ def verify(deployment, expected_revision):
         "profiles": sorted(deployment.profiles),
         "expected_revision": expected_revision,
         "images": images,
+        **({"alpha_dev": alpha_report} if alpha_report else {}),
         "https": {"origin": origin, "status": 200, "entry": entry, "sha256": image_hash},
     }
 

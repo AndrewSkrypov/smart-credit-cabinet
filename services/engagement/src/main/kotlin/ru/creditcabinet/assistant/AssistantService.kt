@@ -95,7 +95,8 @@ class AssistantService(
         val normalized = question.lowercase()
         val procedure = when {
             "гарант" in normalized -> "approval"
-            articles.any { it.id == "bureau" } && listOf("соглас", "тайком").any { it in normalized } -> "bureau"
+            articles.any { it.id == "bureau" } && listOf("соглас", "тайком", "галочк", "разрешен").any { it in normalized } -> "bureau"
+            articles.firstOrNull()?.id == "load" && LOAD_ACTION.containsMatchIn(normalized) -> "load"
             "контрпредлож" in normalized && listOf("отказ", "отклон", "приня").any { it in normalized } -> "counter-offer"
             "овердрафт" in normalized && listOf("бесплат", "свои деньги", "мои деньги").any { it in normalized } -> "overdraft"
             normalized.startsWith("на что") && "пополнени" in normalized && "оборот" in normalized -> "working-capital"
@@ -244,6 +245,7 @@ class AssistantService(
 
     companion object {
         const val MAX_QUESTION = 500
+        private val LOAD_ACTION = Regex("""что(?: с (?:ней|этим))? (?:можно )?сделать|(?:как|чтобы) (?:сниз|уменьш|сократ)""")
         private val PROMPT_LABELS = listOf("Справка", "Данные заявки", "Вопрос клиента", "Заявка не выбрана")
         private val ANSWER_LABEL = Regex("Ответ(?: на вопрос клиента)?:", RegexOption.IGNORE_CASE)
         private val ALTERNATIVE = Regex("альтернатив|друг(?:ой|ие|ого)\\s+продукт", RegexOption.IGNORE_CASE)
@@ -320,6 +322,7 @@ object Grounding {
             if (it.id == "overdraft") {
                 if (hasUnattributedTermLoanCondition(text)) add("term-loan condition attributed to overdraft")
                 if ("долгосрочн" in text && "долгосрочн" !in source) add("overdraft duration restriction absent from the reference")
+                if (OVERDRAFT_SIZE_OR_TERM.containsMatchIn(text)) add("overdraft amount or term restriction absent from the reference")
             }
             if (it.id == "load" && LOAD_THRESHOLD_BY_PRODUCT.containsMatchIn(text)) add("product-specific load threshold absent from the reference")
             val hasDocuments = it.id == "investment" || DOCUMENT_WORDS.containsMatchIn(source)
@@ -344,6 +347,7 @@ object Grounding {
     private val DOCUMENT_WORDS = Regex("документ|справк|спецификац|декларац|выписк|отчетност")
     private val SPECIFIC_DOCUMENTS = listOf("паспорт", "трудов", "декларац", "выписк", "отчетност")
     private val LOAD_THRESHOLD_BY_PRODUCT = Regex("""порог[^.!?\n]{0,35}завис\p{L}*\s+от[^.!?\n]{0,25}продукт""")
+    private val OVERDRAFT_SIZE_OR_TERM = Regex("""небольш\p{L}*\s+сумм|коротк\p{L}*\s+(?:период|срок)""")
     private val TERM_LOAN_CONDITION = Regex(
         "(?:одн|един)\\p{L}*\\s+сумм\\p{L}*|единовремен\\p{L}*|равн\\p{L}*\\s+платеж\\p{L}*|аннуитет\\p{L}*",
     )

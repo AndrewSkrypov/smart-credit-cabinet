@@ -5,10 +5,12 @@ from contextlib import contextmanager
 import fcntl
 import hashlib
 import http.client
+import ipaddress
 import json
 import os
 from pathlib import Path
 import re
+import socket
 import ssl
 import stat
 import sys
@@ -187,13 +189,31 @@ def vault_authority(origin):
     return parsed.hostname, port
 
 
+class AddressPinnedHTTPSConnection(http.client.HTTPSConnection):
+    def __init__(self, host, port, connect_ip, **options):
+        super().__init__(host, port, **options)
+        self.connect_ip = connect_ip
+
+    def connect(self):
+        transport = socket.create_connection((self.connect_ip, self.port), self.timeout)
+        try:
+            self.sock = self._context.wrap_socket(transport, server_hostname=self.host)
+        except BaseException:
+            transport.close()
+            raise
+
+
 class Vault:
-    def __init__(self, origin, ca_file, token):
+    def __init__(self, origin, ca_file, token, connect_ip=None):
         self.host, self.port = vault_authority(origin)
         # This context trusts the operator-selected CA and verifies certificate SANs.
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self.context.load_verify_locations(cafile=str(ca_file))
         self.token = token
+        try:
+            self.connect_ip = str(ipaddress.IPv4Address(connect_ip)) if connect_ip is not None else None
+        except ipaddress.AddressValueError:
+            raise MigrationError("Use a literal IPv4 address for the explicit Vault route.") from None
 
     def request(self, method, payload=None):
         headers = {"X-Vault-Token": self.token}
@@ -202,7 +222,9 @@ class Vault:
             headers["Content-Type"] = "application/json"
             body = json.dumps(payload).encode("utf-8")
         # Direct HTTPS to this exact authority. No proxy, redirect or retry.
-        connection = http.client.HTTPSConnection(self.host, self.port, timeout=10, context=self.context)
+        options = {"timeout": 10, "context": self.context}
+        connection = (AddressPinnedHTTPSConnection(self.host, self.port, self.connect_ip, **options)
+                      if self.connect_ip else http.client.HTTPSConnection(self.host, self.port, **options))
         try:
             connection.request(method, KV_DATA, body=body, headers=headers)
             response = connection.getresponse()
@@ -337,7 +359,7 @@ def execute(args, state=STATE_DIR):
             previous.check_write_allowed(state)
             replace_env(path, previous.raw, metadata.st_gid)
             return "Restored the previous cabinet.env."
-        vault = Vault(args.vault_origin, args.ca_file, read_token(args))
+        vault = Vault(args.vault_origin, args.ca_file, read_token(args), args.connect_ip)
         if args.operation == "seed":
             expected = env.secrets(args.include_service_smtp)
             validate_secrets(expected, env.values, args.include_service_smtp)
@@ -363,6 +385,7 @@ def main():
     for operation in ("seed", "apply"):
         command = commands.add_parser(operation)
         command.add_argument("--vault-origin", required=True)
+        command.add_argument("--connect-ip", help="optional explicit IPv4 route; verify TLS against the HTTPS origin")
         command.add_argument("--ca-file", type=Path, required=True)
         token = command.add_mutually_exclusive_group(required=True)
         token.add_argument("--token-file", type=Path)

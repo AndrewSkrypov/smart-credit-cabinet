@@ -14,7 +14,8 @@ helm template cabinet-edge traefik --repo https://traefik.github.io/charts \
 ```
 
 Install from an authenticated context for the target cluster. The chart
-installs the IngressClass and chart RBAC, so use the cluster bootstrap identity.
+installs the IngressClass and controller RBAC, so use the cluster bootstrap identity.
+The controller reads Secrets only in `cabinet-prod`.
 
 ```sh
 helm upgrade --install cabinet-edge traefik --repo https://traefik.github.io/charts \

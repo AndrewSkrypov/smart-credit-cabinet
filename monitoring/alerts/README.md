@@ -257,6 +257,15 @@ Edge. Firewall разрешает доступ только от провере�
 с Mailpit. Его тестовые алерты не совпадают с фильтром Telegram. При откате Helm
 сначала верните прежнюю конфигурацию Alertmanager, затем удалите выделенный Secret.
 
+Для периодической проверки создайте `monitoring/cabinet-telegram-relay-ca` как
+ConfigMap с публичным сертификатом relay под ключом `relay.pem`. Примените
+`helm/observability/telegram-relay-probe-values.yaml` после существующих overlays.
+`cabinet-telegram-relay-tls` проверяет TCP и TLS с доверенным сертификатом раз в 60 секунд.
+Проверка не отправляет CONNECT, не требует секретов и не создаёт уведомлений.
+Следите за `probe_success{target="telegram-relay-tls"}` и
+`probe_ssl_earliest_cert_expiry{target="telegram-relay-tls"}`. При смене сертификата
+обновите публичный ConfigMap и доверенные сертификаты Alertmanager.
+
 Проверьте `systemctl is-active pump-telegram-relay@dev pump-telegram-relay@prod`.
 Запустите `bash telegram-relay/health.sh IP:PORT AUTH_FILE` из сети Dev Alertmanager.
 Для проверки из Prod запустите её во временном Pod и добавьте файл доверенного

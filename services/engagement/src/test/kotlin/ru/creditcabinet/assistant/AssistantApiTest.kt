@@ -335,6 +335,8 @@ class AssistantApiTest {
         for (reply in listOf(
             incomplete,
             "Долговая нагрузка — доля месячных платежей от выручки по всем кредитам, включая новый.",
+            incomplete.replace("от выручки", "от выручки бизнеса за несколько месяцев"),
+            incomplete.replace("от выручки", "от двухмесячной выручки"),
         )) {
             whenever(model.chat(any())).thenReturn(reply)
             val fallback = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
@@ -342,11 +344,13 @@ class AssistantApiTest {
             assertTrue(fallback["text"].asText().contains("месячной выручки"))
         }
 
-        val complete = incomplete.replace("от выручки", "от выручки бизнеса за месяц")
-        whenever(model.chat(any())).thenReturn(complete)
-        val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
-        assertEquals("MODEL", answer["mode"].asText())
-        assertEquals(complete, answer["text"].asText())
+        for (revenue in listOf("месячной выручки", "выручки бизнеса за месяц", "выручки за один календарный месяц")) {
+            val complete = incomplete.replace("от выручки", "от $revenue")
+            whenever(model.chat(any())).thenReturn(complete)
+            val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+            assertEquals("MODEL", answer["mode"].asText(), complete)
+            assertEquals(complete, answer["text"].asText())
+        }
     }
 
     @Test

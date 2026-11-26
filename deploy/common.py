@@ -55,6 +55,15 @@ class Deployment:
         if not optional <= {"ai", "monitoring"}:
             raise ValueError("CABINET_OPTIONAL_PROFILES поддерживает ai,monitoring")
         self.profiles.update(optional)
+        grafana_https = self.values.get("CABINET_GRAFANA_HTTPS", "false")
+        if grafana_https not in {"true", "false"}:
+            raise ValueError("CABINET_GRAFANA_HTTPS должен быть true или false")
+        if grafana_https == "true":
+            if local or project != "cabinet-dev" or "monitoring" not in self.profiles:
+                raise ValueError("Для CABINET_GRAFANA_HTTPS нужен cabinet-dev с профилем monitoring")
+            password = self.values.get("GRAFANA_PASSWORD", "")
+            if len(password) < 16 or password == "local-monitoring-change-me":
+                raise ValueError("Для публичной Grafana нужен отдельный GRAFANA_PASSWORD")
         if backend == "s3" or enabled == "true":
             self.profiles.add("storage")
             keys = ["S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_ADMIN_ACCESS_KEY", "S3_ADMIN_SECRET_KEY"]
@@ -105,6 +114,8 @@ class Deployment:
             self.command.extend(["-f", str(ROOT / "monitoring/compose.ops.yaml")])
             if project == "cabinet-dev" and self.values.get("CABINET_ALERTMANAGER_PAGING_DIR"):
                 self.command.extend(["-f", str(ROOT / "monitoring/compose.paging.yml")])
+        if grafana_https == "true":
+            self.command.extend(["-f", str(ROOT / "monitoring/compose.grafana-https.yml")])
         for profile in sorted(self.profiles):
             self.command.extend(["--profile", profile])
 

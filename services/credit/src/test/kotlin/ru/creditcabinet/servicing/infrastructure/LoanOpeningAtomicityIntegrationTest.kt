@@ -28,6 +28,8 @@ import kotlin.test.*
 @SpringBootTest
 @Import(PipelineFakesConfig::class)
 class LoanOpeningAtomicityIntegrationTest {
+    @Autowired private lateinit var context: org.springframework.context.ApplicationContext
+
     @Autowired private lateinit var jdbc: JdbcTemplate
 
     @Autowired private lateinit var tx: TransactionTemplate
@@ -194,28 +196,7 @@ class LoanOpeningAtomicityIntegrationTest {
         whenever(
             pinned.version("OVERDRAFT", 1),
         ).thenReturn(products.version("OVERDRAFT", 1)).thenThrow(IllegalStateException("Catalog unavailable after booked command"))
-        val steps = ru.creditcabinet.pipeline.application.PipelineSteps(
-            applications,
-            transitions,
-            jobs,
-            mock(),
-            core,
-            mock(),
-            mock(),
-            offerStore,
-            sessions,
-            mock(),
-            loans,
-            mock(),
-            mock(),
-            pinned,
-            mock(),
-            mock(),
-            fixture.outbox,
-            ru.creditcabinet.pipeline.PipelineSettings(),
-            tx,
-            clock,
-        )
+        val steps = disbursementPipeline(context, fixture.outbox, core, offerStore, sessions, pinned)
         val id = UUID.randomUUID()
         jdbc.update(
             "insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at) values(?,?,'DISBURSEMENT','RUNNING',1,now(),now(),now())",

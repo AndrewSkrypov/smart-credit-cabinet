@@ -18,8 +18,6 @@ import ru.creditcabinet.integration.LoanBooked
 import ru.creditcabinet.offer.*
 import ru.creditcabinet.offer.application.ContractTextStore
 import ru.creditcabinet.pipeline.PipelineFakesConfig
-import ru.creditcabinet.pipeline.PipelineSettings
-import ru.creditcabinet.pipeline.application.PipelineSteps
 import ru.creditcabinet.product.domain.*
 import ru.creditcabinet.servicing.application.LoanServicingService
 import ru.creditcabinet.servicing.contract.v1.*
@@ -36,6 +34,8 @@ import kotlin.test.*
 @Import(PipelineFakesConfig::class)
 @EnabledIfEnvironmentVariable(named = "ALPHA_SERVICING_CREDIT_LIVE", matches = "true")
 class CreditServicingLiveDeliveryTest {
+    @Autowired private lateinit var context: org.springframework.context.ApplicationContext
+
     @Autowired private lateinit var jdbc: JdbcTemplate
 
     @Autowired private lateinit var tx: TransactionTemplate
@@ -121,29 +121,7 @@ class CreditServicingLiveDeliveryTest {
             whenever(
                 pinned.version("OVERDRAFT", 1),
             ).thenReturn(products.version("OVERDRAFT", 1)).thenThrow(IllegalStateException("Current Catalog unavailable"))
-            val steps =
-                PipelineSteps(
-                    applications,
-                    transitions,
-                    jobs,
-                    mock(),
-                    core,
-                    mock(),
-                    mock(),
-                    offers,
-                    sessions,
-                    mock(),
-                    loans,
-                    mock(),
-                    mock(),
-                    pinned,
-                    mock(),
-                    mock(),
-                    opening,
-                    PipelineSettings(),
-                    tx,
-                    clock,
-                )
+            val steps = disbursementPipeline(context, opening, core, offers, sessions, pinned)
             val jobId = UUID.randomUUID()
             jdbc.update(
                 "insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at) values(?,?,'DISBURSEMENT','RUNNING',1,now(),now(),now())",

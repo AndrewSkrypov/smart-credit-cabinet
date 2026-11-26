@@ -30,7 +30,11 @@ import kotlin.test.*
 @EnabledIfEnvironmentVariable(named = "ALPHA_SERVICING_TEST_JDBC_URL", matches = ".+")
 class ServicingPostgresIntegrationTest {
     private val source =
-        DriverManagerDataSource(System.getenv("ALPHA_SERVICING_TEST_JDBC_URL"), System.getenv("ALPHA_SERVICING_TEST_DB_USER") ?: "servicing_app", System.getenv("ALPHA_SERVICING_TEST_DB_PASSWORD") ?: "")
+        DriverManagerDataSource(
+            System.getenv("ALPHA_SERVICING_TEST_JDBC_URL"),
+            System.getenv("ALPHA_SERVICING_TEST_DB_USER") ?: "servicing_app",
+            System.getenv("ALPHA_SERVICING_TEST_DB_PASSWORD") ?: "",
+        )
     private val jdbc = JdbcTemplate(source)
     private val tx = TransactionTemplate(DataSourceTransactionManager(source))
     private val mapper = ObjectMapper().registerKotlinModule().registerModule(JavaTimeModule()).disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)

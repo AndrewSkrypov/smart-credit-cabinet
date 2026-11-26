@@ -1,7 +1,7 @@
 package ru.creditcabinet.servicing.application
 
-import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.ApplicationStatus
+import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller
@@ -24,7 +24,8 @@ class LoanServicingService(
         if (application.status != ApplicationStatus.DISBURSED) throw missing()
         return operations.byApplication(applicationId) ?: throw NotFoundException("Кредитный счёт по заявке не найден")
     }
-    fun drawTranche(loanId: UUID, amount: Long, purpose: String?): LoanAccount = operations.draw(loanId, DrawCommand(readyActor(loanId), amount, purpose))
+    fun drawTranche(loanId: UUID, amount: Long, purpose: String?): LoanAccount =
+        operations.draw(loanId, DrawCommand(readyActor(loanId), amount, purpose))
     fun payNext(loanId: UUID): LoanAccount = operations.payNext(loanId, readyActor(loanId))
     fun repayEarly(loanId: UUID): LoanAccount = operations.repayEarly(loanId, readyActor(loanId))
     private fun readyActor(loanId: UUID): ServicingActor {

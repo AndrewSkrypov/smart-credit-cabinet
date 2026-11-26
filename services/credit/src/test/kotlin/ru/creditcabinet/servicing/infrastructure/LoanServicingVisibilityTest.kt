@@ -24,17 +24,23 @@ import kotlin.test.assertFailsWith
 
 class LoanServicingVisibilityTest {
     @Test fun `pending Credit acknowledgment cannot expose an already opened target account as issued`() {
-        val app = LoanApplication(company = CompanySnapshot(UUID.randomUUID(), "0012345678", "Synthetic", LegalForm.LEGAL_ENTITY),
-            createdBy = UUID.randomUUID(), terms = ApplicationTerms("OVERDRAFT", FinancingPurpose.CASH_GAP, amount = 1_000_000, termMonths = 12),
-            status = ApplicationStatus.DISBURSING, createdAt = Instant.parse("2026-10-01T10:00:00Z"))
+        val app = LoanApplication(
+            company = CompanySnapshot(UUID.randomUUID(), "0012345678", "Synthetic", LegalForm.LEGAL_ENTITY),
+            createdBy = UUID.randomUUID(),
+            terms = ApplicationTerms("OVERDRAFT", FinancingPurpose.CASH_GAP, amount = 1_000_000, termMonths = 12),
+            status = ApplicationStatus.DISBURSING,
+            createdAt = Instant.parse("2026-10-01T10:00:00Z"),
+        )
         val operations = mock<ServicingOperations>()
         val applications = mock<ApplicationService>()
         whenever(applications.get(app.id)).thenReturn(app)
         val facade = LoanServicingService(operations, applications) { _, _ -> error("unused") }
         assertFailsWith<NotFoundException> { facade.getByApplicationId(app.id) }
         verifyNoInteractions(operations)
-        val account = LoanAccount.open(app.id, app.company.id, "C-1", 1_000_000, 12, BigDecimal("20.00"), true,
-            app.createdAt, LocalDate.parse("2027-10-01"), LocalDate.parse("2026-10-01"))
+        val account = LoanAccount.open(
+            app.id, app.company.id, "C-1", 1_000_000, 12, BigDecimal("20.00"), true,
+            app.createdAt, LocalDate.parse("2027-10-01"), LocalDate.parse("2026-10-01"),
+        )
         whenever(applications.get(app.id)).thenReturn(app.copy(status = ApplicationStatus.DISBURSED))
         whenever(operations.byApplication(app.id)).thenReturn(account)
         assertEquals(account, facade.getByApplicationId(app.id))

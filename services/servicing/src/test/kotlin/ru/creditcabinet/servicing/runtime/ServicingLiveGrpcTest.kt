@@ -2,6 +2,7 @@
 
 package ru.creditcabinet.servicing.runtime
 
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
@@ -29,7 +30,9 @@ import kotlin.test.*
 /** Connects to the independently launched candidate bootJar over real mTLS and PostgreSQL. */
 @EnabledIfEnvironmentVariable(named = "ALPHA_SERVICING_LIVE_PHASE", matches = "open|replay")
 class ServicingLiveGrpcTest {
-    private val mapper = ObjectMapper().registerKotlinModule().registerModule(JavaTimeModule()).disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+    private val mapper = ObjectMapper().registerKotlinModule().registerModule(JavaTimeModule())
+        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
     private val directory = Path.of(System.getenv("ALPHA_SERVICING_LIVE_ARTIFACTS"))
     private val tls = Path.of(System.getenv("ALPHA_SERVICING_LIVE_TLS"))
     private val port = System.getenv("ALPHA_SERVICING_LIVE_PORT").toInt()

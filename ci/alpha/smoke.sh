@@ -156,7 +156,11 @@ SQL
 DO $check$
 BEGIN
     IF current_database() <> 'analytics' OR current_user <> 'analytics_app'
-        OR has_database_privilege(current_user, 'postgres', 'CONNECT')
+        OR EXISTS (
+            SELECT FROM pg_database
+            WHERE datname <> current_database()
+              AND has_database_privilege(current_user, oid, 'CONNECT')
+        )
         OR has_database_privilege(current_user, current_database(), 'CREATE,TEMP')
         OR has_schema_privilege(current_user, 'public', 'CREATE')
         OR EXISTS (SELECT FROM pg_database WHERE datname = 'credit')

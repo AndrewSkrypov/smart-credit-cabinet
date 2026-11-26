@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
+import org.springframework.jdbc.support.SqlArrayValue
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import ru.creditcabinet.notification.application.NewNotification
@@ -62,18 +63,37 @@ class JdbcNotificationStore(private val jdbc: NamedParameterJdbcTemplate) : Noti
             ) { rs, _ -> rs.getObject(1, UUID::class.java) }.isNotEmpty()
         }
 
-    override fun page(recipientId: UUID, offset: Int, limit: Int): List<Notification> =
+    override fun agentApplicationLinks(recipientId: UUID, unreadOnly: Boolean): List<String> =
+        jdbc.queryForList(
+            """
+            select distinct link from notifications
+            where recipient_id = :r and link like :agentPath and (not :unreadOnly or read_at is null)
+            order by link
+            """.trimIndent(),
+            mapOf("r" to recipientId, "agentPath" to AGENT_PATH, "unreadOnly" to unreadOnly),
+            String::class.java,
+        )
+
+    override fun page(recipientId: UUID, offset: Long, limit: Int, accessibleAgentLinks: Set<String>): List<Notification> =
         jdbc.query(
-            "select * from notifications where recipient_id = :r order by created_at desc, id offset :offset limit :limit",
-            mapOf("r" to recipientId, "offset" to offset, "limit" to limit),
+            "select * from notifications where recipient_id = :r and $VISIBILITY order by created_at desc, id offset :offset limit :limit",
+            visibleTo(recipientId, accessibleAgentLinks) + mapOf("offset" to offset, "limit" to limit),
             mapper,
         )
 
-    override fun total(recipientId: UUID): Int =
-        jdbc.queryForObject("select count(*) from notifications where recipient_id = :r", mapOf("r" to recipientId), Int::class.java) ?: 0
+    override fun total(recipientId: UUID, accessibleAgentLinks: Set<String>): Int =
+        jdbc.queryForObject(
+            "select count(*) from notifications where recipient_id = :r and $VISIBILITY",
+            visibleTo(recipientId, accessibleAgentLinks),
+            Int::class.java,
+        ) ?: 0
 
-    override fun unread(recipientId: UUID): Int =
-        jdbc.queryForObject("select count(*) from notifications where recipient_id = :r and read_at is null", mapOf("r" to recipientId), Int::class.java) ?: 0
+    override fun unread(recipientId: UUID, accessibleAgentLinks: Set<String>): Int =
+        jdbc.queryForObject(
+            "select count(*) from notifications where recipient_id = :r and read_at is null and $VISIBILITY",
+            visibleTo(recipientId, accessibleAgentLinks),
+            Int::class.java,
+        ) ?: 0
 
     override fun find(id: UUID): Notification? = jdbc.query("select * from notifications where id = :id", mapOf("id" to id), mapper).firstOrNull()
 
@@ -84,8 +104,17 @@ class JdbcNotificationStore(private val jdbc: NamedParameterJdbcTemplate) : Noti
         )
     }
 
-    override fun markAllRead(recipientId: UUID, at: Instant): Int =
-        jdbc.update("update notifications set read_at = :at where recipient_id = :r and read_at is null", mapOf("r" to recipientId, "at" to Timestamp.from(at)))
+    override fun markAllRead(recipientId: UUID, at: Instant, accessibleAgentLinks: Set<String>): Int =
+        jdbc.update(
+            "update notifications set read_at = :at where recipient_id = :r and read_at is null and $VISIBILITY",
+            visibleTo(recipientId, accessibleAgentLinks) + ("at" to Timestamp.from(at)),
+        )
+
+    private fun visibleTo(recipientId: UUID, accessibleAgentLinks: Set<String>) = mapOf(
+        "r" to recipientId,
+        "agentPath" to AGENT_PATH,
+        "accessible" to SqlArrayValue("text", *accessibleAgentLinks.toTypedArray()),
+    )
 
     private val mapper = RowMapper { rs, _ ->
         Notification(
@@ -99,6 +128,11 @@ class JdbcNotificationStore(private val jdbc: NamedParameterJdbcTemplate) : Noti
             readAt = rs.getTimestamp("read_at")?.toInstant(),
             createdAt = rs.getTimestamp("created_at").toInstant(),
         )
+    }
+
+    private companion object {
+        const val AGENT_PATH = "${Notification.AGENT_APPLICATION_LINK_PREFIX}%"
+        const val VISIBILITY = "(link is null or link not like :agentPath or link = any(:accessible))"
     }
 }
 

@@ -30,6 +30,20 @@ data class Notification(
 ) {
     companion object {
         /** A path inside the cabinet: "/client/applications/…", never "//evil.example" or "https://…". */
+        const val AGENT_APPLICATION_LINK_PREFIX = "/agent/applications/"
         val INTERNAL_LINK = Regex("^/(?!/)[A-Za-z0-9/_\\-.~%?=&]{0,510}$")
     }
+}
+
+internal fun String?.isAgentApplicationLink(): Boolean = this?.startsWith(Notification.AGENT_APPLICATION_LINK_PREFIX) == true
+
+internal fun String.agentApplicationId(): UUID? {
+    if (!isAgentApplicationLink()) return null
+    val id = removePrefix(Notification.AGENT_APPLICATION_LINK_PREFIX)
+    val parsed = try {
+        UUID.fromString(id)
+    } catch (_: IllegalArgumentException) {
+        return null
+    }
+    return parsed.takeIf { it.toString() == id }
 }

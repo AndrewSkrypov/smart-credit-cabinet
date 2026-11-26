@@ -18,7 +18,6 @@ case "${1:?}" in
         python3 security/scan.py --image "$image" --report-name "image-$SERVICE" --cache-volume "$cache"
         ;;
     infra)
-        options=()
         case "$INFRA_NAME" in
             postgres)
                 docker build -f docker/postgres/Dockerfile -t "$image" .
@@ -27,10 +26,6 @@ case "${1:?}" in
             swagger)
                 docker build -f docker/swagger/Dockerfile -t "$image" .
                 docker run --rm --entrypoint apk "$image" info brotli-libs
-                ;;
-            ollama)
-                image=ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8
-                options+=(--remote)
                 ;;
             gateway) image=nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3 ;;
             prometheus) image=prom/prometheus:v3.15.1 ;;
@@ -42,10 +37,10 @@ case "${1:?}" in
             valkey) image=valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11 ;;
             *) exit 2 ;;
         esac
-        if [[ "$image" != "cabinet-ci-${CI_JOB_ID}-scan:test" && "$INFRA_NAME" != ollama ]]; then
+        if [[ "$image" != "cabinet-ci-${CI_JOB_ID}-scan:test" ]]; then
             docker pull "$image"
         fi
-        python3 security/scan.py "${options[@]}" --image "$image" \
+        python3 security/scan.py --image "$image" \
             --report-name "infra-$INFRA_NAME" --cache-volume "$cache"
         ;;
     *) exit 2 ;;

@@ -34,3 +34,8 @@ docker volume rm "cabinet-trivy-$id" >/dev/null 2>&1 || true
 for service in identity credit engagement external-sim frontend; do
     docker image rm "$e2e-$service:latest" "$demo-$service:latest" >/dev/null 2>&1 || true
 done
+
+if [[ "$CI_JOB_NAME" = ollama-image-security ]]; then
+    archive=security/reports/infra-ollama/image-0.tar
+    if [[ -f "$archive" ]]; then unlink "$archive"; fi
+fi

@@ -75,3 +75,10 @@ and serial variables, and unset the image variable. The release job scans and
 publishes the verified seeded scanner as an
 OCI digest when a seed is configured. A deployment preserves newer signatures
 on its persistent scanner volume.
+
+The required Ollama scan runs on the project runner tagged
+`cabinet-ollama-cache`. It verifies the official OCI RepoDigest and the
+`linux/amd64` platform at the isolated Docker daemon, then scans a local
+archive using the same Trivy checks and exceptions. The job retains the JSON
+scan results and OCI evidence. The archive is disposable and is removed after
+the job.

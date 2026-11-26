@@ -17,8 +17,12 @@ parser.add_argument("--image", action="append", default=[], help="Локальн
 parser.add_argument("--remote", action="store_true", help="Проверять образ по digest в registry без локальной копии и Docker save")
 parser.add_argument("--report-name", default="filesystem", help="Имя группы отчётов, буквы/цифры/_/-")
 parser.add_argument("--cache-volume", default="cabinet-submission-trivy-cache")
+parser.add_argument("--timeout-minutes", type=int, default=15)
 parser.add_argument("--keep-archives", action="store_true", help="Сохранить входные tar; по умолчанию после отчёта они удаляются")
 args = parser.parse_args()
+if not 1 <= args.timeout_minutes <= 60:
+    parser.error("--timeout-minutes должен быть от 1 до 60")
+scan_timeout = f"{args.timeout_minutes}m"
 if args.remote and (not args.image or any(not re.fullmatch(r"[a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}", value) for value in args.image)):
     parser.error("Для удалённого сканирования каждый образ должен быть закреплён sha256 digest")
 if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", args.report_name) or not re.fullmatch(r"cabinet-[a-z0-9-]{1,100}", args.cache_volume):
@@ -58,7 +62,7 @@ try:
         archive_hash = hashlib.sha256(archive.read_bytes()).hexdigest()
         command = ["docker", "run", "--rm", *mounts, "--entrypoint", "sh", SCANNER, "-c",
                    'mkdir /scan && tar -xf /reports/source.tar -C /scan && exec "$@"', "scan", "trivy", "fs",
-                   "--no-progress", "--timeout", "15m", "--scanners", "vuln,secret", "--include-dev-deps", "--show-suppressed",
+                   "--no-progress", "--timeout", scan_timeout, "--scanners", "vuln,secret", "--include-dev-deps", "--show-suppressed",
                    "--ignorefile", "/scan/.trivyignore", "--format", "json",
                    "--output", "/reports/raw-filesystem.json", "/scan"]
         started = time.monotonic()
@@ -73,7 +77,7 @@ try:
             if args.remote:
                 started = time.monotonic()
                 execute(["docker", "run", "--rm", *mounts, "-v", f"{ROOT / '.trivyignore'}:/policy/ignore:ro", SCANNER,
-                         "image", "--image-src", "remote", "--parallel", "1", "--no-progress", "--timeout", "15m",
+                         "image", "--image-src", "remote", "--parallel", "1", "--no-progress", "--timeout", scan_timeout,
                          "--scanners", "vuln,secret", "--show-suppressed", "--ignorefile", "/policy/ignore",
                          "--format", "json", "--output", f"/reports/raw-image-{index}.json", reference])
                 summary["inputs"].append(retain(directory / f"raw-image-{index}.json", directory / f"trivy-image-{index}.json",
@@ -84,7 +88,7 @@ try:
             execute(["docker", "save", "-o", str(archive), image["Id"]])
             started = time.monotonic()
             execute(["docker", "run", "--rm", *mounts, "-v", f"{ROOT / '.trivyignore'}:/policy/ignore:ro", SCANNER,
-                     "image", "--no-progress", "--timeout", "15m", "--scanners", "vuln,secret", "--show-suppressed",
+                     "image", "--no-progress", "--timeout", scan_timeout, "--scanners", "vuln,secret", "--show-suppressed",
                      "--ignorefile", "/policy/ignore", "--format", "json", "--output", f"/reports/raw-image-{index}.json",
                      "--input", f"/reports/image-{index}.tar"])
             summary["inputs"].append(retain(directory / f"raw-image-{index}.json", directory / f"trivy-image-{index}.json",

@@ -112,37 +112,3 @@ class JdbcDocumentRepository(private val jdbc: NamedParameterJdbcTemplate) : Doc
         Boolean::class.java,
     )!!
 }
-
-/** Files in a local directory (a docker volume). Names are random and never come from a request. */
-@Component
-class LocalFileStore(@Value("\${cabinet.storage.local-dir:./uploads}") directory: String) : FileStore {
-    private val root: Path = Path.of(directory).toAbsolutePath().normalize()
-
-    init {
-        Files.createDirectories(root)
-    }
-
-    override fun put(storedName: String, content: InputStream, sizeBytes: Long) {
-        val target = resolve(storedName)
-        val temporary = Files.createTempFile(root, ".upload-", ".tmp")
-        try {
-            Files.copy(content, temporary, StandardCopyOption.REPLACE_EXISTING)
-            if (Files.size(temporary) != sizeBytes) throw java.io.IOException("Incomplete document write")
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-        } finally {
-            Files.deleteIfExists(temporary)
-        }
-    }
-
-    override fun get(storedName: String): StoredFile? {
-        val path = resolve(storedName)
-        if (!Files.isRegularFile(path)) return null
-        return StoredFile(Files.size(path), Files.newInputStream(path))
-    }
-
-    private fun resolve(name: String): Path {
-        val path = root.resolve(name).normalize()
-        require(path.parent == root) { "Invalid stored name" }
-        return path
-    }
-}

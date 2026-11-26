@@ -57,13 +57,15 @@ def fetch(opener, origin, path, limit):
 
 def verify_alpha(deployment, opener, origin, containers):
     alpha = deployment.alpha_dev
+    release = deployment.release
     kafka = containers["analytics-kafka"]
-    running, image_id = docker(
-        "inspect", "--type", "container", "--format", "{{.State.Running}} {{.Image}}", kafka,
+    running, image_ref, image_id = docker(
+        "inspect", "--type", "container", "--format", "{{.State.Running}} {{.Config.Image}} {{.Image}}", kafka,
     ).decode("ascii").strip().split()
-    expected_id = docker("image", "inspect", "--format", "{{.Id}}", alpha.kafka_image).decode("ascii").strip()
-    if running != "true" or not IMAGE_ID.fullmatch(image_id) or image_id != expected_id:
-        raise RuntimeError("Работающий Kafka отличается от закреплённого digest")
+    if running != "true" or image_ref != release.kafka_image or not IMAGE_ID.fullmatch(image_id):
+        raise RuntimeError("Kafka не запущен с digest из manifest выпуска")
+    if image_id != release.local_image_id("kafka"):
+        raise RuntimeError("Работающий образ Kafka отличается от проверенного образа выпуска")
 
     route = "http://analytics:8080" + ALPHA_ROUTE
     common = ["curl", "-sS", "--noproxy", "*", "--max-time", "3", "-o", "/dev/null", "-w", "%{http_code}"]
@@ -97,8 +99,9 @@ def verify_alpha(deployment, opener, origin, containers):
         "topic": alpha.topic, "dlq_topic": alpha.dlq, "consumer_group": alpha.group,
         "read_enabled": alpha.read_enabled, "snapshot_sha256": marker[1],
         "http_with_token": int(authorized), "http_without_token": int(denied), "public_http": 404,
-        "kafka": {"container": kafka, "image_id": image_id, "registry_ref": alpha.kafka_image},
-        "jar_sha256": deployment.release.alpha_dev["jar_sha256"],
+        "kafka": {"container": kafka, "image_id": image_id, "registry_ref": image_ref,
+                  "revision": release.revision, "upstream_ref": release.kafka_upstream},
+        "jar_sha256": release.alpha_dev["jar_sha256"],
     }
 
 

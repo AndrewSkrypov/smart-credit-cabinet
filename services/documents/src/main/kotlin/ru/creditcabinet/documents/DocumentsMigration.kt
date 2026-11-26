@@ -179,13 +179,13 @@ class DocumentsMigration(
                     "insert into artifact_records(id,company_id,application_id,offer_id,kind,phase,template_version,input_hash,metadata,status,attempts,next_attempt_at) values(?,?,?,?,?,?,?,?,?::jsonb,?,?,?) on conflict(id) do nothing",
 
                     record.id,
-                         record.scope.companyId,
-                         record.scope.applicationId,
-                         record.offerId,
-                         record.kind,
-                         record.phase,
-                         record.templateVersion,
-                         record.inputHash,
+                    record.scope.companyId,
+                    record.scope.applicationId,
+                    record.offerId,
+                    record.kind,
+                    record.phase,
+                    record.templateVersion,
+                    record.inputHash,
 
                     mapper.writeValueAsString(
                         record,
@@ -217,36 +217,39 @@ class DocumentsMigration(
             org.springframework.jdbc.core.RowCallbackHandler { rs ->
                 val d = mapper.readValue<DocumentRecord>(rs.getString(1))
                 check(credit.queryForObject("select company_id from applications where id=?", UUID::class.java, d.scope.applicationId) == d.scope.companyId)
-                val previous = credit.query("select d.*,a.company_id from documents d join applications a on a.id=d.application_id where d.id=? for update of d",
-                     {
-                        row,
-                        _,
-                    ->
-                    DocumentRecord(
-                        uuid(
+                val previous = credit.query(
+                    "select d.*,a.company_id from documents d join applications a on a.id=d.application_id where d.id=? for update of d",
+                    {
                             row,
-                            "id",
-                        ),
-                        DocumentScope(
-                            uuid(row, "company_id"),
-                            uuid(row, "application_id"),
-                        ),
-                        row.getString(
-                            "type",
-                        ),
-                        row.getString(
-                            "file_name",
-                        ),
-                        row.getString(
-                            "stored_name",
-                        ),
-                        row.getLong(
-                            "size_bytes",
-                        ),
-                        uuid(row, "uploaded_by"), row.getTimestamp("uploaded_at").toInstant(), row.getString("context"), row.getString("storage_backend"),
-                        row.getString("checksum_sha256") ?: d.checksum, row.getBoolean("private_to_bank"), row.getTimestamp("deleted_at")?.toInstant(),
-                    )
-                }, d.id).firstOrNull()
+                            _,
+                        ->
+                        DocumentRecord(
+                            uuid(
+                                row,
+                                "id",
+                            ),
+                            DocumentScope(
+                                uuid(row, "company_id"),
+                                uuid(row, "application_id"),
+                            ),
+                            row.getString(
+                                "type",
+                            ),
+                            row.getString(
+                                "file_name",
+                            ),
+                            row.getString(
+                                "stored_name",
+                            ),
+                            row.getLong(
+                                "size_bytes",
+                            ),
+                            uuid(row, "uploaded_by"), row.getTimestamp("uploaded_at").toInstant(), row.getString("context"), row.getString("storage_backend"),
+                            row.getString("checksum_sha256") ?: d.checksum, row.getBoolean("private_to_bank"), row.getTimestamp("deleted_at")?.toInstant(),
+                        )
+                    },
+                    d.id,
+                ).firstOrNull()
                 val expected = d.copy(uploadedAt = pgInstant(credit, d.uploadedAt), deletedAt = d.deletedAt?.let { pgInstant(credit, it) })
                 if (previous != null) {
                     check(previous.copy(deletedAt = expected.deletedAt) == expected) { "Immutable document metadata conflict" }
@@ -269,63 +272,70 @@ class DocumentsMigration(
             org.springframework.jdbc.core.RowCallbackHandler { rs ->
                 val a = mapper.readValue<ArtifactRecord>(rs.getString(1))
                 check(credit.queryForObject("select company_id from applications where id=?", UUID::class.java, a.scope.applicationId) == a.scope.companyId)
-                val previous = credit.query("select g.*,a.company_id from generated_artifacts g join applications a on a.id=g.application_id where g.id=? for update of g",
-                     {
-                        row,
-                        _,
-                    ->
-                    ArtifactRecord(
-                        uuid(
+                val previous = credit.query(
+                    "select g.*,a.company_id from generated_artifacts g join applications a on a.id=g.application_id where g.id=? for update of g",
+                    {
                             row,
-                            "id",
-                        ),
-                        DocumentScope(
-                            uuid(row, "company_id"),
-                            uuid(row, "application_id"),
-                        ),
-                        uuid(
-                            row,
-                            "offer_id",
-                        ),
-                        row.getString(
-                            "kind",
-                        ),
-                        row.getString(
-                            "phase",
-                        ),
-                        row.getInt(
-                            "template_version",
-                        ),
-                        row.getString(
-                            "input_hash",
-                        ),
-                        mapper.writeValueAsString(
-                            mapper.readValue<ArtifactInput>(row.getString("input_json")),
-                        ),
-                        row.getString(
-                            "title",
-                        ),
-                        row.getString(
-                            "file_name",
-                        ),
-                        row.getString(
-                            "content_type",
-                        ),
-                        row.getString(
-                            "stored_name",
-                        ),
-                        row.getString(
-                            "storage_backend",
-                        ),
-                        row.getTimestamp(
-                            "created_at",
-                        ).toInstant(),
-                        row.getString(
-                            "status",
-                        ),
-                        row.getObject("size_bytes", java.lang.Long::class.java)?.toLong(), row.getString("checksum"), row.getTimestamp("ready_at")?.toInstant(),
-                    )
-                }, a.id).firstOrNull()
+                            _,
+                        ->
+                        ArtifactRecord(
+                            uuid(
+                                row,
+                                "id",
+                            ),
+                            DocumentScope(
+                                uuid(row, "company_id"),
+                                uuid(row, "application_id"),
+                            ),
+                            uuid(
+                                row,
+                                "offer_id",
+                            ),
+                            row.getString(
+                                "kind",
+                            ),
+                            row.getString(
+                                "phase",
+                            ),
+                            row.getInt(
+                                "template_version",
+                            ),
+                            row.getString(
+                                "input_hash",
+                            ),
+                            mapper.writeValueAsString(
+                                mapper.readValue<ArtifactInput>(row.getString("input_json")),
+                            ),
+                            row.getString(
+                                "title",
+                            ),
+                            row.getString(
+                                "file_name",
+                            ),
+                            row.getString(
+                                "content_type",
+                            ),
+                            row.getString(
+                                "stored_name",
+                            ),
+                            row.getString(
+                                "storage_backend",
+                            ),
+                            row.getTimestamp(
+                                "created_at",
+                            ).toInstant(),
+                            row.getString(
+                                "status",
+                            ),
+                            row.getObject(
+                                "size_bytes",
+                                java.lang.Long::class.java,
+                            )?.toLong(),
+                            row.getString("checksum"), row.getTimestamp("ready_at")?.toInstant(),
+                        )
+                    },
+                    a.id,
+                ).firstOrNull()
                 val expected = a.copy(createdAt = pgInstant(credit, a.createdAt), readyAt = a.readyAt?.let { pgInstant(credit, it) })
                 if (previous != null) {
                     check(
@@ -367,21 +377,21 @@ class DocumentsMigration(
                     checksum=excluded.checksum,
                     ready_at=excluded.ready_at""",
                     a.id,
-                         a.scope.applicationId,
-                         a.offerId,
-                         a.kind,
-                         a.phase,
-                         a.templateVersion,
-                         a.inputHash,
-                         a.inputJson,
-                         a.title,
-                         a.fileName,
-                         a.contentType,
-                         a.storedName,
-                         a.backend,
-                         a.status,
-                         a.sizeBytes,
-                         a.checksum,
+                    a.scope.applicationId,
+                    a.offerId,
+                    a.kind,
+                    a.phase,
+                    a.templateVersion,
+                    a.inputHash,
+                    a.inputJson,
+                    a.title,
+                    a.fileName,
+                    a.contentType,
+                    a.storedName,
+                    a.backend,
+                    a.status,
+                    a.sizeBytes,
+                    a.checksum,
 
                     Timestamp.from(
                         a.createdAt,

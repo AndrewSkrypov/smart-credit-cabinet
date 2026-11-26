@@ -27,8 +27,9 @@ class DocumentsStore(
     private val metadata: JdbcDocumentMetadata,
 ) {
     fun <T> owned(epoch: Long, block: () -> T): T = tx.execute {
-        val gate = jdbc.queryForMap("select owner,epoch from document_ownership where singleton for share")
+        val gate = jdbc.queryForMap("select owner,epoch from document_ownership where singleton")
         check(gate["owner"] == "DOCUMENTS" && (gate["epoch"] as Number).toLong() == epoch) { "Ownership fenced" }
+        jdbc.queryForObject("select public.assert_documents_writer(?)", Boolean::class.java, epoch)
         block()
     }!!
 
@@ -151,8 +152,9 @@ class DocumentsStore(
     @Scheduled(fixedDelayString = "\${cabinet.documents.poll-ms:1000}")
     fun generateOne() {
         val claim = tx.execute {
-            val gate = jdbc.queryForMap("select owner,epoch from document_ownership where singleton for share")
+            val gate = jdbc.queryForMap("select owner,epoch from document_ownership where singleton")
             if (gate["owner"] != "DOCUMENTS") return@execute null
+            jdbc.queryForObject("select public.assert_documents_writer(?)", Boolean::class.java, (gate["epoch"] as Number).toLong())
             val row =
                 jdbc.queryForList(
                     "select id,metadata from artifact_records where template_version=${ArtifactRenderer.TEMPLATE_VERSION} and status<>'READY' and attempts<5 and next_attempt_at<=now() and (lease_until is null or lease_until<now()) order by next_attempt_at limit 1 for update skip locked",

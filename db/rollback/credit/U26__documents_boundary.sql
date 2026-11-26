@@ -10,4 +10,5 @@ alter table application_chat_audit add foreign key(document_id,application_id) r
 drop trigger documents_owner_fence on documents;
 drop trigger artifacts_owner_fence on generated_artifacts;
 drop function fence_local_documents();
+drop function assert_local_documents_writer();
 -- Frozen terms are retained for audit and retry compatibility.

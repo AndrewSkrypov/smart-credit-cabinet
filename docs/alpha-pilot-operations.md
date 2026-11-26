@@ -123,6 +123,35 @@ bash ci/alpha/build-analytics.sh
    сверки HTTP обслуживает SQL. Допуск к переключению определяется A09
    и A11 в матрице.
 
+## Повтор доставки после FAILED
+
+Пока есть необработанные строки outbox, Credit выдаёт `currentStatuses` из SQL.
+После восстановления брокера сверьте БД Credit, среду и поколение потока.
+Запишите причину отказа и идентификаторы строки outbox и события журнала в
+квитанцию. Для восстановленного из backup источника используйте процедуру
+создания нового поколения выше.
+
+На изолированном стенде для повтора в том же поколении выполните следующий
+запрос в операторской сессии PostgreSQL. Передайте переменные psql
+`failed_outbox_id` и `journal_event_id` с UUID из квитанции. Операция затрагивает
+только одну запись в `FAILED`, сохраняя ключ, payload и UUID события.
+
+```sql
+UPDATE application_status_outbox
+SET state = 'PENDING',
+    attempts = 0,
+    next_attempt_at = statement_timestamp(),
+    updated_at = statement_timestamp()
+WHERE id = :'failed_outbox_id'::uuid
+  AND event_key = :'journal_event_id'
+  AND state = 'FAILED'
+RETURNING id, event_key, state;
+```
+
+Проверьте изменение одной строки, затем broker ack, состояние `DELIVERED`,
+offset потребителя и паритет проекции с SQL. Неуспешная сверка оставляет чтение
+в режиме SQL и критерий A07 открытым.
+
 ## Квитанция
 
 Запишите local, CI и dev отдельными строками с полным SHA, временем,

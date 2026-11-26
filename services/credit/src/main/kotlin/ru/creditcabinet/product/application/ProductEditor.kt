@@ -8,6 +8,9 @@ import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
+import ru.creditcabinet.product.domain.ProductImpact
+import ru.creditcabinet.product.domain.ProductImpactCounts
+import ru.creditcabinet.product.domain.ProductImpactQuery
 import ru.creditcabinet.product.domain.ProductLifecycleStatus
 import ru.creditcabinet.product.domain.ProductRevision
 import ru.creditcabinet.product.domain.ProductVersions
@@ -15,7 +18,12 @@ import ru.creditcabinet.product.domain.problems
 import java.time.Clock
 
 @Service
-class ProductEditor(private val catalog: ProductCatalog, private val versions: ProductVersions, private val clock: Clock) {
+class ProductEditor(
+    private val catalog: ProductCatalog,
+    private val versions: ProductVersions,
+    private val clock: Clock,
+    private val impactQuery: ProductImpactQuery? = null,
+) {
     fun list(): List<Product> {
         CurrentCaller.requireBankStaff()
         return versions.list()
@@ -25,6 +33,22 @@ class ProductEditor(private val catalog: ProductCatalog, private val versions: P
         CurrentCaller.requireBankStaff()
         if (catalog.latest(code) == null) throw NotFoundException("Продукт не найден")
         return versions.history(code)
+    }
+
+    fun impact(code: String): ProductImpact {
+        CurrentCaller.requireBankStaff()
+        val current = catalog.latest(code) ?: throw NotFoundException("Продукт не найден")
+        val counts = impactQuery?.counts(current.code) ?: ProductImpactCounts(0L, 0L, 0L)
+        return ProductImpact(
+            productCode = current.code,
+            currentVersion = current.version,
+            lifecycleStatus = current.lifecycleStatus,
+            draftApplicationsCount = counts.draftApplicationsCount,
+            inProgressApplicationsCount = counts.inProgressApplicationsCount,
+            activePreApprovedOffersCount = counts.activePreApprovedOffersCount,
+            archivalRule = "Действующие поданные заявки продолжают рассмотрение по зафиксированной версии продукта; " +
+                "создание новых заявок по архивному продукту блокируется.",
+        )
     }
 
     @Transactional

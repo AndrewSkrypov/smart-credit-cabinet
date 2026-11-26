@@ -1,5 +1,11 @@
 import com.google.protobuf.gradle.proto
 
+buildscript {
+    configurations.classpath {
+        resolutionStrategy.activateDependencyLocking()
+    }
+}
+
 plugins {
     `java-library`
     id("com.google.protobuf") version "0.9.5"

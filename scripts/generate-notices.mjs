@@ -37,7 +37,6 @@ for (const [scope, file] of [
     const key = `${item.moduleName}@${item.moduleVersion}`;
     const reported = item.moduleLicenses?.map((x) => x.moduleLicense).filter(Boolean) ?? [];
     const licenses = reported.length ? reported : markers[key]?.licenses ?? [];
-    if (!licenses.length) throw new Error(`Нет лицензии Gradle: ${key}`);
     const existing = backend.get(key);
     backend.set(key, {
       name: item.moduleName, version: item.moduleVersion,
@@ -46,6 +45,9 @@ for (const [scope, file] of [
       scopes: [...new Set([...(existing?.scopes ?? []), scope])].sort(),
     });
   }
+}
+for (const [key, item] of backend) {
+  if (!item.licenses.length) throw new Error(`Нет лицензии Gradle: ${key}`);
 }
 
 const npm = [];
@@ -84,8 +86,8 @@ const lines = [
   'npm — из lock-файлов, дополненных license-checker для пакетов без поля license.',
   'Знак * у npm означает распознавание лицензии по тексту. Перечень сохраняет upstream-названия',
   'и варианты лицензий; несколько названий не переинтерпретируются как выбранная лицензия.',
-  'Два маркера Gradle без license в POM дополнены по исходникам реализации:',
-  '`scripts/license-tools/gradle-markers.json` хранит точные версии и основания.',
+  'Пропуски в метаданных Gradle дополнены по POM и исходникам реализации.',
+  '`scripts/license-tools/gradle-markers.json` хранит точные версии и источники.',
   'Машиночитаемая версия: `docs/licenses/inventory.json`. Оригинальные LICENSE/NOTICE находятся',
   'в пакетах и по ссылкам ниже; при распространении сохраняйте применимые уведомления.', '',
   '## Бэкенд и сборка Gradle', '', '| Компонент | Версия | Лицензии из метаданных | Источники |',

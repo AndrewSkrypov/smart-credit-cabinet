@@ -111,10 +111,7 @@ jobs:
             ci-artifacts/schema-rollback.json
             ci-artifacts/migration-restore.json
       - name: Hash the tested service jars
-        run: |
-          mkdir -p ci-artifacts
-          test "$(find services -path '*/build/libs/app.jar' | wc -l)" -eq 4
-          sha256sum services/*/build/libs/app.jar > ci-artifacts/backend.sha256
+        run: bash ci/gitlab/quality/backend-artifacts.sh
       - name: Publish the tested service jars
         uses: actions/upload-artifact@v4
         with:
@@ -214,7 +211,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [identity, credit, engagement, external-sim, frontend]
+        service: [catalog-grpc, identity, credit, engagement, external-sim, frontend]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4

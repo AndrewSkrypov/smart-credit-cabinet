@@ -7,6 +7,7 @@ import org.mockito.kotlin.whenever
 import ru.creditcabinet.catalog.domain.CatalogEditor
 import ru.creditcabinet.catalog.domain.CatalogFenced
 import ru.creditcabinet.catalog.domain.CatalogReader
+import ru.creditcabinet.catalog.domain.CatalogUnavailable
 import ru.creditcabinet.catalog.domain.CatalogWriter
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.Product
@@ -70,6 +71,15 @@ class CatalogApplicationTest {
         whenever(writer.replace(candidate, 4, editor, stored.reason, at)).thenReturn(stored)
         assertEquals(stored, catalog.replace(candidate, 4, editor, "  Изменение условий "))
         verify(writer).replace(candidate, 4, editor, stored.reason, at)
+    }
+
+    @Test
+    fun `writer failure remains a catalog availability failure`() {
+        val catalog = CatalogUseCases(reader, writer, {}, clock)
+        val databaseFailure = IllegalStateException("Synthetic connection failure")
+        whenever(writer.replace(candidate, 4, editor, "Изменение условий", at)).thenThrow(CatalogUnavailable(databaseFailure))
+        val failure = assertFailsWith<CatalogUnavailable> { catalog.replace(candidate, 4, editor, "Изменение условий") }
+        assertEquals(databaseFailure, failure.cause)
     }
 
     @Test

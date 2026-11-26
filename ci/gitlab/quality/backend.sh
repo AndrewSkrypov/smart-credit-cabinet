@@ -101,5 +101,4 @@ python3 deploy/check-schema-rollback.py --pg-bin "$(pg_config --bindir)" --port 
 python3 deploy/check-migration-restore.py --pg-bin "$(pg_config --bindir)" --java-bin "${JAVA_HOME:?}/bin" \
     --port "$DB_PORT" --user cabinet --output ci-artifacts/migration-restore.json
 
-test "$(find services -path '*/build/libs/app.jar' | wc -l)" -eq 4
-sha256sum services/*/build/libs/app.jar > ci-artifacts/backend.sha256
+bash ci/gitlab/quality/backend-artifacts.sh

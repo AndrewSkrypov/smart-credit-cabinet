@@ -96,3 +96,9 @@ python3 services/catalog-grpc/cutover/snapshot.py switch credit-owner /var/tmp/c
 ```sh
 ./gradlew :services:credit:test --tests '*RemoteCatalogIntegrationTest'
 ```
+
+## Проверки сборки в CI
+
+Штатная сборка backend проверяет пять именованных JAR и сохраняет SHA-256 каждого. Образ Catalog для проверки собирается из того же JAR и включён в матрицы сканирования GitLab и GitHub. Gradle-инвентарь включает рантайм, контрактные модули и генераторы gRPC/Protobuf. Модель каталога участвует в общей проверке покрытия пакетов `domain`.
+
+Публикация образа и настройки Dev относятся к отдельной поставке.

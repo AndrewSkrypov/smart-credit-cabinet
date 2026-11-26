@@ -21,7 +21,9 @@ jacoco {
     toolVersion = "0.8.15"
 }
 
-val coverageModules = subprojects.filter { it.path.startsWith(":services:") || it.path == ":libs:platform-common" }
+val coverageModules = subprojects.filter {
+    it.path.startsWith(":services:") || it.path in setOf(":libs:platform-common", ":libs:catalog-model")
+}
 val coverageClasses = files(coverageModules.map { it.layout.buildDirectory.dir("classes/kotlin/main") })
 val coverageExecutions = files(coverageModules.map { it.layout.buildDirectory.file("jacoco/test.exec") })
 val domainMinimum = providers.gradleProperty("domainCoverageMinimum").orElse("0.75").get().toBigDecimal()
@@ -85,8 +87,10 @@ tasks.register("updateDependencyLocks") {
 }
 
 licenseReport {
-    projects = arrayOf(project) + subprojects.filter { it.path.startsWith(":services:") || it.path == ":libs:platform-common" }.toTypedArray()
-    buildScriptProjects = arrayOf(project)
+    projects = arrayOf(project) + subprojects.filter {
+        it.path.startsWith(":services:") || it.path.startsWith(":libs:catalog-") || it.path == ":libs:platform-common"
+    }.toTypedArray()
+    buildScriptProjects = arrayOf(project, project(":libs:catalog-contracts"))
     configurations = emptyArray()
     renderers = arrayOf(JsonReportRenderer("backend-dependencies.json", false))
 }

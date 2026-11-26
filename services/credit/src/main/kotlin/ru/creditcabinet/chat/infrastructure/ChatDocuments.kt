@@ -15,7 +15,8 @@ import java.util.UUID
 @Component
 class ChatDocuments(private val documents: DocumentRepository, private val service: DocumentService) : ChatAttachments {
     override fun find(applicationId: UUID, documentId: UUID, callerId: UUID): ChatFile {
-        val document = documents.find(applicationId, documentId) ?: throw NotFoundException("Документ не найден")
+        val document = documents.find(applicationId, documentId)?.takeUnless { it.privateToBank }
+            ?: throw NotFoundException("Документ не найден")
         if (document.context == DocumentContext.CHAT && document.uploadedBy != callerId && !documents.isChatAttached(documentId)) {
             throw NotFoundException("Документ не найден")
         }

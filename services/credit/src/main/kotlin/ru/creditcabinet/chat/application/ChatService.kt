@@ -161,6 +161,7 @@ class ChatService(
     }
 
     private fun notifyOtherParty(application: LoanApplication, message: ChatMessage) {
+        if (message.side == ChatSide.COMPANY && !application.visibleToBank) return
         val title = "Новое сообщение по заявке № ${application.number}"
         val body = "Откройте переписку в кабинете, чтобы прочитать сообщение."
         val key = "chat:${message.id}"
@@ -185,7 +186,7 @@ class ChatService(
                     link = "/client/applications/${application.id}",
                     dedupKey = "$key:company",
                 ),
-                application.agentId?.let { agentId ->
+                application.activeAgentId?.let { agentId ->
                     PlatformNotification(
                         recipientId = agentId,
                         type = "APPLICATION_MESSAGE",

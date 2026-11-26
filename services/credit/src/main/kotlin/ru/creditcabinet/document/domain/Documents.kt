@@ -30,6 +30,7 @@ data class ApplicationDocument(
     val context: DocumentContext = DocumentContext.BUSINESS,
     val storageBackend: StorageBackend = StorageBackend.LOCAL,
     val checksumSha256: String? = null,
+    val privateToBank: Boolean = false,
 )
 
 /** A document the bank needs for this application, and why. */

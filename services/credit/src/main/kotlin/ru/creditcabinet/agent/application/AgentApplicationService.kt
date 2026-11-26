@@ -7,6 +7,7 @@ import org.springframework.web.multipart.MultipartFile
 import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.agent.domain.AgentPortfolioCalculator
 import ru.creditcabinet.agent.domain.AgentPortfolioSummary
+import ru.creditcabinet.agent.domain.ActionOwner
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationEvent
@@ -16,6 +17,7 @@ import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CommissionStatus
 import ru.creditcabinet.application.domain.InfoRequests
+import ru.creditcabinet.application.domain.JournalEntry
 import ru.creditcabinet.application.domain.JournalNote
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.PipelineJobs
@@ -31,11 +33,16 @@ import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.document.domain.StoredFile
+import ru.creditcabinet.financing.scenario.FinancingScenarios
+import ru.creditcabinet.offer.OfferRepository
 import ru.creditcabinet.preapproved.application.PreApprovedOfferService
 import ru.creditcabinet.preapproved.domain.PreApprovedOffer
 import ru.creditcabinet.product.domain.Product
 import java.time.Clock
+import java.time.Instant
 import java.util.UUID
+
+data class AgentApplicationAction(val owner: ActionOwner, val label: String, val deadline: Instant? = null)
 
 @Service
 class AgentApplicationService(
@@ -49,18 +56,26 @@ class AgentApplicationService(
     private val documentService: DocumentService,
     private val preApprovedOffers: PreApprovedOfferService,
     private val clock: Clock,
+    private val eligibility: AgentClientEligibility,
+    private val scenarios: FinancingScenarios,
+    private val offers: OfferRepository,
 ) {
     fun portfolio(): AgentPortfolioSummary {
         val caller = CurrentCaller.requireRole(Roles.AGENT)
         val companyIds = agentAccess.listCompanyIds(caller.userId).toSet()
-        val visible = applications.listByAgent(caller.userId).filter { it.company.id in companyIds }
+        val visible = eligibleApplications(caller.userId, companyIds)
         return AgentPortfolioCalculator.summarize(companyIds.size, visible)
     }
 
     fun listPreApprovedOffers(): List<PreApprovedOffer> {
         val caller = CurrentCaller.requireRole(Roles.AGENT)
         val companyIds = agentAccess.listCompanyIds(caller.userId)
-        return preApprovedOffers.listForCompanies(companyIds)
+        val offers = preApprovedOffers.listForCompanies(companyIds)
+        val eligible = offers.map { it.companyId }.distinct().filter { companyId ->
+            val access = agentAccess.checkAccess(caller.userId, companyId)
+            access.allowed && access.company?.let(eligibility::isEligible) == true
+        }.toSet()
+        return offers.filter { it.companyId in eligible }
     }
 
     @Transactional
@@ -73,8 +88,14 @@ class AgentApplicationService(
     fun listApplications(statuses: Set<ApplicationStatus>? = null): List<LoanApplication> {
         val caller = CurrentCaller.requireRole(Roles.AGENT)
         val companyIds = agentAccess.listCompanyIds(caller.userId).toSet()
-        return applications.listByAgent(caller.userId)
-            .filter { it.company.id in companyIds && (statuses.isNullOrEmpty() || it.status in statuses) }
+        return eligibleApplications(caller.userId, companyIds)
+            .filter { statuses.isNullOrEmpty() || it.status in statuses }
+    }
+
+    private fun eligibleApplications(agentId: UUID, companyIds: Set<UUID>): List<LoanApplication> {
+        val owned = applications.listByAgent(agentId).filter { it.activeAgentId == agentId && it.company.id in companyIds }
+        val eligible = owned.map { it.company }.distinctBy { it.id }.filter(eligibility::isEligible).map { it.id }.toSet()
+        return owned.filter { it.company.id in eligible }
     }
 
     @Transactional
@@ -82,6 +103,7 @@ class AgentApplicationService(
         val caller = CurrentCaller.requireRole(Roles.AGENT)
         val access = agentAccess.checkAccess(caller.userId, companyId)
         val company = access.company?.takeIf { access.allowed } ?: throw notFound()
+        eligibility.requireEligible(company)
         val product = applicationService.product(terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
         if (applications.hasActive(companyId, product.code)) throw activeExists(product)
@@ -111,9 +133,32 @@ class AgentApplicationService(
 
     fun get(id: UUID): LoanApplication = ownAgentApplication(id).second
 
+    fun events(id: UUID): List<JournalEntry> =
+        journal.list(get(id).id).filterNot { it.event == JournalNote.PRIVATE_DOCUMENT_ADDED.name }
+
+    fun action(application: LoanApplication): AgentApplicationAction? =
+        when (application.status) {
+            ApplicationStatus.DRAFT -> AgentApplicationAction(ActionOwner.AGENT, "Подготовить пакет")
+            ApplicationStatus.PENDING_CLIENT_CONFIRMATION -> AgentApplicationAction(ActionOwner.CLIENT, "Подтвердить пакет")
+            ApplicationStatus.INFO_REQUESTED -> infoRequests.open(application.id)?.let { request ->
+                if (request.items.any { it.documentType == DocumentType.BANK_STATEMENT }) {
+                    AgentApplicationAction(ActionOwner.CLIENT, "Ответить на запрос по выписке", request.deadline)
+                } else {
+                    AgentApplicationAction(ActionOwner.AGENT, "Ответить на запрос банка", request.deadline)
+                }
+            }
+            ApplicationStatus.MANUAL_REVIEW -> AgentApplicationAction(ActionOwner.BANK, "Рассмотреть заявку")
+            ApplicationStatus.OFFER_ISSUED ->
+                AgentApplicationAction(ActionOwner.CLIENT, "Принять предложение", offers.current(application.id)?.validUntil)
+            ApplicationStatus.SIGNING -> AgentApplicationAction(ActionOwner.CLIENT, "Подписать договор")
+            ApplicationStatus.SUBMITTED, ApplicationStatus.ENRICHMENT, ApplicationStatus.SCORING, ApplicationStatus.DISBURSING ->
+                AgentApplicationAction(ActionOwner.SYSTEM, "Обработать заявку")
+            else -> null
+        }
+
     @Transactional
     fun updateDraft(id: UUID, terms: ApplicationTerms): LoanApplication {
-        val (_, application) = ownAgentApplication(id)
+        val (_, application) = ownAgentApplication(id, forUpdate = true)
         val product = applicationService.product(application.terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
         val sanitizedTerms = terms.copy(bureauConsent = false)
@@ -127,7 +172,7 @@ class AgentApplicationService(
 
     @Transactional
     fun requestClientConfirmation(id: UUID): LoanApplication {
-        val (caller, application) = ownAgentApplication(id)
+        val (caller, application) = ownAgentApplication(id, forUpdate = true)
         val product = applicationService.product(application.terms.productCode)
         val commissionRateBps = product.agentCommissionRateBps
         val refreshed = application.copy(
@@ -135,14 +180,16 @@ class AgentApplicationService(
             agentCommissionRateBps = commissionRateBps,
             agentCommissionAmount = application.terms.amount * commissionRateBps / 10_000L,
         )
+        val prepared = scenarios.prepareHandoff(refreshed, product)
+        val ready = preApprovedOffers.detachIfOutOfBounds(prepared, prepared.terms)
         return applicationService.commit(
-            refreshed.requestClientConfirmation(product, Actor(ActorType.AGENT, caller.userId), clock.instant()),
+            ready.requestClientConfirmation(product, Actor(ActorType.AGENT, caller.userId), clock.instant()),
         )
     }
 
     @Transactional
     fun cancel(id: UUID): LoanApplication {
-        val (caller, application) = ownAgentApplication(id)
+        val (caller, application) = ownAgentApplication(id, forUpdate = true)
         val saved = applicationService.commit(application.agentCancel(Actor(ActorType.AGENT, caller.userId), clock.instant()))
         if (application.status in setOf(ApplicationStatus.DRAFT, ApplicationStatus.PENDING_CLIENT_CONFIRMATION)) {
             application.preApprovedOfferId?.let { preApprovedOffers.release(it, saved.id) }
@@ -153,9 +200,13 @@ class AgentApplicationService(
 
     @Transactional
     fun provideInfo(id: UUID, answer: String?): LoanApplication {
-        val (caller, application) = ownAgentApplication(id)
+        val (caller, application) = ownAgentApplication(id, forUpdate = true)
         val request = infoRequests.open(application.id) ?: throw ConflictException("Банк сейчас ничего не запрашивал")
-        val fresh = documentRepository.list(application.id).filter { !it.uploadedAt.isBefore(request.createdAt) }.map { it.type }.toSet()
+        val submitted = documentRepository.list(application.id).filter { !it.uploadedAt.isBefore(request.createdAt) }
+        if (submitted.any { file -> file.privateToBank && request.items.any { it.documentType == file.type } }) {
+            throw ConflictException("Завершить запрос по приватной выписке может клиент")
+        }
+        val fresh = submitted.map { it.type }.toSet()
         val missing = request.items.mapNotNull { it.documentType }.filter { it !in fresh }
         require(missing.isEmpty()) { "Загрузите: ${missing.joinToString(", ") { it.title.lowercase() }}" }
         require(!request.hasQuestions || !answer.isNullOrBlank()) { "Ответьте на вопросы банка" }
@@ -170,7 +221,7 @@ class AgentApplicationService(
 
     fun listDocuments(id: UUID): List<ApplicationDocument> {
         val (_, application) = ownAgentApplication(id)
-        return documentRepository.list(application.id)
+        return documentRepository.list(application.id).filterNot { it.privateToBank }
     }
 
     @Transactional
@@ -197,11 +248,12 @@ class AgentApplicationService(
      * 2) agentAccess.checkAccess(caller.userId, application.company.id).allowed == true
      * Any violation returns 404 Not Found without leaking existence.
      */
-    fun ownAgentApplication(id: UUID): Pair<TokenClaims, LoanApplication> {
+    fun ownAgentApplication(id: UUID, forUpdate: Boolean = false): Pair<TokenClaims, LoanApplication> {
         val caller = CurrentCaller.requireRole(Roles.AGENT)
-        val application = applications.find(id) ?: throw notFound()
-        if (application.agentId != caller.userId) throw notFound()
+        val application = (if (forUpdate) applications.findForUpdate(id) else applications.find(id)) ?: throw notFound()
+        if (application.activeAgentId != caller.userId) throw notFound()
         if (!agentAccess.checkAccess(caller.userId, application.company.id).allowed) throw notFound()
+        if (!eligibility.isEligible(application.company)) throw notFound()
         return caller to application
     }
 

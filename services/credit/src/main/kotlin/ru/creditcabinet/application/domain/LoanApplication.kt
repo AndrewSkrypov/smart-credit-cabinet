@@ -42,7 +42,7 @@ data class JournalEntry(
 }
 
 /** Journal entries that are not transitions. */
-enum class JournalNote { CREATED, DOCUMENT_ADDED, DOCUMENT_REMOVED }
+enum class JournalNote { CREATED, DOCUMENT_ADDED, DOCUMENT_REMOVED, PRIVATE_DOCUMENT_ADDED }
 
 data class Transition(val application: LoanApplication, val entry: JournalEntry)
 
@@ -75,15 +75,17 @@ data class LoanApplication(
     val agentCommissionRateBps: Int? = null,
     val agentCommissionAmount: Long? = null,
     val agentCommissionStatus: CommissionStatus = CommissionStatus.NONE,
+    val clientHandoffAt: Instant? = null,
+    val clientManaged: Boolean = false,
 ) {
     val isActive: Boolean get() = !status.terminal
+    val activeAgentId: UUID? get() = agentId.takeUnless { clientManaged }
 
-    /** A draft or agent confirmation step is hidden from the bank until submitted. */
-    val visibleToBank: Boolean
-        get() = status != ApplicationStatus.DRAFT && status != ApplicationStatus.PENDING_CLIENT_CONFIRMATION
+    val visibleToBank: Boolean get() = submittedAt != null
 
-    /** An agent's draft is private to the agent until sent to the client for confirmation. */
-    val visibleToClient: Boolean get() = agentId == null || status != ApplicationStatus.DRAFT
+    /** The first handoff opens client visibility for the rest of the life of the application. */
+    val visibleToClient: Boolean get() =
+        agentId == null || clientHandoffAt != null || submittedAt != null || status == ApplicationStatus.PENDING_CLIENT_CONFIRMATION
 
     fun updateDraft(terms: ApplicationTerms, now: Instant): LoanApplication {
         if (status != ApplicationStatus.DRAFT) throw ConflictException("Заявка уже отправлена — изменить её можно только по запросу банка")
@@ -128,18 +130,23 @@ data class LoanApplication(
         if (actor.type !in ApplicationEvent.REQUEST_CLIENT_CONFIRMATION.actors) {
             throw ConflictException("Это действие недоступно для вашей роли")
         }
-        if (agentId == null || agentId != actor.id) {
+        if (activeAgentId == null || activeAgentId != actor.id) {
             throw ConflictException("Отправить заявку на подтверждение может только агент, создавший её")
         }
         val problems = agentSubmissionProblems(product)
         require(problems.isEmpty()) { problems.joinToString("; ") }
-        return move(ApplicationEvent.REQUEST_CLIENT_CONFIRMATION, actor, now)
+        return move(ApplicationEvent.REQUEST_CLIENT_CONFIRMATION, actor, now).let {
+            it.copy(application = it.application.copy(clientHandoffAt = clientHandoffAt ?: now))
+        }
     }
 
     /** T23: client reviews an agent-prepared application, grants bureau consent, and submits to the bank. */
     fun confirmAndSubmit(product: Product, bureauConsent: Boolean, actor: Actor, now: Instant): Transition {
         if (actor.type !in ApplicationEvent.CONFIRM_AND_SUBMIT.actors) {
             throw ConflictException("Это действие недоступно для вашей роли")
+        }
+        if (status == ApplicationStatus.DRAFT && (!clientManaged || clientHandoffAt == null)) {
+            throw ConflictException("Для подтверждения нужна переданная клиенту заявка")
         }
         val withConsent = copy(terms = terms.copy(bureauConsent = bureauConsent))
         val problems = withConsent.submissionProblems(product)
@@ -158,7 +165,7 @@ data class LoanApplication(
         if (actor.type !in ApplicationEvent.AGENT_CANCEL.actors) {
             throw ConflictException("Это действие недоступно для вашей роли")
         }
-        if (agentId == null || agentId != actor.id) {
+        if (activeAgentId == null || activeAgentId != actor.id) {
             throw ConflictException("Отменить черновик может только агент, создавший заявку")
         }
         return move(ApplicationEvent.AGENT_CANCEL, actor, now)

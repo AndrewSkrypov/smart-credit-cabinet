@@ -8,7 +8,8 @@
         $CI_PIPELINE_SOURCE == "merge_request_event" &&
         ($CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-analytics-pilot" ||
         $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-dev-provisioning" ||
-        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-kafka-security") &&
+        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-kafka-security" ||
+        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-private-valkey") &&
         $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "feat/final-platform-release"
 
 alpha-pilot-infrastructure:
@@ -17,7 +18,10 @@ alpha-pilot-infrastructure:
   variables:
     ALPHA_PILOT_SCAN_KAFKA: "1"
   script:
+    - python3 -m venv "$RUNNER_TEMP/alpha-tools"
+    - '"$RUNNER_TEMP/alpha-tools/bin/pip" install -r scripts/requirements-tools.txt'
     - python3 ci/alpha/test_dev_rollout.py
+    - '"$RUNNER_TEMP/alpha-tools/bin/python" -B ci/alpha/test_projection_smoke.py'
     - mkdir -p ci-artifacts
     - bash ci/alpha/smoke.sh > ci-artifacts/alpha-infrastructure.tsv
   artifacts:
@@ -31,10 +35,23 @@ alpha-pilot-infrastructure:
 alpha-pilot-analytics-jar:
   extends: .alpha-pilot-verify
   timeout: 30 minutes
+  variables:
+    RUNNER_SCRIPT_TIMEOUT: 25m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 4m
   dependencies: []
   script:
+    - python3 -m venv "$RUNNER_TEMP/alpha-tools"
+    - '"$RUNNER_TEMP/alpha-tools/bin/pip" install -r scripts/requirements-tools.txt'
+    - '"$RUNNER_TEMP/alpha-tools/bin/python" -B ci/alpha/test_projection_smoke.py'
     - bash ci/alpha/build-analytics.sh
+    - python3 -B ci/alpha/projection-smoke.py --receipt ci-artifacts/alpha-projection.json
+  after_script:
+    - |
+      source ci/gitlab/quality/runner.sh || exit 2
+      python3 -B ci/alpha/projection-smoke.py --cleanup-only
   artifacts:
+    when: always
     expire_in: 14 days
     paths:
       - ci-artifacts/alpha-analytics/
+      - ci-artifacts/alpha-projection.json

@@ -172,6 +172,13 @@ class DocumentsRuntimeTest {
             } }
         }
         assertEquals(200, http("$base/documents/$privateId", client).statusCode())
+        for (role in listOf("MANAGER", "UNDERWRITER", "RISK_ADMIN")) {
+            val bank = token(UUID.randomUUID(), role, null)
+            assertEquals(200, http("$base/documents/$visible", bank).statusCode())
+            assertEquals(200, http("$base/documents/$privateId", bank).statusCode())
+            assertEquals(404, http("$base/documents/$hidden", bank).statusCode())
+        }
+        assertEquals(401, http("$base/documents/$visible", "").statusCode())
         assertEquals(404, http("$base/documents/$visible", token(actor, "CLIENT", UUID.randomUUID())).statusCode())
         assertEquals(404, http("$base/documents/$visible", token(actor, "UNKNOWN", scope.companyId)).statusCode())
         assertEquals(404, http("/api/v1/agent/applications/${scope.applicationId}/documents/$visible", token(actor, "AGENT", null)).statusCode())

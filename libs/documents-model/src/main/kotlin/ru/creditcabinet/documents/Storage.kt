@@ -8,9 +8,18 @@ const val MAX_DOCUMENT_BYTES = 20 * 1024 * 1024
 
 data class DocumentScope(val companyId: UUID, val applicationId: UUID)
 data class DocumentRecord(
-    val id: UUID, val scope: DocumentScope, val type: String, val fileName: String,
-    val storedName: String, val sizeBytes: Long, val uploadedBy: UUID, val uploadedAt: Instant,
-    val context: String, val backend: String, val checksum: String, val privateToBank: Boolean,
+    val id: UUID,
+    val scope: DocumentScope,
+    val type: String,
+    val fileName: String,
+    val storedName: String,
+    val sizeBytes: Long,
+    val uploadedBy: UUID,
+    val uploadedAt: Instant,
+    val context: String,
+    val backend: String,
+    val checksum: String,
+    val privateToBank: Boolean,
     val deletedAt: Instant? = null,
 ) {
     fun validate() {
@@ -24,11 +33,24 @@ data class DocumentRecord(
 }
 
 data class ArtifactRecord(
-    val id: UUID, val scope: DocumentScope, val offerId: UUID, val kind: String, val phase: String,
-    val templateVersion: Int, val inputHash: String, val inputJson: String, val title: String,
-    val fileName: String, val contentType: String, val storedName: String, val backend: String,
-    val createdAt: Instant, val status: String = "PENDING", val sizeBytes: Long? = null,
-    val checksum: String? = null, val readyAt: Instant? = null,
+    val id: UUID,
+    val scope: DocumentScope,
+    val offerId: UUID,
+    val kind: String,
+    val phase: String,
+    val templateVersion: Int,
+    val inputHash: String,
+    val inputJson: String,
+    val title: String,
+    val fileName: String,
+    val contentType: String,
+    val storedName: String,
+    val backend: String,
+    val createdAt: Instant,
+    val status: String = "PENDING",
+    val sizeBytes: Long? = null,
+    val checksum: String? = null,
+    val readyAt: Instant? = null,
 )
 
 fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }

@@ -1,2 +1,5 @@
 plugins { id("cabinet.library-conventions") }
-dependencies { api(project(":libs:loan-math")); testImplementation("org.jetbrains.kotlin:kotlin-test-junit5") }
+dependencies {
+    api(project(":libs:loan-math"))
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+}

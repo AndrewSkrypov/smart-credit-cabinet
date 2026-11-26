@@ -18,10 +18,16 @@ class StoreDocument(private val metadata: DocumentMetadata, private val objects:
         record.validate()
         require(record.deletedAt == null && bytes.size.toLong() == record.sizeBytes && sha256(bytes) == record.checksum)
         val old = metadata.find(record.id)
-        if (old != null) { require(old == record); return }
+        if (old != null) {
+            require(old == record)
+            return
+        }
         metadata.reserve(record)
         val concurrent = metadata.find(record.id)
-        if (concurrent != null) { require(concurrent == record); return }
+        if (concurrent != null) {
+            require(concurrent == record)
+            return
+        }
         scanner.scan(bytes)
         val orphan = objects.get(record.storedName, StorageBackend.valueOf(record.backend))
         if (orphan != null) {

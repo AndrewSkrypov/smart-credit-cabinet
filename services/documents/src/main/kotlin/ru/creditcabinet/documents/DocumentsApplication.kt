@@ -15,4 +15,6 @@ import ru.creditcabinet.document.infrastructure.S3FileStore
 @Import(ArtifactRenderer::class, ClamDocumentScanner::class, LocalFileStore::class, S3FileStore::class, RoutingFileStore::class)
 class DocumentsApplication
 
-fun main(args: Array<String>) { runApplication<DocumentsApplication>(*args) }
+fun main(args: Array<String>) {
+    runApplication<DocumentsApplication>(*args)
+}

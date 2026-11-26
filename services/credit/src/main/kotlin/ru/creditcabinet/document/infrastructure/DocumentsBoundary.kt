@@ -76,13 +76,16 @@ class DocumentsBoundary(
     }
     override fun listForPacket(applicationId: UUID, submittedAt: Instant?, documentId: UUID?): List<ApplicationDocument> {
         if (!remote) return local.listForPacket(applicationId, submittedAt, documentId)
-        val packet = jdbc.query("select document_ids from financing_scenario_publications where application_id=? and status='AWAITING_CLIENT' order by revision desc limit 1",
-             {
-                rs,
-                _,
-            ->
-            mapper.readValue<List<UUID>>(rs.getString(1))
-        }, applicationId).firstOrNull()
+        val packet = jdbc.query(
+            "select document_ids from financing_scenario_publications where application_id=? and status='AWAITING_CLIENT' order by revision desc limit 1",
+            {
+                    rs,
+                    _,
+                ->
+                mapper.readValue<List<UUID>>(rs.getString(1))
+            },
+            applicationId,
+        ).firstOrNull()
         return all(applicationId).filter {
             it.context == "BUSINESS" &&
                 (documentId == null || it.id == documentId) &&
@@ -132,18 +135,20 @@ class DocumentsBoundary(
     }
 }
 
-private fun ApplicationDocument.record(scope: DocumentScope): DocumentRecord = DocumentRecord(id,
-     scope,
-     type.name,
-     fileName,
-     storedName,
-     sizeBytes,
-     uploadedBy,
-     uploadedAt,
-     context.name,
-     storageBackend.name,
-     checksumSha256!!,
-     privateToBank)
+private fun ApplicationDocument.record(scope: DocumentScope): DocumentRecord = DocumentRecord(
+    id,
+    scope,
+    type.name,
+    fileName,
+    storedName,
+    sizeBytes,
+    uploadedBy,
+    uploadedAt,
+    context.name,
+    storageBackend.name,
+    checksumSha256!!,
+    privateToBank,
+)
 private fun DocumentRecord.document(): ApplicationDocument = ApplicationDocument(
     id, scope.applicationId,
     DocumentType.valueOf(

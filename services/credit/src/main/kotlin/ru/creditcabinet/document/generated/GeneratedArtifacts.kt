@@ -207,13 +207,15 @@ class GeneratedArtifacts(
     /** Independent from issuing money: an unavailable renderer/store cannot roll back disbursement. */
     fun prepareFinalLoans() {
         if (boundary?.remote == true) {
-            val ids = jdbc.query("select l.application_id from loans l where not exists(select 1 from document_artifact_inputs i where i.application_id=l.application_id and i.phase='FINAL' and i.delivered_at is not null) order by l.disbursed_at limit 5",
-                 {
-                    rs,
-                    _,
-                ->
-                rs.getObject(1, UUID::class.java)
-            })
+            val ids = jdbc.query(
+                "select l.application_id from loans l where not exists(select 1 from document_artifact_inputs i where i.application_id=l.application_id and i.phase='FINAL' and i.delivered_at is not null) order by l.disbursed_at limit 5",
+                {
+                        rs,
+                        _,
+                    ->
+                    rs.getObject(1, UUID::class.java)
+                },
+            )
             ids.forEach { id ->
                 runCatching {
                     tx.executeWithoutResult {
@@ -303,13 +305,16 @@ class GeneratedArtifacts(
 
     private fun notifyRemoteGroups(): Int {
         val remote = boundary!!
-        val ids = jdbc.query("select distinct i.application_id from document_artifact_inputs i where i.phase='FINAL' and i.delivered_at is not null and not exists(select 1 from generated_artifact_notices n where n.application_id=i.application_id and n.offer_id=i.offer_id and n.input_hash=i.input_hash and n.template_version=?) limit 10",
-             {
-                rs,
-                _,
-            ->
-            rs.getObject(1, UUID::class.java)
-        }, ArtifactRenderer.TEMPLATE_VERSION)
+        val ids = jdbc.query(
+            "select distinct i.application_id from document_artifact_inputs i where i.phase='FINAL' and i.delivered_at is not null and not exists(select 1 from generated_artifact_notices n where n.application_id=i.application_id and n.offer_id=i.offer_id and n.input_hash=i.input_hash and n.template_version=?) limit 10",
+            {
+                    rs,
+                    _,
+                ->
+                rs.getObject(1, UUID::class.java)
+            },
+            ArtifactRenderer.TEMPLATE_VERSION,
+        )
         return ids.count { id ->
             val groups = remote.rpc { remote.client().artifacts(remote.scope(id)) }.filter {
                 it.phase == "FINAL" &&

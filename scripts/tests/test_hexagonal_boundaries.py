@@ -49,3 +49,8 @@ class HexagonalBoundariesTest(unittest.TestCase):
         source = next((self.root / "libs/loan-math/src/main/kotlin").rglob("*.kt"))
         source.write_text(source.read_text() + '\nval transport="${io.grpc.Status.OK}"\n')
         self.assertTrue(boundaries.check(self.root)["errors"])
+
+    def test_nested_string_inside_interpolation_keeps_following_code_visible(self):
+        source = next((self.root / "libs/loan-math/src/main/kotlin").rglob("*.kt"))
+        source.write_text(source.read_text() + '\nval transport="${"https://example.invalid"} ${io /* nested /* comment */ */ .grpc.Status.OK}"\n')
+        self.assertTrue(boundaries.check(self.root)["errors"])

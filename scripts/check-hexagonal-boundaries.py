@@ -18,8 +18,10 @@ FORBIDDEN = re.compile(
 
 def without_comments(text):
     """Keep strings intact, including interpolation; strip nested Kotlin comments."""
-    out, index, quote, depth = [], 0, None, 0
+    out, index, depth = [], 0, 0
+    stack = [{"kind": "code", "interpolation": False, "braces": 0}]
     while index < len(text):
+        context = stack[-1]
         if depth:
             if text.startswith("/*", index):
                 depth += 1
@@ -30,14 +32,19 @@ def without_comments(text):
             else:
                 out.append("\n" if text[index] == "\n" else " ")
                 index += 1
-        elif quote:
+        elif context["kind"] == "string":
+            quote = context["quote"]
             if text.startswith(quote, index):
                 out.append(quote)
                 index += len(quote)
-                quote = None
+                stack.pop()
             elif quote != '"""' and text[index] == "\\":
                 out.append(text[index:index + 2])
                 index += 2
+            elif quote != "'" and text.startswith("${", index):
+                out.append("${")
+                index += 2
+                stack.append({"kind": "code", "interpolation": True, "braces": 0})
             else:
                 out.append(text[index])
                 index += 1
@@ -49,14 +56,22 @@ def without_comments(text):
             depth, index = 1, index + 2
             out.append(" ")
         elif text.startswith('"""', index):
-            quote = '"""'
-            out.append(quote)
+            stack.append({"kind": "string", "quote": '"""'})
+            out.append('"""')
             index += 3
         elif text[index] in "\"'":
-            quote = text[index]
-            out.append(quote)
+            stack.append({"kind": "string", "quote": text[index]})
+            out.append(text[index])
             index += 1
         else:
+            if context["interpolation"]:
+                if text[index] == "{":
+                    context["braces"] += 1
+                elif text[index] == "}":
+                    if context["braces"] == 0:
+                        stack.pop()
+                    else:
+                        context["braces"] -= 1
             out.append(text[index])
             index += 1
     return "".join(out)

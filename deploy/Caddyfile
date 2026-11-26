@@ -8,6 +8,8 @@
     @private path /sim /sim/* /swagger /swagger/* /v3/api-docs /v3/api-docs/* /actuator /actuator/* /internal /internal/* /ext /ext/*
     respond @private 404
     header Strict-Transport-Security "max-age=31536000"
+    {$CABINET_DEMO_RESTRICTIONS}
+    {$CABINET_DEV_DEMO_ROUTES}
     {$CABINET_GRAFANA_INCLUDE}
     reverse_proxy gateway:80
 }

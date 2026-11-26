@@ -1,16 +1,22 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cabinetTheme } from '../theme/theme';
 import { SignInPage, SignUpPage } from './AuthPages';
 import { generateTestInn } from '../shared/inn';
 import { emailError, passwordError } from '../shared/authValidation';
 
+const fetchDemo = vi.fn<typeof fetch>();
 const auth = vi.hoisted(() => ({ signIn: vi.fn(), signUp: vi.fn() }));
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ ...auth, session: null }), roleHome: {} }));
 vi.mock('../api/client', () => ({ authApi: { options: vi.fn(async () => ({ demoAccounts: false })) } }));
-beforeEach(() => { vi.resetAllMocks(); });
+beforeEach(() => {
+  vi.resetAllMocks();
+  fetchDemo.mockResolvedValue(new Response(null, { status: 404 }));
+  vi.stubGlobal('fetch', fetchDemo);
+});
+afterEach(() => { vi.unstubAllGlobals(); });
 const show = (signup = false) => render(<ThemeProvider theme={cabinetTheme}><MemoryRouter>{signup ? <SignUpPage /> : <SignInPage />}</MemoryRouter></ThemeProvider>);
 const change = (name: string, value: string) => fireEvent.change(screen.getByLabelText(name, { exact: false }), { target: { value } });
 
@@ -32,6 +38,24 @@ it('keeps sign-in unready, explains touched errors and validates Enter without c
   expect(email).toHaveAttribute('aria-invalid', 'false');
   await act(async () => { fireEvent.submit(view.container.querySelector('form')!); });
   expect(auth.signIn).toHaveBeenCalledExactlyOnceWith('client@demo.test', 'x');
+});
+
+it('offers the isolated demo link when the unauthenticated Dev probe returns 204', async () => {
+  fetchDemo.mockResolvedValueOnce(new Response(null, { status: 204 }));
+  show();
+  const link = await screen.findByRole('link', { name: 'Открыть демо-кабинет' });
+  expect(link).toHaveAttribute('href', '/_dev/demo');
+  expect(fetchDemo).toHaveBeenCalledExactlyOnceWith('/_dev/demo-enabled', expect.objectContaining({
+    method: 'GET', mode: 'same-origin', credentials: 'omit', redirect: 'error', cache: 'no-store'
+  }));
+});
+
+it.each([200, 404, 'network error'])('keeps the demo link hidden when the Dev probe returns %s', async (result) => {
+  if (typeof result === 'number') fetchDemo.mockResolvedValueOnce(new Response(null, { status: result }));
+  else fetchDemo.mockRejectedValueOnce(new Error(result));
+  await act(async () => { show(); });
+  expect(fetchDemo).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('link', { name: 'Открыть демо-кабинет' })).not.toBeInTheDocument();
 });
 
 it('requires every registration field and consent; retains input after network failure and suppresses duplicate submit', async () => {

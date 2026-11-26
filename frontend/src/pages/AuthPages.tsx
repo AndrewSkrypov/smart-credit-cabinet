@@ -78,6 +78,7 @@ export function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [demo, setDemo] = useState(false);
+  const [demoLink, setDemoLink] = useState(false);
   const submitting = useRef(false);
   const errors = { email: emailError(email), password: password ? '' : requiredError };
   const feedback = useFieldFeedback(errors);
@@ -86,6 +87,19 @@ export function SignInPage() {
 
   useEffect(() => {
     authApi.options().then((options) => setDemo(options.demoAccounts)).catch(() => setDemo(false));
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/_dev/demo-enabled', {
+      method: 'GET',
+      mode: 'same-origin',
+      credentials: 'omit',
+      redirect: 'error',
+      cache: 'no-store',
+      signal: controller.signal
+    }).then(({ status }) => setDemoLink(status === 204)).catch(() => {});
+    return () => controller.abort();
   }, []);
 
   if (session) return <Navigate to={roleDestination(session.user.role, location.search, roleHome[session.user.role])} replace />;
@@ -118,6 +132,7 @@ export function SignInPage() {
         <Typography id="signin-readiness" variant="body2" color="text.secondary">{ready ? 'Данные заполнены — можно войти.' : 'Для входа укажите корректный email и пароль.'}</Typography>
         <Button type="submit" variant="contained" size="large" disabled={busy || !ready} aria-describedby="signin-readiness">Войти</Button>
         <Link component={RouterLink} to="/password-recovery">Забыли пароль?</Link>
+        {demoLink && !demo && <Link href="/_dev/demo">Открыть демо-кабинет</Link>}
         <Typography variant="body2">
           Нет кабинета? <Link component={RouterLink} to={authPath('/sign-up', location.search)}>Подключите компанию</Link>
         </Typography>

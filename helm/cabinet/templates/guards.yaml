@@ -1,3 +1,6 @@
 {{- if and .Release.IsInstall .Values.app.enabled -}}
 {{- fail "install the persistent infrastructure with app.enabled=false before upgrading with app.enabled=true" -}}
 {{- end -}}
+{{- if and (eq .Release.Namespace "cabinet-prod") .Values.app.demoAccounts -}}
+{{- fail "app.demoAccounts must be false in the production namespace" -}}
+{{- end -}}

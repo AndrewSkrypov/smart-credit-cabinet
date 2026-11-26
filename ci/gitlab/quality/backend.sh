@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+python3 -B scripts/check-hexagonal-boundaries.py
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -p test_hexagonal_boundaries.py
+
 prefix="cabinet-ci-${CI_JOB_ID:?}"
 image="${prefix}-postgres:test"
 postgres="${prefix}-postgres"

@@ -129,3 +129,49 @@ Compose-файлов, включая GPU overlay. Установите `CABINET_
 своим штатным rollback job. Смена флага на той же ревизии требует явного
 пересоздания engagement под тем же lock. Проверьте ответ `RULES` и HTTPS
 Grafana.
+
+### Публичное демо
+
+Используйте выделенную ВМ для `demo.dev.credit-cabinet.ru`, пустой Compose-проект
+`cabinet-dev-demo` и для первого запуска образы Registry из manifest
+`e5bce6d79e478c7f20fc33fff6d1820c85ee2f63`. Для TLS DNS должен указывать на эту
+ВМ, Caddy должен принимать TCP 80/443. Запускайте эти команды из рабочей копии,
+в которой есть демо-оверлей. Для обновлений используйте проверенный манифест нового выпуска. Секреты, резервные копии и тома обычного Dev и Prod
+сюда не переносятся. Docker на этой ВМ получает отдельный доступ `read_registry`.
+
+```sh
+sudo install -d -m 0700 /var/lib/cabinet-dev-demo
+sudo python3 deploy/configure.py --domain demo.dev.credit-cabinet.ru --email <ACME-email> \
+  --release-manifest release.json --output /var/lib/cabinet-dev-demo/cabinet.env
+sudo python3 - /var/lib/cabinet-dev-demo/cabinet.env <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+network = {
+    "EDGE_SUBNET": "172.30.41.0/28",
+    "CADDY_EDGE_IP": "172.30.41.2",
+    "GATEWAY_EDGE_IP": "172.30.41.3",
+}
+lines = [key + "=" + network.get(key, value) for key, value in
+         (line.split("=", 1) for line in path.read_text().splitlines())]
+path.write_text("\n".join([*lines, "CABINET_ISOLATED_DEMO=true"]) + "\n")
+PY
+sudo docker volume ls --filter label=com.docker.compose.project=cabinet-dev-demo
+sudo python3 deploy/start.py --project cabinet-dev-demo \
+  --env-file /var/lib/cabinet-dev-demo/cabinet.env --release-manifest release.json --no-build
+```
+
+Перед первым запуском список томов проекта должен быть пуст. В закрытом env
+`DEMO_ACCOUNTS=false` и `SIM_CONTROL_ENABLED=false` сохраняются. Демо-оверлей
+включает общие записи только для Identity и её миграции. На демо отключены
+внешняя почта и модель. Caddy закрывает регистрацию, приглашения, смену пароля
+и профиля общих учёток. По HTTPS проверьте `/api/v1/auth/options` и вход по демо-кнопкам,
+а также отказ на маршрутах регистрации и изменения пароля. Для остановки сохраните
+тома и выполните `deploy/stop.py` с теми же параметрами проекта, env и manifest.
+Не восстанавливайте резервную копию другого контура в проект демо.
+
+На обычном Dev после приёмки демо можно включить `CABINET_DEV_DEMO_LINK=true` в
+закрытом env. Caddy ответит 204 на GET `/_dev/demo-enabled` и перенаправит GET
+`/_dev/demo` на фиксированный открытый адрес. Для отката выключите флаг и
+пересоздайте только Caddy с обычным набором Compose-файлов под блокировкой
+деплоя. Повторная передача текущего SHA в `dev-release.py` не применяет флаг.

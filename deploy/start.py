@@ -46,6 +46,6 @@ if not args.check_only:
     deployment.compose("stop", "caddy", "identity", "credit", "engagement")
     arguments = ["up", "-d", "--wait", "--wait-timeout", "300", "--no-build" if args.no_build else "--build"]
     deployment.compose(*arguments, *[name for name in active if name not in {"caddy", "ollama-pull"}])
-    count = deployment.block_demo_accounts()
+    count = 0 if deployment.isolated_demo else deployment.block_demo_accounts()
     deployment.compose("up", "-d", "--no-deps", "caddy")
     print(f"Стенд запущен; до открытия HTTPS дополнительно заблокировано старых демо-учёток: {count}")

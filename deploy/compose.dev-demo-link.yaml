@@ -1,0 +1,14 @@
+services:
+  caddy:
+    environment:
+      CABINET_DEV_DEMO_ROUTES: |
+        @dev_demo_enabled {
+            method GET
+            path /_dev/demo-enabled
+        }
+        @dev_demo_open {
+            method GET
+            path /_dev/demo
+        }
+        respond @dev_demo_enabled 204
+        redir @dev_demo_open https://demo.dev.credit-cabinet.ru/sign-in 302

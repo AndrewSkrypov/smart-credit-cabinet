@@ -30,6 +30,7 @@ class AssistantService(
     private val products: CreditProducts,
     private val clock: Clock,
     private val cache: AssistantReferenceCache,
+    private val manualReviewSummaries: ManualReviewSummaries,
     private val metrics: AssistantMetrics,
 ) {
     private val recent = ConcurrentHashMap<UUID, List<Instant>>()
@@ -152,12 +153,10 @@ class AssistantService(
         throttle(claims.userId)
         val advice = applications.advice(applicationId, authorization)
             ?: return Answer("Рекомендации сейчас недоступны — данные заявки видны в карточке.", AnswerMode.RULES, emptyList())
-        val verdict = advice["verdict"].asText()
-        val items = advice["items"].map { "${it["title"].asText()}. ${it["text"].asText()}" }
-        val sources = listOf("Экспертная система, модель v${advice["modelVersion"].asInt()}")
-        val byRules = (listOf(verdict) + items.take(3).map { "— $it" }).joinToString("\n")
-        if (items.isEmpty()) return Answer(verdict, AnswerMode.RULES, sources)
-        val context = "Вывод: $verdict\nПункты:\n" + items.joinToString("\n") { "— $it" }
+        manualReviewSummaries.ready(applicationId, advice)?.let { return it }
+        val input = UnderwritingSummaryInput.from(advice)
+        if (input.items.isEmpty()) return input.rulesAnswer()
+        val context = "Вывод: ${input.verdict}\nПункты:\n" + input.items.joinToString("\n") { "— $it" }
         val messages = listOf(ChatMessage("system", UNDERWRITER_SYSTEM), ChatMessage("user", context))
         val generated = model.chat(messages)
         generated?.let { reply ->
@@ -165,12 +164,12 @@ class AssistantService(
             val problems = Grounding.problems(text, context)
             if (problems.isEmpty()) {
                 metrics.modelEvent("ACCEPTED")
-                return Answer(text, AnswerMode.MODEL, sources)
+                return Answer(text, AnswerMode.MODEL, input.sources)
             }
             log.warn("Underwriting summary dropped: reference validation failed")
         }
         metrics.modelEvent(if (generated == null) "UNAVAILABLE" else "GUARD_REJECTED")
-        return Answer(byRules, AnswerMode.RULES, sources)
+        return input.rulesAnswer()
     }
 
     /**

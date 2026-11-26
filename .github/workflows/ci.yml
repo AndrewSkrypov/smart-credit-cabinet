@@ -587,6 +587,12 @@ jobs:
       - name: Wait for public API routes
         run: npm run wait
         working-directory: e2e
+      - name: Verify Credit to Engagement delivery for manual review
+        run: |
+          mkdir -p scripts/assistant-eval-reports
+          python3 scripts/check-manual-review-delivery.py --revision "$SOURCE_REVISION" \
+            --project "$COMPOSE_PROJECT_NAME" --base http://127.0.0.1:8080 \
+            --output scripts/assistant-eval-reports/ci-manual-review-delivery.json
       - name: Verify live OpenAPI snapshots
         run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" scripts/export-openapi.py --check'
       - name: Verify the final access matrix through the gateway
@@ -704,6 +710,7 @@ jobs:
           path: |
             scripts/assistant-eval-reports/ci-rules/report.json
             scripts/assistant-eval-reports/ci-agent-rules.json
+            scripts/assistant-eval-reports/ci-manual-review-delivery.json
           retention-days: 14
       - name: Reliability measurements without session tokens
         if: always()

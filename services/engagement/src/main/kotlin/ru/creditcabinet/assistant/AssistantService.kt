@@ -110,7 +110,9 @@ class AssistantService(
             val reference = articles.filter { it.exact } + articles.filterNot { it.exact }
             return Answer(RuleAnswers.answer(question, facts, reference), AnswerMode.RULES, sources)
         }
-        if (articles.isEmpty()) return Answer(RuleAnswers.answer(question, facts, articles), AnswerMode.RULES, sources)
+        if (articles.isEmpty() || articles.first().id == "overdraft") {
+            return Answer(RuleAnswers.answer(question, facts, articles), AnswerMode.RULES, sources)
+        }
         val primaryReference = articles.first()
         val trusted = articles.joinToString("\n") { it.text }
         // Only public, fixed prompts qualify, with no user history or application context.

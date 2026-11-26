@@ -300,6 +300,10 @@ e2e:
     - |
       replicas="$(docker compose ps --status running -q credit | wc -l)"
       python3 monitoring/verify.py --replicas "$replicas" --require-correlation --report-name correlation
+    - |
+      credit_runtime="$(docker inspect --format '{{.RestartCount}} {{.State.OOMKilled}}' "$(docker compose ps -q credit)")"
+      printf 'Credit restart count and OOMKilled: %s\n' "$credit_runtime"
+      test "$credit_runtime" = '0 false'
     - test "$early_access_status:$browser_status:$full_access_status" = 0:0:0
   artifacts:
     when: always

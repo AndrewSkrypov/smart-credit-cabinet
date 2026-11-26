@@ -57,7 +57,8 @@ services:
   credit:
     profiles: [prod]
     image: cabinet/credit:${CABINET_RELEASE:?Задайте CABINET_RELEASE}
-    mem_limit: 640m
+    # Preserve the 2 GiB host reserve on the 8 GiB Compose target with S3.
+    mem_limit: 768m
     environment:
       <<: *prod-env
       DB_PASSWORD: ${CREDIT_DB_PASSWORD:?Задайте CREDIT_DB_PASSWORD}

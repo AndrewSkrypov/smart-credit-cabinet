@@ -328,6 +328,7 @@ services:
 
   credit:
     <<: *service
+    mem_limit: 896m
     image: ${COMPOSE_PROJECT_NAME:-smart-credit-cabinet}-credit:latest
     build:
       context: .
@@ -337,6 +338,8 @@ services:
         SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
     environment:
       <<: *service-env
+      # Leave room outside the heap for PDF rendering, the JVM and native buffers.
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
       DB_NAME: credit
       DB_USER: credit_app
       DB_PASSWORD: ${CREDIT_DB_PASSWORD:-dev-credit-runtime-password}

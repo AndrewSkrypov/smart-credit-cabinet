@@ -1,24 +1,9 @@
 workflow:
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_REF_PROTECTED == "true"'
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
-      when: never
-    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
+    - when: never
 
-stages: [quality, verify, extended, release, dev, prod]
+stages: [quality, release, dev]
 
 include:
   - local: ci/gitlab/runner-canary.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-platform-release"'
-  - local: ci/gitlab/quality.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-platform-release"'
-        when: never
-      - when: always
-  - local: ci/gitlab/release.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-platform-release"'
-        when: never
-      - when: always

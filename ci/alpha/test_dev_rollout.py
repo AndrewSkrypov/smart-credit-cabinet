@@ -181,14 +181,19 @@ class DevRolloutTest(unittest.TestCase):
             patch.object(dev_release, "read_credentials", return_value={}),
             patch.object(dev_release, "provision"),
             patch.object(dev_release, "verify", return_value={}),
-            patch.object(dev_release, "run", side_effect=[None, '{"passed":true}']) as run,
+            patch.object(dev_release, "run", side_effect=[RuntimeError("failed shadow start"), None, '{"passed":true}']) as run,
             patch("sys.stdout", new_callable=io.StringIO),
         ):
             with self.assertRaises(RuntimeError):
                 dev_release.deploy(SimpleNamespace(verify_only=True), self.state, release)
+            with self.assertRaisesRegex(RuntimeError, "failed shadow start"):
+                dev_release.deploy(args, self.state, release)
+            self.assertEqual(json.loads(pending_file.read_text()), state)
+            with self.assertRaises(RuntimeError):
+                dev_release.deploy(SimpleNamespace(verify_only=True), self.state, release)
             dev_release.deploy(args, self.state, release)
 
-        self.assertEqual([call.args[1] for call in run.call_args_list], ["start.py", "verify-release.py"])
+        self.assertEqual([call.args[1] for call in run.call_args_list], ["start.py", "start.py", "verify-release.py"])
         self.assertEqual(json.loads(current_file.read_text()), state)
         self.assertFalse(pending_file.exists())
 

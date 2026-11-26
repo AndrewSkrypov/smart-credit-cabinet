@@ -83,11 +83,10 @@ def deploy(args, state_dir, release):
         raise ValueError("Manifest для уже применённой ревизии изменился")
     if pending and pending != desired and not resumes_pending_in_shadow(pending, desired):
         raise RuntimeError("Есть незавершённый выпуск. Повторите тот же manifest или восстановите отдельную копию.")
-    if args.verify_only and (desired != status or (pending and pending != status)):
+    if args.verify_only and (desired != status or pending):
         raise RuntimeError("Указанный выпуск не записан как текущий")
 
-    apply = not args.verify_only and (desired != status or (pending and pending != desired))
-    if apply:
+    if not args.verify_only and (desired != status or pending):
         if status and not pending and status["revision"] != release.revision:
             old_root, old_release = release_at(ROOT.parent, status["revision"])
             if status["manifest_sha256"] != old_release.checksum:

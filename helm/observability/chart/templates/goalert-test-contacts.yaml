@@ -5,8 +5,10 @@
 {{- if not (and $goalert.enabled $db.enabled) }}
 {{- fail "GoAlert test contacts require GoAlert and its dedicated managed PostgreSQL" }}
 {{- end }}
-{{- if (index .Values "kube-prometheus-stack" "alertmanager" "alertmanagerSpec" "useExistingSecret") }}
-{{- fail "Disable external Alertmanager paging before enabling GoAlert test contacts" }}
+{{- $alertmanager := index .Values "kube-prometheus-stack" "alertmanager" "alertmanagerSpec" }}
+{{- $scopedTelegram := and $contacts.allowScopedTelegram (eq ($alertmanager.configSecret | default "") "cabinet-alertmanager-telegram-config") }}
+{{- if and $alertmanager.useExistingSecret (not $scopedTelegram) }}
+{{- fail "GoAlert test contacts may coexist only with the scoped Telegram alert configuration" }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment

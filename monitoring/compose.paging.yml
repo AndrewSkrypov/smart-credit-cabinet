@@ -10,7 +10,7 @@ services:
     user: "65534:65534"
     restart: unless-stopped
     command:
-      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --config.file=${CABINET_ALERTMANAGER_CONFIG_PATH:-/etc/alertmanager/alertmanager.yml}
       - --storage.path=/alertmanager
     volumes:
       - ./monitoring/alerts/alertmanager-dev.yml:/etc/alertmanager/alertmanager.yml:ro

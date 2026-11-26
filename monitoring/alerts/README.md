@@ -209,5 +209,62 @@ ssh -N -L 18081:127.0.0.1:18081 -L 18025:127.0.0.1:18025 pump-final
 GoAlert доступен на `http://127.0.0.1:18081`, Mailpit на `http://127.0.0.1:18025`.
 Для локальной проверки используйте уже созданную синтетическую учётку и
 `test-contacts.py --goalert http://127.0.0.1:18081 --mailpit http://127.0.0.1:18025`
+
+## Доставка Telegram через выделенный relay
+
+На `pump-final` работают отдельные экземпляры `pump-telegram-relay@dev` и
+`pump-telegram-relay@prod`. Установите `telegram-relay/relay.py` в
+`/usr/local/libexec/pump-telegram-relay.py`, а unit в `/etc/systemd/system`.
+Unit работает под динамическим непривилегированным пользователем и перезапускается
+при отказе. В каталоге `/etc/pump/telegram-relay` с режимом `0700` храните для каждого
+окружения `{dev,prod}.env` и `{dev,prod}.authorization-sha256` с режимом `0600`.
+В `.env` укажите `RELAY_BIND_IP`, `RELAY_PORT` и `RELAY_CLIENT_CIDRS` через запятую.
+Файл `authorization-sha256` содержит SHA-256 от полного значения заголовка
+`Proxy-Authorization` без перевода строки. Создайте независимые значения Basic для
+Dev и Prod, передайте их Alertmanager через защищённые конфиги и ограничьте доступ
+к операторским копиям `{dev,prod}.client-auth` режимом `0600`.
+
+Dev привязывается к gateway приватной Compose-сети `cabinet-dev_cabinet` на порту
+`18328`. Если сеть пересоздана, проверьте её gateway и CIDR перед запуском сервиса.
+В `alertmanager-dev-telegram.yml` замените маркеры адреса и авторизации в процессе
+провижининга. Готовый файл `/etc/pump/monitoring/cabinet-paging/alertmanager-telegram.yml`
+имеет владельца `root:65534` и режим `0640`. В защищённом `cabinet.env` задайте
+`CABINET_ALERTMANAGER_CONFIG_PATH=/etc/alertmanager/secrets/cabinet-paging/alertmanager-telegram.yml`.
+Развёртывание должно включать `monitoring/compose.paging.yml` с поддержкой этого параметра.
+При откате на старую версию overlay добавьте после неё защищённое переопределение
+`/etc/pump/monitoring/compose.telegram-live.yaml`, содержащее только команду
+Alertmanager с этим `--config.file` и существующим `--storage.path=/alertmanager`.
+Проверяйте rollout через `amtool check-config` и `/-/ready` внутри контейнера.
+
+Prod слушает `18443/TCP` на выделенном IPv4 с TLS после подтверждения правила
+Edge. Firewall разрешает доступ только от проверенного SNAT-адреса Prod, а relay
+повторно проверяет CIDR, авторизацию и точный адрес `api.telegram.org:443`.
+Перед сменой SNAT повторите проверку с каждого воркера. В systemd drop-in для Prod
+добавьте `LoadCredential=tls-cert:<путь>` и `LoadCredential=tls-key:<путь>`.
+Закрытый ключ остаётся на relay, сертификат проверяется по SAN адреса слушателя.
+Оба экземпляра передают Telegram TLS целиком и не ведут журналы запросов.
+
+В Prod используйте `render-prod.py` с текущим нативным конфигом Alertmanager,
+защищённым файлом авторизации и HTTPS-адресом relay. `--smoke-only` включает только
+тестовый маршрут. Поместите результат под ключ `alertmanager.yaml` в Secret
+`monitoring/cabinet-alertmanager-telegram-config`. В `monitoring/cabinet-paging`
+добавьте `telegram-relay-ca.pem`, объединив обычные доверенные корни Alertmanager с
+сертификатом relay. Клиент использует этот набор для обоих TLS-соединений.
+После `amtool check-config` примените `helm/observability/telegram-paging-values.yaml`
+дополнительно к текущим values. Этот overlay сохраняет внутренний контур GoAlert
+с Mailpit. Его тестовые алерты не совпадают с фильтром Telegram. При откате Helm
+сначала верните прежнюю конфигурацию Alertmanager, затем удалите выделенный Secret.
+
+Проверьте `systemctl is-active pump-telegram-relay@dev pump-telegram-relay@prod`.
+Запустите `bash telegram-relay/health.sh IP:PORT AUTH_FILE` из сети Dev Alertmanager.
+Для проверки из Prod запустите её во временном Pod и добавьте файл доверенного
+сертификата последним аргументом. Проверка выполняет только HEAD к Bot API.
+Для проверки доставки включите синтетический
+`CabinetTelegramSmoke`, дождитесь `pending`, `firing` и подтверждённой отправки,
+верните условие в false и дождитесь `resolved`. Отслеживайте завершённые запросы
+`alertmanager_notification_requests_total{integration="telegram"}` и вычитайте
+`alertmanager_notification_requests_failed_total`. После проверки удалите тестовое
+правило или оставьте его неактивным. Операционные маршруты продолжают доставку
+состояния, окружения, уровня, известного имени алерта и сервиса без аннотаций.
 с аргументами `--admin-user` и `--admin-password-file`. Сценарий проверяет доставку
 основному и резервному тестовым контактам, ACK и закрытие по resolved.

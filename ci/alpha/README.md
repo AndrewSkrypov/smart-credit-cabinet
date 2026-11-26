@@ -16,6 +16,12 @@ with `prod`, and requires a matching SQL receipt and projection for a synthetic
 Kafka event. The JSON receipt binds source commit/tree, JAR SHA-256, image IDs,
 OCI revisions, and the synthetic event IDs.
 
+Kafka selection first checks the local official and mirror references for the
+exact digest and `linux/amd64`. If neither is usable, it pulls the same pinned
+digest from `mirror.gcr.io` and then the official registry. No tag-only fallback
+is allowed. The receipt records both the canonical pin and the selected ref;
+the patched image's base label must match that selected ref and canonical digest.
+
 The Valkey assertion uses the actual running Analytics container's settings and
 its network namespace. An ephemeral CLI container authenticates with those
 settings, requires `PONG`, and also requires unauthenticated access to be denied.
@@ -26,7 +32,10 @@ command arguments, logs, or receipt fields. No raw container logs are published.
 The project is deterministically `cabinet-alpha-projection-$CI_JOB_ID`.
 The production generation's named volume is overridden with a job-owned name.
 Normal exit, exceptions, SIGTERM and SIGINT enter scoped cleanup. GitLab repeats
-that cleanup in `after_script` for interrupted processes. Cleanup verifies exact
+that cleanup in `after_script` for interrupted processes, first sourcing the
+runner guard again to reset the original shell's Docker context and endpoint.
+The 30-minute job reserves 25 minutes for the script and 4 for `after_script`,
+leaving a minute for finalization. Cleanup verifies exact
 project labels and IDs; images additionally require the job label. It removes
 no shared base images and never uses a prune operation.
 

@@ -84,7 +84,14 @@ class ConfigurationTest(unittest.TestCase):
         self.assertNotIn("codex/alpha-dev-valkey", predicate)
         self.assertIn('TARGET_BRANCH_NAME == "feat/final-platform-release"', predicate)
         job = pipeline["alpha-pilot-analytics-jar"]
-        self.assertEqual(job["after_script"], ["python3 -B ci/alpha/projection-smoke.py --cleanup-only"])
+        after, = job["after_script"]
+        self.assertLess(after.index("source ci/gitlab/quality/runner.sh || exit 2"), after.index("--cleanup-only"))
+        self.assertEqual(job["timeout"], "30 minutes")
+        self.assertEqual(job["variables"]["RUNNER_SCRIPT_TIMEOUT"], "25m")
+        self.assertEqual(job["variables"]["RUNNER_AFTER_SCRIPT_TIMEOUT"], "4m")
+        script_budget = int(job["variables"]["RUNNER_SCRIPT_TIMEOUT"][:-1])
+        cleanup_budget = int(job["variables"]["RUNNER_AFTER_SCRIPT_TIMEOUT"][:-1])
+        self.assertLess(script_budget + cleanup_budget, 30)
         self.assertEqual(job["artifacts"]["when"], "always")
         self.assertIn("ci-artifacts/alpha-projection.json", job["artifacts"]["paths"])
 
@@ -99,6 +106,24 @@ class ConfigurationTest(unittest.TestCase):
 
 
 class GuardAndCleanupTest(unittest.TestCase):
+    def test_after_script_guard_replaces_original_endpoint_and_context(self):
+        # Run the actual shell guard with an in-shell Docker substitute. No
+        # Docker executable, daemon, socket or external service is contacted.
+        script = '''
+docker() {
+    test "$DOCKER_HOST" = "$CABINET_CI_DOCKER_HOST" || return 8
+    test -z "${DOCKER_CONTEXT:-}" || return 9
+    printf '%s\\n' cabinet-ci=true
+}
+source ci/gitlab/quality/runner.sh || exit 2
+test "$DOCKER_HOST" = unix:///ci-only.sock
+test -z "${DOCKER_CONTEXT:-}"
+'''
+        env = {"PATH": os.environ.get("PATH", ""), "CABINET_CI_DOCKER_HOST": "unix:///ci-only.sock",
+               "DOCKER_HOST": "unix:///original-other.sock", "DOCKER_CONTEXT": "original-context"}
+        result = subprocess.run(["bash", "-eu", "-c", script], cwd=ROOT, env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_numeric_job_scope_and_no_default_daemon(self):
         self.assertEqual(smoke.job_project("42"), "cabinet-alpha-projection-42")
         for bad in ("", "../dev", "42;prune", "1" * 25):
@@ -149,7 +174,7 @@ class GuardAndCleanupTest(unittest.TestCase):
             smoke.cleanup_owned(client, smoke.job_project("42"), "42")
         self.assertFalse(any(call.args[0] == "owned_cleanup" for call in client.run.call_args_list))
 
-    def test_main_sigterm_cleans_owned_objects_and_retains_failed_receipt(self):
+    def test_main_failure_and_sigterm_cleanup_retain_failed_receipts(self):
         with tempfile.TemporaryDirectory() as directory:
             receipt = Path(directory) / "receipt.json"
             args = SimpleNamespace(cleanup_only=False, receipt=receipt)
@@ -158,21 +183,24 @@ class GuardAndCleanupTest(unittest.TestCase):
                         "clean_source": "", "compose_render": json.dumps(wiring())}[operation]
             def terminate(*_args):
                 smoke.interrupted(signal.SIGTERM, None)
-            with (patch.object(smoke.argparse.ArgumentParser, "parse_args", return_value=args),
-                  patch.dict(os.environ, {"CI_JOB_ID": "42", "CI_COMMIT_SHA": "a" * 40}),
-                  patch.object(smoke, "endpoint_from_env", return_value="unix:///ci.sock"),
-                  patch.object(smoke, "checked", side_effect=checked),
-                  patch.object(smoke, "Docker") as client,
-                  patch.object(smoke, "check_wiring"),
-                  patch.object(smoke, "run_projection", side_effect=terminate),
-                  patch.object(smoke, "cleanup_owned") as cleanup,
-                  patch.object(signal, "signal"), patch("sys.stdout", new_callable=io.StringIO)):
-                self.assertEqual(smoke.main(), 143)
-                cleanup.assert_called_once_with(client.return_value, "cabinet-alpha-projection-42", "42")
-            result = json.loads(receipt.read_text())
-            self.assertFalse(result["passed"])
-            self.assertTrue(result["cleanup_passed"])
-            self.assertEqual(result["error_category"], "interrupted")
+            for failure, status, category in ((terminate, 143, "interrupted"),
+                                              (smoke.ProjectionError("synthetic_probe: failed"), 1, "verification_failed")):
+                with (self.subTest(category=category),
+                      patch.object(smoke.argparse.ArgumentParser, "parse_args", return_value=args),
+                      patch.dict(os.environ, {"CI_JOB_ID": "42", "CI_COMMIT_SHA": "a" * 40}),
+                      patch.object(smoke, "endpoint_from_env", return_value="unix:///ci.sock"),
+                      patch.object(smoke, "checked", side_effect=checked),
+                      patch.object(smoke, "Docker") as client,
+                      patch.object(smoke, "check_wiring"),
+                      patch.object(smoke, "run_projection", side_effect=failure),
+                      patch.object(smoke, "cleanup_owned") as cleanup,
+                      patch.object(signal, "signal"), patch("sys.stdout", new_callable=io.StringIO)):
+                    self.assertEqual(smoke.main(), status)
+                    cleanup.assert_called_once_with(client.return_value, "cabinet-alpha-projection-42", "42")
+                result = json.loads(receipt.read_text())
+                self.assertFalse(result["passed"])
+                self.assertTrue(result["cleanup_passed"])
+                self.assertEqual(result["error_category"], category)
 
     def test_command_failure_never_prints_secret_stderr(self):
         result = SimpleNamespace(returncode=1, stdout=SECRET, stderr=SECRET)
@@ -180,6 +208,81 @@ class GuardAndCleanupTest(unittest.TestCase):
             with self.assertRaisesRegex(smoke.ProjectionError, "^probe: failed$") as error:
                 smoke.checked("probe", ["docker"], {})
         self.assertNotIn(SECRET, str(error.exception))
+
+
+class KafkaCacheTest(unittest.TestCase):
+    pin = "apache/kafka:4.3.2@sha256:" + "a" * 64
+    mirror = "mirror.gcr.io/" + pin
+
+    def metadata(self, digest=None, architecture="amd64"):
+        return {"id": "sha256:" + "c" * 64, "os": "linux", "arch": architecture,
+                "digests": [digest or ("apache/kafka@sha256:" + "a" * 64)]}
+
+    def test_valid_local_original_or_mirror_needs_no_pull(self):
+        for selected in (self.pin, self.mirror):
+            with self.subTest(selected=selected):
+                client = MagicMock()
+                def inspect(_kind, reference, *_args, **_kwargs):
+                    if reference == selected:
+                        return self.metadata("docker.io/apache/kafka@sha256:" + "a" * 64)
+                    raise smoke.ProjectionError("object_inspection: failed")
+                client.inspect.side_effect = inspect
+                reference, image = smoke.select_pinned_kafka(client, self.pin)
+                self.assertEqual(reference, selected)
+                self.assertEqual(image["id"], "sha256:" + "c" * 64)
+                client.run.assert_not_called()
+
+    def test_wrong_architecture_is_rejected_then_same_digest_mirror_is_pulled(self):
+        client = MagicMock()
+        pulled = []
+        client.run.side_effect = lambda *_args, **_kwargs: pulled.append(_args[-1])
+        def inspect(_kind, reference, *_args, **_kwargs):
+            return self.metadata("mirror.gcr.io/apache/kafka@sha256:" + "a" * 64,
+                                 architecture="amd64" if reference in pulled else "arm64")
+        client.inspect.side_effect = inspect
+        selected, _ = smoke.select_pinned_kafka(client, self.pin)
+        self.assertEqual(selected, self.mirror)
+        self.assertEqual(pulled, [self.mirror])
+
+    def test_mirror_outage_falls_back_only_to_same_pinned_original(self):
+        client = MagicMock()
+        pulled = []
+        def pull(_operation, _action, *_args, **_kwargs):
+            reference = _args[-1]
+            pulled.append(reference)
+            if reference == self.mirror:
+                raise smoke.ProjectionError("pinned_kafka_pull: failed")
+        def inspect(_kind, reference, *_args, **_kwargs):
+            if pulled and pulled[-1] == self.pin and reference == self.pin:
+                return self.metadata()
+            raise smoke.ProjectionError("object_inspection: failed")
+        client.run.side_effect = pull
+        client.inspect.side_effect = inspect
+        selected, _ = smoke.select_pinned_kafka(client, self.pin)
+        self.assertEqual(selected, self.pin)
+        self.assertEqual(pulled, [self.mirror, self.pin])
+        self.assertTrue(all(reference.endswith("@sha256:" + "a" * 64) for reference in pulled))
+
+    def test_foreign_or_wrong_digest_never_satisfies_cache_or_pull(self):
+        for digest in ("apache/kafka@sha256:" + "b" * 64, "example.invalid/kafka@sha256:" + "a" * 64):
+            with self.subTest(digest=digest):
+                client = MagicMock()
+                client.inspect.return_value = self.metadata(digest)
+                with self.assertRaisesRegex(smoke.ProjectionError, "^pinned_kafka_image_unavailable$"):
+                    smoke.select_pinned_kafka(client, self.pin)
+                self.assertEqual([call.args[-1] for call in client.run.call_args_list], [self.mirror, self.pin])
+        client = MagicMock()
+        with self.assertRaisesRegex(smoke.ProjectionError, "^immutable_kafka_pin_required$"):
+            smoke.select_pinned_kafka(client, "apache/kafka:4.3.2")
+        client.inspect.assert_not_called()
+        client.run.assert_not_called()
+
+    def test_patched_label_must_bind_selected_ref_and_canonical_digest(self):
+        smoke.verify_patched_base(self.mirror, self.mirror, self.pin)
+        for actual, selected in ((self.pin, self.mirror), ("apache/kafka:latest", "apache/kafka:latest"),
+                                 (self.mirror.replace("a" * 64, "b" * 64), self.mirror)):
+            with self.assertRaises(smoke.ProjectionError):
+                smoke.verify_patched_base(actual, selected, self.pin)
 
 
 class EvidenceTest(unittest.TestCase):

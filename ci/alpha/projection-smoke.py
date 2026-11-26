@@ -126,8 +126,61 @@ class Docker:
         if not isinstance(labels, list) or "cabinet-ci=true" not in labels:
             raise ProjectionError("cabinet_ci_engine_required")
 
-    def inspect(self, kind, reference, template):
-        return json.loads(self.run("object_inspection", kind, "inspect", "--format", template, reference))
+    def inspect(self, kind, reference, template, **options):
+        return json.loads(self.run("object_inspection", kind, "inspect", "--format", template, reference, **options))
+
+
+def canonical_kafka_digest(reference):
+    # Only the official repository and its Google mirror may satisfy this pin.
+    for prefix in ("docker.io/", "mirror.gcr.io/"):
+        if reference.startswith(prefix):
+            reference = reference.removeprefix(prefix)
+            break
+    match = re.fullmatch(r"apache/kafka(?::[A-Za-z0-9._-]+)?(@sha256:[a-f0-9]{64})", reference)
+    return "apache/kafka" + match[1] if match else None
+
+
+def cached_pinned_kafka(docker, reference, pin):
+    expected = canonical_kafka_digest(pin)
+    try:
+        image = docker.inspect("image", reference,
+                               '{"id":{{json .Id}},"os":{{json .Os}},"arch":{{json .Architecture}},"digests":{{json .RepoDigests}}}',
+                               timeout=15)
+        digests = image.get("digests")
+        if (IMAGE_ID.fullmatch(image.get("id", "")) and image.get("os") == "linux" and image.get("arch") == "amd64"
+                and isinstance(digests, list) and any(isinstance(value, str) and canonical_kafka_digest(value) == expected
+                                                      for value in digests)):
+            return image
+    except (ProjectionError, ValueError, AttributeError, TypeError):
+        pass
+    return None
+
+
+def select_pinned_kafka(docker, pin):
+    if not re.fullmatch(r"apache/kafka:[A-Za-z0-9._-]+@sha256:[a-f0-9]{64}", pin):
+        raise ProjectionError("immutable_kafka_pin_required")
+    references = (pin, "mirror.gcr.io/" + pin)
+    # Prefer a usable local pin; a registry outage must not invalidate that cache.
+    for reference in references:
+        image = cached_pinned_kafka(docker, reference, pin)
+        if image is not None:
+            return reference, image
+    for reference in reversed(references):
+        try:
+            docker.run("pinned_kafka_pull", "pull", "--platform", "linux/amd64", reference, timeout=75)
+        except ProjectionError:
+            continue
+        image = cached_pinned_kafka(docker, reference, pin)
+        if image is not None:
+            return reference, image
+    raise ProjectionError("pinned_kafka_image_unavailable")
+
+
+def verify_patched_base(actual, selected, pin):
+    expected = canonical_kafka_digest(pin)
+    observed = canonical_kafka_digest(actual) if isinstance(actual, str) else None
+    if expected is None or actual != selected or observed != expected:
+        raise ProjectionError("patched_kafka_base_mismatch")
 
 
 def cleanup_owned(docker, project, job_id):
@@ -251,21 +304,15 @@ def run_projection(docker, compose, project, revision, env, receipt):
     analytics_image = image_evidence(docker, image, revision)
     receipt["analytics"] = {**analytics_image, "jar_sha256": digest, "jar_source": "prebuilt"}
     pin = (ROOT / "ci/alpha/kafka-image.txt").read_text().strip()
-    if not re.fullmatch(r"apache/kafka:[A-Za-z0-9._-]+@sha256:[a-f0-9]{64}", pin):
-        raise ProjectionError("immutable_kafka_pin_required")
-    docker.run("pinned_kafka_pull", "pull", "--platform", "linux/amd64", pin, timeout=150)
-    upstream = docker.inspect("image", pin, '{"id":{{json .Id}},"os":{{json .Os}},"arch":{{json .Architecture}},"digests":{{json .RepoDigests}}}')
-    repository = pin.split("@", 1)[0].rsplit(":", 1)[0]
-    if (not IMAGE_ID.fullmatch(upstream.get("id", "")) or upstream["os"] != "linux" or upstream["arch"] != "amd64"
-            or f"{repository}@{pin.split('@', 1)[1]}" not in upstream["digests"]):
-        raise ProjectionError("kafka_upstream_identity_mismatch")
+    selected, upstream = select_pinned_kafka(docker, pin)
     kafka_image = env["CABINET_ALPHA_DEV_KAFKA_IMAGE"]
     docker.run("patched_kafka_build", "build", "--platform", "linux/amd64", "--tag", kafka_image, *labels,
-               "--build-arg", f"UPSTREAM_KAFKA_IMAGE={pin}", "-f", "ci/alpha/Kafka.Dockerfile", "ci/alpha", timeout=180)
+               "--build-arg", f"UPSTREAM_KAFKA_IMAGE={selected}", "-f", "ci/alpha/Kafka.Dockerfile", "ci/alpha", timeout=180)
     built_kafka = image_evidence(docker, kafka_image, revision)
-    if docker.inspect("image", kafka_image, '{{json (index .Config.Labels "org.opencontainers.image.base.name")}}') != pin:
-        raise ProjectionError("patched_kafka_base_mismatch")
-    receipt["kafka"] = {**built_kafka, "upstream_ref": pin, "upstream_image_id": upstream["id"]}
+    verify_patched_base(docker.inspect("image", kafka_image, '{{json (index .Config.Labels "org.opencontainers.image.base.name")}}'),
+                        selected, pin)
+    receipt["kafka"] = {**built_kafka, "upstream_ref": pin, "selected_upstream_ref": selected,
+                        "upstream_image_id": upstream["id"]}
     docker.run("patched_postgres_build", "build", "--platform", "linux/amd64", "--tag", env["CABINET_IMAGE_POSTGRES"],
                *labels, "-f", "docker/postgres/Dockerfile", ".", timeout=180)
     run("private_dependencies", "up", "-d", "--wait", "--wait-timeout", "150",

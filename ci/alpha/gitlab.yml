@@ -35,6 +35,9 @@ alpha-pilot-infrastructure:
 alpha-pilot-analytics-jar:
   extends: .alpha-pilot-verify
   timeout: 30 minutes
+  variables:
+    RUNNER_SCRIPT_TIMEOUT: 25m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 4m
   dependencies: []
   script:
     - python3 -m venv "$RUNNER_TEMP/alpha-tools"
@@ -43,7 +46,9 @@ alpha-pilot-analytics-jar:
     - bash ci/alpha/build-analytics.sh
     - python3 -B ci/alpha/projection-smoke.py --receipt ci-artifacts/alpha-projection.json
   after_script:
-    - python3 -B ci/alpha/projection-smoke.py --cleanup-only
+    - |
+      source ci/gitlab/quality/runner.sh || exit 2
+      python3 -B ci/alpha/projection-smoke.py --cleanup-only
   artifacts:
     when: always
     expire_in: 14 days

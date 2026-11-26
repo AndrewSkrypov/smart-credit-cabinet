@@ -82,8 +82,20 @@ def control_lock(credit):
             session.wait()
 
 
+def finance_grants(service, grant):
+    database = sql(service, "select current_database();")
+    if database not in ("credit", "servicing"):
+        raise SystemExit("Unexpected financial database")
+    privilege = "grant select,insert,update,delete on " if grant else "revoke select,insert,update,delete on "
+    return privilege + ",".join("public." + table for table in TABLES) + (" to " if grant else " from ") + database + "_app;"
+
+
 def fence(service):
-    sql(service, "set lock_timeout='30s'; update servicing_writer_fence set writer='FENCED',epoch=epoch+1,changed_at=now() where singleton;")
+    sql(service, "begin; set local lock_timeout='30s'; update servicing_writer_fence set writer='FENCED',epoch=epoch+1,changed_at=now() where singleton;" + finance_grants(service, False) + "commit;")
+
+
+def activate(service, writer, digest):
+    sql(service, "begin; select writer from servicing_writer_fence where singleton for update;" + guard("(select writer='FENCED' from servicing_writer_fence where singleton)", "Activation requires a fenced target") + finance_grants(service, True) + "update servicing_writer_fence set writer=" + literal(writer) + ",manifest_sha256=" + literal(digest) + ",epoch=epoch+1,changed_at=now() where singleton and writer='FENCED';commit;")
 
 
 def import_snapshot(service, data):
@@ -151,14 +163,14 @@ def recover(credit, servicing, direction, manifest, abort):
         if checksum(snapshot(source)) != digest:
             raise SystemExit("Source no longer matches the fenced snapshot; do not activate any writer")
         if abort:
-            sql(source, "update servicing_writer_fence set writer=" + literal(source_writer) + ",manifest_sha256=" + literal(digest) + ",epoch=epoch+1,changed_at=now() where singleton and writer='FENCED';")
+            activate(source, source_writer, digest)
             if direction == "local":
                 sql(credit, "update servicing_writer_fence set writer='REMOTE',manifest_sha256=" + literal(digest) + ",changed_at=now() where singleton and writer='FENCED';")
         else:
             import_snapshot(target, data)
             if checksum(snapshot(target)) != digest:
                 raise SystemExit("Target checksum mismatch; both writers remain fenced")
-            sql(target, "update servicing_writer_fence set writer=" + literal(target_writer) + ",manifest_sha256=" + literal(digest) + ",epoch=epoch+1,changed_at=now() where singleton and writer='FENCED';")
+            activate(target, target_writer, digest)
             if direction == "remote":
                 sql(credit, "update servicing_writer_fence set writer='REMOTE',manifest_sha256=" + literal(digest) + ",changed_at=now() where singleton and writer='FENCED';")
     print(json.dumps({"recovery": "aborted" if abort else "resumed", "direction": direction, "sha256": digest}, sort_keys=True))
@@ -187,7 +199,7 @@ def transfer(credit, servicing, direction, directory):
             raise SystemExit("Target checksum mismatch; both writers remain fenced")
         digest = checksum(data)
         # Runtime cannot enable itself: fence UPDATE is owner-only.
-        sql(target, "update servicing_writer_fence set writer=" + literal(target_writer) + ",manifest_sha256=" + literal(digest) + ",epoch=epoch+1,changed_at=now() where singleton and writer='FENCED';")
+        activate(target, target_writer, digest)
         if direction == "remote":
             sql(credit, "update servicing_writer_fence set writer='REMOTE',manifest_sha256=" + literal(digest) + ",changed_at=now() where singleton and writer='FENCED';")
         print(json.dumps({"direction": direction, "manifest": str(manifest.resolve()), "sha256": digest,

@@ -129,3 +129,72 @@ Compose-файлов, включая GPU overlay. Установите `CABINET_
 своим штатным rollback job. Смена флага на той же ревизии требует явного
 пересоздания engagement под тем же lock. Проверьте ответ `RULES` и HTTPS
 Grafana.
+
+### Публичное демо
+
+Используйте выделенную ВМ для `demo.dev.credit-cabinet.ru`, пустой Compose-проект
+`cabinet-dev-demo` и для первого запуска образы Registry из manifest
+`e5bce6d79e478c7f20fc33fff6d1820c85ee2f63`. Для TLS DNS должен указывать на эту
+ВМ, Caddy должен принимать TCP 80/443. Запускайте эти команды из рабочей копии,
+в которой есть демо-оверлей. Для обновлений используйте проверенный манифест нового выпуска. Секреты, резервные копии и тома обычного Dev и Prod
+сюда не переносятся. Docker на этой ВМ получает отдельный доступ `read_registry`.
+
+```sh
+sudo install -d -m 0700 /var/lib/cabinet-dev-demo
+sudo python3 deploy/configure.py --domain demo.dev.credit-cabinet.ru --email <ACME-email> \
+  --release-manifest release.json --output /var/lib/cabinet-dev-demo/cabinet.env
+sudo python3 - /var/lib/cabinet-dev-demo/cabinet.env <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+network = {
+    "EDGE_SUBNET": "172.30.41.0/28",
+    "CADDY_EDGE_IP": "172.30.41.2",
+    "GATEWAY_EDGE_IP": "172.30.41.3",
+}
+lines = [key + "=" + network.get(key, value) for key, value in
+         (line.split("=", 1) for line in path.read_text().splitlines())]
+path.write_text("\n".join([*lines, "CABINET_ISOLATED_DEMO=true"]) + "\n")
+PY
+sudo docker volume ls --filter label=com.docker.compose.project=cabinet-dev-demo
+sudo python3 deploy/start.py --project cabinet-dev-demo \
+  --env-file /var/lib/cabinet-dev-demo/cabinet.env --release-manifest release.json --no-build
+```
+
+Перед первым запуском список томов проекта должен быть пуст. В закрытом env
+`DEMO_ACCOUNTS=false` и `SIM_CONTROL_ENABLED=false` сохраняются. Демо-оверлей
+включает общие записи только для Identity и её миграции. На демо отключены
+внешняя почта и модель. Caddy закрывает регистрацию, приглашения, смену пароля
+и профиля общих учёток. По HTTPS проверьте `/api/v1/auth/options` и вход по демо-кнопкам,
+а также отказ на маршрутах регистрации и изменения пароля. Для остановки сохраните
+тома и выполните `deploy/stop.py` с теми же параметрами проекта, env и manifest.
+Не восстанавливайте резервную копию другого контура в проект демо.
+
+Если изолированное демо запущено на ВМ обычного Dev, оператор создаёт внутреннюю
+Docker-сеть `cabinet-demo-caddy-edge` и подключает к ней Caddy демо с алиасом
+`demo-gateway`. В эту сеть входят только два Caddy. Базы и API обычного Dev и
+демо остаются в сетях своих проектов. Оператор также размещает конфигурацию
+отдельного демо-сайта в `/etc/pump/cabinet-demo-edge.Caddyfile` с владельцем
+root:root и режимом 0644. Compose подключает файл только для чтения и сохраняет
+отдельный сайт при пересоздании Caddy обычного Dev.
+
+После проверки изоляции включите `CABINET_DEV_PUBLIC_DEMO_EDGE=true` в закрытом
+env обычного Dev. Это доступно для HTTPS-проекта `cabinet-dev` с доменом
+`dev.credit-cabinet.ru` и Caddyfile из выбранного выпуска. Caddy пересылает
+`/demo/api/v1/*` в демо, убирая префикс `/demo`. Браузер
+остаётся на Dev. Cookie браузера и Set-Cookie демо удаляются, а API сохраняет
+Bearer-токен отдельной демо-сессии. GET `/demo/__ready` возвращает параметры
+входа демо без авторизации и кеширования. Страницы `/demo/` обслуживает
+frontend выбранного выпуска. В обычном Dev и Prod демо-учётки остаются выключены.
+
+Перед переключением проверьте наличие обоих файлов и внутренней сети, затем
+валидность Caddyfile с новым Compose-оверлеем. После переключения проверьте
+HTTPS, `/healthz`, `/grafana/`, флаг `demoAccounts` на `/demo/__ready` и
+`/api/v1/auth/options`, а также четыре входа через `/demo/`. Проверка GET
+`/demo/__ready` должна вернуть 200 и `Cache-Control: no-store`, POST — 405.
+
+Для отката выключите флаг и под той же блокировкой деплоя пересоздайте только
+Caddy с обычным набором Compose-файлов. Если отдельный демо-сайт должен остаться
+доступным, сохраняйте его согласованный маршрут на Caddy при откате. Тома
+обоих проектов сохраняются. Повторная передача текущего SHA в `dev-release.py`
+запускает проверку; для смены флага на том же выпуске нужно пересоздать Caddy.

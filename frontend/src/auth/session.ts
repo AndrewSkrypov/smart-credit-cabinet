@@ -1,6 +1,7 @@
 import { UserSession } from '../types';
+import { demoAccess } from './demoAccess';
 
-const KEY = 'cabinet.session';
+const KEY = demoAccess.basename ? 'cabinet.demo.session' : 'cabinet.session';
 
 /** The stored session, or null when there is none or it cannot be read. */
 export function readSession(): UserSession | null {

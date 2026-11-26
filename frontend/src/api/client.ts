@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { cabinetPathname, demoAccess } from '../auth/demoAccess';
 import { clearSession, readSession } from '../auth/session';
 import {
   AgentClientSummary,
@@ -38,7 +39,7 @@ import {
 import { ChatAudit, ChatFile, ChatMessage, ChatPage, ChatRead } from '../types';
 import { CompanyInvitation, Employees, InvitationPreview } from '../types';
 
-const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
+const baseURL = demoAccess.basename ? `${demoAccess.basename}/api/v1` : (import.meta.env.VITE_API_BASE_URL ?? '/api/v1');
 
 export const api = axios.create({
   baseURL,
@@ -60,10 +61,14 @@ api.interceptors.response.use(
     // sign-in page instead of showing the same error on every page.
     const sentToken = error?.config?.headers?.Authorization;
     const currentToken = readSession()?.token;
-    if (error?.response?.status === 401 && currentToken && sentToken === `Bearer ${currentToken}` && !window.location.pathname.startsWith('/sign-in')) {
-      clearSession();
-      window.location.assign(`/sign-in?expired=1&next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
-      return new Promise(() => undefined);
+    if (error?.response?.status === 401 && currentToken && sentToken === `Bearer ${currentToken}`) {
+      const { pathname, search } = window.location;
+      const route = cabinetPathname(pathname);
+      if (!route.startsWith('/sign-in')) {
+        clearSession();
+        window.location.assign(`${demoAccess.basename}/sign-in?expired=1&next=${encodeURIComponent(route + search)}`);
+        return new Promise(() => undefined);
+      }
     }
     let responseData = error?.response?.data;
     if (responseData instanceof Blob && responseData.type.includes('json')) {

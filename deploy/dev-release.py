@@ -11,6 +11,10 @@ import subprocess
 import sys
 import tempfile
 
+# The forced wrapper runs this file without -B. Keep diagnostic imports read-only.
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
+
 from alpha_dev import PROJECT, SECRET_KEYS, stop_alpha
 from common import Deployment, ROOT
 from dev_diagnostics import diagnose, read_request

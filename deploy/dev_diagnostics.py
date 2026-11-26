@@ -51,6 +51,7 @@ STOCK_REFS = frozenset({
     "caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9",
     "nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3",
     "valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11",
+    "grafana/grafana:13.2.5@sha256:9f7aa1e1e3246aade5792d35a738049f7f32f89cd51d1956cf426a4e86268a84",
 })
 ERROR_CATEGORIES = (
     ("docker_unavailable", ("cannot connect to the docker daemon", "permission denied while trying to connect",
@@ -101,7 +102,7 @@ def bounded_file(path, limit):
 def decode_json(raw, message):
     try:
         return json.loads(raw, object_pairs_hook=unique_object)
-    except (ValueError, UnicodeError, RecursionError) as error:
+    except (ValueError, UnicodeError, RecursionError):
         raise ValueError(message) from None
 
 

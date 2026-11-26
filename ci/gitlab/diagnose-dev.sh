@@ -12,7 +12,7 @@ ssh_args=(-o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$
 remote="cabinet-deploy@$CABINET_DEV_SSH_HOST"
 scratch=$(mktemp -d)
 trap 'rm -rf -- "$scratch"' EXIT
-python3 -I - "$CI_COMMIT_SHA" > "$scratch/request.json" <<'PY'
+python3 -IB - "$CI_COMMIT_SHA" > "$scratch/request.json" <<'PY'
 import json
 from pathlib import Path
 import sys
@@ -24,10 +24,9 @@ print(json.dumps({"version": 1, "operation": OPERATION, "revision": sys.argv[1],
                   "target_revision": TARGET_REVISION, "target_manifest_sha256": TARGET_MANIFEST_SHA256}))
 PY
 
-git archive "$CI_COMMIT_SHA" | ssh "${ssh_args[@]}" "$remote" "stage $CI_COMMIT_SHA"
-ssh "${ssh_args[@]}" "$remote" "deploy $CI_COMMIT_SHA" < "$scratch/request.json" > "$scratch/report.json"
-
-python3 -I - "$scratch/request.json" "$scratch/report.json" <<'PY'
+git archive "$CI_COMMIT_SHA" | ssh "${ssh_args[@]}" "$remote" "stage $CI_COMMIT_SHA" >/dev/null
+ssh "${ssh_args[@]}" "$remote" "deploy $CI_COMMIT_SHA" < "$scratch/request.json" |
+python3 -IB -c '
 import json
 from pathlib import Path
 import sys
@@ -36,8 +35,7 @@ sys.path.insert(0, str(Path("deploy").resolve()))
 from dev_diagnostics import MAX_REPORT
 
 request = json.loads(Path(sys.argv[1]).read_bytes())
-with Path(sys.argv[2]).open("rb") as stream:
-    raw = stream.read(MAX_REPORT + 2)
+raw = sys.stdin.buffer.read(MAX_REPORT + 2)
 if len(raw) > MAX_REPORT + 1:
     raise SystemExit("Diagnostic report exceeded its size limit")
 try:
@@ -49,4 +47,4 @@ if (not isinstance(report, dict) or set(report) != set(request) | fields
         or any(report[key] != value for key, value in request.items())):
     raise SystemExit("Diagnostic report does not match its request")
 Path("dev-diagnostics.json").write_bytes(raw)
-PY
+' "$scratch/request.json"

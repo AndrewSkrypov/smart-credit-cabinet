@@ -1,6 +1,7 @@
-package ru.creditcabinet.document.generated
+package ru.creditcabinet.document.domain
 
 import ru.creditcabinet.product.domain.Calculation
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
 
@@ -11,6 +12,30 @@ enum class ArtifactKind(val extension: String, val contentType: String) {
 }
 
 enum class ArtifactPhase { PREVIEW, FINAL }
+
+enum class ArtifactStatus { PENDING, READY, ERROR }
+
+data class ArtifactGroup(val applicationId: UUID, val offerId: UUID, val templateVersion: Int, val inputHash: String)
+
+data class ArtifactStorage(val name: String, val backend: StorageBackend)
+
+data class ArtifactRecord(
+    val id: UUID,
+    val group: ArtifactGroup,
+    val kind: ArtifactKind,
+    val phase: ArtifactPhase,
+    val title: String,
+    val fileName: String,
+    val contentType: String,
+    val storage: ArtifactStorage,
+    val status: ArtifactStatus,
+    val sizeBytes: Long?,
+    val checksum: String?,
+    val createdAt: Instant,
+    val readyAt: Instant?,
+)
+
+fun artifactChecksum(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
 /** Frozen inputs; retries never look up today's product, price or borrower name. */
 data class ArtifactInput(

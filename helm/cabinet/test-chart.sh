@@ -57,6 +57,8 @@ set -- "$@" --set ollamaBridge.enabled=false --set publicDemo.enabled=true \
   --set-string publicDemo.upstreamIPv4=192.0.2.20 --set-string app.publicURL=https://credit-cabinet.ru
 helm template cabinet "$chart" --namespace cabinet-prod --is-upgrade "$@" \
   --show-only templates/demo-proxy.yaml | grep -F 'cidr: "192.0.2.20/32"' >/dev/null
+helm template cabinet "$chart" --namespace cabinet-prod --is-upgrade "$@" \
+  --show-only templates/gateway-config.yaml | grep -F 'location = /demo/api/v1 { return 404; }' >/dev/null
 if helm template cabinet "$chart" --namespace cabinet-dev --is-upgrade "$@" >/dev/null 2>&1; then
   echo 'Demo proxy unexpectedly rendered outside cabinet-prod' >&2
   exit 1

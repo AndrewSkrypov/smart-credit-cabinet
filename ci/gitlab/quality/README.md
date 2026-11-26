@@ -65,3 +65,13 @@ temporarily set `CABINET_CI_CLAMAV_SEED_IMAGE` to an official
 The job verifies the digest, signature, version and age before seeding
 the pinned scanner runtime. The normal scanner health gate still checks
 the loaded database. Unset or refresh these values when the seed expires.
+
+For a signed CVD downloaded by FreshClam over an approved network, put
+`daily.cvd` and `daily-<serial>.cvd.sign` in the pre-provisioned read-only
+`/var/lib/pump-ci/clamav-official/<serial>` directory on every selected quality
+worker and `/var/lib/pump-release/clamav-official/<serial>` on the protected
+release worker. Set `CABINET_CI_CLAMAV_SEED_FROM_FILES=1` with the same digest
+and serial variables, and unset the image variable. The release job scans and
+publishes the verified seeded scanner as an
+OCI digest when a seed is configured. A deployment preserves newer signatures
+on its persistent scanner volume.

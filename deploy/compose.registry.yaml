@@ -2,6 +2,8 @@ x-release-image: &release-image
   pull_policy: never
 
 services:
+  clamav:
+    image: "${CABINET_IMAGE_CLAMAV:-clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614}"
   postgres:
     <<: *release-image
     build: !reset null

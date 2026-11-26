@@ -9,7 +9,12 @@ from urllib.parse import urlparse
 
 from urllib.request import HTTPRedirectHandler, build_opener
 
-APP_IMAGES = {"identity", "credit", "engagement", "external-sim", "frontend"}
+WORKLOAD_IMAGES = {
+    "identity": "identity", "credit": "credit", "engagement": "engagement",
+    "external-sim": "external-sim", "frontend": "frontend", "swagger-ui": "swagger",
+    "postgres": "postgres",
+}
+STATEFUL_WITHOUT_RELEASE_ANNOTATION = {"postgres", "clamav"}
 ENTRY = re.compile(rb"""<script\b[^>]*\bsrc=["'](/assets/index-[\w-]+\.js)["']""")
 
 
@@ -32,7 +37,10 @@ def main():
     kubectl = ["kubectl", "--context", args.context, "--namespace", args.namespace, "--request-timeout=20s"]
     frontend_pods = []
     pod_counts = {}
-    for name in sorted(APP_IMAGES):
+    workloads = dict(WORKLOAD_IMAGES)
+    if "clamav" in manifest["images"]:
+        workloads["clamav"] = "clamav"
+    for name, component in sorted(workloads.items()):
         selector = f"app.kubernetes.io/instance=cabinet,app.kubernetes.io/name={name}"
         pods = json.loads(subprocess.check_output([*kubectl, "get", "pods", "-l", selector, "-o", "json"]))["items"]
         active = [pod for pod in pods if not pod["metadata"].get("deletionTimestamp")]
@@ -40,9 +48,12 @@ def main():
             raise SystemExit(f"{name}: active Pods missing")
         for pod in active:
             metadata = pod["metadata"]
-            if metadata.get("annotations", {}).get("cabinet.release/revision") != manifest["revision"]:
+            if (
+                name not in STATEFUL_WITHOUT_RELEASE_ANNOTATION
+                and metadata.get("annotations", {}).get("cabinet.release/revision") != manifest["revision"]
+            ):
                 raise SystemExit(f"{name}: running Pod has a different revision")
-            expected = manifest["images"][name]
+            expected = manifest["images"][component]
             matching = [c for c in pod["spec"]["containers"] if c["image"] == expected]
             if len(matching) != 1 or not any(
                 c["name"] == matching[0]["name"] and c["ready"] and c.get("imageID")

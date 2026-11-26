@@ -37,6 +37,24 @@ spec:
       {{- if eq $name "clamav" }}
       nodeSelector:
         kubernetes.io/arch: amd64
+      initContainers:
+        - name: seed-clamav-signatures
+          image: {{ include "cabinet.image" (list $root $name) | quote }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              {{- $root.Files.Get "files/clamav-seed.sh" | nindent 14 }}
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL], add: [CHOWN, DAC_OVERRIDE]}
+            seccompProfile: {type: RuntimeDefault}
+          resources:
+            requests: {cpu: 100m, memory: 64Mi}
+            limits: {cpu: "1", memory: 256Mi}
+          volumeMounts:
+            - {name: data, mountPath: /seed}
       {{- end }}
       containers:
         - name: {{ $name }}

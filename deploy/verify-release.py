@@ -58,6 +58,8 @@ def verify(deployment, expected_revision):
         raise ValueError("CABINET_RELEASE отличается от ожидаемой ревизии")
     origin = deployment.values["PUBLIC_CABINET_URL"].rstrip("/")
     services = (*APP_SERVICES, "postgres") if deployment.release else APP_SERVICES
+    if deployment.release and "clamav" in deployment.release.images:
+        services = (*services, "clamav")
     containers = {service: deployment.container(service) for service in services}
     images = {}
     for service, container in containers.items():

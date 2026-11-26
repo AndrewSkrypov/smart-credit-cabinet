@@ -13,16 +13,22 @@ printf '%s' "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER
 tag="$CI_COMMIT_SHA-$CI_JOB_ID"
 manifest="$DOCKER_CONFIG/images.tsv"
 
-for service in identity credit engagement external-sim frontend postgres swagger ssh-bridge; do
+components=(identity credit engagement external-sim frontend postgres swagger ssh-bridge)
+if [[ "${CABINET_CI_CLAMAV_SEED_FROM_FILES:-0}" != 0 || -n "${CABINET_CI_CLAMAV_SEED_IMAGE:-}" ]]; then
+    seeded_clamav=$(bash ci/gitlab/quality/clamav-runtime.sh release)
+    components+=(clamav)
+fi
+for service in "${components[@]}"; do
     image="$CI_REGISTRY_IMAGE/$service:$tag"
     args=(--platform linux/amd64 --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --tag "$image")
     case "$service" in
         frontend) args+=(-f frontend/Dockerfile --build-arg DIST_SOURCE=prebuilt --build-arg "SOURCE_REVISION=$CI_COMMIT_SHA");;
         postgres|swagger) args+=(-f "docker/$service/Dockerfile");;
         ssh-bridge) args+=(-f ci/gitlab/ssh-bridge.Dockerfile);;
+        clamav) docker tag "$seeded_clamav" "$image";;
         *) args+=(-f docker/service/Dockerfile --build-arg "SERVICE=$service" --build-arg JAR_SOURCE=prebuilt --build-arg "SOURCE_REVISION=$CI_COMMIT_SHA");;
     esac
-    docker build "${args[@]}" .
+    if [[ "$service" != clamav ]]; then docker build "${args[@]}" .; fi
     python3 security/scan.py --image "$image" --report-name "release-$service"
     docker push "$image"
     digest=$(docker buildx imagetools inspect "$image" --format '{{json .Manifest}}' | python3 -c 'import json, sys; print(json.load(sys.stdin)["digest"])')

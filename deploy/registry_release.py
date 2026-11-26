@@ -7,11 +7,13 @@ import subprocess
 
 APP_SERVICES = ("identity", "credit", "engagement", "external-sim", "frontend")
 IMAGE_COMPONENTS = (*APP_SERVICES, "postgres", "swagger")
+OPTIONAL_IMAGES = {"ssh-bridge", "clamav"}
 REVISION = re.compile(r"[0-9a-f]{40}")
 IMAGE = re.compile(r"[a-z0-9.-]+(?::[0-9]{1,5})?(?:/[a-z0-9][a-z0-9._-]*)+@sha256:[0-9a-f]{64}")
 SERVICE_COMPONENTS = {
     **{name: name for name in (*APP_SERVICES, "postgres")},
     "swagger-ui": "swagger",
+    "clamav": "clamav",
     "db-init": "postgres",
     "identity-migrate": "identity",
     "credit-migrate": "credit",
@@ -31,7 +33,7 @@ class RegistryRelease:
         if not isinstance(self.revision, str) or not REVISION.fullmatch(self.revision):
             raise ValueError("Нужна полная Git-ревизия выпуска")
         required = set(IMAGE_COMPONENTS)
-        if not isinstance(self.images, dict) or not required <= set(self.images) <= (required | {"ssh-bridge"}):
+        if not isinstance(self.images, dict) or not required <= set(self.images) <= (required | OPTIONAL_IMAGES):
             raise ValueError("Manifest должен содержать полный набор образов выпуска")
         for name, image in self.images.items():
             if not isinstance(image, str) or not IMAGE.fullmatch(image):
@@ -41,15 +43,16 @@ class RegistryRelease:
         self.checksum = sha256(raw).hexdigest()
 
     def environment(self):
+        components = (*IMAGE_COMPONENTS, "clamav") if "clamav" in self.images else IMAGE_COMPONENTS
         return {
             "CABINET_RELEASE": self.revision,
             **{"CABINET_IMAGE_" + component.upper().replace("-", "_"): self.images[component]
-               for component in IMAGE_COMPONENTS},
+               for component in components},
         }
 
     def pull_and_verify(self, services):
         components = {SERVICE_COMPONENTS[name] for name in services if name in SERVICE_COMPONENTS}
-        for name in sorted(components):
+        for name in sorted(components.intersection(self.images)):
             image = self.images[name]
             # Do not print command output. A configured credential helper can include sensitive errors.
             result = subprocess.run(["docker", "pull", image], capture_output=True)

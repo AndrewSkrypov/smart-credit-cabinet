@@ -18,7 +18,7 @@ def main():
     if not re.fullmatch(r"[a-f0-9]{40}", args.revision) or manifest["revision"] != args.revision:
         parser.error("release revision does not match checkout")
     images = manifest["images"]
-    if not SERVICES <= set(images) <= (SERVICES | {"ssh-bridge"}):
+    if not SERVICES <= set(images) <= (SERVICES | {"ssh-bridge", "clamav"}):
         parser.error("release images have unexpected service names")
     for service, ref in images.items():
         prefix = re.escape(f"{args.repository}/{service}@sha256:")

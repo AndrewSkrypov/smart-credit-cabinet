@@ -2,7 +2,7 @@
 
 Дата: 2026-11-26
 Ветка: `feat/final-partial-gaps` (worktree `.worktrees/final-partial-gaps`, база `main` = `3e039dd`)
-Основание: [final-roadmap-2026-11-26.md](../../plans/final-roadmap-2026-11-26.md), раздел 3 (пункты `2.1`, `2.4`, `6.1–6.3`).
+Основание: роадмап финала (`docs/plans/final-roadmap-2026-11-26.md`), раздел 3 (пункты `2.1`, `2.4`, `6.1–6.3`).
 
 ## 1. Цель и мотивация
 

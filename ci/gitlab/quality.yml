@@ -62,6 +62,22 @@ backend:
     reports:
       junit:
         - '**/build/test-results/test/TEST-*.xml'
+backend-template:
+  stage: quality
+  extends: .quality
+  timeout: 12 minutes
+  before_script:
+    - test "$(uname -s)" = Linux
+  script:
+    - bash ci/gitlab/quality/backend-template.sh "$CI_COMMIT_SHA" ci-artifacts/backend-template
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - ci-artifacts/backend-template/
+    reports:
+      junit: ci-artifacts/backend-template/junit/TEST-*.xml
+
 frontend:
   stage: quality
   extends: .quality

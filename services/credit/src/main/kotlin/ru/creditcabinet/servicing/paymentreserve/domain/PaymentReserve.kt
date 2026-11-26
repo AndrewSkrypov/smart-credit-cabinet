@@ -15,8 +15,10 @@ data class PaymentReserveInputs(
     val paymentDate: LocalDate,
 ) {
     init {
-        if (openingBalance !in 0L..MAX_RUBLES || expectedReceiptAmount !in 1L..MAX_RUBLES ||
-            payableAmount !in 1L..MAX_RUBLES || targetBuffer !in 0L..MAX_RUBLES
+        if (openingBalance !in 0L..MAX_RUBLES ||
+            expectedReceiptAmount !in 1L..MAX_RUBLES ||
+            payableAmount !in 1L..MAX_RUBLES ||
+            targetBuffer !in 0L..MAX_RUBLES
         ) {
             throw BadRequestException("Проверьте суммы в рублях: поступление и платёж должны быть положительными")
         }
@@ -83,8 +85,12 @@ data class PaymentReservePlan(
         val required = (inputs.targetBuffer - balance).coerceAtLeast(0L)
         val available = account.availableLimit
         val suggested = minOf(required, available)
-        val canDraw = receiptStatus == ReceiptStatus.DELAYED && confirmedDraw == null &&
-            required > 0L && suggested == required && today <= inputs.paymentDate && today <= account.maturityDate
+        val canDraw = receiptStatus == ReceiptStatus.DELAYED &&
+            confirmedDraw == null &&
+            required > 0L &&
+            suggested == required &&
+            today <= inputs.paymentDate &&
+            today <= account.maturityDate
         return PaymentReserveQuote(
             version = version,
             inputs = inputs,

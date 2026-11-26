@@ -136,7 +136,8 @@ class FinancingScenarios(
 
     private fun requireInvoiceDocument(applicationId: UUID, documentId: UUID) =
         documents.find(applicationId, documentId)?.takeIf {
-            it.context == DocumentContext.BUSINESS && !it.privateToBank &&
+            it.context == DocumentContext.BUSINESS &&
+                !it.privateToBank &&
                 it.sizeBytes in 1..InvoicePdfReader.MAX_FILE_BYTES
         } ?: throw ConflictException("Счёт должен быть приложен к этой заявке")
 

@@ -72,6 +72,7 @@ class Acceptance:
         self.receipt = {"status": "RUNNING", "checks": {}, "commands": [], "sourceSha": self.git("rev-parse", "HEAD"),
                         "sourceTree": self.git("rev-parse", "HEAD^{tree}"), "dirty": bool(self.git("status", "--porcelain")),
                         "environment": {"nativePostgres": not bool(args.ci_postgres_image), "docker": bool(args.ci_postgres_image), "grpcPort": self.grpc_port}}
+        self.env["SOURCE_REVISION"] = self.receipt["sourceSha"]
         self.jwt = secrets.token_hex(32)
         self.db_password = self.passwords["credit_app"]
         self.env.update(DB_HOST="127.0.0.1", DB_PORT=str(self.pg_port), DB_PASSWORD=self.db_password,
@@ -88,16 +89,16 @@ class Acceptance:
     def git(self, *args):
         return subprocess.check_output(["git", *args], cwd=REPO, text=True).strip()
 
-    def run(self, label, command, env=None):
+    def run(self, label, command, env=None, accepted_codes=(0,)):
         self.stage = label
         print(label, flush=True)
         started = time.monotonic()
         with (self.root / (label + ".log")).open("wb") as log:
             result = subprocess.run(list(map(str, command)), cwd=REPO, env=env or self.env, stdout=log, stderr=subprocess.STDOUT, close_fds=True)
         self.receipt["commands"].append({"stage": label, "command": list(map(str, command)), "exitCode": result.returncode,
-                                         "elapsedSeconds": round(time.monotonic() - started, 3)})
+                                         "elapsedSeconds": round(time.monotonic() - started, 3), "acceptedExitCodes": list(accepted_codes)})
         self.write_receipt()
-        if result.returncode:
+        if result.returncode not in accepted_codes:
             raise RuntimeError(label + " failed; inspect its local log")
 
     def gradle(self, label, tasks, extra=None):
@@ -147,6 +148,11 @@ class Acceptance:
                      f"-h 127.0.0.1 -p {self.pg_port} -k {self.root} -c shared_buffers=16MB -c max_connections=40 -c wal_level=minimal -c max_wal_senders=0 -c max_wal_size=128MB -c min_wal_size=32MB -c password_encryption=scram-sha-256", "-w", "start"])
             self.pg_started = True
         self.env["DB_PORT"] = str(self.pg_port)
+        self.grpc_port, self.http_port = port(), port()
+        while self.http_port == self.grpc_port:
+            self.http_port = port()
+        self.env["ALPHA_SERVICING_LIVE_PORT"] = str(self.grpc_port)
+        self.receipt["environment"]["grpcPort"] = self.grpc_port
         until = time.monotonic() + 60
         while True:
             try:
@@ -202,6 +208,31 @@ class Acceptance:
         self.run(label, [sys.executable, REPO / "services/servicing/cutover/transfer.py", direction, "--credit-service", "credit_owner", "--servicing-service", "servicing_owner", "--artifacts", self.root / label])
         manifest = json.loads((self.root / label / "source-fenced.json").read_text())
         self.receipt["checks"][label] = {"sha256": manifest["sha256"], "counts": {table: len(rows) for table, rows in manifest["tables"].items()}}
+
+    def forward_with_activation_fault(self):
+        tool = REPO / "services/servicing/cutover/transfer.py"
+        options = ["remote", "--credit-service", "credit_owner", "--servicing-service", "servicing_owner"]
+        directory = self.root / "forward"
+        self.run("forward-fault", [sys.executable, tool, *options, "--artifacts", directory, "--test-fail-after-target-activation"], accepted_codes=(1,))
+        if self.sql("credit", "credit_owner", "select writer from servicing_writer_fence where singleton;") != "FENCED" or self.sql("servicing", "servicing_owner", "select writer from servicing_writer_fence where singleton;") != "REMOTE":
+            raise RuntimeError("The injected checkpoint did not leave exactly the expected authority")
+        legacy = json.loads((self.root / "legacy-account.json").read_text())
+        loan_id = str(uuid.UUID(legacy["id"]))
+        # Explicit storage fault fixture. The runtime payment path is tested independently below.
+        self.sql("servicing", "servicing_app", f"""begin;
+        update loan_accounts a set outstanding_principal=a.outstanding_principal-p.principal_amount,updated_at=now()
+          from loan_payments p where p.loan_account_id=a.id and a.id='{loan_id}' and p.payment_number=1;
+        update loan_payments set status='PAID',paid_at=now() where loan_account_id='{loan_id}' and payment_number=1;
+        commit;""")
+        before = self.sql("servicing", "servicing_app", f"select outstanding_principal::text from loan_accounts where id='{loan_id}';")
+        manifest = directory / "source-fenced.json"
+        self.run("active-target-abort-refused", [sys.executable, tool, *options, "--recover-manifest", manifest, "--abort"], accepted_codes=(1,))
+        self.run("postactivation-resume", [sys.executable, tool, *options, "--recover-manifest", manifest])
+        if before != self.sql("servicing", "servicing_app", f"select outstanding_principal::text from loan_accounts where id='{loan_id}';"):
+            raise RuntimeError("Postactivation resume overwrote a later target payment")
+        source = json.loads(manifest.read_text())
+        self.receipt["checks"]["forward"] = {"sha256": source["sha256"], "counts": {table: len(rows) for table, rows in source["tables"].items()}}
+        self.receipt["checks"]["postactivation-new-payment-preserved"] = True
 
     def start_stand(self, label):
         env = self.env.copy()
@@ -261,7 +292,7 @@ class Acceptance:
         filters = ["*LoanAccountDomainTest", "*LoanServicingIntegrationTest", "*PaymentReserveIntegrationTest", "*LoanOpeningAtomicityIntegrationTest", "*ServicingLegacyExportFixtureTest", "*LoanServicingVisibilityTest"]
         self.gradle("credit-local", [":services:credit:test", *sum((["--tests", name] for name in filters), [])], local)
         self.tests(":services:credit", "credit-local", 10)
-        self.transfer("remote", "forward")
+        self.forward_with_activation_fault()
         self.sql("credit", "credit_app", "select * from loan_accounts;", failure=True)
         self.sql("credit", "credit_app", "update servicing_writer_fence set writer='LOCAL';", failure=True)
         pg = {"ALPHA_SERVICING_TEST_JDBC_URL": f"jdbc:postgresql://127.0.0.1:{self.pg_port}/servicing", "ALPHA_SERVICING_TEST_DB_USER": "servicing_app", "ALPHA_SERVICING_TEST_DB_PASSWORD": self.passwords["servicing_app"]}

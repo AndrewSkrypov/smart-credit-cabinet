@@ -108,10 +108,10 @@ for generation in old new; do
     printf 'key:%s\n' "$generation" |
         "${compose[@]}" exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
             --bootstrap-server kafka:9092 --topic "$topic" \
-            --property parse.key=true --property key.separator=: >&2
+            --reader-property parse.key=true --reader-property key.separator=: >&2
     message=$("${compose[@]}" exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh \
         --bootstrap-server kafka:9092 --topic "$topic" --group "$group" \
-        --from-beginning --max-messages 1 --timeout-ms 20000 --property print.key=true)
+        --from-beginning --max-messages 1 --timeout-ms 20000 --formatter-property print.key=true)
     if [[ "$message" != $'key\t'"$generation" ]]; then
         echo "Unexpected Kafka message for $topic" >&2
         exit 1

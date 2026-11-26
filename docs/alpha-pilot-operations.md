@@ -4,9 +4,10 @@
 
 ## Проверка инфраструктуры
 
-На локальном изолированном Docker daemon с Compose v2 задайте
-`ALPHA_PILOT_KAFKA_IMAGE` со значением `apache/kafka:<version>@sha256:<digest>`
-для выбранной JVM-сборки Apache Kafka с KRaft и CLI в `/opt/kafka/bin`.
+На локальном изолированном Docker daemon с Compose v2 smoke использует
+[Образ Kafka с закреплённым digest](../ci/alpha/kafka-image.txt).
+Для другого JVM-образа Apache Kafka с KRaft и совместимым CLI задайте
+`ALPHA_PILOT_KAFKA_IMAGE=apache/kafka:<version>@sha256:<digest>`.
 Зафиксируйте точную ссылку в квитанции прогона. PostgreSQL закреплён тем же
 upstream @sha256, который указан в [Dockerfile проекта](../docker/postgres/Dockerfile).
 Из корня чистого checkout кандидата запустите:

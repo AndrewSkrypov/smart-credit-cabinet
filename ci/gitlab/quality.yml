@@ -64,12 +64,14 @@ backend:
       - ci-artifacts/schema-rollback.json
       - ci-artifacts/migration-restore.json
       - ci-artifacts/catalog-r1/
+      - ci-artifacts/assessment/
       - security/reports/postgres-image.json
       - services/*/build/libs/app.jar
       - ci-artifacts/backend.sha256
     reports:
       junit:
         - '**/build/test-results/test/TEST-*.xml'
+        - 'services/assessment/build/test-results/assessmentKafkaTest/TEST-*.xml'
         - '**/build/test-results/catalogIntegrationTest/TEST-*.xml'
 
 backend-template:
@@ -187,6 +189,7 @@ image-security:
           - catalog-grpc
           - identity
           - credit
+          - assessment
           - engagement
           - external-sim
           - frontend

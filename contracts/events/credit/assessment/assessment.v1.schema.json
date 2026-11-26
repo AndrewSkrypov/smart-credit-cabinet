@@ -1,0 +1,512 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Credit assessment request and terminal result v1",
+  "description": "One enrichment cycle. Versioned references, receipt chronology and fact-to-receipt equality are checked by the typed contract.",
+  "oneOf": [{"$ref": "#/$defs/requested"}, {"$ref": "#/$defs/completed"}],
+  "$defs": {
+    "productRef": {
+      "type": "object",
+      "required": ["code", "version"],
+      "properties": {"code": {"type": "string", "pattern": "\\S"}, "version": {"type": "integer", "minimum": 1}},
+      "additionalProperties": false
+    },
+    "cycle": {
+      "type": "object",
+      "required": [
+        "generation",
+        "cycleId",
+        "applicationId",
+        "applicationVersion",
+        "ruleSetVersion",
+        "selectedProduct",
+        "catalog"
+      ],
+      "properties": {
+        "generation": {"type": "string", "pattern": "\\S"},
+        "cycleId": {"type": "string", "format": "uuid"},
+        "applicationId": {"type": "string", "format": "uuid"},
+        "applicationVersion": {"type": "integer", "minimum": 0},
+        "ruleSetVersion": {"type": "integer", "minimum": 1},
+        "selectedProduct": {"$ref": "#/$defs/productRef"},
+        "catalog": {"type": "array", "items": {"$ref": "#/$defs/productRef"}, "uniqueItems": true},
+        "candidatePreApprovalId": {"oneOf": [{"type": "string", "format": "uuid"}, {"type": "null"}]}
+      },
+      "additionalProperties": false
+    },
+    "terms": {
+      "type": "object",
+      "required": ["productCode", "amount", "termMonths"],
+      "properties": {
+        "productCode": {"type": "string", "pattern": "\\S"},
+        "amount": {"type": "integer", "minimum": 1},
+        "termMonths": {"type": "integer", "minimum": 1},
+        "declaredRevenue12m": {"oneOf": [{"type": "integer"}, {"type": "null"}]}
+      },
+      "additionalProperties": false
+    },
+    "product": {
+      "type": "object",
+      "required": [
+        "ref",
+        "name",
+        "minAmount",
+        "maxAmount",
+        "minTermMonths",
+        "maxTermMonths",
+        "baseRate",
+        "autoApprovalLimit",
+        "revolving"
+      ],
+      "properties": {
+        "ref": {"$ref": "#/$defs/productRef"},
+        "name": {"type": "string", "pattern": "\\S"},
+        "minAmount": {"type": "integer", "minimum": 1},
+        "maxAmount": {"type": "integer", "minimum": 1},
+        "minTermMonths": {"type": "integer", "minimum": 1},
+        "maxTermMonths": {"type": "integer", "minimum": 1},
+        "baseRate": {"type": "number", "exclusiveMinimum": 0},
+        "autoApprovalLimit": {"type": "integer", "minimum": 0},
+        "revolving": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "rules": {
+      "type": "object",
+      "required": [
+        "version",
+        "maxLoad",
+        "revenueMismatch",
+        "ratingCutoffs",
+        "ratingMargins",
+        "lowRiskOkved",
+        "highRiskOkved",
+        "weakAmountShare",
+        "weakRevenueShare"
+      ],
+      "properties": {
+        "version": {"type": "integer", "minimum": 1},
+        "maxLoad": {"type": "number", "minimum": 0.1, "maximum": 0.8},
+        "revenueMismatch": {"type": "number", "minimum": 0.05, "maximum": 1},
+        "ratingCutoffs": {
+          "type": "object",
+          "required": ["A", "B", "C", "D"],
+          "properties": {
+            "A": {"type": "integer", "minimum": 1, "maximum": 100},
+            "B": {"type": "integer", "minimum": 1, "maximum": 100},
+            "C": {"type": "integer", "minimum": 1, "maximum": 100},
+            "D": {"type": "integer", "minimum": 1, "maximum": 100},
+            "E": {"type": "integer"}
+          },
+          "additionalProperties": false
+        },
+        "ratingMargins": {
+          "type": "object",
+          "required": ["A", "B", "C", "D"],
+          "properties": {
+            "A": {"type": "number", "minimum": 0, "maximum": 20},
+            "B": {"type": "number", "minimum": 0, "maximum": 20},
+            "C": {"type": "number", "minimum": 0, "maximum": 20},
+            "D": {"type": "number", "minimum": 0, "maximum": 20},
+            "E": {"type": "number"}
+          },
+          "additionalProperties": false
+        },
+        "lowRiskOkved": {"type": "array", "items": {"type": "string", "pattern": "^[0-9]{2}$"}, "uniqueItems": true},
+        "highRiskOkved": {"type": "array", "items": {"type": "string", "pattern": "^[0-9]{2}$"}, "uniqueItems": true},
+        "weakAmountShare": {"type": "number", "minimum": 0, "maximum": 1},
+        "weakRevenueShare": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": false
+    },
+    "preApproval": {
+      "type": "object",
+      "required": [
+        "id",
+        "applicationId",
+        "productCode",
+        "maxAmount",
+        "minTermMonths",
+        "maxTermMonths",
+        "rate",
+        "validUntil"
+      ],
+      "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "applicationId": {"type": "string", "format": "uuid"},
+        "productCode": {"type": "string", "pattern": "\\S"},
+        "maxAmount": {"type": "integer", "minimum": 1},
+        "minTermMonths": {"type": "integer", "minimum": 1},
+        "maxTermMonths": {"type": "integer", "minimum": 1},
+        "rate": {"type": "number", "exclusiveMinimum": 0},
+        "validUntil": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    },
+    "bureauConsent": {
+      "type": "object",
+      "required": ["applicationId"],
+      "properties": {"applicationId": {"type": "string", "format": "uuid"}},
+      "additionalProperties": false
+    },
+    "bankPrefetch": {
+      "type": "object",
+      "required": ["fact", "receivedAt"],
+      "properties": {"fact": {"$ref": "#/$defs/bank"}, "receivedAt": {"type": "string", "format": "date-time"}},
+      "additionalProperties": false
+    },
+    "bank": {
+      "type": "object",
+      "required": ["client", "monthlyInflows"],
+      "properties": {
+        "client": {"type": "boolean"},
+        "settlementAccount": {"oneOf": [{"type": "string"}, {"type": "null"}]},
+        "monthlyInflows": {"type": "array", "items": {"type": "integer"}}
+      },
+      "additionalProperties": false
+    },
+    "registry": {
+      "type": "object",
+      "required": [
+        "inn",
+        "ogrn",
+        "fullName",
+        "shortName",
+        "status",
+        "statusTitle",
+        "registrationDate",
+        "okvedCode",
+        "okvedName",
+        "directorName",
+        "address",
+        "unreliableAddress",
+        "unreliableDirector"
+      ],
+      "properties": {
+        "inn": {"type": "string", "pattern": "^[0-9]{10}([0-9]{2})?$"},
+        "ogrn": {"type": "string"},
+        "fullName": {"type": "string"},
+        "shortName": {"type": "string"},
+        "status": {"type": "string"},
+        "statusTitle": {"type": "string"},
+        "registrationDate": {"type": "string", "format": "date"},
+        "okvedCode": {"type": "string"},
+        "okvedName": {"type": "string"},
+        "directorName": {"type": "string"},
+        "address": {"type": "string"},
+        "unreliableAddress": {"type": "boolean"},
+        "unreliableDirector": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "tax": {
+      "type": "object",
+      "required": ["hasReports", "taxDebt", "massAddress"],
+      "properties": {
+        "hasReports": {"type": "boolean"},
+        "reportingYear": {"oneOf": [{"type": "integer"}, {"type": "null"}]},
+        "revenue": {"oneOf": [{"type": "integer"}, {"type": "null"}]},
+        "expenses": {"oneOf": [{"type": "integer"}, {"type": "null"}]},
+        "taxDebt": {"type": "integer"},
+        "averageHeadcount": {"oneOf": [{"type": "integer"}, {"type": "null"}]},
+        "taxRegime": {"oneOf": [{"type": "string"}, {"type": "null"}]},
+        "massAddress": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "bureauObligation": {
+      "type": "object",
+      "required": ["creditor", "type", "limit", "balance", "monthlyPayment", "currentOverdueDays"],
+      "properties": {
+        "creditor": {"type": "string"},
+        "type": {"type": "string"},
+        "limit": {"type": "integer"},
+        "balance": {"type": "integer"},
+        "monthlyPayment": {"type": "integer"},
+        "currentOverdueDays": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "bureau": {
+      "type": "object",
+      "required": [
+        "obligations",
+        "monthlyPaymentsTotal",
+        "currentOverdueDaysMax",
+        "worstOverdueDays24m",
+        "inquiries30d"
+      ],
+      "properties": {
+        "obligations": {"type": "array", "items": {"$ref": "#/$defs/bureauObligation"}},
+        "monthlyPaymentsTotal": {"type": "integer"},
+        "currentOverdueDaysMax": {"type": "integer"},
+        "worstOverdueDays24m": {"type": "integer"},
+        "inquiries30d": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "facts": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "bank": {"oneOf": [{"$ref": "#/$defs/bank"}, {"type": "null"}]},
+        "registry": {"oneOf": [{"$ref": "#/$defs/registry"}, {"type": "null"}]},
+        "tax": {"oneOf": [{"$ref": "#/$defs/tax"}, {"type": "null"}]},
+        "bureau": {"oneOf": [{"$ref": "#/$defs/bureau"}, {"type": "null"}]}
+      },
+      "additionalProperties": false
+    },
+    "receipts": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "BANK": {"type": "string", "format": "date-time"},
+        "REGISTRY": {"type": "string", "format": "date-time"},
+        "TAX": {"type": "string", "format": "date-time"},
+        "BUREAU": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    },
+    "factorScore": {
+      "type": "object",
+      "required": ["factor", "title", "value", "points", "maxPoints"],
+      "properties": {
+        "factor": {
+          "enum": [
+            "AGE",
+            "TURNOVER_STABILITY",
+            "DEBT_LOAD",
+            "PAYMENT_DISCIPLINE",
+            "CREDIT_ACTIVITY",
+            "TAX_DISCIPLINE",
+            "INDUSTRY_RISK",
+            "REQUEST_SIZE"
+          ]
+        },
+        "title": {"type": "string"},
+        "value": {"type": "string"},
+        "points": {"type": "integer", "minimum": 0, "maximum": 100},
+        "maxPoints": {"type": "integer", "minimum": 1, "maximum": 100},
+        "hint": {"oneOf": [{"type": "string"}, {"type": "null"}]}
+      },
+      "additionalProperties": false
+    },
+    "assessment": {
+      "type": "object",
+      "required": [
+        "stopFactors",
+        "factors",
+        "score",
+        "rating",
+        "annualRevenue",
+        "revenueSource",
+        "existingMonthlyPayments",
+        "businessAgeMonths",
+        "industryRisk",
+        "registryStatusTitle"
+      ],
+      "properties": {
+        "stopFactors": {
+          "type": "array",
+          "items": {"enum": ["SF_STATUS", "SF_UNRELIABLE", "SF_OVERDUE_90", "SF_TOO_YOUNG"]},
+          "uniqueItems": true
+        },
+        "factors": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/factorScore"},
+          "minItems": 8,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "rating": {"enum": ["A", "B", "C", "D", "E"]},
+        "annualRevenue": {"type": "integer"},
+        "revenueSource": {"enum": ["TAX", "TURNOVER", "DECLARED"]},
+        "existingMonthlyPayments": {"type": "integer"},
+        "businessAgeMonths": {"type": "integer"},
+        "industryRisk": {"enum": ["LOW", "MEDIUM", "HIGH"]},
+        "registryStatusTitle": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "offerTerms": {
+      "type": "object",
+      "required": ["productCode", "amount", "termMonths", "rate", "monthlyPayment", "totalPayment"],
+      "properties": {
+        "productCode": {"type": "string", "pattern": "\\S"},
+        "amount": {"type": "integer", "minimum": 1},
+        "termMonths": {"type": "integer", "minimum": 1},
+        "rate": {"type": "number", "exclusiveMinimum": 0},
+        "monthlyPayment": {"type": "number", "exclusiveMinimum": 0},
+        "totalPayment": {"type": "number", "exclusiveMinimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {"enum": ["APPROVE", "COUNTER_OFFER", "REJECT", "MANUAL_REVIEW"]},
+        "terms": {"oneOf": [{"$ref": "#/$defs/offerTerms"}, {"type": "null"}]},
+        "rejectReason": {
+          "oneOf": [
+            {
+              "enum": [
+                "SF_STATUS",
+                "SF_UNRELIABLE",
+                "SF_OVERDUE_90",
+                "SF_TOO_YOUNG",
+                "R_LOAD",
+                "R_SCORE",
+                "R_MANUAL"
+              ]
+            },
+            {"type": "null"}
+          ]
+        },
+        "notes": {"type": "array", "items": {"type": "string"}},
+        "manualReasons": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "RATING_C",
+              "AMOUNT_ABOVE_AUTO_LIMIT",
+              "REVENUE_MISMATCH",
+              "HIGH_RISK_INDUSTRY",
+              "SOURCE_UNAVAILABLE"
+            ]
+          }
+        },
+        "recommendation": {"oneOf": [{"$ref": "#/$defs/policy"}, {"type": "null"}]}
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"enum": ["APPROVE", "COUNTER_OFFER"]}}},
+          "then": {
+            "required": ["terms"],
+            "properties": {
+              "terms": {"$ref": "#/$defs/offerTerms"},
+              "rejectReason": {"type": "null"},
+              "manualReasons": {"maxItems": 0},
+              "recommendation": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"kind": {"const": "REJECT"}}},
+          "then": {
+            "required": ["rejectReason"],
+            "properties": {
+              "terms": {"type": "null"},
+              "rejectReason": {
+                "enum": [
+                  "SF_STATUS",
+                  "SF_UNRELIABLE",
+                  "SF_OVERDUE_90",
+                  "SF_TOO_YOUNG",
+                  "R_LOAD",
+                  "R_SCORE",
+                  "R_MANUAL"
+                ]
+              },
+              "manualReasons": {"maxItems": 0},
+              "recommendation": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"kind": {"const": "MANUAL_REVIEW"}}},
+          "then": {
+            "required": ["manualReasons"],
+            "properties": {
+              "terms": {"type": "null"},
+              "rejectReason": {"type": "null"},
+              "manualReasons": {"minItems": 1},
+              "recommendation": {"not": {"type": "object", "properties": {"kind": {"const": "MANUAL_REVIEW"}}}}
+            }
+          }
+        }
+      ]
+    },
+    "requested": {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "cycle",
+        "inn",
+        "terms",
+        "selectedProduct",
+        "catalog",
+        "rules",
+        "startsAt",
+        "deadline"
+      ],
+      "properties": {
+        "protocolVersion": {"const": 1},
+        "cycle": {"$ref": "#/$defs/cycle"},
+        "inn": {"type": "string", "pattern": "^[0-9]{10}([0-9]{2})?$"},
+        "terms": {"$ref": "#/$defs/terms"},
+        "selectedProduct": {"$ref": "#/$defs/product"},
+        "catalog": {"type": "array", "items": {"$ref": "#/$defs/product"}},
+        "rules": {"$ref": "#/$defs/rules"},
+        "candidatePreApproval": {"oneOf": [{"$ref": "#/$defs/preApproval"}, {"type": "null"}]},
+        "bureauConsent": {"oneOf": [{"$ref": "#/$defs/bureauConsent"}, {"type": "null"}]},
+        "bankPrefetch": {"oneOf": [{"$ref": "#/$defs/bankPrefetch"}, {"type": "null"}]},
+        "startsAt": {"type": "string", "format": "date-time"},
+        "deadline": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    },
+    "completed": {
+      "type": "object",
+      "required": ["protocolVersion", "cycle", "receipts", "facts", "outcome", "missingSources", "completedAt"],
+      "properties": {
+        "protocolVersion": {"const": 1},
+        "cycle": {"$ref": "#/$defs/cycle"},
+        "receipts": {"$ref": "#/$defs/receipts"},
+        "facts": {"$ref": "#/$defs/facts"},
+        "outcome": {"enum": ["ASSESSED", "INCOMPLETE"]},
+        "missingSources": {"type": "array", "items": {"enum": ["BANK", "REGISTRY", "TAX", "BUREAU"]}, "uniqueItems": true},
+        "completedAt": {"type": "string", "format": "date-time"},
+        "assessment": {"oneOf": [{"$ref": "#/$defs/assessment"}, {"type": "null"}]},
+        "policy": {"oneOf": [{"$ref": "#/$defs/policy"}, {"type": "null"}]},
+        "appliedPreApprovalId": {"oneOf": [{"type": "string", "format": "uuid"}, {"type": "null"}]}
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"outcome": {"const": "ASSESSED"}}},
+          "then": {
+            "required": ["assessment", "policy"],
+            "properties": {
+              "assessment": {"$ref": "#/$defs/assessment"},
+              "policy": {"$ref": "#/$defs/policy"},
+              "missingSources": {"maxItems": 0},
+              "receipts": {"required": ["BANK", "REGISTRY", "TAX", "BUREAU"]},
+              "facts": {
+                "required": ["bank", "registry", "tax", "bureau"],
+                "properties": {
+                  "bank": {"$ref": "#/$defs/bank"},
+                  "registry": {"$ref": "#/$defs/registry"},
+                  "tax": {"$ref": "#/$defs/tax"},
+                  "bureau": {"$ref": "#/$defs/bureau"}
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"outcome": {"const": "INCOMPLETE"}}},
+          "then": {
+            "properties": {
+              "missingSources": {"minItems": 1},
+              "assessment": {"type": "null"},
+              "policy": {"type": "null"},
+              "appliedPreApprovalId": {"type": "null"}
+            }
+          }
+        }
+      ]
+    }
+  }
+}

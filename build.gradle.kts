@@ -22,14 +22,23 @@ jacoco {
 }
 
 val coverageModules = subprojects.filter { it.path.startsWith(":services:") || it.path.startsWith(":libs:") }
-val coverageClasses = files(coverageModules.map { it.layout.buildDirectory.dir("classes/kotlin/main") })
+val coverageClasses = files(
+    coverageModules.map { module ->
+        module.layout.buildDirectory.dir("classes/kotlin/main").map { classes ->
+            classes.asFileTree.matching {
+                // The same LoanMath source is packaged by both runtimes. Credit owns its coverage.
+                if (module.path == ":services:assessment") exclude("ru/creditcabinet/product/domain/**")
+            }
+        }
+    },
+)
 val coverageExecutions = files(coverageModules.map { it.layout.buildDirectory.file("jacoco/test.exec") })
 val domainMinimum = providers.gradleProperty("domainCoverageMinimum").orElse("0.75").get().toBigDecimal()
 require(domainMinimum >= "0.75".toBigDecimal() && domainMinimum <= "1.0".toBigDecimal()) { "Порог domain должен быть от 0.75 до 1.0, получено $domainMinimum" }
 
 tasks.register<JacocoReport>("jacocoAggregateReport") {
     group = "verification"
-    description = "Общий отчёт JaCoCo по тестам всех сервисов и общей библиотеки"
+    description = "Общий отчёт JaCoCo по тестам сервисов и библиотек домена"
     dependsOn(coverageModules.map { "${it.path}:test" })
     executionData.setFrom(coverageExecutions)
     classDirectories.setFrom(coverageClasses)

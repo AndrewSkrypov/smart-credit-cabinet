@@ -19,6 +19,10 @@ include(":libs:platform-common")
 include(":libs:starter-observability")
 
 include(":libs:catalog-model", ":libs:catalog-contracts", ":libs:catalog-client", ":libs:catalog-jdbc")
+include(":libs:assessment-contracts")
+include(":libs:assessment-engine")
+include(":libs:assessment-messaging")
+include(":services:assessment")
 
 // Deployable services, each built and started on its own (see docs/architecture.md).
 include(":services:identity")

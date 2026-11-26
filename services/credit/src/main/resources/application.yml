@@ -41,6 +41,13 @@ springdoc:
     path: /swagger-ui.html
 
 cabinet:
+  assessment:
+    kafka:
+      enabled: ${CABINET_ASSESSMENT_KAFKA_ENABLED:false}
+      bootstrap-servers: ${CABINET_ASSESSMENT_KAFKA_BOOTSTRAP_SERVERS:}
+      environment: ${CABINET_ASSESSMENT_KAFKA_ENVIRONMENT:}
+      generation: ${CABINET_ASSESSMENT_KAFKA_GENERATION:}
+      result-grace: ${CABINET_ASSESSMENT_KAFKA_RESULT_GRACE:PT30S}
   outbox:
     enabled: true
     worker-enabled: ${OUTBOX_WORKER_ENABLED:true}

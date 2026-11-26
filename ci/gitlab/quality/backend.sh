@@ -44,7 +44,7 @@ retry 60 1 postgres_ready
 export DB_PORT
 DB_PORT=$(published_port "$postgres" 5432)
 export PGPASSWORD=cabinet
-for db in identity credit engagement common_test; do
+for db in identity credit engagement assessment common_test; do
     psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$DB_PORT" -U cabinet -d cabinet -c "create database $db"
 done
 
@@ -89,10 +89,13 @@ retry 30 1 valkey_ready
 export VALKEY_TEST_PORT
 VALKEY_TEST_PORT=$(published_port "$valkey" 6379)
 
+export ASSESSMENT_DB_URL="jdbc:postgresql://127.0.0.1:$DB_PORT/assessment"
+export ASSESSMENT_DB_USER=cabinet ASSESSMENT_DB_PASSWORD=cabinet
 OUTBOX_WORKER_ENABLED=false ./gradlew build --no-daemon
 GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}" CATALOG_TEST_POSTGRES_IMAGE="$image" \
     CATALOG_TEST_POSTGRES_NAME="$prefix-catalog-postgres" \
     bash scripts/check-catalog-integration.sh --no-daemon
+bash e2e/alpha-assessment/check-ci.sh "$(pg_config --bindir)" "$DB_PORT"
 
 mkdir -p ci-artifacts
 for db in identity credit engagement; do

@@ -9,6 +9,8 @@ plugins {
 dependencies {
     implementation(project(":libs:catalog-jdbc"))
     implementation(project(":libs:catalog-client"))
+    implementation(project(":libs:assessment-engine"))
+    implementation(project(":libs:assessment-messaging"))
     implementation(platform(libs.aws.sdk.bom))
     implementation(libs.aws.sdk.s3) {
         exclude(group = "software.amazon.awssdk", module = "apache-client")

@@ -14,8 +14,9 @@ Chromium's Linux system packages in the worker image using the repository's
 locked `e2e` package, for example `npm ci --prefix e2e` then
 `cd e2e && npx playwright install-deps chromium` during provisioning.
 The test job installs the matching Chromium revision as the runner user.
-Allow downloads from the dependency repositories, container registries and
-ClamAV signatures, and size the worker for the multi-replica Compose stack.
+Allow downloads from the dependency repositories, container registries,
+the Apache Kafka archive and ClamAV signatures. Size the worker for the
+multi-replica Compose stack.
 
 On the dedicated VM configure the quality daemon with the engine label
 `cabinet-ci=true`. Set the runner's `config.toml` environment entry to

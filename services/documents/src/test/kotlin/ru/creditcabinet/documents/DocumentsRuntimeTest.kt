@@ -103,7 +103,8 @@ class DocumentsRuntimeTest {
                 statement.setObject(1, scope.applicationId); statement.setObject(2, offer); statement.setString(3, record.inputHash); statement.setString(4, frozen); statement.executeUpdate()
             } }
             val first = remote.prepare(record)
-            assertEquals(first.id, remote.prepare(record.copy(id = UUID.randomUUID(), storedName = "generated-${UUID.randomUUID()}.pdf")).id)
+            val duplicateId = UUID.randomUUID()
+            assertEquals(first.id, remote.prepare(record.copy(id = duplicateId, storedName = "generated-$duplicateId.pdf")).id)
             assertFailsWith<StatusRuntimeException> { remote.prepare(record.copy(id = UUID.randomUUID(), inputJson = frozen.replace("123456", "999999"))) }
             val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(40)
             var ready = first

@@ -43,6 +43,7 @@ object ArtifactRules {
         require(record.backend in setOf("LOCAL", "S3") && record.storedName.matches(Regex("generated-[a-f0-9-]+\\.(pdf|xlsx)")))
         val kind = ArtifactKind.valueOf(record.kind)
         require(record.contentType == kind.contentType && record.fileName.endsWith(".${kind.extension}"))
+        require(record.storedName == "generated-${record.id}.${kind.extension}")
         require(record.title.length <= 255 && record.fileName.length <= 255 && record.contentType.length <= 150)
         require(input.calculation.schedule.size in 1..600)
         if (input.contractTextHash != null) require(sha256(input.contractText.toByteArray()) == input.contractTextHash)

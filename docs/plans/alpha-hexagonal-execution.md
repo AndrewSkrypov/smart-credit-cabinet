@@ -30,12 +30,21 @@
 
 Квитанции `create_thread` выданы. В первом снимке у всех четырёх чатов начался рабочий ход. Инструмент запуска принимает настройку `thinking`, а квитанция содержит ID чата и хоста.
 
-| ID работы | ID чата | Переданный режим | Worktree |
-| --- | --- | --- | --- |
-| ALPHA-CONTRACT | `01a217bf-938d-7fe2-8f9d-d6f0f746e5bb` | medium | `/tmp/alpha-pilot-worktrees.xOM5sOWB/contracts` |
-| ALPHA-BACKEND | `01a217bf-96e3-7330-a919-65b82bd80299` | high | `/tmp/alpha-pilot-worktrees.xOM5sOWB/backend` |
-| ALPHA-QA | `01a217bf-9d2b-7c81-905b-c4eb1b6dc25a` | high | `/tmp/alpha-pilot-worktrees.xOM5sOWB/qa` |
-| ALPHA-RELEASE | `01a217bf-99d3-7382-b8a9-b6a6a94fafc7` | high | `/tmp/alpha-pilot-worktrees.xOM5sOWB/release` |
+| ID работы | ID чата | Переданный режим | Ветка | Worktree |
+| --- | --- | --- | --- | --- |
+| ALPHA-CONTRACT | `01a217bf-938d-7fe2-8f9d-d6f0f746e5bb` | medium | `feature/alpha-status-event-contract` | `/tmp/alpha-pilot-worktrees.xOM5sOWB/contracts` |
+| ALPHA-BACKEND | `01a217bf-96e3-7330-a919-65b82bd80299` | high | `feature/alpha-kafka-analytics` | `/tmp/alpha-pilot-worktrees.xOM5sOWB/backend` |
+| ALPHA-QA | `01a217bf-9d2b-7c81-905b-c4eb1b6dc25a` | high | `feature/alpha-analytics-qa` | `/tmp/alpha-pilot-worktrees.xOM5sOWB/qa` |
+| ALPHA-RELEASE | `01a217bf-99d3-7382-b8a9-b6a6a94fafc7` | high | `feature/alpha-analytics-ci` | `/tmp/alpha-pilot-worktrees.xOM5sOWB/release` |
+
+## Правила Git
+
+Интеграционная ветка пилота — `feature/alpha-analytics-pilot`. Для новой
+функциональности используем `feature/<название-фичи>`. Базовые ветки
+`dev`, `main` или `master` сохраняют имена репозитория. Сообщение коммита
+содержит несколько технических слов на русском. Описание MR состоит из двух
+коротких технических предложений на русском. Первое описывает изменение,
+второе — фактически выполненную проверку или её ограничение.
 
 ## Квитанции запуска сабагентов
 

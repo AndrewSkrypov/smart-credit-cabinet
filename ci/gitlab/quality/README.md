@@ -82,3 +82,7 @@ The required Ollama scan runs on the project runner tagged
 archive using the same Trivy checks and exceptions. The job retains the JSON
 scan results and OCI evidence. The archive is disposable and is removed after
 the job.
+
+Trivy fetches fresh vulnerability and Java databases from the official GHCR
+repositories first, with the official Google mirror as fallback. Database
+updates remain enabled for all scans.

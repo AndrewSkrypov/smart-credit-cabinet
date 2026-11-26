@@ -35,6 +35,10 @@ directory.mkdir(parents=True, exist_ok=True)
 revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
 dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
 mounts = ["-v", f"{directory}:/reports", "-v", f"{args.cache_volume}:/root/.cache"]
+database_sources = [
+    "--db-repository", "ghcr.io/aquasecurity/trivy-db:2,mirror.gcr.io/aquasec/trivy-db:2",
+    "--java-db-repository", "ghcr.io/aquasecurity/trivy-java-db:1,mirror.gcr.io/aquasec/trivy-java-db:1",
+]
 summary = {"checked_at": datetime.now(timezone.utc).isoformat(), "source_commit": revision, "working_tree_dirty": dirty,
            "scanner": SCANNER, "inputs": [], "passed": False}
 
@@ -65,7 +69,7 @@ try:
         archive_hash = hashlib.sha256(archive.read_bytes()).hexdigest()
         command = ["docker", "run", "--rm", *mounts, "--entrypoint", "sh", SCANNER, "-c",
                    'mkdir /scan && tar -xf /reports/source.tar -C /scan && exec "$@"', "scan", "trivy", "fs",
-                   "--no-progress", "--timeout", scan_timeout, "--scanners", "vuln,secret", "--include-dev-deps", "--show-suppressed",
+                   "--no-progress", "--timeout", scan_timeout, *database_sources, "--scanners", "vuln,secret", "--include-dev-deps", "--show-suppressed",
                    "--ignorefile", "/scan/.trivyignore", "--format", "json",
                    "--output", "/reports/raw-filesystem.json", "/scan"]
         started = time.monotonic()
@@ -80,7 +84,7 @@ try:
             if args.remote:
                 started = time.monotonic()
                 execute(["docker", "run", "--rm", *mounts, "-v", f"{ROOT / '.trivyignore'}:/policy/ignore:ro", SCANNER,
-                         "image", "--image-src", "remote", "--parallel", "1", "--no-progress", "--timeout", scan_timeout,
+                         "image", "--image-src", "remote", "--parallel", "1", "--no-progress", "--timeout", scan_timeout, *database_sources,
                          "--scanners", "vuln,secret", "--show-suppressed", "--ignorefile", "/policy/ignore",
                          "--format", "json", "--output", f"/reports/raw-image-{index}.json", reference])
                 summary["inputs"].append(retain(directory / f"raw-image-{index}.json", directory / f"trivy-image-{index}.json",
@@ -96,7 +100,7 @@ try:
             execute(save)
             started = time.monotonic()
             execute(["docker", "run", "--rm", *mounts, "-v", f"{ROOT / '.trivyignore'}:/policy/ignore:ro", SCANNER,
-                     "image", "--no-progress", "--timeout", scan_timeout, "--scanners", "vuln,secret", "--show-suppressed",
+                     "image", "--no-progress", "--timeout", scan_timeout, *database_sources, "--scanners", "vuln,secret", "--show-suppressed",
                      "--ignorefile", "/policy/ignore", "--format", "json", "--output", f"/reports/raw-image-{index}.json",
                      "--input", f"/reports/image-{index}.tar"])
             summary["inputs"].append(retain(directory / f"raw-image-{index}.json", directory / f"trivy-image-{index}.json",

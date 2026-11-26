@@ -122,19 +122,15 @@ class AssessmentPolicy(private val payments: AssessmentPaymentCalculator) {
         rate: BigDecimal,
         budget: Double,
     ): AssessmentPolicyDecision {
-        if (fits(
-                product,
-                terms.amount,
-                terms.termMonths,
-                rate,
-                budget,
-            )
-        ) {
+        if (fits(product, terms.amount, terms.termMonths, rate, budget)) {
             return AssessmentPolicyDecision.Approve(offerTerms(product, terms.amount, terms.termMonths, rate))
         }
         val longest = product.maxTermMonths
         if (longest > terms.termMonths && fits(product, terms.amount, longest, rate, budget)) {
-            return AssessmentPolicyDecision.Counter(offerTerms(product, terms.amount, longest, rate), listOf("срок увеличен до $longest мес., чтобы снизить платёж"))
+            return AssessmentPolicyDecision.Counter(
+                offerTerms(product, terms.amount, longest, rate),
+                listOf("срок увеличен до $longest мес., чтобы снизить платёж"),
+            )
         }
         maxAmount(product, longest, rate, budget)?.takeIf { it >= product.minAmount }?.let { amount ->
             return AssessmentPolicyDecision.Counter(
@@ -165,7 +161,14 @@ class AssessmentPolicy(private val payments: AssessmentPaymentCalculator) {
     }
 
     /** D: at most a share of the request and of the revenue, if the load allows. */
-    private fun weak(terms: AssessmentTerms, product: AssessmentProduct, assessment: Assessment, rules: RuleSet, rate: BigDecimal, budget: Double): AssessmentPolicyDecision {
+    private fun weak(
+        terms: AssessmentTerms,
+        product: AssessmentProduct,
+        assessment: Assessment,
+        rules: RuleSet,
+        rate: BigDecimal,
+        budget: Double,
+    ): AssessmentPolicyDecision {
         val cap = minOf(terms.amount * rules.weakAmountShare, assessment.annualRevenue * rules.weakRevenueShare).toLong().roundDown()
         for (term in listOf(terms.termMonths, product.maxTermMonths).distinct()) {
             val amount = minOf(cap, maxAmount(product, term, rate, budget) ?: 0L).coerceAtMost(product.maxAmount)

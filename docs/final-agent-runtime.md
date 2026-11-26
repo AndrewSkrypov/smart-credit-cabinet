@@ -75,7 +75,13 @@ python3 scripts/final-agent-runtime.py --state-dir "$run_state" smoke \
 каталоге состояния с тем же `--revision`. Если кандидат лежит в другой
 Git-копии, передайте её путь через `--source-checkout`. Когда доступны
 только JAR, можно запустить `up --api-only` и проверить API и OpenAPI.
-Для проверки в браузере поднимите отдельный полный запуск с собранной SPA.
+Когда готова SPA того же SHA, подключите её к уже работающему
+API-запуску без перезапуска сервисов и БД:
+
+```bash
+python3 scripts/final-agent-runtime.py --state-dir "$run_state" attach-spa   --revision "$revision" --spa "$artifact_dir/frontend"
+```
+
 Сценарные SQL-фикстуры
 интегрированного кандидата применяйте по инструкции QA только к
 синтетической БД. Её административный сокет находится в

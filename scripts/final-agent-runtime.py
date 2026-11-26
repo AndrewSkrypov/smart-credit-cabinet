@@ -11,9 +11,11 @@ from pathlib import Path
 import re
 import secrets
 import shlex
+import shutil
 import signal
 import socket
 import subprocess
+import tempfile
 import time
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
@@ -134,13 +136,18 @@ def verify_artifacts(args):
         raise ValueError("Нужны четыре JAR из одного исходного SHA")
     content = {path.name: digest(path) for path in jars.values()}
     if spa:
-        if not (spa / "index.html").is_file():
-            raise ValueError("Отсутствует собранный frontend/index.html")
-        content.update({str(path.relative_to(artifacts)): digest(path)
-                        for path in sorted(spa.rglob("*")) if path.is_file()})
-        if not any(path.startswith("frontend/assets/") and path.endswith(".js") for path in content):
-            raise ValueError("В сборке frontend отсутствуют JavaScript-артефакты")
+        content.update(frontend_digests(spa))
     return jars, spa, content
+
+
+def frontend_digests(spa):
+    if not (spa / "index.html").is_file():
+        raise ValueError("Отсутствует собранный frontend/index.html")
+    digests = {f"frontend/{path.relative_to(spa)}": digest(path)
+               for path in sorted(spa.rglob("*")) if path.is_file()}
+    if not any(path.startswith("frontend/assets/") and path.endswith(".js") for path in digests):
+        raise ValueError("В сборке frontend отсутствуют JavaScript-артефакты")
+    return digests
 
 
 def listen_addresses(args):
@@ -445,6 +452,29 @@ def smoke(state):
                                "agent_companies": len(companies), "manager_funnel": 200}}
 
 
+def attach_spa(args, directory, state):
+    if state.get("serve_spa", True) or args.revision != state["source_revision"]:
+        raise ValueError("SPA можно добавить к API-запуску той же ревизии")
+    gateway = state["endpoints"]["gateway"]
+    if not live(state["processes"]["gateway"]):
+        raise RuntimeError("Локальный шлюз остановлен")
+    with tempfile.TemporaryDirectory(dir=directory, prefix="spa-") as workspace:
+        staged = Path(workspace) / "frontend"
+        shutil.copytree(args.spa, staged)
+        checksums = frontend_digests(staged)
+        staged.replace(directory / "api-only-root")
+    state["serve_spa"] = True
+    state["artifacts_sha256"].update(checksums)
+    if request(gateway + "/sign-in")[0] != 200:
+        raise RuntimeError("Шлюз не отдаёт подключённую SPA")
+
+
+def write_state(receipt, state):
+    temporary = receipt.with_name(".state.tmp")
+    temporary.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n")
+    temporary.replace(receipt)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state-dir", type=Path, required=True)
@@ -464,6 +494,9 @@ def main():
     up.add_argument("--clamd", type=Path)
     up.add_argument("--clam-db", type=Path)
     up.add_argument("--clam-certs", type=Path)
+    attach = commands.add_parser("attach-spa")
+    attach.add_argument("--spa", type=Path, required=True)
+    attach.add_argument("--revision", required=True)
     for command in ("status", "smoke", "down"):
         commands.add_parser(command)
     args = parser.parse_args()
@@ -480,14 +513,9 @@ def main():
             if args.command == "up":
                 state = {"format": 1, "processes": {}}
 
-                def persist():
-                    temporary = directory / ".state.tmp"
-                    temporary.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n")
-                    temporary.replace(receipt)
-
-                persist()
+                write_state(receipt, state)
                 try:
-                    start(args, directory, state, persist)
+                    start(args, directory, state, lambda: write_state(receipt, state))
                 except BaseException:
                     stop(state)
                     raise
@@ -497,6 +525,9 @@ def main():
                     raise ValueError("Неизвестный формат локального состояния")
             if args.command == "down":
                 stop(state)
+            if args.command == "attach-spa":
+                attach_spa(args, directory, state)
+                write_state(receipt, state)
             report = smoke(state) if args.command == "smoke" else status(state)
             print(json.dumps(report, ensure_ascii=False, indent=2))
             if args.command == "status" and (

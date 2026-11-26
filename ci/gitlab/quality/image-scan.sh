@@ -8,6 +8,9 @@ case "${1:?}" in
         if [[ "$SERVICE" = frontend ]]; then
             docker build -f frontend/Dockerfile --build-arg DIST_SOURCE=prebuilt \
                 --build-arg SOURCE_REVISION="$CI_COMMIT_SHA" -t "$image" .
+        elif [[ "$SERVICE" = ssh-bridge ]]; then
+            docker build -f ci/gitlab/ssh-bridge.Dockerfile -t "$image" .
+            docker run --rm "$image" -V
         else
             docker build -f docker/service/Dockerfile --build-arg "SERVICE=$SERVICE" \
                 --build-arg JAR_SOURCE=prebuilt --build-arg SOURCE_REVISION="$CI_COMMIT_SHA" -t "$image" .

@@ -9,8 +9,8 @@
 {{- if not .Values.gateway.trustedProxyCIDRs }}
 {{- fail "gateway.trustedProxyCIDRs must identify the actual ingress controller peers" }}
 {{- end }}
-{{- if not .Values.ingress.sourceNamespaces }}
-{{- fail "ingress.sourceNamespaces must identify the ingress controller namespaces for NetworkPolicy" }}
+{{- if or (not .Values.ingress.sourceNamespaces) (not .Values.ingress.sourcePodLabels) }}
+{{- fail "ingress.sourceNamespaces and ingress.sourcePodLabels must identify the actual ingress controller pods" }}
 {{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -52,8 +52,8 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: {{ . | quote }}
-        {{- end }}
-        {{- range .Values.ingress.sourceCIDRs }}
-        - ipBlock: {cidr: {{ . | quote }}}
+          podSelector:
+            matchLabels:
+              {{- toYaml $.Values.ingress.sourcePodLabels | nindent 14 }}
         {{- end }}
 {{- end }}

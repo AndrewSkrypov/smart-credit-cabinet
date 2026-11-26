@@ -144,6 +144,7 @@ image-security:
           - engagement
           - external-sim
           - frontend
+          - ssh-bridge
   script:
     - bash ci/gitlab/quality/image-scan.sh app
   after_script:

@@ -37,7 +37,7 @@ dev-deploy:
 prod-deploy:
   extends: .release
   stage: prod
-  tags: [cabinet-deploy]
+  tags: [cabinet-deploy-prod]
   resource_group: cabinet-prod
   environment:
     name: production

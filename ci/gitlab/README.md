@@ -7,7 +7,8 @@ from deployment credentials and existing workloads, with one job per quality
 Docker daemon. See [quality runner provisioning](quality/README.md). Install Helm
 3.19+ or Helm 4 on quality and deployment runners. The protected release runner
 needs the Docker buildx plugin and enough disk for image scanning. The protected
-deploy runner needs SSH, Git, Python, kubectl and a route to the new private API.
+deploy runner needs SSH, Git, and Python. The protected `cabinet-deploy-prod`
+runner additionally needs kubectl and a route to the new private API.
 
 Once the selected runners are online, start a pipeline on the protected
 `feat/final-runner-canary` branch with `CABINET_RUNNER_CANARY=1`. Jobs run in
@@ -52,12 +53,17 @@ File values are indicated explicitly.
   `CABINET_PROD_KUBECONFIG` (file), `CABINET_PROD_VALUES` (file), and
   `CABINET_PROD_JURY_CREDENTIALS` (file).
 
-Use separate deploy job credentials. The Kubernetes Secret and namespace pull
+Use separate deploy job credentials. Apply [prod-rbac.yaml](prod-rbac.yaml) once from the confirmed cluster operator
+context. Issue a short-lived TokenRequest for `cabinet-prod-release` or use a
+scoped GitLab Agent identity with equivalent access. Pin the cluster CA and
+private API in the runner's kubeconfig. The Prod Helm release stores its state
+in ConfigMaps and requires no direct Secret API access. The Kubernetes Secret and namespace pull
 secret are provisioned separately from Helm values, with only a
 `read_registry` token in the pull secret. The app gateway stays on ClusterIP.
 Ingress uses class `cabinet-public` and the Edge-managed
-`cabinet-prod-tls` Secret. Enter the observed controller source and DNS addresses
-in the values file. Edge owns NodePorts 30080 and 30443.
+`cabinet-prod-tls` Secret. In the values file, pair `ingress.sourceNamespaces=[cabinet-prod]` with
+`ingress.sourcePodLabels.app.kubernetes.io/instance=cabinet-edge-cabinet-prod`.
+Enter the observed controller peer addresses and cluster DNS address. Edge owns NodePorts 30080 and 30443.
 
 On first Prod release, apply the chart with infrastructure only, then run the app
 upgrade using the Dev-accepted artifact. In the private operator session, use

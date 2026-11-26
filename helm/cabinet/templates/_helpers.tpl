@@ -17,10 +17,13 @@ imagePullSecrets:
 {{- end }}
 {{- end -}}
 {{- define "cabinet.secret" -}}
+{{- include "cabinet.secretFrom" (list (index . 0).Values.secrets.existingSecret (index . 1) (index . 2)) -}}
+{{- end -}}
+{{- define "cabinet.secretFrom" -}}
 - name: {{ index . 1 }}
   valueFrom:
     secretKeyRef:
-      name: {{ (index . 0).Values.secrets.existingSecret | quote }}
+      name: {{ index . 0 | quote }}
       key: {{ index . 2 }}
 {{- end -}}
 {{- define "cabinet.storageClass" -}}

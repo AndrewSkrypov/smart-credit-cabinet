@@ -1,0 +1,170 @@
+{{- if .Values.s3.internal.enabled }}
+{{- $internal := .Values.s3.internal }}
+{{- if .Values.s3.endpoint }}
+{{- fail "clear s3.endpoint when enabling s3.internal" }}
+{{- end }}
+{{- $bucket := required "s3.bucket is required" .Values.s3.bucket }}
+{{- if or (not (regexMatch "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$" $bucket)) (contains ".." $bucket) }}
+{{- fail "s3.bucket must use a valid S3 bucket name" }}
+{{- end }}
+{{- $appSecret := required "s3.internal.appSecret is required" $internal.appSecret }}
+{{- $adminSecret := required "s3.internal.adminSecret is required" $internal.adminSecret }}
+{{- if or (eq $appSecret $adminSecret) (eq $appSecret .Values.secrets.existingSecret) (eq $adminSecret .Values.secrets.existingSecret) }}
+{{- fail "SeaweedFS operator and application must use distinct Secrets" }}
+{{- end }}
+{{- $source := .Files.Get "files/seaweedfs.sh" }}
+{{- $operatorActions := `"Admin","Read","Write","List"` }}
+{{- $operatorValues := `"$S3_ADMIN_ACCESS_KEY" "$S3_ADMIN_SECRET_KEY" >` }}
+{{- if or (not (contains $operatorActions $source)) (not (contains $operatorValues $source)) }}
+{{- fail "SeaweedFS source changed; revalidate the chart's scoped operator configuration" }}
+{{- end }}
+{{- $startup := $source | replace $operatorActions `"Admin:%s","Read:%s","Write:%s","List:%s"` | replace $operatorValues `"$S3_ADMIN_ACCESS_KEY" "$S3_ADMIN_SECRET_KEY" "$S3_BUCKET" "$S3_BUCKET" "$S3_BUCKET" "$S3_BUCKET" >` }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cabinet-seaweedfs
+data:
+  start.sh: |
+    {{- $startup | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: seaweedfs
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cabinet.selector" (list . "seaweedfs") | nindent 4 }}
+  ports:
+    - {name: s3, port: 8333, targetPort: s3}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: seaweedfs
+spec:
+  serviceName: seaweedfs
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . "seaweedfs") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list . "seaweedfs") | nindent 8 }}
+      annotations:
+        checksum/seaweedfs-config: {{ $startup | sha256sum | quote }}
+    spec:
+      {{- include "cabinet.pod" . | nindent 6 }}
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: seaweedfs
+          image: {{ include "cabinet.image" (list . "seaweedfs") | quote }}
+          command: [/bin/sh, /cabinet/start.sh]
+          ports:
+            - {name: s3, containerPort: 8333}
+          startupProbe:
+            tcpSocket: {port: s3}
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            exec:
+              command: [wget, -q, -O, /dev/null, "http://127.0.0.1:9333/cluster/status"]
+            timeoutSeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: s3}
+            timeoutSeconds: 3
+            periodSeconds: 10
+          env:
+            - {name: S3_BUCKET, value: {{ $bucket | quote }}}
+            - {name: GOMEMLIMIT, value: 768MiB}
+            {{- include "cabinet.secretFrom" (list $appSecret "S3_ACCESS_KEY" "S3_ACCESS_KEY") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $appSecret "S3_SECRET_KEY" "S3_SECRET_KEY") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $adminSecret "S3_ADMIN_ACCESS_KEY" "S3_ADMIN_ACCESS_KEY") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $adminSecret "S3_ADMIN_SECRET_KEY" "S3_ADMIN_SECRET_KEY") | nindent 12 }}
+          resources:
+            {{- toYaml $internal.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: startup, mountPath: /cabinet, readOnly: true}
+      volumes:
+        - name: startup
+          configMap: {name: cabinet-seaweedfs}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- include "cabinet.storageClass" . | nindent 8 }}
+        resources:
+          requests:
+            storage: {{ required "s3.internal.storage is required" $internal.storage | quote }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-seaweedfs-ingress
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . "seaweedfs") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports: [{protocol: TCP, port: 8333}]
+      from:
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list . "credit") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list . "s3-smoke") | nindent 14 }}
+{{- if .Values.app.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cabinet-s3-smoke
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: "-28"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 180
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list . "s3-smoke") | nindent 8 }}
+    spec:
+      {{- include "cabinet.pod" . | nindent 6 }}
+      restartPolicy: Never
+      containers:
+        - name: smoke
+          image: {{ include "cabinet.image" (list . "identity") | quote }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              {{- .Files.Get "files/s3-smoke.sh" | nindent 14 }}
+          env:
+            - {name: S3_SMOKE_ENDPOINT, value: "http://seaweedfs:8333"}
+            - {name: S3_SMOKE_BUCKET, value: {{ $bucket | quote }}}
+            - {name: S3_SMOKE_REGION, value: {{ .Values.s3.region | quote }}}
+            - name: S3_SMOKE_ID
+              valueFrom:
+                fieldRef: {fieldPath: metadata.uid}
+            {{- include "cabinet.secretFrom" (list $appSecret "S3_ACCESS_KEY" "S3_ACCESS_KEY") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $appSecret "S3_SECRET_KEY" "S3_SECRET_KEY") | nindent 12 }}
+          resources:
+            requests: {cpu: 20m, memory: 16Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities: {drop: [ALL]}
+{{- end }}
+{{- end }}

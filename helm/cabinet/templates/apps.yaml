@@ -97,6 +97,11 @@ spec:
         {{- end }}
     spec:
       {{- include "cabinet.pod" $root | nindent 6 }}
+      {{- $bridge := and (eq $name "engagement") $root.Values.ollamaBridge.enabled }}
+      {{- if $bridge }}
+      securityContext:
+        fsGroup: 10002
+      {{- end }}
       {{- if has $name (list "gateway" "engagement") }}
       terminationGracePeriodSeconds: 150
       {{- end }}
@@ -169,7 +174,13 @@ spec:
             {{- include "cabinet.secret" (list $root "IDENTITY_LINK_KEY" "IDENTITY_LINK_KEY") | nindent 12 }}
             {{- else if eq $name "credit" }}
             - {name: STORAGE_BACKEND, value: s3}
-            - {name: S3_ENDPOINT, value: {{ required "s3.endpoint is required for replicated document storage" $root.Values.s3.endpoint | quote }}}
+            {{- $s3Endpoint := $root.Values.s3.endpoint }}
+            {{- $s3Secret := $root.Values.secrets.existingSecret }}
+            {{- if $root.Values.s3.internal.enabled }}
+            {{- $s3Endpoint = "http://seaweedfs:8333" }}
+            {{- $s3Secret = $root.Values.s3.internal.appSecret }}
+            {{- end }}
+            - {name: S3_ENDPOINT, value: {{ required "s3.endpoint is required in external S3 mode" $s3Endpoint | quote }}}
             - {name: S3_REGION, value: {{ $root.Values.s3.region | quote }}}
             - {name: S3_BUCKET, value: {{ $root.Values.s3.bucket | quote }}}
             - {name: DOCUMENT_UPLOADS_ENABLED, value: "true"}
@@ -178,13 +189,20 @@ spec:
             - {name: IDENTITY_URL, value: "http://identity:8080"}
             - {name: ENGAGEMENT_URL, value: "http://engagement:8080"}
             - {name: EXTERNAL_SIM_URL, value: "http://external-sim:8080"}
-            {{- include "cabinet.secret" (list $root "S3_ACCESS_KEY" "S3_ACCESS_KEY") | nindent 12 }}
-            {{- include "cabinet.secret" (list $root "S3_SECRET_KEY" "S3_SECRET_KEY") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $s3Secret "S3_ACCESS_KEY" "S3_ACCESS_KEY") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $s3Secret "S3_SECRET_KEY" "S3_SECRET_KEY") | nindent 12 }}
             {{- else if eq $name "engagement" }}
             - {name: IDENTITY_URL, value: "http://identity:8080"}
             - {name: CREDIT_URL, value: "http://credit:8080"}
+            {{- if $bridge }}
+            - {name: OLLAMA_URL, value: "http://127.0.0.1:11434"}
+            - {name: ASSISTANT_MODEL, value: {{ required "ollamaBridge.model is required" $root.Values.ollamaBridge.model | quote }}}
+            - {name: ASSISTANT_TIMEOUT, value: {{ $root.Values.ollamaBridge.timeout | quote }}}
+            - {name: ASSISTANT_WARMUP, value: {{ $root.Values.ollamaBridge.warmup | quote }}}
+            {{- else }}
             - {name: OLLAMA_URL, value: ""}
             - {name: ASSISTANT_WARMUP, value: "false"}
+            {{- end }}
             {{- else }}
             - {name: SIM_CONTROL_ENABLED, value: {{ $root.Values.app.simControlEnabled | quote }}}
             {{- end }}
@@ -202,6 +220,11 @@ spec:
       volumes:
         - name: gateway-config
           configMap: {name: cabinet-gateway}
+          {{- end }}
+          {{- if $bridge }}
+        {{- include "cabinet.ollamaBridge.container" $root | nindent 8 }}
+      volumes:
+        {{- include "cabinet.ollamaBridge.volumes" $root | nindent 8 }}
           {{- end }}
 {{- if gt $replicas 1 }}
 ---

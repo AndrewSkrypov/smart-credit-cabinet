@@ -13,12 +13,13 @@ printf '%s' "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER
 tag="$CI_COMMIT_SHA-$CI_JOB_ID"
 manifest="$DOCKER_CONFIG/images.tsv"
 
-for service in identity credit engagement external-sim frontend postgres swagger; do
+for service in identity credit engagement external-sim frontend postgres swagger ssh-bridge; do
     image="$CI_REGISTRY_IMAGE/$service:$tag"
     args=(--platform linux/amd64 --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --tag "$image")
     case "$service" in
         frontend) args+=(-f frontend/Dockerfile --build-arg DIST_SOURCE=prebuilt --build-arg "SOURCE_REVISION=$CI_COMMIT_SHA");;
         postgres|swagger) args+=(-f "docker/$service/Dockerfile");;
+        ssh-bridge) args+=(-f ci/gitlab/ssh-bridge.Dockerfile);;
         *) args+=(-f docker/service/Dockerfile --build-arg "SERVICE=$service" --build-arg JAR_SOURCE=prebuilt --build-arg "SOURCE_REVISION=$CI_COMMIT_SHA");;
     esac
     docker build "${args[@]}" .

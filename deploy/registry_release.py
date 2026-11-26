@@ -30,7 +30,8 @@ class RegistryRelease:
         self.images = release.get("images")
         if not isinstance(self.revision, str) or not REVISION.fullmatch(self.revision):
             raise ValueError("Нужна полная Git-ревизия выпуска")
-        if not isinstance(self.images, dict) or set(self.images) != set(IMAGE_COMPONENTS):
+        required = set(IMAGE_COMPONENTS)
+        if not isinstance(self.images, dict) or not required <= set(self.images) <= (required | {"ssh-bridge"}):
             raise ValueError("Manifest должен содержать полный набор образов выпуска")
         for name, image in self.images.items():
             if not isinstance(image, str) or not IMAGE.fullmatch(image):
@@ -42,8 +43,8 @@ class RegistryRelease:
     def environment(self):
         return {
             "CABINET_RELEASE": self.revision,
-            **{"CABINET_IMAGE_" + component.upper().replace("-", "_"): image
-               for component, image in self.images.items()},
+            **{"CABINET_IMAGE_" + component.upper().replace("-", "_"): self.images[component]
+               for component in IMAGE_COMPONENTS},
         }
 
     def pull_and_verify(self, services):

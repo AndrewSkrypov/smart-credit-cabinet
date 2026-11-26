@@ -1,0 +1,59 @@
+{{- if and .Values.app.enabled .Values.ingress.enabled }}
+{{- if ne .Values.gateway.service.type "ClusterIP" }}
+{{- fail "Ingress requires gateway.service.type=ClusterIP; the externally managed ingress controller owns NodePorts" }}
+{{- end }}
+{{- $hostname := required "ingress.host must match the public DNS record" .Values.ingress.host }}
+{{- if ne .Values.app.publicURL (printf "https://%s" $hostname) }}
+{{- fail "app.publicURL must match the configured ingress host" }}
+{{- end }}
+{{- if not .Values.gateway.trustedProxyCIDRs }}
+{{- fail "gateway.trustedProxyCIDRs must identify the actual ingress controller peers" }}
+{{- end }}
+{{- if not .Values.ingress.sourceNamespaces }}
+{{- fail "ingress.sourceNamespaces must identify the ingress controller namespaces for NetworkPolicy" }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cabinet
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ required "ingress.className is required for the existing ingress controller" .Values.ingress.className | quote }}
+  tls:
+    - hosts: [{{ $hostname | quote }}]
+      secretName: {{ required "ingress.tlsSecret must identify the Edge-managed certificate" .Values.ingress.tlsSecret | quote }}
+  rules:
+    - host: {{ $hostname | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port: {name: http}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-gateway-ingress
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . "gateway") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports: [{protocol: TCP, port: 80}]
+      from:
+        {{- range .Values.ingress.sourceNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . | quote }}
+        {{- end }}
+        {{- range .Values.ingress.sourceCIDRs }}
+        - ipBlock: {cidr: {{ . | quote }}}
+        {{- end }}
+{{- end }}

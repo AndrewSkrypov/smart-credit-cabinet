@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cabinet-state-config
+data:
+  start.sh: |
+    {{- .Files.Get "files/start.sh" | nindent 4 }}
+  healthcheck.sh: |
+    {{- .Files.Get "files/healthcheck.sh" | nindent 4 }}
+  clamd.conf: |
+    {{- .Files.Get "files/clamd.conf" | nindent 4 }}

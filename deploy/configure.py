@@ -7,21 +7,27 @@ import re
 import secrets
 import subprocess
 
+from registry_release import RegistryRelease
+
 parser = argparse.ArgumentParser(description="Создать новые секреты развёртывания; существующий файл не перезаписывается")
 parser.add_argument("--local", action="store_true", help="Только локальная проверка с внутренним CA Caddy")
 parser.add_argument("--domain")
 parser.add_argument("--email")
+parser.add_argument("--release-manifest", help="Выбрать ревизию для распакованного выпуска без .git")
 parser.add_argument("--output", default="deploy/.env")
 parser.add_argument("--storage", choices=["local", "s3"], default="local")
 args = parser.parse_args()
-if not args.local and (not args.domain or not args.email):
-    parser.error("Для сервера задайте --domain и --email владельца")
+if not args.local and not args.domain:
+    parser.error("Для сервера задайте --domain")
 domain = "localhost" if args.local else args.domain
-email = "operator@demo.test" if args.local else args.email
-if not re.fullmatch(r"[a-zA-Z0-9.-]+", domain) or not re.fullmatch(r"[a-zA-Z0-9_.+@-]+", email):
+email = "operator@demo.test" if args.local else args.email or ""
+if not re.fullmatch(r"[a-zA-Z0-9.-]+", domain) or (email and not re.fullmatch(r"[a-zA-Z0-9_.+@-]+", email)):
     parser.error("Домен/почта содержат неподдерживаемые символы")
 root = Path(__file__).resolve().parent.parent
-revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+if args.release_manifest:
+    revision = RegistryRelease(args.release_manifest).revision
+else:
+    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
 values = {"CABINET_DOMAIN": domain, "ACME_EMAIL": email, "CABINET_RELEASE": revision, "POSTGRES_USER": "cabinet",
           "POSTGRES_PASSWORD": secrets.token_urlsafe(32), "JWT_SECRET": secrets.token_urlsafe(48), "SIM_API_KEY": secrets.token_urlsafe(32),
           "IDENTITY_LINK_KEY": secrets.token_urlsafe(48), "IDENTITY_LINK_KEY_VERSION": "1",

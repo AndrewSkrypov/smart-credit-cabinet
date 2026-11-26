@@ -10,12 +10,15 @@ parser.add_argument("--project", default="cabinet-prod")
 parser.add_argument("--env-file", default="deploy/.env")
 parser.add_argument("--local", action="store_true")
 parser.add_argument("--no-build", action="store_true")
+parser.add_argument("--release-manifest")
 parser.add_argument("--check-only", action="store_true")
 parser.add_argument("--host-memory-gib", type=int, default=8)
 args = parser.parse_args()
 if args.host_memory_gib < 4:
     parser.error("Укажите объём RAM сервера в GiB, минимум 4")
-deployment = Deployment(args.project, args.env_file, args.local)
+if args.release_manifest and not args.no_build:
+    parser.error("--release-manifest требует --no-build")
+deployment = Deployment(args.project, args.env_file, args.local, args.release_manifest)
 subprocess.run([sys.executable, str(ROOT / "deploy/render-gateway.py"), "--caddy-ip", deployment.values.get("CADDY_EDGE_IP", "172.30.40.2"),
                 "--output", str(deployment.gateway_config)], check=True)
 config = deployment.config()
@@ -29,7 +32,9 @@ budget = sum(int(service["mem_limit"]) for service in active.values())
 assert budget <= (args.host_memory_gib - 2) * 1024**3, "Лимиты приложений должны оставить 2 GiB для ОС и Docker"
 print(f"Проверены {len(active)} компонентов, сумма лимитов {budget / 1024**2:.0f} MiB, секреты не выводятся")
 if not args.check_only:
-    if not args.no_build:
+    if deployment.release:
+        deployment.release.pull_and_verify(active)
+    elif not args.no_build:
         deployment.assert_build_revision()
     if "ollama-pull" in active:
         deployment.compose("up", "-d", "--wait", "--wait-timeout", "90", "ollama")

@@ -1,0 +1,58 @@
+# GitLab quality runners
+
+Use a dedicated Linux VM or a replacement VM per job for the `cabinet-ci`
+tag. Shell jobs execute MR code. Limit the runner to this GitLab project, disable
+untagged jobs, use one job per worker Docker daemon and keep production credentials,
+deploy keys, cluster access and other runners' sockets outside the job environment.
+Run several independent workers when more parallel capacity is needed. A second
+socket on a shared shell account does not isolate MR code.
+
+Provide Bash, GNU coreutils, Git, Docker Engine and Compose v2.24.4 or later,
+JDK 21 with `JAVA_HOME`, Node 20, Helm 3.19+ or 4, Python 3 with venv, curl, flock, and PostgreSQL 16
+client binaries (`psql`, `pg_dump`, `pg_restore`, `pg_config`). Install Playwright
+Chromium's Linux system packages in the worker image using the repository's
+locked `e2e` package, for example `npm ci --prefix e2e` then
+`cd e2e && npx playwright install-deps chromium` during provisioning.
+The test job installs the matching Chromium revision as the runner user.
+Allow downloads from the dependency repositories, container registries and
+ClamAV signatures, and size the worker for the multi-replica Compose stack.
+
+On the dedicated VM configure the quality daemon with the engine label
+`cabinet-ci=true`. Set the runner's `config.toml` environment entry to
+`CABINET_CI_DOCKER_HOST=unix:///var/run/docker.sock` when that socket belongs to
+the dedicated daemon, or to the worker's configured Unix socket otherwise.
+Use a runner concurrency limit of 1 per daemon and keep the VM out of public
+ingress. Verify access as the runner account with
+`docker --host "$CABINET_CI_DOCKER_HOST" info --format '{{json .Labels}}'`.
+Set the GitLab artifact size limit to accommodate the four packaged JARs from
+`backend`. Verify this on the first pipeline and check that the consumers accept
+both checksum files.
+
+Quality jobs run for MRs and protected refs. The longer TLS/restore, storage,
+shared state, demo reset and reliability exercises run automatically on protected
+refs and schedules. Other pipelines can run these longer jobs manually. The
+Compose project labels, local image tags and loopback port leases identify
+disposable jobs. Reports intentionally exclude database dumps, configuration
+files, token-bearing load cohorts and Playwright network trace archives.
+Playwright still publishes its HTML/JUnit results and failure screenshots.
+
+For maintenance, pause the runner in GitLab and wait for its active job to
+finish or cancel the job through GitLab so its cleanup has a chance to run.
+On the worker, use the matching job ID and quality socket to inspect or clean
+only job-owned resources from the checked-out tree.
+
+```bash
+export CABINET_CI_DOCKER_HOST=unix:///var/run/docker.sock
+export CI_JOB_ID=12345
+export CI_JOB_NAME=maintenance
+docker --host "$CABINET_CI_DOCKER_HOST" ps -a \
+  --filter "label=com.docker.compose.project=cabinet-e2e-$CI_JOB_ID"
+bash ci/gitlab/quality/cleanup.sh
+```
+
+Normal cleanup also removes the four standalone integration containers named
+`cabinet-ci-${CI_JOB_ID}-postgres`, `-clamav`, `-seaweedfs` and `-valkey`. The same maintenance command removes any of those integration containers after an
+interrupted job. The production-like
+restore test chooses separate random project names and records them in its JSON
+report. Use that report to identify any abandoned test volumes before removal, or
+replace the drained dedicated VM.

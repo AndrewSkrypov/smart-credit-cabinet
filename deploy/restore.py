@@ -14,9 +14,10 @@ parser.add_argument("backup")
 parser.add_argument("--project", default="cabinet-prod-restore")
 parser.add_argument("--env-file", required=True)
 parser.add_argument("--local", action="store_true")
+parser.add_argument("--release-manifest")
 args = parser.parse_args()
 assert args.project.startswith("cabinet-prod-restore"), "Для восстановления нужен отдельный новый проект cabinet-prod-restore*"
-deployment = Deployment(args.project, args.env_file, args.local)
+deployment = Deployment(args.project, args.env_file, args.local, args.release_manifest)
 directory = Path(args.backup).resolve()
 manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
 archives = backup_archives(manifest)
@@ -37,7 +38,10 @@ report = {"checked_at": datetime.now(timezone.utc).isoformat(), "source_project"
 try:
     for service in ["identity", "credit", "engagement", "caddy", "seaweedfs"]:
         assert not deployment.compose("ps", "-a", "-q", service, capture=True).strip(), "Целевой проект уже содержит приложения; выберите новый"
-    deployment.compose("up", "-d", "--build", "--wait", "--wait-timeout", "180", "postgres")
+    if deployment.release:
+        deployment.release.pull_and_verify(deployment.active_services())
+    build_option = "--no-build" if deployment.release else "--build"
+    deployment.compose("up", "-d", build_option, "--wait", "--wait-timeout", "180", "postgres")
     deployment.compose("run", "--rm", "--no-deps", "db-init")
     assert deployment.sql("credit", "show server_version").split(".")[0] == manifest["postgres_version"].split(".")[0], "Нужна та же основная версия PostgreSQL"
     for database in DATABASES:
@@ -74,6 +78,8 @@ try:
     command = [sys.executable, str(ROOT / "deploy/start.py"), "--project", args.project, "--env-file", str(deployment.path), "--no-build"]
     if args.local:
         command.append("--local")
+    if deployment.release:
+        command.extend(["--release-manifest", str(deployment.release.path)])
     subprocess.run(command, check=True)
     report["passed"] = True
 finally:

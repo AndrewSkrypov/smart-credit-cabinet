@@ -1,0 +1,73 @@
+{{- if .Values.app.enabled }}
+{{- $root := . }}
+{{- range $i, $name := list "db-init" "identity" "credit" "engagement" }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ if eq $name "db-init" }}cabinet-db-init{{ else }}cabinet-{{ $name }}-flyway{{ end }}
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: {{ add -20 $i | quote }}
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 420
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list $root "db-maintenance") | nindent 8 }}
+    spec:
+      {{- include "cabinet.pod" $root | nindent 6 }}
+      restartPolicy: Never
+      containers:
+        - name: {{ $name }}
+          {{- if eq $name "db-init" }}
+          image: {{ include "cabinet.image" (list $root "postgres") | quote }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              # Use the source bundled with this revision, even on pre-upgrade.
+              cd /tmp
+              mkdir -p cabinet
+              cat > cabinet/database-permissions.sql <<'CABINET_PERMISSIONS'
+              {{- $root.Files.Get "files/database-permissions.sql" | trimSuffix "\n" | nindent 14 }}
+              CABINET_PERMISSIONS
+              cat > cabinet/bootstrap.sh <<'CABINET_BOOTSTRAP'
+              {{- $root.Files.Get "files/bootstrap.sh" | replace "/cabinet/database-permissions.sql" "/tmp/cabinet/database-permissions.sql" | trimSuffix "\n" | nindent 14 }}
+              CABINET_BOOTSTRAP
+              exec sh cabinet/bootstrap.sh
+          env:
+            - {name: PGHOST, value: postgres}
+            - {name: PGUSER, value: cabinet}
+            - {name: PGDATABASE, value: cabinet}
+            {{- include "cabinet.secret" (list $root "PGPASSWORD" "POSTGRES_PASSWORD") | nindent 12 }}
+            {{- range $db := list "IDENTITY" "CREDIT" "ENGAGEMENT" }}
+            {{- range $kind := list "DB" "MIGRATION" }}
+            {{- $key := printf "%s_%s_PASSWORD" $db $kind }}
+            {{- include "cabinet.secret" (list $root $key $key) | nindent 12 }}
+            {{- end }}
+            {{- end }}
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 250m, memory: 192Mi}
+          {{- else }}
+          image: {{ include "cabinet.image" (list $root $name) | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities: {drop: [ALL]}
+          env:
+            - {name: MIGRATION_ONLY, value: "true"}
+            - {name: DEMO_ACCOUNTS, value: {{ $root.Values.app.demoAccounts | quote }}}
+            - {name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"}
+            {{- include "cabinet.db-env" (list $name "owner") | nindent 12 }}
+            {{- include "cabinet.secret" (list $root "DB_PASSWORD" (printf "%s_MIGRATION_PASSWORD" (upper $name))) | nindent 12 }}
+          resources:
+            requests: {cpu: 100m, memory: 192Mi}
+            limits: {cpu: "1", memory: 384Mi}
+          {{- end }}
+{{- end }}
+{{- end }}

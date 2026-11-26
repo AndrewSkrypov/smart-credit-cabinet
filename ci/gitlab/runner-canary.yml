@@ -1,0 +1,33 @@
+runner-canary-ci:
+  stage: quality
+  tags: [cabinet-ci]
+  script:
+    - java -version
+    - node --version
+    - python3 --version
+    - docker --host "$CABINET_CI_DOCKER_HOST" version --format '{{.Server.Version}}'
+    - docker compose version
+    - bash ci/gitlab/canary-registry.sh push
+  artifacts:
+    expire_in: 1 week
+    paths: [runner-canary-image.txt]
+
+runner-canary-release:
+  stage: release
+  tags: [cabinet-release]
+  script:
+    - python3 --version
+    - docker version --format '{{.Server.Version}}'
+    - docker buildx version
+    - bash ci/gitlab/canary-registry.sh pull
+  dependencies: [runner-canary-ci]
+
+runner-canary-deploy:
+  stage: dev
+  tags: [cabinet-deploy]
+  dependencies: []
+  script:
+    - ssh -V
+    - python3 --version
+    - helm version --short
+    - kubectl version --client

@@ -11,10 +11,9 @@ from urllib.error import URLError
 from urllib.request import HTTPSHandler, HTTPRedirectHandler, build_opener
 
 from common import Deployment
+from registry_release import APP_SERVICES, REVISION
 
 
-APP_SERVICES = ("identity", "credit", "engagement", "external-sim", "frontend")
-REVISION = re.compile(r"[0-9a-f]{40}")
 IMAGE_ID = re.compile(r"sha256:[0-9a-f]{64}")
 ENTRY = re.compile(r"""<script\b[^>]*\bsrc=["'](/assets/index-[\w-]+\.js)["']""", re.ASCII)
 FRONTEND_ROOT = "/usr/share/nginx/html"
@@ -58,7 +57,8 @@ def verify(deployment, expected_revision):
     if not deployment.local and deployment.values["CABINET_RELEASE"] != expected_revision:
         raise ValueError("CABINET_RELEASE отличается от ожидаемой ревизии")
     origin = deployment.values["PUBLIC_CABINET_URL"].rstrip("/")
-    containers = {service: deployment.container(service) for service in APP_SERVICES}
+    services = (*APP_SERVICES, "postgres") if deployment.release else APP_SERVICES
+    containers = {service: deployment.container(service) for service in services}
     images = {}
     for service, container in containers.items():
         running, image_id = docker(
@@ -69,9 +69,13 @@ def verify(deployment, expected_revision):
         revision = docker(
             "image", "inspect", "--format", '{{index .Config.Labels "org.opencontainers.image.revision"}}', image_id,
         ).decode("ascii").strip()
+        if deployment.release and deployment.release.local_image_id(service) != image_id:
+            raise RuntimeError(f"Работающий образ {service} отличается от digest выпуска")
         if revision != expected_revision:
             raise RuntimeError(f"OCI revision работающего образа {service} отличается от ожидаемой")
         images[service] = {"container": container, "image_id": image_id, "revision": revision}
+        if deployment.release:
+            images[service]["registry_ref"] = deployment.release.images[service]
 
     frontend = containers["frontend"]
     entry = frontend_entry(docker("exec", frontend, "cat", FRONTEND_ROOT + "/index.html"))
@@ -99,12 +103,13 @@ def main():
     parser.add_argument("--project", default="cabinet-prod")
     parser.add_argument("--env-file", default="deploy/.env")
     parser.add_argument("--expected-revision", required=True)
+    parser.add_argument("--release-manifest")
     parser.add_argument("--local", action="store_true", help="Использовать локальный CA Caddy, подготовленный deploy/verify.py")
     args = parser.parse_args()
     if not REVISION.fullmatch(args.expected_revision):
         parser.error("--expected-revision должен содержать 40 строчных шестнадцатеричных символов")
     try:
-        result = verify(Deployment(args.project, args.env_file, args.local), args.expected_revision)
+        result = verify(Deployment(args.project, args.env_file, args.local, args.release_manifest), args.expected_revision)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         parser.exit(1, f"Проверка выпуска не прошла. {error}\n")
     print(json.dumps(result, ensure_ascii=False, indent=2))

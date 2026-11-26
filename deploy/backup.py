@@ -15,9 +15,10 @@ parser = argparse.ArgumentParser(description="Согласованная коп�
 parser.add_argument("--project", default="cabinet-prod")
 parser.add_argument("--env-file", default="deploy/.env")
 parser.add_argument("--local", action="store_true")
+parser.add_argument("--release-manifest")
 parser.add_argument("--output")
 args = parser.parse_args()
-deployment = Deployment(args.project, args.env_file, args.local)
+deployment = Deployment(args.project, args.env_file, args.local, args.release_manifest)
 name = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
 directory = Path(args.output).resolve() if args.output else ROOT / "deploy/backups" / name
 directory.mkdir(parents=True, mode=0o700, exist_ok=False)

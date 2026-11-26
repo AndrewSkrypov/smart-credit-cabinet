@@ -1,0 +1,3 @@
+{{- if and .Release.IsInstall .Values.app.enabled -}}
+{{- fail "install the persistent infrastructure with app.enabled=false before upgrading with app.enabled=true" -}}
+{{- end -}}

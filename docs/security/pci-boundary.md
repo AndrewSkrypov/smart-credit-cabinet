@@ -43,7 +43,7 @@
 Основания в коде: [сессия браузера](../../frontend/src/auth/session.ts),
 [чат и уведомление](../../services/credit/src/main/kotlin/ru/creditcabinet/chat/application/ChatService.kt),
 [неизменяемый аудит](../../services/credit/src/main/resources/db/migration/V7__application_chat.sql),
-[контекст помощника](../../services/engagement/src/main/kotlin/ru/creditcabinet/assistant/AssistantService.kt),
+[контекст помощника](../../services/engagement/src/main/kotlin/ru/creditcabinet/assistant/application/AssistantService.kt),
 [backup/restore](../deployment.md), [генерируемые файлы](../generated-files.md).
 
 ## Фактически включённые меры и ограничения

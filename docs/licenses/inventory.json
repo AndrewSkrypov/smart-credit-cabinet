@@ -11525,6 +11525,13 @@
   ],
   "assets": [
     {
+      "name": "Apache Kafka (дистрибутив для CI Assessment)",
+      "version": "4.3.2 (Scala 2.13)",
+      "license": "Apache-2.0",
+      "source": "https://github.com/apache/kafka/blob/4.3.2/LICENSE",
+      "note": "Локальный брокер обязательного интеграционного теста. SHA-512 архива закреплён в e2e/alpha-assessment/kafka-ci.sha512. Лицензии встроенных зависимостей перечислены в LICENSE и NOTICE дистрибутива."
+    },
+    {
       "name": "Inter",
       "version": "@fontsource/inter 5.3.0 (точная версия — npm lock)",
       "license": "SIL Open Font License 1.1",

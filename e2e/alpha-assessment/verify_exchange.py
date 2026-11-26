@@ -370,7 +370,10 @@ num.network.threads=2
 
     if args.require_replay_test:
         root = Path(__file__).resolve().parents[2]
-        replay_env = os.environ | {
+        gradle_cache_env = {
+            name: os.environ[name] for name in ("GRADLE_USER_HOME", "GRADLE_RO_DEP_CACHE") if name in os.environ
+        }
+        replay_env = host_env | gradle_cache_env | {
             **{name: env[name] for name in ("ASSESSMENT_DB_URL", "ASSESSMENT_DB_USER", "ASSESSMENT_DB_PASSWORD")},
             "R2_KAFKA_BOOTSTRAP": bootstrap,
             "CABINET_ASSESSMENT_KAFKA_ENABLED": "false",

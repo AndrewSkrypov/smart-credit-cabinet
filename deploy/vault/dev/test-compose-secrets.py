@@ -56,6 +56,7 @@ class DevEnvTests(unittest.TestCase):
         args = dict(
             operation=operation,
             vault_origin="https://vault.test",
+            connect_ip=None,
             ca_file=self.state / "unused-test-ca",
             token_file=self.token,
             include_service_smtp=False,
@@ -174,6 +175,15 @@ class DevEnvTests(unittest.TestCase):
 
 
 class VaultTests(unittest.TestCase):
+    def test_explicit_route_keeps_the_origin_as_tls_server_name(self):
+        with patch.object(adapter.socket, "create_connection") as dial:
+            context = Mock()
+            conn = adapter.AddressPinnedHTTPSConnection("vault.example.test", 8200, "192.0.2.1",
+                                                        timeout=10, context=context)
+            conn.connect()
+            dial.assert_called_once_with(("192.0.2.1", 8200), 10)
+            context.wrap_socket.assert_called_once_with(dial.return_value, server_hostname="vault.example.test")
+
     def test_path_has_no_override_and_redirect_is_not_followed(self):
         with patch.object(adapter.http.client, "HTTPSConnection") as transport, patch.object(adapter.ssl, "SSLContext"):
             response = transport.return_value.getresponse.return_value

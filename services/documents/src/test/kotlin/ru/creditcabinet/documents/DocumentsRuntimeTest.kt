@@ -408,6 +408,37 @@ class DocumentsRuntimeTest {
         assertEquals(404, http("/internal/documents/v1", client).statusCode())
     }
 
+    @Test
+    fun `runtime roles cannot change fences or connect to the other business database`() {
+        val base = env("DOCUMENTS_TEST_DATABASE_BASE")
+        val documentsPassword = env("DOCUMENTS_TEST_DOCUMENTS_APP_PASSWORD")
+        val creditPassword = env("DOCUMENTS_TEST_CREDIT_APP_PASSWORD")
+        DriverManager.getConnection("$base/documents", "documents_app", documentsPassword).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery("select public.assert_documents_writer(2)").use { rs ->
+                    rs.next()
+                    assertTrue(rs.getBoolean(1))
+                }
+                statement.executeQuery("select current_user").use { rs ->
+                    rs.next()
+                    assertEquals("documents_app", rs.getString(1))
+                }
+                val denied = assertFailsWith<java.sql.SQLException> { statement.executeUpdate("update document_ownership set epoch=epoch+1") }
+                assertEquals("42501", denied.sqlState)
+            }
+        }
+        DriverManager.getConnection("$base/credit", "credit_app", creditPassword).use { connection ->
+            connection.createStatement().use { statement ->
+                val denied = assertFailsWith<java.sql.SQLException> { statement.executeUpdate("update document_ownership set epoch=epoch+1") }
+                assertEquals("42501", denied.sqlState)
+                val fenced = assertFailsWith<java.sql.SQLException> { statement.executeQuery("select public.assert_local_documents_writer()") }
+                assertEquals("55000", fenced.sqlState)
+            }
+        }
+        assertFailsWith<java.sql.SQLException> { DriverManager.getConnection("$base/credit", "documents_app", documentsPassword).close() }
+        assertFailsWith<java.sql.SQLException> { DriverManager.getConnection("$base/documents", "credit_app", creditPassword).close() }
+    }
+
     private fun http(path: String, token: String, body: String? = null): HttpResponse<ByteArray> {
         val builder = HttpRequest.newBuilder(URI.create(env("DOCUMENTS_TEST_CREDIT_URL") + path)).header("Authorization", "Bearer $token")
         if (body != null) {

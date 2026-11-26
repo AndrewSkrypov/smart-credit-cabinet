@@ -4,10 +4,21 @@ create table document_ownership (
  epoch bigint not null check(epoch>0)
 );
 insert into document_ownership values(true,'LOCAL',1);
+-- The app may lock/check ownership through this function but cannot update it.
+create function assert_local_documents_writer() returns boolean
+language plpgsql security definer set search_path=pg_catalog as $$
+declare active_owner text;
+begin
+ select owner into active_owner from public.document_ownership where singleton for share;
+ if active_owner is distinct from 'LOCAL' then
+  raise exception 'Document ownership fenced' using errcode='55000';
+ end if;
+ return true;
+end $$;
+revoke all on function assert_local_documents_writer() from public;
 create function fence_local_documents() returns trigger language plpgsql as $$
 begin
- perform 1 from document_ownership where singleton and owner='LOCAL' for share;
- if not found then raise exception 'Document ownership fenced' using errcode='55000'; end if;
+ perform public.assert_local_documents_writer();
  return case when TG_OP='DELETE' then old else new end;
 end $$;
 create trigger documents_owner_fence before insert or update or delete on documents for each row execute function fence_local_documents();

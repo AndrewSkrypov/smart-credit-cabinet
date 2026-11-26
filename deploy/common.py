@@ -55,6 +55,15 @@ class Deployment:
         if not optional <= {"ai", "monitoring"}:
             raise ValueError("CABINET_OPTIONAL_PROFILES поддерживает ai,monitoring")
         self.profiles.update(optional)
+        ollama_ssh = self.values.get("CABINET_DEV_OLLAMA_SSH", "false")
+        if ollama_ssh not in {"true", "false"}:
+            raise ValueError("CABINET_DEV_OLLAMA_SSH должен быть true или false")
+        self.ollama_ssh = ollama_ssh == "true"
+        if self.ollama_ssh:
+            if local or project != "cabinet-dev" or "ai" in self.profiles:
+                raise ValueError("SSH bridge доступен только cabinet-dev без локального профиля ai")
+            if not self.release or "ssh-bridge" not in self.release.images:
+                raise ValueError("Для SSH bridge нужен digest образа в manifest выпуска")
         grafana_https = self.values.get("CABINET_GRAFANA_HTTPS", "false")
         if grafana_https not in {"true", "false"}:
             raise ValueError("CABINET_GRAFANA_HTTPS должен быть true или false")
@@ -116,6 +125,8 @@ class Deployment:
                 self.command.extend(["-f", str(ROOT / "monitoring/compose.paging.yml")])
         if grafana_https == "true":
             self.command.extend(["-f", str(ROOT / "monitoring/compose.grafana-https.yml")])
+        if self.ollama_ssh:
+            self.command.extend(["-f", str(ROOT / "deploy/compose.ollama-ssh.yaml")])
         for profile in sorted(self.profiles):
             self.command.extend(["--profile", profile])
 

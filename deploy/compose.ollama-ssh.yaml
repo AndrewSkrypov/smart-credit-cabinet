@@ -1,0 +1,35 @@
+services:
+  engagement:
+    environment:
+      OLLAMA_URL: http://127.0.0.1:11434
+      ASSISTANT_MODEL: qwen2.5:7b-instruct-q4_K_M
+      ASSISTANT_TIMEOUT: PT30S
+      ASSISTANT_WARMUP: "false"
+
+  ollama-ssh-bridge:
+    image: ${CABINET_IMAGE_SSH_BRIDGE:?Нужен registry manifest SSH bridge}
+    pull_policy: never
+    entrypoint: ["/bin/sh", "/opt/cabinet/ollama-ssh-bridge.sh"]
+    network_mode: "service:engagement"
+    depends_on:
+      engagement:
+        condition: service_started
+        restart: true
+    environment:
+      SSH_HOST: 45.145.191.121
+      SSH_PORT: "43423"
+    user: "10002:10002"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    mem_limit: 64m
+    volumes:
+      - type: bind
+        source: /etc/pump/engagement-ollama-ssh
+        target: /run/ssh-source
+        read_only: true
+        bind: {create_host_path: false}
+      - ./helm/cabinet/files/ollama-ssh-bridge.sh:/opt/cabinet/ollama-ssh-bridge.sh:ro
+    tmpfs:
+      - /run/bridge:rw,noexec,nosuid,nodev,uid=10002,gid=10002,mode=0700,size=1m

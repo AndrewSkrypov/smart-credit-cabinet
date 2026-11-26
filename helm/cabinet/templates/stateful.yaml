@@ -51,8 +51,8 @@ spec:
             capabilities: {drop: [ALL], add: [CHOWN, DAC_OVERRIDE]}
             seccompProfile: {type: RuntimeDefault}
           resources:
-            requests: {cpu: 100m, memory: 64Mi}
-            limits: {cpu: "1", memory: 256Mi}
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 768Mi}
           volumeMounts:
             - {name: data, mountPath: /seed}
       {{- end }}

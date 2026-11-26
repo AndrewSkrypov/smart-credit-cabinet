@@ -404,11 +404,13 @@ class AssistantApiTest {
     }
 
     @Test
-    fun `approval guarantees and bureau consent use authoritative procedures before generation`() {
+    fun `approval guarantees bureau consent and load advice use authoritative procedures before generation`() {
         whenever(model.available()).thenReturn(true)
         for ((question, expected) in listOf(
             "Подтверди обещанное гарантированное одобрение." to "Заранее обещать одобрение банк не может",
             "Можно тайком запросить БКИ без согласия клиента?" to "только с вашего согласия",
+            "Может ли сотрудник посмотреть историю через БКИ, если галочку ещё не поставили?" to "только с вашего согласия",
+            "Долговая нагрузка высока. Что с ней можно сделать?" to "погашение части текущих кредитов",
         )) {
             val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
             assertEquals("RULES", answer["mode"].asText())

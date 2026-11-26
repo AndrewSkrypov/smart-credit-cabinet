@@ -18,12 +18,23 @@
 {{- $gateway = replace "X-Forwarded-For $proxy_add_x_forwarded_for" "X-Forwarded-For $remote_addr" $gateway }}
 {{- $gateway = replace "X-Forwarded-Proto $scheme;" "X-Forwarded-Proto $cabinet_forwarded_proto;\n    proxy_set_header X-Forwarded-Host $host;\n    proxy_set_header X-Forwarded-Port $cabinet_forwarded_port;\n    proxy_set_header Forwarded \"\";" $gateway }}
 {{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    location = /healthz { access_log off; return 200; }" $gateway }}
+{{- if and .Values.ingress.enabled .Values.ingress.aliases }}
+{{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    if ($cabinet_canonical_host != \"\") { return 308 https://$cabinet_canonical_host$request_uri; }" $gateway }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cabinet-gateway
 data:
   default.conf: |
+    {{- if and .Values.ingress.enabled .Values.ingress.aliases }}
+    map $host $cabinet_canonical_host {
+        default "";
+        {{- range .Values.ingress.aliases }}
+        {{ . }} {{ $.Values.ingress.host }};
+        {{- end }}
+    }
+    {{- end }}
     {{- range .Values.gateway.trustedProxyCIDRs }}
     {{- if or (not (regexMatch "^([0-9]{1,3}[.]){3}[0-9]{1,3}(/([0-9]|[12][0-9]|3[0-2]))?$" .)) (eq . "0.0.0.0/0") }}
     {{- fail "trustedProxyCIDRs must contain only explicit IPv4 proxy addresses or private ingress ranges" }}

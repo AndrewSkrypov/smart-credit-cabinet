@@ -42,6 +42,10 @@ key in a separate protected file variable. Install
 path. The account `cabinet-deploy` can run Docker on the dedicated Dev VM. Keep
 its host environment and Registry read-only login private. See
 [the Dev runbook](../../deploy/README.md) for initial setup and recovery.
+Enable monitoring in the host environment with `CABINET_OPTIONAL_PROFILES=monitoring`.
+The deployment applies `monitoring/compose.ops.yaml` after the runtime overlays.
+After acceptance, check the synthetic journey and the Grafana dashboard from
+the Dev host's loopback monitoring endpoints.
 
 Set these GitLab variables in their matching protected environment.
 File values are indicated explicitly.
@@ -63,7 +67,14 @@ secret are provisioned separately from Helm values, with only a
 Ingress uses class `cabinet-public` and the Edge-managed
 `cabinet-prod-tls` Secret. In the values file, pair `ingress.sourceNamespaces=[cabinet-prod]` with
 `ingress.sourcePodLabels.app.kubernetes.io/instance=cabinet-edge-cabinet-prod`.
-Enter the observed controller peer addresses and cluster DNS address. Edge owns NodePorts 30080 and 30443.
+Enter the observed controller peer addresses and cluster DNS address.
+List `www.credit-cabinet.ru` in `ingress.aliases` to redirect it over HTTPS
+to the canonical `credit-cabinet.ru` origin using the shared certificate.
+Set `monitoring.namespaces=[monitoring]` and
+`app.otlpEndpoint=http://tempo.monitoring.svc:4318/v1/traces` when the
+observability owner installs `cabinet-observability` in `monitoring`.
+With internal S3, the app requests 104 GiB on 6 RWO claims and observability
+requests 68 GiB on 6, for 172 GiB on 12 claims total. Edge owns NodePorts 30080 and 30443.
 
 On first Prod release, apply the chart with infrastructure only, then run the app
 upgrade using the Dev-accepted artifact. In the private operator session, use

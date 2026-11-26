@@ -101,6 +101,8 @@ class Deployment:
             self.command.extend(["-f", str(ROOT / "deploy/compose.registry.yaml")])
         if local:
             self.command.extend(["-f", str(ROOT / "deploy/compose.local.yaml")])
+        if "monitoring" in self.profiles:
+            self.command.extend(["-f", str(ROOT / "monitoring/compose.ops.yaml")])
         for profile in sorted(self.profiles):
             self.command.extend(["--profile", profile])
 

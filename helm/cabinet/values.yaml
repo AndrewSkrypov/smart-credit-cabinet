@@ -78,6 +78,7 @@ ingress:
   enabled: false
   className: ""
   host: ""
+  aliases: []
   tlsSecret: ""
   annotations: {}
   sourceNamespaces: []

@@ -3,6 +3,15 @@
 {{- fail "Ingress requires gateway.service.type=ClusterIP; the externally managed ingress controller owns NodePorts" }}
 {{- end }}
 {{- $hostname := required "ingress.host must match the public DNS record" .Values.ingress.host }}
+{{- $hosts := concat (list $hostname) .Values.ingress.aliases }}
+{{- if ne (len $hosts) (len (uniq $hosts)) }}
+{{- fail "ingress aliases must be distinct from the primary hostname" }}
+{{- end }}
+{{- range $hosts }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9.-]*[a-z0-9]$" .) }}
+{{- fail "ingress hosts must be validated lowercase DNS names" }}
+{{- end }}
+{{- end }}
 {{- if ne .Values.app.publicURL (printf "https://%s" $hostname) }}
 {{- fail "app.publicURL must match the configured ingress host" }}
 {{- end }}
@@ -23,10 +32,12 @@ metadata:
 spec:
   ingressClassName: {{ required "ingress.className is required for the existing ingress controller" .Values.ingress.className | quote }}
   tls:
-    - hosts: [{{ $hostname | quote }}]
+    - hosts:
+        {{- toYaml $hosts | nindent 8 }}
       secretName: {{ required "ingress.tlsSecret must identify the Edge-managed certificate" .Values.ingress.tlsSecret | quote }}
   rules:
-    - host: {{ $hostname | quote }}
+    {{- range $hosts }}
+    - host: {{ . | quote }}
       http:
         paths:
           - path: /
@@ -35,6 +46,7 @@ spec:
               service:
                 name: gateway
                 port: {name: http}
+    {{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

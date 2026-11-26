@@ -1,6 +1,7 @@
 package ru.creditcabinet.assistant
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ObjectNode
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -42,10 +43,13 @@ class CreditApplications(
     @Value("\${cabinet.credit.url:}") creditUrl: String,
     builder: RestClient.Builder,
 ) {
-    private val client: RestClient? = creditUrl.takeIf { it.isNotBlank() }?.let {
+    private val client = creditClient(creditUrl, builder, Duration.ofSeconds(2), Duration.ofSeconds(5))
+    private val reviewCheckClient = creditClient(creditUrl, builder, Duration.ofMillis(300), Duration.ofMillis(500))
+
+    private fun creditClient(url: String, builder: RestClient.Builder, connect: Duration, read: Duration): RestClient? = url.takeIf { it.isNotBlank() }?.let {
         val requestFactory = SimpleClientHttpRequestFactory().apply {
-            setConnectTimeout(Duration.ofSeconds(2))
-            setReadTimeout(Duration.ofSeconds(5))
+            setConnectTimeout(connect)
+            setReadTimeout(read)
         }
         builder.clone().baseUrl(it).requestFactory(requestFactory).build()
     }
@@ -61,6 +65,25 @@ class CreditApplications(
         } catch (exception: Exception) {
             null
         }
+    }
+
+    /** Credit binds this private read to the latest transition into manual review. */
+    fun manualReviewAdvice(applicationId: UUID, eventId: UUID, foreground: Boolean = false): ManualReviewAdvice? {
+        val target = (if (foreground) reviewCheckClient else client) ?: unavailable()
+        val response = try {
+            target.get().uri(
+                "/internal/v1/underwriting/applications/{id}/advice?eventId={eventId}",
+                applicationId,
+                eventId,
+            ).retrieve().body(JsonNode::class.java)
+        } catch (_: HttpClientErrorException.Conflict) {
+            return null
+        }
+        if (response !is ObjectNode || response.path("applicationId").asText() != applicationId.toString()) unavailable()
+        val facts = response.deepCopy()
+        val revision = facts.remove("adviceRevision")?.takeIf { it.isTextual }?.asText()?.lowercase()
+        if (revision == null || !revision.matches(ADVICE_REVISION)) unavailable()
+        return ManualReviewAdvice(revision, facts)
     }
 
     fun facts(applicationId: UUID, authorization: String): ApplicationFacts? {
@@ -169,6 +192,7 @@ class CreditApplications(
     private fun date(iso: String) = runCatching { DATE.format(java.time.Instant.parse(iso).atZone(MOSCOW)) }.getOrDefault(iso)
 
     private companion object {
+        val ADVICE_REVISION = Regex("[0-9a-f]{64}")
         val MOSCOW: ZoneId = ZoneId.of("Europe/Moscow")
         val DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMMM, HH:mm", Locale.forLanguageTag("ru"))
         val CLOSE_REASONS = mapOf(

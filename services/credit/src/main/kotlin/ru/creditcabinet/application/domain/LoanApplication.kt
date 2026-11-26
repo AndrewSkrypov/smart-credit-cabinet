@@ -1,6 +1,5 @@
 package ru.creditcabinet.application.domain
 
-import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductMatcher.rubles
@@ -86,7 +85,7 @@ data class LoanApplication(
     val visibleToClient: Boolean get() = agentId == null || status != ApplicationStatus.DRAFT
 
     fun updateDraft(terms: ApplicationTerms, now: Instant): LoanApplication {
-        if (status != ApplicationStatus.DRAFT) throw ConflictException("Заявка уже отправлена — изменить её можно только по запросу банка")
+        if (status != ApplicationStatus.DRAFT) throw ApplicationConflictException("Заявка уже отправлена — изменить её можно только по запросу банка")
         require(terms.productCode == this.terms.productCode) { "Продукт заявки не меняется — создайте новую заявку" }
         val updatedCommission = if (agentId != null && agentCommissionRateBps != null) {
             terms.amount * agentCommissionRateBps / 10_000L
@@ -116,7 +115,7 @@ data class LoanApplication(
 
     fun submit(product: Product, actor: Actor, now: Instant): Transition {
         if (agentId != null) {
-            throw ConflictException("Агентскую заявку нельзя отправить напрямую — сначала требуется подтверждение клиента")
+            throw ApplicationConflictException("Агентскую заявку нельзя отправить напрямую — сначала требуется подтверждение клиента")
         }
         val problems = submissionProblems(product)
         require(problems.isEmpty()) { problems.joinToString("; ") }
@@ -126,10 +125,10 @@ data class LoanApplication(
     /** T22: agent sends a completed draft to the client for review and bureau consent. */
     fun requestClientConfirmation(product: Product, actor: Actor, now: Instant): Transition {
         if (actor.type !in ApplicationEvent.REQUEST_CLIENT_CONFIRMATION.actors) {
-            throw ConflictException("Это действие недоступно для вашей роли")
+            throw ApplicationConflictException("Это действие недоступно для вашей роли")
         }
         if (agentId == null || agentId != actor.id) {
-            throw ConflictException("Отправить заявку на подтверждение может только агент, создавший её")
+            throw ApplicationConflictException("Отправить заявку на подтверждение может только агент, создавший её")
         }
         val problems = agentSubmissionProblems(product)
         require(problems.isEmpty()) { problems.joinToString("; ") }
@@ -139,7 +138,7 @@ data class LoanApplication(
     /** T23: client reviews an agent-prepared application, grants bureau consent, and submits to the bank. */
     fun confirmAndSubmit(product: Product, bureauConsent: Boolean, actor: Actor, now: Instant): Transition {
         if (actor.type !in ApplicationEvent.CONFIRM_AND_SUBMIT.actors) {
-            throw ConflictException("Это действие недоступно для вашей роли")
+            throw ApplicationConflictException("Это действие недоступно для вашей роли")
         }
         val withConsent = copy(terms = terms.copy(bureauConsent = bureauConsent))
         val problems = withConsent.submissionProblems(product)
@@ -156,10 +155,10 @@ data class LoanApplication(
     /** T25: agent cancels their own draft before it is submitted to the bank. */
     fun agentCancel(actor: Actor, now: Instant): Transition {
         if (actor.type !in ApplicationEvent.AGENT_CANCEL.actors) {
-            throw ConflictException("Это действие недоступно для вашей роли")
+            throw ApplicationConflictException("Это действие недоступно для вашей роли")
         }
         if (agentId == null || agentId != actor.id) {
-            throw ConflictException("Отменить черновик может только агент, создавший заявку")
+            throw ApplicationConflictException("Отменить черновик может только агент, создавший заявку")
         }
         return move(ApplicationEvent.AGENT_CANCEL, actor, now)
     }
@@ -176,8 +175,8 @@ data class LoanApplication(
         comment: String? = null,
         payload: Map<String, Any?> = emptyMap(),
     ): Transition {
-        if (actor.type !in event.actors) throw ConflictException("Это действие недоступно для вашей роли")
-        val target = ApplicationStateMachine.target(status, event) ?: throw ConflictException(refusal(event))
+        if (actor.type !in event.actors) throw ApplicationConflictException("Это действие недоступно для вашей роли")
+        val target = ApplicationStateMachine.target(status, event) ?: throw ApplicationConflictException(refusal(event))
         val updatedCommissionStatus = when {
             agentId == null -> agentCommissionStatus
             target == ApplicationStatus.DISBURSED -> CommissionStatus.ACCRUED

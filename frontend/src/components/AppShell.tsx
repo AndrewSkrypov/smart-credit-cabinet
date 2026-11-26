@@ -8,6 +8,7 @@ import { DocumentSurface } from './DocumentSurface';
 import { BrandMark } from './BrandMark';
 import { AssistantPanel } from './AssistantPanel';
 import { NotificationBell } from './NotificationBell';
+import { OnboardingHeaderMenu, OnboardingProvider, OnboardingWelcomeBanner } from './onboarding/OnboardingTour';
 
 /** Sections of the bank workspace; the rules are changed by the risk administrator, read by all staff. */
 const bankSections = [
@@ -48,11 +49,12 @@ export function AppShell() {
   const sections = bank ? bankSections : agent ? agentSections : clientSections;
   const section = [...sections].reverse().find((item) => location.pathname.startsWith(item.path))?.path ?? false;
   const tabs = (sx: object) => (
-    <Tabs value={section} variant="scrollable" sx={{ ...darkTabs, ...sx }} aria-label={bank ? 'Разделы банка' : agent ? 'Разделы агента' : 'Разделы компании'}>
+    <Tabs data-tour="nav-tabs" value={section} variant="scrollable" sx={{ ...darkTabs, ...sx }} aria-label={bank ? 'Разделы банка' : agent ? 'Разделы агента' : 'Разделы компании'}>
       {sections.map((item) => <Tab key={item.path} value={item.path} label={item.label} component={RouterLink} to={item.path} />)}
     </Tabs>
   );
   return (
+    <OnboardingProvider>
     <DocumentSurface kind="workspace"><Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: nightGlow, overflowX: 'clip' }}>
       <Box component="header" sx={{ position: 'sticky', top: 0, zIndex: 10, pt: { xs: 1, md: 2 } }}>
         <Container maxWidth="lg">
@@ -65,10 +67,11 @@ export function AppShell() {
               <Typography variant="body2" fontWeight={500} noWrap>{user.fullName}</Typography>
               <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.64)' }} noWrap>{roleLabels[user.role]}</Typography>
             </Stack>
+            <OnboardingHeaderMenu />
             <Tooltip title="Профиль">
-              <IconButton component={RouterLink} to="/profile" aria-label="Профиль" sx={{ color: '#fff' }}><AccountCircleOutlinedIcon /></IconButton>
+              <IconButton data-tour="profile-btn" component={RouterLink} to="/profile" aria-label="Профиль" sx={{ color: '#fff' }}><AccountCircleOutlinedIcon /></IconButton>
             </Tooltip>
-            <Box sx={{ color: '#fff', '& .MuiIconButton-root': { color: '#fff' } }}><NotificationBell /></Box>
+            <Box data-tour="notifications-bell" sx={{ color: '#fff', '& .MuiIconButton-root': { color: '#fff' } }}><NotificationBell /></Box>
             <Button onClick={signOut} sx={{ borderRadius: '99px', paddingInline: { xs: 1.75, sm: 3 }, flexShrink: 0, whiteSpace: 'nowrap', bgcolor: tokens.nightButton, color: '#fff', '&:hover': { bgcolor: '#3a3a3f' } }}>Выйти</Button>
           </Box>
         </Container>
@@ -77,10 +80,12 @@ export function AppShell() {
       <Box sx={{ height: { xs: 16, md: 32 } }} />
       <Box sx={{ flexGrow: 1, bgcolor: 'background.default', borderRadius: { xs: '28px 28px 0 0', md: '48px 48px 0 0' } }}>
         <Container component="main" maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
+          <OnboardingWelcomeBanner />
           <Outlet />
         </Container>
       </Box>
       {!bank && <AssistantPanel />}
     </Box></DocumentSurface>
+    </OnboardingProvider>
   );
 }

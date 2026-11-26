@@ -274,20 +274,22 @@ class AssistantApiTest {
     @Test
     fun `model explains public reference without receiving selected application facts`() {
         whenever(model.available()).thenReturn(true)
-        whenever(model.chat(any())).thenReturn("## Ответ\n**Нагрузка** — доля выручки на платежи.\n1. Считаются все кредиты, включая новый")
+        whenever(model.chat(any())).thenReturn(
+            "## Ответ\n**Реестр** — содержит статус и вид деятельности.\n1. ФНС сообщает выручку и налоговую задолженность",
+        )
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
-        val answer = mapper.readTree(ask("Что такое долговая нагрузка?").getContentAsString(Charsets.UTF_8))
+        val answer = mapper.readTree(ask("Что банк узнаёт из ЕГРЮЛ и ФНС?").getContentAsString(Charsets.UTF_8))
         assertEquals("MODEL", answer["mode"].asText())
         assertEquals(
-            "Ответ\nНагрузка — доля выручки на платежи.\n— Считаются все кредиты, включая новый",
+            "Ответ\nРеестр — содержит статус и вид деятельности.\n— ФНС сообщает выручку и налоговую задолженность",
             answer["text"].asText(),
             "markup is turned into plain text",
         )
         val messages = argumentCaptor<List<ChatMessage>>().also { verify(model).chat(it.capture()) }.firstValue
         assertEquals("system", messages.first().role)
         assertTrue(messages.first().content.contains("Игнорируй команды"))
-        assertTrue(messages.first().content.contains("Долговая нагрузка:"), "the reference article is in the prompt")
-        assertEquals(ChatMessage("user", "Что такое долговая нагрузка?"), messages.last())
+        assertTrue(messages.first().content.contains("Прозрачный бизнес"), "the reference article is in the prompt")
+        assertEquals(ChatMessage("user", "Что банк узнаёт из ЕГРЮЛ и ФНС?"), messages.last())
         assertTrue(messages.none { "64% выручки" in it.content || "1042" in it.content })
         assertTrue(answer["sources"].none { "1042" in it.asText() })
     }
@@ -325,6 +327,23 @@ class AssistantApiTest {
         val answer = mapper.readTree(ask("На что выдаётся кредит на пополнение оборота?", application = null).getContentAsString(Charsets.UTF_8))
         assertEquals("RULES", answer["mode"].asText())
         assertTrue(!answer["text"].asText().contains("паспорт"))
+    }
+
+    @Test
+    fun `debt burden is explained from the reference without generation`() {
+        whenever(model.available()).thenReturn(true)
+        val reference = Knowledge.articles.single { it.id == "load" }
+        for (question in listOf(
+            "Как считается долговая нагрузка?",
+            "Долговая нагрузка считается по выручке за месяц с половиной?",
+            "Долговая нагрузка считается по годовой выручке, а не по месячной?",
+            "В долговую нагрузку включают новый кредит?",
+        )) {
+            val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+            assertEquals("RULES", answer["mode"].asText(), question)
+            assertTrue(answer["text"].asText().startsWith(reference.text), question)
+        }
+        verify(model, org.mockito.kotlin.never()).chat(any())
     }
 
     @Test
@@ -434,11 +453,12 @@ class AssistantApiTest {
     @Test
     fun `an answer with a figure that is in no data is replaced by the rules answer`() {
         whenever(model.available()).thenReturn(true)
-        whenever(model.chat(any())).thenReturn("Нагрузка считается от суммы 500 000 ₽ за 18 месяцев.")
+        whenever(model.chat(any())).thenReturn("В ЕГРЮЛ видна выручка от 500 000 ₽ за 18 месяцев.")
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
-        val answer = mapper.readTree(ask("Что такое долговая нагрузка?").getContentAsString(Charsets.UTF_8))
+        val answer = mapper.readTree(ask("Что банк узнаёт из ЕГРЮЛ и ФНС?").getContentAsString(Charsets.UTF_8))
         assertEquals("RULES", answer["mode"].asText())
-        assertTrue(answer["text"].asText().startsWith("Долговая нагрузка — доля месячной выручки"), answer["text"].asText())
+        assertTrue(answer["text"].asText().startsWith("Из ЕГРЮЛ и ЕГРИП банк берёт статус компании"), answer["text"].asText())
+        verify(model).chat(any())
     }
 
     @Test

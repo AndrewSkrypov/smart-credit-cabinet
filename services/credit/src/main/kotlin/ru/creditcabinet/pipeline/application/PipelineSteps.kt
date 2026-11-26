@@ -1,7 +1,8 @@
 package ru.creditcabinet.pipeline.application
 
 import org.springframework.stereotype.Component
-import org.springframework.transaction.support.TransactionTemplate
+import ru.creditcabinet.application.application.CommitTransition
+import ru.creditcabinet.application.application.CreditTransactions
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationEvent
@@ -15,7 +16,6 @@ import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.PipelineJob
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
-import ru.creditcabinet.application.service.Transitions
 import ru.creditcabinet.assessment.domain.BankInfo
 import ru.creditcabinet.assessment.domain.BureauInfo
 import ru.creditcabinet.assessment.domain.CreditPolicy
@@ -44,12 +44,12 @@ import ru.creditcabinet.offer.OfferKind
 import ru.creditcabinet.offer.OfferRepository
 import ru.creditcabinet.offer.OfferStatus
 import ru.creditcabinet.offer.SigningSessions
+import ru.creditcabinet.offer.application.OfferIssuance
 import ru.creditcabinet.pipeline.PipelineSettings
 import ru.creditcabinet.preapproved.domain.PreApprovedOfferStore
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.applicationCatalog
 import ru.creditcabinet.product.domain.forApplication
-import ru.creditcabinet.servicing.application.LoanServicingService
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -64,7 +64,7 @@ import java.time.ZoneId
 @Component
 class PipelineSteps(
     private val applications: ApplicationRepository,
-    private val transitions: Transitions,
+    private val transitions: CommitTransition,
     private val jobs: PipelineJobs,
     private val sources: CompanySources,
     private val core: CoreBanking,
@@ -72,16 +72,16 @@ class PipelineSteps(
     private val decisions: DecisionRepository,
     private val offers: OfferRepository,
     private val signing: SigningSessions,
-    private val issuer: ru.creditcabinet.offer.OfferIssuer,
+    private val issuer: OfferIssuance,
     private val loans: Loans,
     private val infoRequests: InfoRequests,
     private val documents: DocumentRepository,
     private val products: ProductCatalog,
     private val ruleSets: RuleSets,
     private val preApprovedOffers: PreApprovedOfferStore,
-    private val loanServicing: LoanServicingService,
+    private val loanAccounts: DisbursedLoanAccounts,
     private val settings: PipelineSettings,
-    private val tx: TransactionTemplate,
+    private val tx: CreditTransactions,
     private val clock: Clock,
 ) : PipelineJobHandler {
     override fun run(job: PipelineJob) {
@@ -366,7 +366,7 @@ class PipelineSteps(
                 disbursed
             }
             val saved = transitions.commit(withCommission)
-            loanServicing.openOnDisbursement(saved, loan)
+            loanAccounts.openOnDisbursement(saved, loan)
             jobs.complete(job.id)
         }
     }

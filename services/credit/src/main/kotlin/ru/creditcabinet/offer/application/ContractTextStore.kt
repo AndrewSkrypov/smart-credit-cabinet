@@ -1,6 +1,6 @@
 package ru.creditcabinet.offer.application
 
-import ru.creditcabinet.offer.ContractTextSnapshot
+import ru.creditcabinet.offer.domain.ContractTextSnapshot
 import java.util.UUID
 
 interface ContractTextStore {

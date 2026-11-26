@@ -5,6 +5,7 @@ import ru.creditcabinet.common.limits.ValkeyState
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -17,6 +18,30 @@ class AssistantReferenceCacheIntegrationTest {
         password = "dev-valkey-integration-password",
     )
     private val namespace = "assistant-reference-integration-${UUID.randomUUID()}"
+
+    @Test
+    fun `the manual review cache shares current revisions and rejects late publication across replicas`() {
+        ValkeyState(properties, namespace).use { writer ->
+            ValkeyState(properties, namespace).use { reader ->
+                val first = ManualReviewSummaryCache(writer)
+                val second = ManualReviewSummaryCache(reader)
+                val application = UUID.randomUUID()
+                val firstEvent = UUID.randomUUID()
+                val nextEvent = UUID.randomUUID()
+                val firstRevision = "a".repeat(64)
+                val nextRevision = "b".repeat(64)
+
+                assertTrue(first.publish(application, null, firstEvent, firstRevision, "Первый вывод"))
+                assertEquals(firstEvent, second.eventFor(application))
+                assertEquals("Первый вывод", second.text(application, firstRevision))
+                assertTrue(second.publish(application, firstEvent, nextEvent, nextRevision, "Текущий вывод"))
+                assertFalse(first.publish(application, firstEvent, firstEvent, firstRevision, "Запоздавший вывод"))
+                assertEquals(nextEvent, first.eventFor(application))
+                assertEquals("Текущий вывод", first.text(application, nextRevision))
+                assertNull(second.text(UUID.randomUUID(), nextRevision))
+            }
+        }
+    }
 
     @Test
     fun `public reference is shared across replicas with a TTL and separated by model and source`() {

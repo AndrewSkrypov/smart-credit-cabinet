@@ -2,7 +2,6 @@ package ru.creditcabinet.application.domain
 
 import ru.creditcabinet.application.service.canSee
 import ru.creditcabinet.application.service.toActor
-import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.product.domain.FinancingPurpose
@@ -69,10 +68,10 @@ class AgentApplicationDomainTest {
     fun `requestClientConfirmation moves DRAFT to PENDING_CLIENT_CONFIRMATION without bureauConsent and rejects CLIENT`() {
         val draft = agentApplication(status = ApplicationStatus.DRAFT, terms = validTerms(bureauConsent = false))
 
-        assertFailsWith<ConflictException> {
+        assertFailsWith<ApplicationConflictException> {
             draft.requestClientConfirmation(product, clientActor, now)
         }
-        assertFailsWith<ConflictException> {
+        assertFailsWith<ApplicationConflictException> {
             draft.requestClientConfirmation(product, otherAgentActor, now)
         }
 
@@ -91,7 +90,7 @@ class AgentApplicationDomainTest {
     fun `confirmAndSubmit moves PENDING_CLIENT_CONFIRMATION to SUBMITTED only for CLIENT with bureauConsent true`() {
         val pending = agentApplication(status = ApplicationStatus.PENDING_CLIENT_CONFIRMATION, terms = validTerms(bureauConsent = false))
 
-        assertFailsWith<ConflictException> {
+        assertFailsWith<ApplicationConflictException> {
             pending.confirmAndSubmit(product, bureauConsent = true, actor = agentActor, now = now)
         }
         assertFailsWith<IllegalArgumentException> {
@@ -107,10 +106,10 @@ class AgentApplicationDomainTest {
     }
 
     @Test
-    fun `direct submit on agent application throws ConflictException`() {
+    fun `direct submit on agent application throws ApplicationConflictException`() {
         val draft = agentApplication(status = ApplicationStatus.DRAFT, terms = validTerms(bureauConsent = true))
 
-        assertFailsWith<ConflictException> {
+        assertFailsWith<ApplicationConflictException> {
             draft.submit(product, clientActor, now)
         }
     }
@@ -119,7 +118,7 @@ class AgentApplicationDomainTest {
     fun `returnToAgent moves PENDING_CLIENT_CONFIRMATION back to DRAFT with comment`() {
         val pending = agentApplication(status = ApplicationStatus.PENDING_CLIENT_CONFIRMATION)
 
-        assertFailsWith<ConflictException> {
+        assertFailsWith<ApplicationConflictException> {
             pending.returnToAgent(agentActor, "Нельзя", now)
         }
 
@@ -194,13 +193,13 @@ class AgentApplicationDomainTest {
 
         assertEquals(ApplicationStatus.WITHDRAWN, draft.agentCancel(agentActor, now).application.status)
         assertEquals(ApplicationStatus.WITHDRAWN, pending.agentCancel(agentActor, now).application.status)
-        assertFailsWith<ConflictException> {
+        assertFailsWith<ApplicationConflictException> {
             submitted.agentCancel(agentActor, now)
         }
-        assertFailsWith<ConflictException> {
+        assertFailsWith<ApplicationConflictException> {
             draft.agentCancel(clientActor, now)
         }
-        assertFailsWith<ConflictException> {
+        assertFailsWith<ApplicationConflictException> {
             draft.agentCancel(otherAgentActor, now)
         }
     }

@@ -7,13 +7,13 @@ import org.springframework.web.servlet.HandlerInterceptor
 import org.springframework.web.servlet.HandlerMapping
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
-import ru.creditcabinet.application.service.ApplicationService
+import ru.creditcabinet.application.application.ApplicationAccess
 import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.security.CurrentCaller
 import java.util.UUID
 
 @Configuration
-class GenericApplicationRoutes(private val applications: ApplicationService) : WebMvcConfigurer {
+class GenericApplicationRoutes(private val applications: ApplicationAccess) : WebMvcConfigurer {
     override fun addInterceptors(registry: InterceptorRegistry) {
         registry.addInterceptor(object : HandlerInterceptor {
             override fun preHandle(request: HttpServletRequest, response: HttpServletResponse, handler: Any): Boolean {

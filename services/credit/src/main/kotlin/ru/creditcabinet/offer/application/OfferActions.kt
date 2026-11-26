@@ -1,7 +1,6 @@
 package ru.creditcabinet.offer.application
 
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.offer.ContractTextView
 import ru.creditcabinet.offer.domain.Offer
 import ru.creditcabinet.offer.domain.SigningSessionRecord
 import java.util.UUID

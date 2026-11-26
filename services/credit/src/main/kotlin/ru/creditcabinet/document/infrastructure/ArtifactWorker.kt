@@ -1,16 +1,17 @@
-package ru.creditcabinet.document.generated
+package ru.creditcabinet.document.infrastructure
 
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import ru.creditcabinet.document.application.GeneratedArtifactJobs
 import ru.creditcabinet.pipeline.PipelineSettings
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Owned worker keeps rendering/storage latency out of the credit pipeline's polling thread. */
 @Component
-class ArtifactWorker(private val artifacts: GeneratedArtifacts, private val settings: PipelineSettings) {
+class ArtifactWorker(private val artifacts: GeneratedArtifactJobs, private val settings: PipelineSettings) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val running = AtomicBoolean(false)
     private val executor = Executors.newSingleThreadExecutor { task -> Thread(task, "generated-files").apply { isDaemon = true } }

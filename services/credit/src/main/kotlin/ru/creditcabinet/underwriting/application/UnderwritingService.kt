@@ -2,6 +2,7 @@ package ru.creditcabinet.underwriting.application
 
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import ru.creditcabinet.application.application.CommitTransition
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
@@ -11,7 +12,6 @@ import ru.creditcabinet.application.domain.InfoRequests
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
-import ru.creditcabinet.application.service.Transitions
 import ru.creditcabinet.application.service.notFound
 import ru.creditcabinet.application.service.toActor
 import ru.creditcabinet.assessment.domain.CreditPolicy
@@ -26,8 +26,8 @@ import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.offer.OfferIssuer
 import ru.creditcabinet.offer.OfferKind
+import ru.creditcabinet.offer.application.OfferIssuance
 import ru.creditcabinet.pipeline.PipelineSettings
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.ProductMatcher.rubles
@@ -53,9 +53,9 @@ interface UnderwritingDecisions {
 @Service
 class UnderwritingService(
     private val applications: ApplicationRepository,
-    private val transitions: Transitions,
+    private val transitions: CommitTransition,
     private val decisions: DecisionRepository,
-    private val issuer: OfferIssuer,
+    private val issuer: OfferIssuance,
     private val infoRequests: InfoRequests,
     private val jobs: PipelineJobs,
     private val products: ProductCatalog,

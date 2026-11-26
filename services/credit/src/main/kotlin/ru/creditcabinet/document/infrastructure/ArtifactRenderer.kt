@@ -1,4 +1,4 @@
-package ru.creditcabinet.document.generated
+package ru.creditcabinet.document.infrastructure
 
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
@@ -12,6 +12,10 @@ import org.apache.poi.ss.usermodel.VerticalAlignment
 import org.apache.poi.ss.util.CellRangeAddress
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.springframework.stereotype.Component
+import ru.creditcabinet.document.application.ArtifactRendering
+import ru.creditcabinet.document.domain.ArtifactInput
+import ru.creditcabinet.document.domain.ArtifactKind
+import ru.creditcabinet.document.domain.ArtifactPhase
 import java.awt.Color
 import java.io.ByteArrayOutputStream
 import java.text.NumberFormat
@@ -21,8 +25,10 @@ import java.util.GregorianCalendar
 import java.util.Locale
 
 @Component
-class ArtifactRenderer {
-    fun title(kind: ArtifactKind, input: ArtifactInput): String = when (kind) {
+class ArtifactRenderer : ArtifactRendering {
+    override val templateVersion: Int get() = TEMPLATE_VERSION
+
+    override fun title(kind: ArtifactKind, input: ArtifactInput): String = when (kind) {
         ArtifactKind.CONTRACT_PDF -> when {
             input.legacySummary -> "Сводка сохранённых условий"
             input.phase == ArtifactPhase.PREVIEW -> "Предварительная копия условий договора"
@@ -31,7 +37,7 @@ class ArtifactRenderer {
         else -> if (input.phase == ArtifactPhase.PREVIEW) "Предварительный график платежей" else "График платежей"
     }
 
-    fun render(kind: ArtifactKind, input: ArtifactInput): ByteArray = when (kind) {
+    override fun render(kind: ArtifactKind, input: ArtifactInput): ByteArray = when (kind) {
         ArtifactKind.SCHEDULE_XLSX -> xlsx(input)
         else -> pdf(kind, input)
     }

@@ -1,17 +1,23 @@
 package ru.creditcabinet.advice
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
+import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.advice.domain.AdviceKind
 import ru.creditcabinet.advice.domain.P
 import ru.creditcabinet.advice.domain.UnderwritingAdviceModel
+import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
+import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.notFound
 import ru.creditcabinet.assessment.domain.BankInfo
 import ru.creditcabinet.assessment.domain.BureauInfo
@@ -24,9 +30,11 @@ import ru.creditcabinet.assessment.domain.RuleSets
 import ru.creditcabinet.assessment.domain.Scorecard
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.assessment.domain.TaxInfo
+import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.forApplication
+import java.security.MessageDigest
 import java.time.Clock
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -57,10 +65,38 @@ class AdviceService(
     private val rules: RuleSets,
     private val catalog: ProductCatalog,
     private val clock: Clock,
+    private val journal: ApplicationJournal? = null,
+    private val mapper: ObjectMapper = ObjectMapper(),
 ) {
     fun advice(id: UUID): AdviceView {
         CurrentCaller.requireBankStaff()
         val application = applications.find(id)?.takeIf { it.visibleToBank } ?: throw notFound()
+        return buildAdvice(application)
+    }
+
+    /**
+     * Internal read for engagement's manual-review summary warmup. Verifies the application is
+     * still in MANUAL_REVIEW and [eventId] matches the latest transition into MANUAL_REVIEW;
+     * otherwise throws 409 Conflict so stale deliveries stop without burning LLM/cache work.
+     */
+    fun manualReviewAdvice(id: UUID, eventId: UUID): ObjectNode {
+        val application = applications.find(id)
+            ?.takeIf { it.status == ApplicationStatus.MANUAL_REVIEW }
+            ?: throw ConflictException("Заявка не находится на ручном рассмотрении")
+        val latestManualReview = checkNotNull(journal) { "ApplicationJournal is required for manualReviewAdvice" }
+            .list(application.id)
+            .lastOrNull { it.toStatus == ApplicationStatus.MANUAL_REVIEW && it.fromStatus != ApplicationStatus.MANUAL_REVIEW }
+        if (latestManualReview == null || latestManualReview.id != eventId) {
+            throw ConflictException("Событие перехода в ручное рассмотрение устарело")
+        }
+        val view = buildAdvice(application)
+        val node = mapper.valueToTree<ObjectNode>(view)
+        val revision = sha256Hex("$eventId:${mapper.writeValueAsString(view)}")
+        node.put("adviceRevision", revision)
+        return node
+    }
+
+    private fun buildAdvice(application: LoanApplication): AdviceView {
         if (application.status.terminal) {
             val text = when (application.status) {
                 ApplicationStatus.DISBURSED -> "Кредит уже выдан. Согласованные условия находятся в досье; новые варианты не рассчитываются."
@@ -150,6 +186,10 @@ class AdviceService(
         val options = if (AdviceKind.OPTION in kinds) " Есть варианты в пределах порога нагрузки; остальные условия политики проверяются отдельно." else ""
         return "Перед решением: ${parts.joinToString(", ")}.$options"
     }
+    private fun sha256Hex(input: String): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(input.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
 }
 
 @Tag(name = "Решения сотрудников банка")
@@ -159,4 +199,14 @@ class AdviceController(private val service: AdviceService) {
     @Operation(summary = "Рекомендации экспертной системы: что проверить, что запросить, какие условия проходят — с цепочкой «почему»")
     @GetMapping("/{id}/advice")
     fun advice(@PathVariable id: UUID): AdviceView = service.advice(id)
+}
+
+/** For engagement background summary warmup. Not routed by the gateway (/internal is closed with 404). */
+@Hidden
+@RestController
+@RequestMapping("/internal/v1/underwriting/applications")
+class InternalAdviceController(private val service: AdviceService) {
+    @GetMapping("/{id}/advice")
+    fun manualReviewAdvice(@PathVariable id: UUID, @RequestParam eventId: UUID): ObjectNode =
+        service.manualReviewAdvice(id, eventId)
 }

@@ -175,3 +175,39 @@ trap - EXIT
 В prod `monitoring/cabinet-paging` хранит те же ключи `telegram-token` и
 `telegram-chat-id`. `goalert-url` добавляется после согласования маршрута GoAlert.
 `paging-values.yaml` подключается отдельным изменением после готовности целей.
+
+## Изолированный GoAlert на dev
+
+`monitoring/compose.goalert.yml` запускается отдельным проектом `pump-oncall-dev`.
+На хосте `pump-final` рабочий каталог `/srv/pump-oncall-dev` имеет режим `0700`.
+В нём лежат `compose.goalert.yml`, `alerts/goalert-dev-db.sql`,
+`alerts/goalert-dev-access.conf` и скрипты проверки
+из репозитория. Конфигурация и файлы с учётными данными имеют режим `0600`.
+GoAlert 0.35.0, PostgreSQL 17.12, Mailpit 1.31.6 и Nginx 1.30.7 закреплены digest в Compose.
+
+- `postgres.env` содержит `POSTGRES_PASSWORD` и `GOALERT_DB_APP_PASSWORD`.
+- `goalert.env` содержит `GOALERT_DB_URL` для `goalert@postgres:5432/goalert` и
+  постоянный `GOALERT_DATA_ENCRYPTION_KEY`. Пароль в DSN соответствует
+  `GOALERT_DB_APP_PASSWORD`. Для изолированной сети DSN использует `sslmode=disable`.
+- `admin-password` содержит пароль локальной синтетической учётки GoAlert.
+  Создавайте учётку через интерактивный `goalert add-user`. Храните её пароль отдельно
+  от файлов Compose и не передавайте его аргументом процесса.
+
+Суммарные лимиты памяти контейнеров составляют 928 MiB. БД с SCRAM и ролью
+`goalert` хранится в томе `pump-oncall-dev_goalert-dev-postgres`. Для обслуживания
+используйте только `docker compose -p pump-oncall-dev -f compose.goalert.yml` из рабочего
+каталога. Службы и SMTP остаются во внутренней сети Compose. Nginx публикует только
+два фиксированных HTTP-маршрута на loopback и не передаёт трафик из GoAlert наружу.
+Внешние провайдеры и маршруты Alertmanager с этим проектом не связаны.
+
+Доступ оператора через SSH-туннель:
+
+```bash
+ssh -N -L 18081:127.0.0.1:18081 -L 18025:127.0.0.1:18025 pump-final
+```
+
+GoAlert доступен на `http://127.0.0.1:18081`, Mailpit на `http://127.0.0.1:18025`.
+Для локальной проверки используйте уже созданную синтетическую учётку и
+`test-contacts.py --goalert http://127.0.0.1:18081 --mailpit http://127.0.0.1:18025`
+с аргументами `--admin-user` и `--admin-password-file`. Сценарий проверяет доставку
+основному и резервному тестовым контактам, ACK и закрытие по resolved.

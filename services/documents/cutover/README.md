@@ -56,3 +56,9 @@ HEAD (size) и GET (вычисленный SHA-256); квитанция хран
 LOCAL квитанция всегда явно оставляет S3 непроверенным. Синтетический clamd
 в gate проверяет протокол и fail-closed пути; эффективность антивируса
 остаётся отдельной проверкой существующего ClamAV regression suite.
+
+GitHub использует отдельный `.github/workflows/documents-runtime.yml` с native
+PostgreSQL и native SeaweedFS. `scripts/prepare-documents-s3-native.py` проверяет
+закреплённый SHA-256 официального архива 4.55, затем пишет digest извлечённого
+binary для обязательной проверки fixture. Ему не нужен Docker endpoint.
+Runtime guard для shared-host Docker остаётся строгим и требует cabinet-ci label.

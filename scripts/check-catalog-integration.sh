@@ -29,7 +29,7 @@ cleanup() {
     done
     if [[ -n "$container" ]]; then
         docker rm -f -v "$container" >/dev/null || status=1
-    elif [[ "$pg_started" = true ]]; then
+    elif [[ "$pg_started" = true ]] && "$pg_bin/pg_ctl" -D "$scratch/db" status >/dev/null; then
         "$pg_bin/pg_ctl" -D "$scratch/db" -m fast -w stop >/dev/null || status=1
     fi
     rm -rf -- "$scratch"
@@ -61,7 +61,8 @@ COPY contracts/proto/catalog/v1/catalog.proto /catalog.proto
 DOCKERFILE
     cmp contracts/proto/catalog/v1/catalog.proto "$scratch/context/catalog.proto"
     # Only the runner supplies an already verified image. All local runs use native PostgreSQL.
-    container=$(POSTGRES_PASSWORD="$admin_password" docker run -d --rm -p 127.0.0.1::5432 \
+    container=$(POSTGRES_PASSWORD="$admin_password" docker run -d --rm \
+        --name "${CATALOG_TEST_POSTGRES_NAME:?Set the job-scoped container name}" -p 127.0.0.1::5432 \
         -e POSTGRES_USER=catalog_it_admin -e POSTGRES_PASSWORD -e POSTGRES_DB=postgres "$CATALOG_TEST_POSTGRES_IMAGE")
     address=$(docker port "$container" 5432/tcp)
     db_port="${address##*:}"
@@ -74,8 +75,8 @@ else
     "$pg_bin/initdb" -D "$scratch/db" --username=catalog_it_admin --no-locale --encoding=UTF8 \
         --auth-local=trust --auth-host=scram-sha-256 --pwfile="$scratch/pg-password" "${init_args[@]}" > "$scratch/postgres.log" 2>&1
     db_port=$(free_port)
-    "$pg_bin/pg_ctl" -D "$scratch/db" -l "$scratch/postgres.log" -o "-h 127.0.0.1 -p $db_port -k $scratch" -w start
     pg_started=true
+    "$pg_bin/pg_ctl" -D "$scratch/db" -l "$scratch/postgres.log" -o "-h 127.0.0.1 -p $db_port -k $scratch" -w start
 fi
 
 export PATH="$pg_bin:$PATH"

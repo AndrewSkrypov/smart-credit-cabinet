@@ -91,6 +91,7 @@ VALKEY_TEST_PORT=$(published_port "$valkey" 6379)
 
 OUTBOX_WORKER_ENABLED=false ./gradlew build --no-daemon
 GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}" CATALOG_TEST_POSTGRES_IMAGE="$image" \
+    CATALOG_TEST_POSTGRES_NAME="$prefix-catalog-postgres" \
     bash scripts/check-catalog-integration.sh --no-daemon
 
 mkdir -p ci-artifacts

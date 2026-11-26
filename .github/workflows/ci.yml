@@ -88,6 +88,7 @@ jobs:
       - name: Verify Catalog cutover and Credit submission over mutual TLS
         env:
           CATALOG_TEST_POSTGRES_IMAGE: cabinet/postgres:16.15-alpine-su-exec-0.3
+          CATALOG_TEST_POSTGRES_NAME: cabinet-ci-catalog-postgres
         run: GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}" bash scripts/check-catalog-integration.sh --no-daemon
       - name: Reapply schema comments after rollback on PostgreSQL 16
         env:
@@ -127,7 +128,9 @@ jobs:
             ci-artifacts/backend.sha256
       - name: Stop the isolated database
         if: always()
-        run: docker rm -f cabinet-ci-postgres cabinet-ci-clamav cabinet-ci-seaweedfs
+        run: |
+          docker rm -f -v cabinet-ci-catalog-postgres >/dev/null 2>&1 || true
+          docker rm -f cabinet-ci-postgres cabinet-ci-clamav cabinet-ci-seaweedfs
 
   frontend:
     runs-on: ubuntu-24.04

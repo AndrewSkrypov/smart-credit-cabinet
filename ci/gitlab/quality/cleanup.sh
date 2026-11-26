@@ -23,7 +23,7 @@ for project in "${projects[@]}"; do
 done
 
 if [[ "$CI_JOB_NAME" = backend || "$CI_JOB_NAME" = maintenance ]]; then
-    for dependency in postgres clamav seaweedfs valkey; do
+    for dependency in postgres clamav seaweedfs valkey catalog-postgres; do
         docker rm -fv "cabinet-ci-$id-$dependency" >/dev/null 2>&1 || true
     done
     docker image rm "cabinet-ci-$id-postgres:test" >/dev/null 2>&1 || true

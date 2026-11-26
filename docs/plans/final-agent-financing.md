@@ -1,6 +1,6 @@
 # Финальный сценарий агентского канала
 
-ТЗ от 26 ноября 2026 года. База подтверждена в основном чате — `8d779627d3d2ad0617de01cc88033f85cb77fcd0` (`feat/final-platform-release`). Интеграция выполняется в `codex/alpha-financing-final`.
+ТЗ от 26 ноября 2026 года. База подтверждена в основном чате — `8d779627d3d2ad0617de01cc88033f85cb77fcd0` (`feat/final-platform-release`). Итоговая ветка `feature/alpha-financing-final` включает обновление защищённой ветки до `3e434c0adee63917d2fe088e8939207de5b84452`.
 
 ## Границы и ожидаемый результат
 
@@ -12,7 +12,7 @@
 
 | Участок | Исполнитель и ветка | Владение |
 |---|---|---|
-| Общие контракты, интеграция и проверка | Текущий чат, `codex/alpha-financing-final` | ТЗ, согласование API, слияние рабочих коммитов, единая генерация OpenAPI, проверка сквозного пути |
+| Общие контракты, интеграция и проверка | Текущий чат, `feature/alpha-financing-final` | ТЗ, согласование API, слияние рабочих коммитов, единая генерация OpenAPI, проверка сквозного пути |
 | Мандат и уведомления | «Alpha · Контракты и события», `codex/alpha-final-access` | Identity V9 и сервисные запросы, Engagement notification |
 | Подтверждаемый пакет и приватная выписка | «Alpha · Бэкенд и Analytics», `codex/alpha-final-credit` | Credit V21/V22, ApplicationService, AgentApplicationService, документы, журнал, правила видимости банка |
 | Извлечение из счёта | `invoice_ai`, `codex/alpha-final-invoice` | Новые файлы Credit financing/invoice и Engagement assistant/Invoice, минимум конфигурации локальной модели |

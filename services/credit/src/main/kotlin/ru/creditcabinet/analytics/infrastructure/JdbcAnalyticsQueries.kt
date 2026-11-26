@@ -12,7 +12,7 @@ import java.time.Instant
 
 @Repository
 class JdbcAnalyticsQueries(private val jdbc: NamedParameterJdbcTemplate) : AnalyticsQueries {
-    override fun read(from: Instant, to: Instant): Analytics {
+    override fun read(from: Instant, to: Instant, projectedStatuses: Map<String, Int>?): Analytics {
         val period = mapOf("from" to Timestamp.from(from), "to" to Timestamp.from(to))
         return Analytics(
             from = from,
@@ -27,7 +27,7 @@ class JdbcAnalyticsQueries(private val jdbc: NamedParameterJdbcTemplate) : Analy
                 period,
                 Long::class.java,
             )!!,
-            currentStatuses = jdbc.query(
+            currentStatuses = projectedStatuses ?: jdbc.query(
                 "select status, count(*) as n from applications where status not in ('DRAFT', 'PENDING_CLIENT_CONFIRMATION') group by status",
                 emptyMap<String, Any>(),
             ) {

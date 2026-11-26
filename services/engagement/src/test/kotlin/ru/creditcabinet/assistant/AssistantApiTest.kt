@@ -366,18 +366,28 @@ class AssistantApiTest {
     }
 
     @Test
-    fun `overdraft interest needs the used amount as well as the schedule`() {
+    fun `overdraft interest needs the used amount without charging on the available limit`() {
         whenever(model.available()).thenReturn(true)
-        whenever(model.chat(any())).thenReturn(
-            "Овердрафт — лимит на расчётном счёте для кассовых разрывов. Проценты начисляются за каждый день, " +
-                "пока долг не погашен. После погашения лимит возобновляется.",
-        )
+        val definition = "Овердрафт — лимит на расчётном счёте для кассовых разрывов. "
+        val renewal = " После погашения лимит возобновляется."
+        val question = "Что такое овердрафт и для чего он нужен?"
 
-        val answer = mapper.readTree(ask("Что такое овердрафт и для чего он нужен?", application = null).getContentAsString(Charsets.UTF_8))
+        for (interest in listOf(
+            "Проценты начисляются за каждый день, пока долг не погашен.",
+            "Проценты начисляются на весь доступный лимит, а не только на использованную часть.",
+            "Проценты начисляются на неиспользованную часть и на использованную часть лимита.",
+        )) {
+            whenever(model.chat(any())).thenReturn(definition + interest + renewal)
+            val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+            assertEquals("RULES", answer["mode"].asText(), interest)
+            assertTrue("проценты начисляются на использованную часть лимита" in answer["text"].asText())
+        }
 
-        assertEquals("RULES", answer["mode"].asText())
-        assertTrue("проценты начисляются на использованную часть лимита" in answer["text"].asText())
-        verify(model).chat(any())
+        val correct = "Проценты начисляются на использованную часть, а не на весь доступный лимит."
+        whenever(model.chat(any())).thenReturn(definition + correct + renewal)
+        val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("MODEL", answer["mode"].asText())
+        assertTrue(correct in answer["text"].asText())
     }
 
     @Test

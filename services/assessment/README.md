@@ -1,7 +1,7 @@
 # Assessment
 
 Assessment запускается отдельно с JDK 21 и своей PostgreSQL. Spring Flyway
-применяет миграции из `services/assessment`, начиная с V1. Code и счётчики
+применяет миграции из `services/assessment`, начиная с V1. Коды ошибок и счётчики
 обработки доступны через состояние своей БД и журнал. HTTP API приложения
 выключен. Исходные системы опрашивает только worker активного Kafka поколения.
 
@@ -52,5 +52,24 @@ from assessment_exchange_outbox group by 1,2,3;
 отдельный `assessment_exchange_outbox` показывает повторы доставки команд.
 При восстановлении транспорта попытки возобновляются по `available_at`.
 Обычные уведомления обрабатываются своей очередью.
+
+## Локальные проверки
+
+Проверка миграций требует локальных исполняемых файлов PostgreSQL 16.
+Сквозной сценарий также использует дистрибутив Kafka 4.3.2, JDK 21 и
+собранные JAR. Сценарий запускает процессы и временные БД на loopback,
+проверяет выдачу после рестарта Assessment и Kafka, а также ручное
+рассмотрение по истечении срока сбора фактов. Тест
+`AssessmentKafkaExchangeTest` запускается с `R2_KAFKA_BOOTSTRAP=127.0.0.1:<порт>`
+и отдельной тестовой БД Assessment.
+
+```bash
+e2e/alpha-assessment/verify-migrations.sh "$PG_BIN"
+./gradlew :services:credit:bootJar :services:assessment:bootJar
+python3 e2e/alpha-assessment/verify_exchange.py \
+  --credit services/credit/build/libs/app.jar \
+  --assessment services/assessment/build/libs/app.jar \
+  --pg-bin "$PG_BIN" --kafka-home "$KAFKA_HOME"
+```
 
 [Границы и матрица R2](../../docs/plans/alpha-r2-assessment-service.md)

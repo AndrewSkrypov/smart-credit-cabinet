@@ -21,7 +21,7 @@ type Scenario = {
   status: 'DRAFT' | 'AWAITING_CLIENT' | 'CONFIRMED';
   loanAmount: number;
   annualRatePercent: number;
-  inputs: typeof scenarioInput & { source?: { page: number; amountQuote: string; dateQuote: string } };
+  inputs: typeof scenarioInput & { source?: { page: number; amountQuote: string; dateQuote: string; documentId: string } };
   options: Array<{ termMonths: number; monthlyPayment: number; totalInterest: number; balanceOnPaymentDate: number }>;
 };
 type Extraction = {
@@ -124,12 +124,14 @@ test.describe('Финальное агентское финансировани�
       }), 201);
       const agentDocument = `${agentApplication(draft.id)}/documents/${ordinary.id}`;
       await status(await request.get(agentDocument, { headers: headers(agent) }), 200);
-      await sendChat(request, agent, draft.id, 'Синтетическое сообщение до подачи');
+      await sendChat(request, agent, draft.id, 'Попытка отправить сообщение из черновика', 409);
       await status(await request.get(application(draft.id), { headers: headers(bank) }), 404);
+      await status(await request.get(`${application(draft.id)}/messages`, { headers: headers(bank) }), 404);
+      await sendToClient(request, agent, draft);
+      await sendChat(request, agent, draft.id, 'Синтетическое сообщение до подачи', 200);
       await status(await request.get(`${application(draft.id)}/messages`, { headers: headers(bank) }), 404);
       const bankNotice = (await notifications(request, bank)).find((row) => row.link?.includes(draft.id));
       expect(bankNotice).toBeUndefined();
-      await sendToClient(request, agent, draft);
       const entries = await json<Array<{ id: string; actionOwner: string; actionDeadline?: string }>>(
         await request.get('/api/v1/agent/applications', { headers: headers(agent) }), 200);
       expect(entries).toEqual(expect.arrayContaining([
@@ -327,9 +329,9 @@ async function extract(request: APIRequestContext, agent: Session, id: string, i
   expect(noText).toMatchObject({ mode: 'MANUAL', dates: [] });
   expect(noText.amount ?? null).toBeNull();
 
-  const oversized = Buffer.alloc(20 * 1024 * 1024 + 1);
+  const oversized = Buffer.alloc(2 * 1024 * 1024 + 1);
   syntheticInvoicePdf().buffer.copy(oversized);
-  await status(await send({ name: 'oversized-invoice.pdf', mimeType: 'application/pdf', buffer: oversized }), [400, 413, 422]);
+  await status(await send({ name: 'oversized-invoice.pdf', mimeType: 'application/pdf', buffer: oversized }), 413);
 
   const invoice = await json<Extraction>(await send(syntheticInvoicePdf()), 200);
   expect(['MODEL', 'MANUAL']).toContain(invoice.mode);
@@ -352,7 +354,10 @@ async function extract(request: APIRequestContext, agent: Session, id: string, i
     ]));
     const receipt = invoice.dates.find((date) => date.value === fixture.offer.expectedReceiptDate)!;
     expect(receipt.quote).toContain('10.12.2026');
-    return { page: receipt.page, amountQuote: invoice.amount!.quote, dateQuote: receipt.quote };
+    const source = await json<{ id: string }>(await request.post(`${agentApplication(id)}/documents?type=OTHER`, {
+      headers: headers(agent), multipart: { file: syntheticInvoicePdf() },
+    }), 201);
+    return { page: receipt.page, amountQuote: invoice.amount!.quote, dateQuote: receipt.quote, documentId: source.id };
   }
   return undefined;
 }
@@ -466,10 +471,10 @@ async function revoke(request: APIRequestContext, owner: Session, id: string) {
   await status(await request.delete(`${mandatesPath}/${id}`, { headers: headers(owner) }), 204);
 }
 
-async function sendChat(request: APIRequestContext, agent: Session, id: string, text: string) {
+async function sendChat(request: APIRequestContext, agent: Session, id: string, text: string, expected: number) {
   await status(await request.post(`${agentApplication(id)}/messages`, {
     headers: { ...headers(agent), 'Idempotency-Key': randomUUID() }, data: { text },
-  }), [200, 201]);
+  }), expected);
 }
 
 async function notifications(request: APIRequestContext, user: Session) {
@@ -580,9 +585,10 @@ async function checkReserve(request: APIRequestContext) {
 }
 
 async function expectFinancingPackage(page: Page) {
-  await expect(page.getByRole('heading', { name: /сценарий финансирования|расч[её]т финансирования/i }).first()).toBeVisible();
-  await expect(page.getByText(/12\s*мес/i).first()).toBeVisible();
-  await expect(page.getByText(/24\s*мес/i).first()).toBeVisible();
+  const comparison = page.getByRole('table', { name: 'Сравнение сценариев финансирования' });
+  await expect(comparison.getByRole('rowheader', { name: /12\s*мес/i })).toBeVisible();
+  const selectedTerm = comparison.getByRole('rowheader', { name: /24\s*мес/i });
+  await expect(selectedTerm.getByText('Выбран', { exact: true })).toBeVisible();
   await noHorizontalOverflow(page);
 }
 

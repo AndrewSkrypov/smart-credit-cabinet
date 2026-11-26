@@ -16,7 +16,7 @@ import socket
 import subprocess
 import time
 from urllib.error import HTTPError, URLError
-from urllib.request import ProxyHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +26,12 @@ GATEWAY = "docker/gateway"
 PERMISSIONS = "libs/platform-common/src/main/resources/cabinet/database-permissions.sql"
 OFFSETS = {"gateway": 0, "identity": 1, "credit": 2, "engagement": 3, "external-sim": 4,
            "postgres": 5, "valkey": 6, "clamd": 7}
-HTTP = build_opener(ProxyHandler({}))
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+HTTP = build_opener(ProxyHandler({}), NoRedirect())
 
 
 def git(*args):
@@ -121,7 +126,7 @@ def verify_artifacts(args):
     if not re.fullmatch(r"[a-f0-9]{40}", revision) or git("rev-parse", "--verify", f"{revision}^{{commit}}").decode().strip() != revision:
         raise ValueError("Укажите полный SHA исходного коммита, доступного в Git")
     recorded = artifacts / "source-revision.txt"
-    if recorded.is_file() and recorded.read_text().strip() != revision:
+    if not recorded.is_file() or recorded.read_text().strip() != revision:
         raise ValueError("SHA артефактов отличается от выбранной ревизии")
     jars = {name: artifacts / f"{name}.jar" for name in SERVICES}
     spa = artifacts / "frontend"
@@ -145,7 +150,11 @@ def listen_addresses(args):
     addresses = {name: (host, args.base_port + OFFSETS[name]) for name, host in hosts.items()}
     for host, port in addresses.values():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-            probe.bind((host, port))
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                probe.bind((host, port))
+            except OSError as error:
+                raise ValueError(f"Недоступен loopback-порт {host}:{port}") from error
     return addresses
 
 
@@ -178,6 +187,7 @@ def render_gateway(directory, revision, addresses, spa):
         if name == "public.conf":
             configuration = configuration.replace("proxy_pass $swagger;", "return 404;")
             configuration = configuration.replace("proxy_pass $frontend;", "try_files $uri $uri/ /index.html;")
+            configuration += "\n    location /assets/ { try_files $uri =404; }\n"
         (fragments / name).write_text(configuration)
     # MIME types for the built SPA, without importing the host's global nginx config.
     config = directory / "nginx.conf"
@@ -226,7 +236,7 @@ def start(args, directory, state, persist):
     nginx = executable(args.nginx)
     valkey = executable(args.valkey)
     pg_bin = args.pg_bin.resolve(strict=True)
-    postgres, initdb, psql = (executable(pg_bin / name) for name in ("postgres", "initdb", "psql"))
+    postgres, initdb, psql, pg_isready = (executable(pg_bin / name) for name in ("postgres", "initdb", "psql", "pg_isready"))
     paths = [str(pg_bin), "/usr/bin", "/bin"]
     env = {"PATH": os.pathsep.join(paths), "HOME": str(directory), "TMPDIR": str(directory),
            "LC_ALL": "C.UTF-8", "TZ": "UTC"}
@@ -265,7 +275,11 @@ def start(args, directory, state, persist):
         admin_secret.unlink()
     pg = launch("postgres", [postgres, "-D", str(pg_data), "-h", db_host, "-p", str(db_port),
                              "-k", str(pg_socket), "-c", "max_connections=48", "-c", "shared_buffers=48MB"])
-    wait_for(lambda: port_open(db_host, db_port), "PostgreSQL", pg, 30)
+    def postgres_ready():
+        return subprocess.run([pg_isready, "-q", "-h", str(pg_socket), "-p", str(db_port), "-U", "cabinet"],
+                              env=env, timeout=4).returncode == 0
+
+    wait_for(postgres_ready, "PostgreSQL", pg, 30)
 
     db = {name: (secrets.token_hex(24), secrets.token_hex(24)) for name in DATABASES}
     admin_env = {**env, "PGHOST": str(pg_socket), "PGPORT": str(db_port), "PGUSER": "cabinet", "PGDATABASE": "postgres"}
@@ -335,7 +349,15 @@ def start_clam(args, directory, address, launch):
         with socket.create_connection(address, timeout=1) as connection:
             connection.settimeout(2)
             connection.sendall(b"zVERSION\0")
-            version = connection.recv(1024).rstrip(b"\0").decode("ascii")
+            version = bytearray()
+            while len(version) < 1024 and not version.endswith(b"\0"):
+                chunk = connection.recv(1024 - len(version))
+                if not chunk:
+                    break
+                version.extend(chunk)
+        if not version.endswith(b"\0"):
+            raise RuntimeError("ClamAV вернул неполную версию сигнатур")
+        version = version[:-1].decode("ascii")
         if version.count("/") != 2 or not version.startswith("ClamAV "):
             raise RuntimeError("ClamAV не подтвердил версию сигнатур")
         published = calendar.timegm(time.strptime(version.rsplit("/", 1)[1], "%a %b %d %H:%M:%S %Y"))

@@ -33,12 +33,12 @@ class DocumentsGrpcClient(channel: Channel, private val mapper: ObjectMapper, pr
     private fun scope(scope: DocumentScope): Scope = Scope.newBuilder().setCompanyId(scope.companyId.toString()).setApplicationId(scope.applicationId.toString()).setEpoch(epoch).build()
     private fun objectRequest(scope: DocumentScope, id: UUID, context: String = "", at: Instant? = null): ObjectRequest =
         ObjectRequest.newBuilder().setScope(scope(scope)).setId(id.toString()).setContext(context).apply { at?.let { setDeletedAt(it.toString()) } }.build()
-    private fun record(scope: DocumentScope, value: Any): Record = Record.newBuilder().setScope(scope(scope)).setMetadataJson(mapper.writeValueAsString(value)).build()
+    private fun record(scope: DocumentScope, value: Any): Record = Record.newBuilder().setScope(scope(scope)).setMetadataVersion(1).setMetadataJson(mapper.writeValueAsString(value)).build()
     private fun document(scope: DocumentScope, wire: Record): DocumentRecord = mapper.readValue(wire.metadataJson, DocumentRecord::class.java).also {
-        require(it.scope == scope && wire.scope == scope(scope)); it.validate()
+        require(wire.metadataVersion == 1 && it.scope == scope && wire.scope == scope(scope)); it.validate()
     }
     private fun artifact(scope: DocumentScope, wire: Record): ArtifactRecord = mapper.readValue(wire.metadataJson, ArtifactRecord::class.java).also {
-        require(it.scope == scope && wire.scope == scope(scope))
+        require(wire.metadataVersion == 1 && it.scope == scope && wire.scope == scope(scope))
     }
     override fun list(scope: DocumentScope): List<DocumentRecord> = stub().listDocuments(scope(scope)).recordsList.map { document(scope, it) }
     override fun put(record: DocumentRecord, bytes: ByteArray) {

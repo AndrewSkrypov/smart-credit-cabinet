@@ -42,7 +42,7 @@ class CreditPeer(@Value("\${cabinet.documents.grpc.credit-peer}") private val pe
 @Component
 class DocumentsRpc(private val store: DocumentsStore, private val mapper: ObjectMapper) : DocumentsServiceGrpc.DocumentsServiceImplBase() {
     private fun scope(scope: Scope): DocumentScope = DocumentScope(UUID.fromString(scope.companyId), UUID.fromString(scope.applicationId))
-    private fun record(scope: Scope, value: Any): Record = Record.newBuilder().setScope(scope).setMetadataJson(mapper.writeValueAsString(value)).build()
+    private fun record(scope: Scope, value: Any): Record = Record.newBuilder().setScope(scope).setMetadataVersion(1).setMetadataJson(mapper.writeValueAsString(value)).build()
     private fun <T> reply(scope: Scope, observer: StreamObserver<T>, action: () -> T) {
         try { val result = store.owned(scope.epoch) { scope(scope); action().also { check(!io.grpc.Context.current().isCancelled) } }; observer.onNext(result); observer.onCompleted() }
         catch (_: IllegalArgumentException) { observer.onError(Status.INVALID_ARGUMENT.asRuntimeException()) }
@@ -54,7 +54,7 @@ class DocumentsRpc(private val store: DocumentsStore, private val mapper: Object
         Records.newBuilder().addAllRecords(store.list(scope(request)).map { record(request, it) }).build()
     }
     override fun putDocument(request: PutRequest, observer: StreamObserver<Empty>) = reply(request.record.scope, observer) {
-        require(request.record.metadataJson.toByteArray().size <= 1024 * 1024 && request.content.size() in 1..MAX_DOCUMENT_BYTES)
+        require(request.record.metadataVersion == 1 && request.record.metadataJson.toByteArray().size <= 1024 * 1024 && request.content.size() in 1..MAX_DOCUMENT_BYTES)
         val document = mapper.readValue(request.record.metadataJson, DocumentRecord::class.java)
         require(document.scope == scope(request.record.scope))
         store.put(document, request.content.toByteArray()); Empty.getDefaultInstance()
@@ -67,7 +67,7 @@ class DocumentsRpc(private val store: DocumentsStore, private val mapper: Object
         Records.newBuilder().addAllRecords(store.artifacts(scope(request)).map { record(request, it) }).build()
     }
     override fun prepareArtifact(request: Record, observer: StreamObserver<Record>) = reply(request.scope, observer) {
-        require(request.metadataJson.toByteArray().size <= 1024 * 1024)
+        require(request.metadataVersion == 1 && request.metadataJson.toByteArray().size <= 1024 * 1024)
         val artifact = mapper.readValue(request.metadataJson, ArtifactRecord::class.java)
         require(artifact.scope == scope(request.scope))
         record(request.scope, store.prepare(artifact))

@@ -16,7 +16,7 @@ service DocumentsService {
 }
 message Empty {}
 message Scope { string company_id = 1; string application_id = 2; int64 epoch = 3; }
-message Record { Scope scope = 1; string metadata_json = 2; }
+message Record { Scope scope = 1; string metadata_json = 2; uint32 metadata_version = 3; }
 message Records { repeated Record records = 1; }
 message PutRequest { Record record = 1; bytes content = 2; }
 message ObjectRequest { Scope scope = 1; string id = 2; string context = 3; string deleted_at = 4; }

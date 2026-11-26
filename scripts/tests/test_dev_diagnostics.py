@@ -285,6 +285,7 @@ class DiagnosticJobTest(unittest.TestCase):
         self.assertEqual(job["resource_group"], pipeline["dev-deploy"]["resource_group"])
         self.assertEqual(job["tags"], pipeline["dev-deploy"]["tags"])
         self.assertEqual(job["needs"], [])
+        self.assertEqual(job["variables"]["GIT_DEPTH"], "2")
         self.assertNotIn("dependencies", job)
         self.assertNotIn("image", job)
         rule, = job["rules"]
@@ -294,42 +295,88 @@ class DiagnosticJobTest(unittest.TestCase):
         self.assertEqual(rule["when"], "manual")
         self.assertEqual(job["artifacts"]["paths"], ["dev-diagnostics.json"])
 
-    def test_ssh_transfer_uses_one_source_archive_and_only_the_diagnostic_envelope(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            for name in ("ci/gitlab/diagnose-dev.sh", "deploy/dev_diagnostics.py"):
-                path = root / name
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes((ROOT / name).read_bytes())
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
-            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
-            subprocess.run(["git", "-C", str(root), "-c", "user.name=Diagnostic test",
-                            "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false",
-                            "commit", "-qm", "Fixture"], check=True)
-            revision = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
-            mock = root / "ssh"
-            mock.write_text("""#!/usr/bin/env python3
+    def git(self, root, *arguments, **kwargs):
+        return subprocess.run(["git", "-C", str(root), *arguments], check=True, capture_output=True, **kwargs).stdout
+
+    def pipeline_fixture(self, directory, *, case="approved"):
+        root = Path(directory) / "checkout"
+        root.mkdir()
+        self.git(root, "init", "-q", "-b", "protected-test")
+        self.git(root, "config", "user.name", "Diagnostic test")
+        self.git(root, "config", "user.email", "fixture@example.invalid")
+        self.git(root, "config", "commit.gpgSign", "false")
+        self.git(root, "commit", "--allow-empty", "-qm", "Base")
+        self.git(root, "branch", "diagnostic-parent")
+        self.git(root, "commit", "--allow-empty", "-qm", "First parent")
+        self.git(root, "switch", "--quiet", "diagnostic-parent")
+        for name in ("ci/gitlab/diagnose-dev.sh", "deploy/dev_diagnostics.py"):
+            if case == "missing_module" and name.startswith("deploy/"):
+                continue
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes((ROOT / name).read_bytes())
+        self.git(root, "add", ".")
+        self.git(root, "commit", "-qm", "Diagnostic source")
+        parent = self.git(root, "rev-parse", "HEAD", text=True).strip()
+        if case != "nonmerge":
+            self.git(root, "switch", "--quiet", "protected-test")
+            self.git(root, "merge", "--no-ff", "--no-commit", "diagnostic-parent", "--quiet")
+            if case == "different_tree":
+                (root / "integration-change.txt").write_text("Only in the protected merge\n")
+                self.git(root, "add", "integration-change.txt")
+            self.git(root, "commit", "-qm", "Protected merge")
+        head = self.git(root, "rev-parse", "HEAD", text=True).strip()
+
+        bin_dir = Path(directory) / "bin"
+        bin_dir.mkdir()
+        remote = Path(directory) / "staged-releases"
+        remote.mkdir()
+        mock = bin_dir / "ssh"
+        mock.write_text("""#!/usr/bin/env python3
 import json
 import os
 from pathlib import Path
 import sys
 import tarfile
+import tempfile
 
 operation, revision = sys.argv[-1].split()
-assert revision == os.environ["CI_COMMIT_SHA"]
+head = os.environ["CI_COMMIT_SHA"]
+parent = os.environ["FIXTURE_SOURCE_PARENT"]
+assert revision in {head, parent}
 assert sys.argv[-2] == "cabinet-deploy@pump-final.test"
 assert "StrictHostKeyChecking=yes" in sys.argv and "IdentitiesOnly=yes" in sys.argv
 with Path("ssh-calls.txt").open("a") as calls:
-    print(operation, file=calls)
+    print(operation, revision, file=calls)
+release = Path(os.environ["FIXTURE_RELEASES"]) / revision
 if operation == "stage":
     with tarfile.open(fileobj=sys.stdin.buffer, mode="r|*") as archive:
         files = {entry.name for entry in archive}
+        assert archive.pax_headers["comment"] == revision
     assert {"ci/gitlab/diagnose-dev.sh", "deploy/dev_diagnostics.py"} <= files
+    release.mkdir(exist_ok=True)
 else:
     assert operation == "deploy"
-    request = json.load(sys.stdin)
+    raw = sys.stdin.buffer.read()
+    request = json.loads(raw)
+    assert request["revision"] == revision
+    with tempfile.NamedTemporaryFile(dir=release, delete=False) as stream:
+        stream.write(raw)
+        temporary = Path(stream.name)
+    manifest = release / "release.json"
+    try:
+        os.link(temporary, manifest)
+    except FileExistsError:
+        if manifest.read_bytes() != raw:
+            sys.exit("Stored release manifest differs")
+    finally:
+        temporary.unlink()
+    if "operation" not in request:
+        assert revision == head and "images" in request
+        sys.exit(0)
+    assert revision == parent and parent != head
     assert set(request) == {"version", "operation", "revision", "target_revision", "target_manifest_sha256"}
-    assert request["operation"] == "diagnose-v1" and request["revision"] == revision
+    assert request["operation"] == "diagnose-v1"
     assert request["target_revision"] == "3e434c0adee63917d2fe088e8939207de5b84452"
     assert request["target_manifest_sha256"] == "07df658356bbc5e3501b0b00321f0177b6f72f6727e36ba624dfd44b0557791a"
     report = {**request, **dict(current={}, pending={}, containers=[], networks=[], error_counts={})}
@@ -337,27 +384,93 @@ else:
         report["revision"] = "0" * 40
     print(json.dumps(report))
 """)
-            mock.chmod(0o700)
-            env = {**os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
-                   "CI_COMMIT_SHA": revision, "CI_COMMIT_REF_PROTECTED": "true", "CABINET_DEV_DIAGNOSTICS": "1",
-                   "CABINET_DEV_SSH_HOST": "pump-final.test", "CABINET_DEV_SSH_KEY": "/fixture/key",
-                   "CABINET_DEV_KNOWN_HOSTS": "/fixture/known-hosts"}
-            command = ["bash", "ci/gitlab/diagnose-dev.sh"]
-            output = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True)
+        mock.chmod(0o700)
+        env = {**os.environ, "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+               "CI_COMMIT_SHA": head, "CI_COMMIT_REF_PROTECTED": "true", "CABINET_DEV_DIAGNOSTICS": "1",
+               "CABINET_DEV_SSH_HOST": "pump-final.test", "CABINET_DEV_SSH_KEY": "/fixture/key",
+               "CABINET_DEV_KNOWN_HOSTS": "/fixture/known-hosts", "FIXTURE_RELEASES": str(remote),
+               "FIXTURE_SOURCE_PARENT": parent}
+        return root, env, remote
+
+    def diagnostic_job(self, root, env):
+        return subprocess.run(["bash", "ci/gitlab/diagnose-dev.sh"], cwd=root, env=env,
+                              capture_output=True, text=True)
+
+    def test_immutable_parent_manifest_leaves_the_protected_merge_available_for_normal_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, env, remote = self.pipeline_fixture(directory)
+            head, parent = env["CI_COMMIT_SHA"], env["FIXTURE_SOURCE_PARENT"]
+            self.assertNotEqual(head, parent)
+            self.assertEqual(self.git(root, "rev-parse", "HEAD^{tree}"), self.git(root, "rev-parse", f"{parent}^{{tree}}"))
+            output = self.diagnostic_job(root, env)
             self.assertEqual(output.returncode, 0, output.stderr)
-            self.assertEqual((root / "ssh-calls.txt").read_text().splitlines(), ["stage", "deploy"])
+            self.assertEqual((root / "ssh-calls.txt").read_text().splitlines(), [f"stage {parent}", f"deploy {parent}"])
             artifact = root / "dev-diagnostics.json"
-            self.assertEqual(json.loads(artifact.read_text())["revision"], revision)
+            self.assertEqual(json.loads(artifact.read_text())["revision"], parent)
+            parent_manifest = (remote / parent / "release.json").read_bytes()
+            self.assertFalse((remote / head).exists())
+
+            # Reproduce the existing forced command's separate archive and immutable ln/cmp manifest.
+            ssh = ["ssh", "-o", "StrictHostKeyChecking=yes", "-o", "IdentitiesOnly=yes", "cabinet-deploy@pump-final.test"]
+            subprocess.run([*ssh, f"stage {head}"], cwd=root, env=env, input=self.git(root, "archive", head), check=True)
+            normal_manifest = json.dumps({"revision": head, "images": {"credit": "fixture"}}).encode()
+            deployed = subprocess.run([*ssh, f"deploy {head}"], cwd=root, env=env, input=normal_manifest, capture_output=True)
+            self.assertEqual(deployed.returncode, 0, deployed.stderr)
+            self.assertEqual((remote / head / "release.json").read_bytes(), normal_manifest)
+            self.assertEqual((remote / parent / "release.json").read_bytes(), parent_manifest)
+
+            # The same immutable diagnostic can be read again, returning an artefact only for that source.
             artifact.unlink()
-            wrong = subprocess.run(command, cwd=root, env={**env, "WRONG_REVISION": "1"},
-                                   capture_output=True, text=True)
+            wrong = self.diagnostic_job(root, {**env, "WRONG_REVISION": "1"})
             self.assertNotEqual(wrong.returncode, 0)
             self.assertFalse(artifact.exists())
             (root / "ssh-calls.txt").unlink()
-            unprotected = subprocess.run(command, cwd=root, env={**env, "CI_COMMIT_REF_PROTECTED": "false"},
-                                         capture_output=True, text=True)
+            unprotected = self.diagnostic_job(root, {**env, "CI_COMMIT_REF_PROTECTED": "false"})
             self.assertNotEqual(unprotected.returncode, 0)
             self.assertFalse((root / "ssh-calls.txt").exists())
+
+    def test_shallow_history_is_extended_from_the_fixed_merge_sha_before_ssh(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, env, _ = self.pipeline_fixture(directory)
+            shallow = Path(directory) / "shallow"
+            subprocess.run(["git", "clone", "-q", "--depth=1", root.as_uri(), str(shallow)], check=True)
+            self.assertEqual(self.git(shallow, "rev-parse", "--is-shallow-repository", text=True).strip(), "true")
+            parent = env["FIXTURE_SOURCE_PARENT"]
+            head = env["CI_COMMIT_SHA"]
+            before = subprocess.run(["git", "-C", str(shallow), "merge-base", "--is-ancestor", parent, head],
+                                    capture_output=True)
+            self.assertNotEqual(before.returncode, 0)
+            output = self.diagnostic_job(shallow, env)
+            self.assertEqual(output.returncode, 0, output.stderr)
+            self.git(shallow, "merge-base", "--is-ancestor", parent, head)
+            self.assertEqual((shallow / "ssh-calls.txt").read_text().splitlines(), [f"stage {parent}", f"deploy {parent}"])
+
+    def test_invalid_source_conditions_fail_before_ssh(self):
+        for case, message in (
+            ("nonmerge", "exactly two parents"),
+            ("different_tree", "tree differs"),
+            ("missing_module", "lacks deploy/dev_diagnostics.py"),
+        ):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                root, env, remote = self.pipeline_fixture(directory, case=case)
+                result = self.diagnostic_job(root, env)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(message, result.stderr)
+                self.assertFalse((root / "ssh-calls.txt").exists())
+                self.assertEqual(list(remote.iterdir()), [])
+
+    def test_unavailable_shallow_origin_fails_without_printing_origin_or_trying_ssh(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, env, remote = self.pipeline_fixture(directory)
+            detached = Path(directory) / "incomplete"
+            subprocess.run(["git", "clone", "-q", "--depth=1", root.as_uri(), str(detached)], check=True)
+            self.git(detached, "remote", "set-url", "origin", (Path(directory) / SECRET).as_uri())
+            result = self.diagnostic_job(detached, env)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("Unable to fetch the protected merge parents", result.stderr)
+            self.assertNotIn(SECRET, result.stdout + result.stderr)
+            self.assertFalse((detached / "ssh-calls.txt").exists())
+            self.assertEqual(list(remote.iterdir()), [])
 
 
 if __name__ == "__main__":

@@ -55,6 +55,8 @@ dev-diagnostics:
     name: dev
     action: verify
   needs: []
+  variables:
+    GIT_DEPTH: "2"
   timeout: 5 minutes
   rules:
     - if: '$CABINET_DEV_DIAGNOSTICS == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE != "merge_request_event" && $CI_PIPELINE_SOURCE != "schedule"'

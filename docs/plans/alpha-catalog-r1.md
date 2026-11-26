@@ -22,38 +22,6 @@
 
 Тесты [ProductLifecycleIntegrationTest](../../services/credit/src/test/kotlin/ru/creditcabinet/product/ProductLifecycleIntegrationTest.kt), [ProductVersionsIntegrationTest](../../services/credit/src/test/kotlin/ru/creditcabinet/product/ProductVersionsIntegrationTest.kt) и [AgentWorkflowIntegrationTest](../../services/credit/src/test/kotlin/ru/creditcabinet/agent/AgentWorkflowIntegrationTest.kt) закрепляют текущее поведение. Этапы миграции, проверки gRPC и новый владелец записи требуют отдельного прогона.
 
-## Подготовка отдельной БД
-
-Создайте БД `catalog` с выделенным владельцем схемы. Примените
-[схему истории](../../services/catalog-grpc/src/main/resources/db/catalog/V1__product_history.sql)
-в этой БД. Роль `catalog_app` читает историю, групповая роль `catalog_writer`
-может добавлять коды и редакции и обновлять `products.current_version`. Членство
-прикладных пользователей в `catalog_writer` на этом этапе отсутствует.
-[Настройка прав](../../services/catalog-grpc/cutover/grants.sql)
-
-Настройте подключения `credit-source` и `catalog-owner` в `pg_service.conf`.
-Исходное подключение читает продукты, редакции и зафиксированные альтернативы.
-Подключение Catalog используется владельцем схемы только для импорта. Выполните
-снимок и загрузку в пустые таблицы:
-
-```sh
-python3 services/catalog-grpc/cutover/snapshot.py export credit-source /var/tmp/catalog-snapshot
-python3 services/catalog-grpc/cutover/snapshot.py load catalog-owner /var/tmp/catalog-snapshot
-python3 services/catalog-grpc/cutover/snapshot.py verify catalog-owner /var/tmp/catalog-snapshot
-```
-
-Экспорт использует один снимок PostgreSQL и проверяет ссылки на альтернативы.
-Перед импортом проверяются контрольные суммы. Импорт загружает CSV во временные
-таблицы и сверяет с ними все поля обеих целевых таблиц до фиксации транзакции.
-Отдельная проверка повторяет экспорт из Catalog и сравнивает контрольные суммы.
-Файлы
-содержат сведения об авторах редакций и сохраняются в закрытом каталоге.
-[Согласованность чтения PostgreSQL](https://www.postgresql.org/docs/current/transaction-iso.html)
-
-Исторический экспорт готовит тень. Переключение writer потребует актуального
-снимка после остановки старых правок и готового пути банковских изменений
-через Catalog. Действующий gRPC-адаптер читает JDBC в Credit.
-
 ## Реализация перехода
 
 - Catalog запускается отдельным JVM-процессом и работает с собственной БД. Модули модели и сгенерированного gRPC v1 не зависят от Credit. Общий JDBC-адаптер используется двумя рантаймами. Credit сохраняет существующие HTTP-маршруты и выбирает один режим для актуального каталога, редактора и подачи. По умолчанию работает прежний локальный режим.
@@ -66,3 +34,65 @@ python3 services/catalog-grpc/cutover/snapshot.py verify catalog-owner /var/tmp/
 1. Повторить прямую и агентскую подачу на одном согласованном снимке. Проверить устаревшую принятую версию, альтернативы, комиссию и откат записи при ошибке.
 2. На двух БД проверить копирование всех редакций и аудит. После остановки Credit проверить отказ старого writer, после остановки Catalog проверить отказ нового writer. Проверить конфликт содержимого неизменяемой редакции при переносе назад.
 3. На gRPC проверить точные границы окон, конвертацию истории, устаревший expectedVersion, право RISK_ADMIN, дедлайн и взаимный TLS. Проверить чтение старых заявок при недоступном Catalog.
+
+## Локальный запуск
+
+1. Создайте отдельные БД `credit` и `catalog`. У каждой свой владелец таблиц и отдельный прикладной логин. Уточните все логины действующих экземпляров Credit перед переходом. Прикладные логины не должны владеть таблицами, состоять в роли владельца или иметь полномочия суперпользователя.
+2. Примените [V1 Catalog](../../services/catalog-grpc/src/main/resources/db/catalog/V1__product_history.sql) в БД `catalog` от владельца схемы. Создайте логин `catalog_app` и групповую роль `catalog_writer`, примените [выдачу прав](../../services/catalog-grpc/cutover/grants.sql) и предоставьте `catalog_app` членство в `catalog_writer`. Прикладная запись остаётся заблокированной до передачи владения.
+3. От владельца таблиц Credit установите [ограничитель записи](../../services/catalog-grpc/cutover/credit-fence.sql), передав логин `-v credit_app=credit_app` в `psql`. Применяйте его после миграций Credit. Прикладной логин Credit сохраняет обычные права на свои таблицы. Если старые и новые реплики используют разные логины, выдайте старым логинам только доступ к схеме и вызову `lock_authority()`. Все реплики обращаются к одной БД Credit.
+4. Настройте `credit-owner` и `catalog-owner` в `pg_service.conf`. Эти подключения доступны только оператору переноса. Для runtime передавайте отдельные учётные данные через настройки окружения.
+
+Catalog собирается командой `./gradlew :services:catalog-grpc:bootJar`. Параметры JVM-сервиса задаются свойствами Spring Boot:
+
+| Catalog | Значение |
+| --- | --- |
+| `cabinet.catalog.grpc.database.url` | JDBC URL БД `catalog` |
+| `cabinet.catalog.grpc.database.user` | `catalog_app` |
+| `cabinet.catalog.grpc.database.password` | Пароль прикладного логина |
+| `cabinet.catalog.grpc.server.host` / `port` | Приватный интерфейс, по умолчанию `127.0.0.1:9094` |
+| `cabinet.catalog.grpc.server.certificate` / `key` / `client-ca` | Файлы PEM сервера и CA клиентов |
+| `cabinet.catalog.grpc.server.client-uri` | Ожидаемый URI SAN сертификата Credit, по умолчанию `spiffe://creditcabinet/credit` |
+| `JWT_SECRET` | Существующий ключ проверки платформенных токенов |
+
+В Credit режим по умолчанию — `cabinet.catalog.mode=local`. Для удалённого режима задайте `cabinet.catalog.mode=remote` и `cabinet.catalog.grpc.client.host`, `port`, `certificate`, `key`, `server-ca`. Свойство `cabinet.catalog.grpc.client.deadline-ms` по умолчанию 1500 мс. Имя хоста должно соответствовать SAN сервера. При старте в удалённом режиме Credit проверяет блокировку прежней записи и ограниченные права своего логина. JWT пользователя передаётся только для правок.
+
+## Перенос и возврат записи
+
+Остановите трафик актуального каталога, редактирования и новых подач на время переключения. Подготовьте и проверьте копию без передачи записи:
+
+```sh
+python3 services/catalog-grpc/cutover/snapshot.py export credit-owner /var/tmp/catalog-shadow
+python3 services/catalog-grpc/cutover/snapshot.py load catalog-owner /var/tmp/catalog-shadow
+python3 services/catalog-grpc/cutover/snapshot.py verify catalog-owner /var/tmp/catalog-shadow
+```
+
+Для передачи используйте свежий закрытый каталог снимка:
+
+```sh
+python3 services/catalog-grpc/cutover/snapshot.py switch credit-owner /var/tmp/catalog-forward --catalog-service catalog-owner
+```
+
+Команда удерживает одну блокировку оператора в БД Credit, закрывает исходную запись, дожидается транзакций, сверяет ссылки и экспортирует историю. Целевая БД принимает только совместимое расширение прежней истории. Данные, аудит и указатели сверяются в транзакции загрузки и повторным сравнением контрольных сумм. Команда открывает целевую запись только после сверки. При сбое до открытия обе БД остаются закрыты для штатной записи. После исправления причины повторите тот же переход с новым каталогом снимка. Когда состояние уже переключено, перед повтором сначала проверьте состояние обеих БД и контрольные суммы.
+
+Запускайте Credit в режиме `remote` после успешной передачи. Проверьте чтение, создание черновика, банковскую правку и подачу. Для обратной передачи снова остановите трафик и выполните:
+
+```sh
+python3 services/catalog-grpc/cutover/snapshot.py switch credit-owner /var/tmp/catalog-rollback --catalog-service catalog-owner --direction credit
+```
+
+Возобновляйте `local` после проверки, что все изменения из Catalog, включая те, что не попали в заявку, снова доступны в Credit. Одинаковая пара «код и версия» с различным содержимым или аудитом останавливает обратный перенос. Возвращать запись ручным переключением флага до устранения конфликта нельзя.
+
+## Команды приёмки
+
+```sh
+./gradlew :services:catalog-grpc:test
+./gradlew :services:credit:test --tests '*ProductVersionsIntegrationTest' --tests '*ProductLifecycleIntegrationTest' --tests '*AgentWorkflowIntegrationTest'
+```
+
+Для `CatalogPostgresIntegrationTest` задайте `CATALOG_TEST_JDBC_URL`, `CATALOG_TEST_DATABASE_USER`, `CATALOG_TEST_DATABASE_PASSWORD` и `CATALOG_TEST_CERTS`. Каталог сертификатов содержит `ca.crt`, пары `server.crt/key`, `credit.crt/key`, `wrong.crt/key`. Серверный SAN включает `127.0.0.1`. Для правильного и неправильного клиентов используйте один CA и разные URI SAN. Writer в тестовой БД должен быть открыт после переноса.
+
+Для `RemoteCatalogIntegrationTest` задайте `CATALOG_CREDIT_TEST=true` на отдельной инсталляции с двумя БД после переноса. Настройте `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, параметры TLS клиента и единый тестовый `JWT_SECRET` для обоих сервисов. Тест использует настоящие HTTP-обработчики Credit, отдельный Catalog по mTLS и синтетические мандаты. Для проверки недоступности тесту необходимы `CATALOG_TEST_OWNER_JDBC_URL`, `CATALOG_TEST_OWNER_DATABASE_USER` и `CATALOG_TEST_OWNER_DATABASE_PASSWORD` для временного закрытия writer на изолированной БД.
+
+```sh
+./gradlew :services:credit:test --tests '*RemoteCatalogIntegrationTest'
+```

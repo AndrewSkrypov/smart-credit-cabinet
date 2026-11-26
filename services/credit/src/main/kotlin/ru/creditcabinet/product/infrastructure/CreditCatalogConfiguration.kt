@@ -7,10 +7,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
+import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
 import ru.creditcabinet.cataloggrpc.CatalogGrpcClient
 import ru.creditcabinet.cataloggrpc.catalogTlsChannel
 import ru.creditcabinet.catalogjdbc.JdbcProductCatalog
+import ru.creditcabinet.common.exception.ApiException
 import java.io.File
 import java.time.Clock
 
@@ -23,14 +25,13 @@ internal class CreditCatalogConfiguration {
         @Value("\${cabinet.catalog.mode:local}") mode: String,
     ): JdbcProductCatalog {
         require(mode in setOf("local", "remote")) { "cabinet.catalog.mode must be local or remote" }
-        if (mode == "local" &&
-            jdbc.queryForObject("select to_regclass('catalog_cutover.authority') is not null", Boolean::class.java) == true
-        ) {
-            check(jdbc.queryForObject("select writable from catalog_cutover.authority where singleton", Boolean::class.java) == true) {
-                "Local Catalog cannot start while the Credit writer is fenced"
+        if (mode == "remote") return JdbcProductCatalog(jdbc, clock)
+        return JdbcProductCatalog(jdbc, clock) {
+            val installed = jdbc.queryForObject("select to_regclass('catalog_cutover.authority') is not null", Boolean::class.java) == true
+            if (installed && jdbc.queryForObject("select catalog_cutover.lock_authority()", Boolean::class.java) != true) {
+                throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Локальный каталог закрыт для новых операций")
             }
         }
-        return JdbcProductCatalog(jdbc, clock)
     }
 }
 

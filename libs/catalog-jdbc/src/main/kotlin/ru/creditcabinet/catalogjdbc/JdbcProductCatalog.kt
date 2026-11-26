@@ -17,7 +17,11 @@ import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
-class JdbcProductCatalog(private val jdbc: JdbcTemplate, private val clock: Clock) : ProductCatalog, ProductVersions, SubmissionProductCatalog {
+class JdbcProductCatalog(
+    private val jdbc: JdbcTemplate,
+    private val clock: Clock,
+    private val requireCurrentAuthority: () -> Unit = {},
+) : ProductCatalog, ProductVersions, SubmissionProductCatalog {
     private val mapper = RowMapper { rs, _ ->
         @Suppress("UNCHECKED_CAST")
         val purposes = (rs.getArray("purposes").array as Array<String>).map(FinancingPurpose::valueOf).toSet()
@@ -56,7 +60,7 @@ class JdbcProductCatalog(private val jdbc: JdbcTemplate, private val clock: Cloc
 
     override fun find(code: String): Product? = latest(code)?.takeIf { it.active && it.isEffectiveAt(clock.instant()) }
 
-    override fun latest(code: String): Product? = jdbc.query("$CURRENT where p.code = ?", mapper, code).firstOrNull()
+    override fun latest(code: String): Product? = currentRevisions(code).singleOrNull()?.product
 
     override fun version(code: String, version: Long): Product? =
         jdbc.query("select * from product_versions where code = ? and version = ?", mapper, code, version).firstOrNull()
@@ -64,6 +68,7 @@ class JdbcProductCatalog(private val jdbc: JdbcTemplate, private val clock: Cloc
     override fun list(): List<Product> = currentRevisions().map(ProductRevision::product)
 
     fun currentRevisions(code: String? = null, effectiveAt: Instant? = null): List<ProductRevision> {
+        requireCurrentAuthority()
         val sql = StringBuilder(CURRENT)
         val values = mutableListOf<Any>()
         sql.append(" where true")
@@ -106,6 +111,7 @@ class JdbcProductCatalog(private val jdbc: JdbcTemplate, private val clock: Cloc
         authorName: String?,
         authorRole: String?,
     ): ProductRevision {
+        requireCurrentAuthority()
         jdbc.execute("select pg_advisory_xact_lock(941528327)")
         val existing = jdbc.queryForList("select 1 from products where code = ? for update", product.code)
         if (existing.isNotEmpty()) {
@@ -137,6 +143,7 @@ class JdbcProductCatalog(private val jdbc: JdbcTemplate, private val clock: Cloc
         authorName: String?,
         authorRole: String?,
     ): ProductRevision {
+        requireCurrentAuthority()
         val current = jdbc.queryForList("select current_version from products where code = ? for update", product.code).firstOrNull()
             ?: throw NotFoundException("Продукт не найден")
         if ((current["current_version"] as Number).toLong() != expectedVersion) {

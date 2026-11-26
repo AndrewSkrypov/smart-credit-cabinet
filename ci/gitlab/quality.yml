@@ -40,6 +40,13 @@
     - export COMPOSE_FILE="docker-compose.yml:ci/compose.yaml:ci/gitlab/quality/compose.yaml"
   after_script:
     - bash ci/gitlab/quality/cleanup.sh
+dev-diagnostics-docker:
+  extends: .quality
+  stage: quality
+  timeout: 5 minutes
+  dependencies: []
+  script:
+    - python3 -B ci/gitlab/quality/dev-diagnostics-docker.py
 backend:
   stage: quality
   extends: .quality

@@ -72,10 +72,13 @@ class DocumentsGrpcClient(channel: Channel, private val mapper: ObjectMapper, pr
                 it.inputJson == record.inputJson,
         )
     }
-    override fun retry(scope: DocumentScope, id: UUID): ArtifactRecord = artifact(scope, stub().retryArtifact(objectRequest(scope, id))).also {
-        require(
-            it.id == id,
-        )
+    override fun retry(scope: DocumentScope, id: UUID): ArtifactRecord {
+        val original = artifacts(scope).firstOrNull { it.id == id } ?: throw io.grpc.Status.NOT_FOUND.asRuntimeException()
+        return artifact(scope, stub().retryArtifact(objectRequest(scope, id))).also {
+            require(it.offerId == original.offerId && it.kind == original.kind && it.phase == original.phase)
+            require(it.inputHash == original.inputHash && it.inputJson == original.inputJson && it.backend == original.backend)
+            require(it.id == id || it.templateVersion > original.templateVersion)
+        }
     }
     override fun artifactBytes(scope: DocumentScope, id: UUID): ByteArray = content(stub().readArtifact(objectRequest(scope, id)))
 }

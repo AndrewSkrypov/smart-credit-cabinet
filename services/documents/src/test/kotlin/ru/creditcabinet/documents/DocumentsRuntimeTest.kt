@@ -255,6 +255,27 @@ class DocumentsRuntimeTest {
                     statement.executeUpdate()
                 }
             }
+            val legacyInput = recoveryInput.copy(phase = ArtifactPhase.PREVIEW, contractText = "", contractTextHash = null, signedAt = null, contractNumber = null)
+            val legacyJson = mapper.writeValueAsString(legacyInput)
+            val legacyId = UUID.randomUUID()
+            val legacy = record.copy(id = legacyId, offerId = legacyInput.offerId, phase = "PREVIEW", kind = "SCHEDULE_PDF", templateVersion = 1,
+                inputJson = legacyJson, inputHash = sha256(legacyJson.toByteArray()), status = "ERROR", storedName = "generated-$legacyId.pdf")
+            db("documents") { connection ->
+                connection.prepareStatement("insert into artifact_records(id,company_id,application_id,offer_id,kind,phase,template_version,input_hash,metadata,status,attempts) values(?,?,?,?,'SCHEDULE_PDF','PREVIEW',1,?,?::jsonb,'ERROR',5)").use { statement ->
+                    statement.setObject(1, legacy.id)
+                    statement.setObject(2, scope.companyId)
+                    statement.setObject(3, scope.applicationId)
+                    statement.setObject(4, legacy.offerId)
+                    statement.setString(5, legacy.inputHash)
+                    statement.setString(6, mapper.writeValueAsString(legacy))
+                    statement.executeUpdate()
+                }
+            }
+            val replacement = remote.retry(scope, legacyId)
+            assertTrue(replacement.id != legacyId)
+            assertEquals(2, replacement.templateVersion)
+            assertEquals(legacyJson, replacement.inputJson)
+            assertEquals(legacy.inputHash, replacement.inputHash)
             val recoveryJson = mapper.writeValueAsString(recoveryInput)
             val recovery = record.copy(
                 id = recoveryId,

@@ -259,7 +259,7 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         assert totals['tests'] >= 3 and all(totals[key] == 0 for key in ('failures','errors','skipped')), totals
         for path in xml_paths: shutil.copy2(path, report/path.name)
         stop(credit); stop(own); stop(replica)
-        sql('documents', "update artifact_records set lease_until=now()-interval '1 second',next_attempt_at=now() where status<>'READY';", user='documents_owner', password=own_password, name='recovery')
+        sql('documents', "update artifact_records set lease_until=now()-interval '1 second',next_attempt_at=now() where template_version=2 and status<>'READY';", user='documents_owner', password=own_password, name='recovery')
         own = start([arg for arg in own.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')], 'documents-restart', own_env)
         wait_port(grpc_port, own)
         credit = start([arg for arg in credit.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')], 'credit-restart', credit_env)
@@ -267,7 +267,7 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         deadline=time.monotonic()+40
         while True:
             try:
-                sql('documents', "do $$ begin if exists(select 1 from artifact_records where status<>'READY') then raise exception 'Recovery pending'; end if; if (select count(*) from artifact_outbox) <> (select count(*) from artifact_records) then raise exception 'Outbox mismatch'; end if; end $$;", user='documents_owner', password=own_password, name='recovery')
+                sql('documents', "do $$ begin if exists(select 1 from artifact_records where template_version=2 and status<>'READY') then raise exception 'Recovery pending'; end if; if (select count(*) from artifact_outbox) <> (select count(*) from artifact_records where status='READY') then raise exception 'Outbox mismatch'; end if; end $$;", user='documents_owner', password=own_password, name='recovery')
                 break
             except subprocess.CalledProcessError:
                 if time.monotonic()>deadline: raise

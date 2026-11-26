@@ -109,6 +109,7 @@ class DocumentsStore(
         val record = artifacts(scope).firstOrNull { it.id == id } ?: throw NoSuchElementException()
         if (record.status == "READY") return record
         if (record.templateVersion != ArtifactRenderer.TEMPLATE_VERSION) {
+            require(record.templateVersion < ArtifactRenderer.TEMPLATE_VERSION)
             val replacement = UUID.randomUUID()
             return prepare(
                 record.copy(

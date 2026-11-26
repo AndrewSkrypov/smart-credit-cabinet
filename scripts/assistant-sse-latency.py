@@ -15,7 +15,7 @@ from urllib.request import Request, urlopen
 from cabinet_api import Cabinet, DockerCabinet
 
 
-QUESTION = "Как устроено погашение кредита на пополнение оборотных средств?"
+QUESTION = "Что такое овердрафт и для чего он нужен?"
 
 
 def sample(base, token):

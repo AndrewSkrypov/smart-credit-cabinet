@@ -51,3 +51,13 @@ if helm template cabinet "$chart" --namespace cabinet-dev --is-upgrade "$@" >/de
   echo 'Ollama SSH bridge unexpectedly rendered outside cabinet-prod' >&2
   exit 1
 fi
+
+# Demo is an optional production proxy, never a switch for local demo accounts.
+set -- "$@" --set ollamaBridge.enabled=false --set publicDemo.enabled=true \
+  --set-string publicDemo.upstreamIPv4=192.0.2.20 --set-string app.publicURL=https://credit-cabinet.ru
+helm template cabinet "$chart" --namespace cabinet-prod --is-upgrade "$@" \
+  --show-only templates/demo-proxy.yaml | grep -F 'cidr: "192.0.2.20/32"' >/dev/null
+if helm template cabinet "$chart" --namespace cabinet-dev --is-upgrade "$@" >/dev/null 2>&1; then
+  echo 'Demo proxy unexpectedly rendered outside cabinet-prod' >&2
+  exit 1
+fi

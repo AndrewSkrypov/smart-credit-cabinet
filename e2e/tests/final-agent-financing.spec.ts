@@ -29,6 +29,7 @@ type Extraction = {
   amount?: { value: number; page: number; quote: string } | null;
   dates: Array<{ value: string; page: number; quote: string }>;
   reason: string | null;
+  needsConfirmation: boolean;
 };
 type Loan = { id: string; availableLimit: number; disbursedAmount: number; tranches: Array<{ amount: number }> };
 type PaymentReserve = {
@@ -350,31 +351,27 @@ async function extract(request: APIRequestContext, agent: Session, id: string, i
 
   const invoice = await json<Extraction>(await send(syntheticInvoicePdf()), 200);
   expect(['MODEL', 'MANUAL']).toContain(invoice.mode);
-  const untrusted = await json<Extraction>(await send(syntheticInvoicePdf(true)), 200);
-  expect(['MODEL', 'MANUAL']).toContain(untrusted.mode);
-  if (untrusted.mode === 'MODEL') expect(untrusted.amount?.value).toBe(fixture.offer.expectedReceipt);
+  const amount = { value: fixture.offer.expectedReceipt, page: 1, quote: 'Total amount due: 140 000 RUB' };
+  const receipt = { value: fixture.offer.expectedReceiptDate, page: 1, quote: 'Due date: 10.12.2026' };
+  expect(invoice).toMatchObject({ amount, dates: [receipt], needsConfirmation: true });
+  const ambiguous = await json<Extraction>(await send(syntheticInvoicePdf({ includeValidityDate: true })), 200);
+  expect(ambiguous).toMatchObject({
+    mode: 'MANUAL', amount, needsConfirmation: true,
+    dates: [receipt, { value: '2026-12-24', page: 1, quote: 'Valid until: 24.12.2026' }],
+  });
+  const untrusted = await json<Extraction>(await send(syntheticInvoicePdf({ includeUntrustedText: true })), 200);
+  expect(untrusted).toMatchObject({ amount, dates: [receipt] });
   await info.attach('invoice-mode', {
     contentType: 'application/json',
-    body: JSON.stringify({ invoice: invoice.mode, noText: noText.mode, untrustedInput: untrusted.mode }),
+    body: JSON.stringify({ invoice: invoice.mode, noText: noText.mode, ambiguous: ambiguous.mode, untrustedInput: untrusted.mode }),
   });
   if (process.env.CABINET_EXPECTED_INVOICE_MODE) {
     expect(invoice.mode).toBe(process.env.CABINET_EXPECTED_INVOICE_MODE);
   }
-  if (invoice.mode === 'MODEL') {
-    expect(invoice.amount).toMatchObject({ value: fixture.offer.expectedReceipt, page: 1 });
-    expect(invoice.amount?.quote).toContain('140 000');
-    expect(invoice.dates).toEqual(expect.arrayContaining([
-      expect.objectContaining({ value: '2026-12-01', page: 1 }),
-      expect.objectContaining({ value: fixture.offer.expectedReceiptDate, page: 1 }),
-    ]));
-    const receipt = invoice.dates.find((date) => date.value === fixture.offer.expectedReceiptDate)!;
-    expect(receipt.quote).toContain('10.12.2026');
-    const source = await json<{ id: string }>(await request.post(`${agentApplication(id)}/documents?type=OTHER`, {
-      headers: headers(agent), multipart: { file: syntheticInvoicePdf() },
-    }), 201);
-    return { page: receipt.page, amountQuote: invoice.amount!.quote, dateQuote: receipt.quote, documentId: source.id };
-  }
-  return undefined;
+  const source = await json<{ id: string }>(await request.post(`${agentApplication(id)}/documents?type=OTHER`, {
+    headers: headers(agent), multipart: { file: syntheticInvoicePdf() },
+  }), 201);
+  return { page: receipt.page, amountQuote: amount.quote, dateQuote: receipt.quote, documentId: source.id };
 }
 
 async function transferRevisedPackage(

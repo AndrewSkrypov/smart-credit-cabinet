@@ -169,7 +169,7 @@ class ApplicationStateMachineTest {
 
     @Test
     fun `the buttons of each role follow the table`() {
-        assertEquals(listOf(SUBMIT, WITHDRAW), ApplicationStateMachine.eventsFrom(DRAFT, ActorType.CLIENT))
+        assertEquals(listOf(SUBMIT, CONFIRM_AND_SUBMIT, WITHDRAW), ApplicationStateMachine.eventsFrom(DRAFT, ActorType.CLIENT))
         assertEquals(listOf(REQUEST_CLIENT_CONFIRMATION, AGENT_CANCEL), ApplicationStateMachine.eventsFrom(DRAFT, ActorType.AGENT))
         assertEquals(listOf(CONFIRM_AND_SUBMIT, RETURN_TO_AGENT, WITHDRAW), ApplicationStateMachine.eventsFrom(PENDING_CLIENT_CONFIRMATION, ActorType.CLIENT))
         assertEquals(listOf(AGENT_CANCEL), ApplicationStateMachine.eventsFrom(PENDING_CLIENT_CONFIRMATION, ActorType.AGENT))

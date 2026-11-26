@@ -28,6 +28,7 @@ import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
+import ru.creditcabinet.pipeline.FakeSources
 import ru.creditcabinet.pipeline.MutableClock
 import ru.creditcabinet.pipeline.PipelineFakesConfig
 import ru.creditcabinet.product.domain.FinancingPurpose
@@ -60,6 +61,8 @@ class PaymentReserveIntegrationTest {
     @Autowired private lateinit var jdbc: JdbcTemplate
 
     @Autowired private lateinit var clock: MutableClock
+
+    @Autowired private lateinit var sources: FakeSources
 
     @Autowired private lateinit var applications: ApplicationRepository
 
@@ -176,6 +179,7 @@ class PaymentReserveIntegrationTest {
     private fun line(limit: Long = 2_000_000L, inn: String = "0001001014"): LoanAccount {
         val company = CompanySnapshot(UUID.randomUUID(), inn, "ООО Тест", LegalForm.LEGAL_ENTITY)
         val now = clock.instant()
+        sources.companies[inn] = FakeSources.healthy(inn, today)
         val application = applications.save(
             LoanApplication(
                 company = company,

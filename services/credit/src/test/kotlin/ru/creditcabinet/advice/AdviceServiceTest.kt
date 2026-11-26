@@ -64,6 +64,7 @@ class AdviceServiceTest {
             bureauConsent = true,
         ),
         status = ApplicationStatus.MANUAL_REVIEW,
+        submittedAt = Instant.parse("2026-10-25T10:00:00Z"),
         createdAt = Instant.parse("2026-10-25T10:00:00Z"),
     )
 

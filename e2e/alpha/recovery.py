@@ -117,6 +117,34 @@ def verify_topic(directory, name, events):
     require(all(event in records for event in events), f"{name}: expected broker records are missing")
 
 
+def read_end_offsets(path, topic):
+    partitions = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        observed_topic, partition, end = line.split(":")
+        require(observed_topic == topic and partition not in partitions, f"{path.name}: unexpected topic or partition")
+        partitions[partition] = int(end)
+    require(partitions and min(partitions.values()) >= 0, f"{path.name}: missing or invalid offsets")
+    return partitions
+
+
+def verify_positions(directory, label, topic, group):
+    end = read_end_offsets(directory / f"{label}-end-offsets.txt", topic)
+    committed = {}
+    for line in (directory / f"{label}-group.txt").read_text(encoding="utf-8").splitlines():
+        fields = line.split()
+        if fields[:2] == [group, topic]:
+            partition, current, declared_end = fields[2:5]
+            require(partition in end and partition not in committed and int(declared_end) == end[partition],
+                    f"{label}: group does not match the broker partition checkpoint")
+            committed[partition] = 0 if current == "-" else int(current)
+    require(all(committed.get(partition, 0) == offset for partition, offset in end.items()),
+            f"{label}: group did not consume the entire synthetic stream")
+    messages = (directory / f"{label}-topic.tsv").read_text(encoding="utf-8").splitlines()
+    require(len(messages) == sum(end.values()), f"{label}: broker capture omits records")
+    dlq = read_end_offsets(directory / f"{label}-dlq-offsets.txt", topic + ".dlq")
+    require(not any(dlq.values()), f"{label}: unexpected records in the DLQ")
+
+
 def verify_marker(directory, name, snapshot, generation):
     marker = read_json(directory / name)
     require(marker and marker["generation"] == generation, f"{name}: wrong or missing generation")
@@ -128,7 +156,10 @@ def verify_marker(directory, name, snapshot, generation):
 
 def verify(args):
     directory = args.directory
-    require(args.old_topic != args.new_topic, "Restore needs a distinct topic")
+    require(args.old_topic != args.new_topic and args.old_group != args.new_group,
+            "Restore needs both a distinct topic and a distinct group")
+    verify_positions(directory, "old", args.old_topic, args.old_group)
+    verify_positions(directory, "new", args.new_topic, args.new_group)
     verify_marker(directory, "old-generation.json", "old.csv", args.old_topic)
     before = verify_marker(directory, "new-initial-generation.json", "restored.csv", args.new_topic)
     require(before == verify_marker(directory, "new-final-generation.json", "restored.csv", args.new_topic),
@@ -171,6 +202,8 @@ def main():
     check.add_argument("directory", type=Path)
     check.add_argument("--old-topic", required=True)
     check.add_argument("--new-topic", required=True)
+    check.add_argument("--old-group", required=True)
+    check.add_argument("--new-group", required=True)
     wait = commands.add_parser("wait-projection")
     wait.add_argument("database")
     wait.add_argument("--checkpoint", choices=CHECKPOINTS.keys(), required=True)

@@ -17,6 +17,7 @@ parser.add_argument("--env-file", default="deploy/.env")
 parser.add_argument("--local", action="store_true")
 parser.add_argument("--release-manifest")
 parser.add_argument("--output")
+parser.add_argument("--resume-existing", action="store_true", help=argparse.SUPPRESS)
 args = parser.parse_args()
 deployment = Deployment(args.project, args.env_file, args.local, args.release_manifest)
 name = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
@@ -82,7 +83,9 @@ finally:
         if seaweed_stopped:
             checked_docker("start", *seaweed_running)
         if stopped:
-            deployment.compose("up", "-d", "--no-deps", "--no-build", "--wait", "--wait-timeout", "180", *services)
+            resume_options = ["--no-recreate"] if args.resume_existing else []
+            deployment.compose("up", "-d", "--no-deps", "--no-build", "--wait", "--wait-timeout", "180",
+                               *resume_options, *services)
             deployment.compose("start", "caddy")
         manifest["source_resumed"] = True
     finally:

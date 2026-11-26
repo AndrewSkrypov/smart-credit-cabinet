@@ -158,8 +158,26 @@ def bootstrap(deployment, up):
         if result.returncode:
             raise RuntimeError("Согласованный снимок статусов Credit не получен")
         snapshot.seek(0)
-        digest = hashlib.file_digest(snapshot, "sha256").hexdigest()
+        checksum = hashlib.sha256()
+        for block in iter(lambda: snapshot.read(1024 * 1024), b""):
+            checksum.update(block)
+        digest = checksum.hexdigest()
         snapshot.seek(0)
         analytics_owner(deployment, "-q", "-v", f"generation={alpha.topic}", "-v", f"snapshot_sha256={digest}",
                         "-f", "/alpha/import-status-snapshot.sql", stdin=snapshot)
     print(f"Загружен снимок поколения {alpha.topic}, SHA-256 {digest}")
+
+
+def stop_alpha():
+    """Stop only the Alpha containers in the private Dev project, preserving volumes."""
+    for service in SERVICES:
+        result = subprocess.run(
+            ["docker", "ps", "-q", "--filter", f"label=com.docker.compose.project={PROJECT}",
+             "--filter", f"label=com.docker.compose.service={service}"],
+            capture_output=True, text=True,
+        )
+        if result.returncode:
+            raise RuntimeError("Не удалось определить контейнер пилота Dev")
+        containers = result.stdout.split()
+        if containers and subprocess.run(["docker", "stop", *containers], capture_output=True).returncode:
+            raise RuntimeError("Не удалось остановить контейнер пилота Dev")

@@ -14,6 +14,20 @@
       ]
     },
     {
+      "name": "at.yawk.lz4:lz4-java",
+      "version": "1.10.1",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/yawkat/lz4-java",
+        "https://www.apache.org/licenses/LICENSE-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "ch.qos.logback:logback-classic",
       "version": "1.5.34",
       "licenses": [
@@ -335,6 +349,20 @@
       "scopes": [
         "backend",
         "build-logic"
+      ]
+    },
+    {
+      "name": "com.github.luben:zstd-jni",
+      "version": "1.5.6-4",
+      "licenses": [
+        "BSD 2-Clause License"
+      ],
+      "sources": [
+        "https://github.com/luben/zstd-jni",
+        "https://opensource.org/licenses/BSD-2-Clause"
+      ],
+      "scopes": [
+        "backend"
       ]
     },
     {
@@ -1902,6 +1930,24 @@
       ],
       "sources": [
         "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.apache.kafka:kafka-clients",
+      "version": "3.9.2",
+      "licenses": [
+        "Apache License, Version 2.0",
+        "COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.0",
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://kafka.apache.org",
+        "https://opensource.org/licenses/CDDL-1.0",
+        "https://www.apache.org/licenses/LICENSE-2.0"
       ],
       "scopes": [
         "backend"
@@ -4706,6 +4752,22 @@
       "sources": [
         "https://github.com/webjars/webjars-locator-lite/blob/main/LICENSE.md",
         "https://webjars.org"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.xerial.snappy:snappy-java",
+      "version": "1.1.10.5",
+      "licenses": [
+        "Apache-2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "http://www.xerial.org/",
+        "https://github.com/xerial/snappy-java",
+        "https://www.apache.org/licenses/LICENSE-2.0.html"
       ],
       "scopes": [
         "backend"

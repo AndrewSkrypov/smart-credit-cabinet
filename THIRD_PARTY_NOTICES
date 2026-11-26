@@ -16,6 +16,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | Компонент | Версия | Лицензии из метаданных | Источники |
 | --- | --- | --- | --- |
 | aopalliance:aopalliance | 1.0 | Public Domain | http://aopalliance.sourceforge.net |
+| at.yawk.lz4:lz4-java | 1.10.1 | Apache License, Version 2.0 | https://github.com/yawkat/lz4-java ; https://www.apache.org/licenses/LICENSE-2.0 |
 | ch.qos.logback:logback-classic | 1.5.34 | EPL-2.0; LGPL-2.1-only | http://www.qos.ch ; https://www.eclipse.org/legal/epl-v20.html ; https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html |
 | ch.qos.logback:logback-core | 1.5.34 | EPL-2.0; LGPL-2.1-only | http://www.qos.ch ; https://www.eclipse.org/legal/epl-v20.html ; https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html |
 | com.fasterxml.jackson.core:jackson-annotations | 2.21 | Apache License, Version 2.0; The Apache Software License, Version 2.0 | https://github.com/FasterXML/jackson ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
@@ -37,6 +38,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | com.github.ajalt.clikt:clikt-jvm | 5.0.2 | Apache-2.0 | https://github.com/ajalt/clikt/ ; https://www.apache.org/licenses/LICENSE-2.0 |
 | com.github.jk1.dependency-license-report:com.github.jk1.dependency-license-report.gradle.plugin | 3.1.4 | Apache-2.0 | https://github.com/jk1/Gradle-License-Report/blob/v3.1.4/src/main/groovy/com/github/jk1/license/render/JsonReportRenderer.groovy |
 | com.github.jk1:gradle-license-report | 3.1.4 | Apache-2.0 | https://github.com/jk1/Gradle-License-Report ; https://www.apache.org/licenses/LICENSE-2.0 |
+| com.github.luben:zstd-jni | 1.5.6-4 | BSD 2-Clause License | https://github.com/luben/zstd-jni ; https://opensource.org/licenses/BSD-2-Clause |
 | com.github.virtuald:curvesapi | 1.08 | BSD License | http://opensource.org/licenses/BSD-3-Clause ; https://github.com/virtuald/curvesapi |
 | com.google.code.findbugs:jsr305 | 3.0.2 | The Apache Software License, Version 2.0 | http://findbugs.sourceforge.net/ ; http://www.apache.org/licenses/LICENSE-2.0.txt |
 | com.google.code.gson:gson | 2.11.0 | Apache-2.0 | https://github.com/google/gson ; https://www.apache.org/licenses/LICENSE-2.0.txt |
@@ -143,6 +145,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.apache.httpcomponents.core5:httpcore5 | 5.4.4 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.httpcomponents.core5:httpcore5-h2 | 5.3.6 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.httpcomponents.core5:httpcore5-h2 | 5.4.4 | Apache License, Version 2.0 | https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.apache.kafka:kafka-clients | 3.9.2 | Apache License, Version 2.0; COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.0; The Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://kafka.apache.org ; https://opensource.org/licenses/CDDL-1.0 ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.apache.logging.log4j:log4j-api | 2.24.3 | Apache License, Version 2.0; Apache-2.0 | https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.logging.log4j:log4j-to-slf4j | 2.24.3 | Apache License, Version 2.0; Apache-2.0 | https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.apache.pdfbox:fontbox | 3.0.8 | Apache License, Version 2.0; Apache-2.0 | http://pdfbox.apache.org/ ; https://pdfbox.apache.org ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
@@ -337,6 +340,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.tomlj:tomlj | 1.0.0 | The Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/tomlj/tomlj |
 | org.webjars:swagger-ui | 5.21.0 | Apache-2.0 | https://www.webjars.org |
 | org.webjars:webjars-locator-lite | 1.1.3 | MIT | https://github.com/webjars/webjars-locator-lite/blob/main/LICENSE.md ; https://webjars.org |
+| org.xerial.snappy:snappy-java | 1.1.10.5 | Apache-2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; http://www.xerial.org/ ; https://github.com/xerial/snappy-java ; https://www.apache.org/licenses/LICENSE-2.0.html |
 | org.xmlunit:xmlunit-core | 2.10.4 | The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://www.xmlunit.org/ |
 | org.yaml:snakeyaml | 2.4 | Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://bitbucket.org/snakeyaml/snakeyaml |
 | software.amazon.awssdk:annotations | 2.55.13 | Apache License, Version 2.0 | https://aws.amazon.com/apache2.0 |

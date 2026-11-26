@@ -120,6 +120,7 @@ class DocumentsRpc(private val store: DocumentsStore, private val mapper: Object
 class DocumentsGrpcServer(
     private val service: DocumentsRpc,
     private val peer: CreditPeer,
+    private val admission: DocumentsAdmission,
     @Value("\${cabinet.documents.grpc.port}") private val port: Int,
     @Value("\${cabinet.documents.grpc.host:127.0.0.1}") private val host: String,
     @Value("\${cabinet.documents.grpc.certificate}") private val certificate: File,
@@ -140,7 +141,7 @@ class DocumentsGrpcServer(
                 credentials,
             ).maxInboundMessageSize(MAX_DOCUMENT_BYTES + 1024 * 1024).maxConcurrentCallsPerConnection(2)
                 .executor(executor)
-                .addService(ServerInterceptors.intercept(service, peer)).build().start()
+                .addService(ServerInterceptors.intercept(service, admission, peer)).build().start()
     }
     override fun stop() {
         server?.shutdownNow()

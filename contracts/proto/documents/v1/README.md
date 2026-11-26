@@ -16,7 +16,9 @@ ArtifactInput передаётся как исходная canonical JSON **ст
 
 Unary content ограничен 20 MiB. Общий inbound message ограничен 21 MiB,
 metadata — 1 MiB; считывание стора — максимум 20 MiB + 1 байт. Оба сервиса
-имеют ограниченные timeout, число исполнителей и очередь RPC. Default deadline
+имеют ограниченные timeout, число исполнителей и очередь RPC. Documents допускает
+не более двух активных RPC суммарно по всем соединениям и отклоняет избыток
+до чтения upload message; cancel/close освобождают слот ровно один раз. Default deadline
 30 секунд покрывает default scanner 10 секунд и S3 total timeout 15 секунд.
 При увеличении scanner timeout согласовать `cabinet.documents.grpc.deadline-ms`.
 Незавершённый/отменённый RPC откатывает metadata; orphan bytes допускаются

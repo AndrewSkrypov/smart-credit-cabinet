@@ -21,7 +21,7 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { agentApi } from '../../api/client';
 import { useAuth } from '../../auth/AuthProvider';
@@ -34,7 +34,26 @@ import { useApi } from '../../hooks/useApi';
 import { agentNextAction, statusTitle, statusTone } from '../../shared/applicationText';
 import { formatDate, formatDateTime, months, percent, rub } from '../../shared/format';
 import { commissionStatusLabels, legalFormLabels } from '../../shared/labels';
-import { PreApprovedOffer } from '../../types';
+import { ApplicationSummary, PreApprovedOffer } from '../../types';
+
+const actionOwnerLabels = { AGENT: 'Агент', CLIENT: 'Клиент', BANK: 'Банк', SYSTEM: 'Автоматическая проверка' } as const;
+
+function portfolioAction(application: ApplicationSummary) {
+  const fallback = agentNextAction(application.status);
+  const owner = application.actionOwner === undefined
+    ? (fallback.requiresAgent ? 'AGENT' : null)
+    : application.actionOwner;
+  const anchor = application.status === 'DRAFT'
+    ? '#draft-financing'
+    : application.status === 'INFO_REQUESTED' ? '#application-info-request' : '';
+  return {
+    owner,
+    requiresAgent: owner === 'AGENT',
+    label: application.actionLabel ?? fallback.label,
+    deadline: application.actionDeadline ?? null,
+    href: `/agent/applications/${application.id}${anchor}`
+  };
+}
 
 function KpiCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -65,8 +84,14 @@ export function AgentPortfolioPage() {
 
   const state = useApi(loadAll);
 
+  const { reload } = state;
+  useEffect(() => {
+    const timer = window.setInterval(() => void reload(), 15000);
+    return () => window.clearInterval(timer);
+  }, [reload]);
+
   if (state.loading && !state.data) return <LoadingBlock />;
-  if (!state.data) return <ErrorState message={state.error ?? 'Не удалось загрузить портфель агента'} onRetry={state.reload} />;
+  if (state.error || !state.data) return <ErrorState message={state.error ?? 'Не удалось загрузить портфель агента'} onRetry={reload} />;
 
   const { portfolio, clients, preApprovedOffers, applications } = state.data;
   const offersByCompany = new Map<string, PreApprovedOffer[]>();
@@ -78,9 +103,11 @@ export function AgentPortfolioPage() {
   }
 
   const activeWorkCount = portfolio.draftCount + portfolio.pendingConfirmationCount + portfolio.inProgressCount;
-  const visibleApps = onlyActionRequired
-    ? applications.filter((item) => agentNextAction(item.status).requiresAgent)
-    : applications;
+  const visibleApps = applications.map((app) => ({ app, nextStep: portfolioAction(app) }))
+    .filter(({ nextStep }) => !onlyActionRequired || nextStep.requiresAgent)
+    .sort((left, right) => (left.nextStep.deadline ? Date.parse(left.nextStep.deadline) : Number.MAX_SAFE_INTEGER)
+      - (right.nextStep.deadline ? Date.parse(right.nextStep.deadline) : Number.MAX_SAFE_INTEGER)
+      || Number(right.nextStep.requiresAgent) - Number(left.nextStep.requiresAgent));
 
   const handleApplyOffer = async (offerId: string) => {
     setApplyingOfferId(offerId);
@@ -224,9 +251,8 @@ export function AgentPortfolioPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {visibleApps.map((app) => {
+                {visibleApps.map(({ app, nextStep }) => {
                   const tone = statusTone(app.status);
-                  const nextStep = agentNextAction(app.status);
                   return (
                     <TableRow key={app.id} hover>
                       <TableCell>
@@ -255,6 +281,11 @@ export function AgentPortfolioPage() {
                         <Typography variant="body2" color={nextStep.requiresAgent ? 'warning.dark' : 'text.secondary'} fontWeight={nextStep.requiresAgent ? 600 : 400}>
                           {nextStep.label}
                         </Typography>
+                        {nextStep.owner && (
+                          <Typography variant="caption" display="block" color="text.secondary">
+                            {actionOwnerLabels[nextStep.owner]}{nextStep.deadline ? ` · до ${formatDateTime(nextStep.deadline)}` : ''}
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell align="right">
                         {app.agentCommissionAmount != null && app.agentCommissionStatus && app.agentCommissionStatus !== 'NONE' ? (
@@ -267,7 +298,7 @@ export function AgentPortfolioPage() {
                         )}
                       </TableCell>
                       <TableCell align="right">
-                        <Button component={RouterLink} to={`/agent/applications/${app.id}`} size="small" endIcon={<ChevronRightRoundedIcon />}>
+                        <Button component={RouterLink} to={nextStep.href} size="small" endIcon={<ChevronRightRoundedIcon />}>
                           Открыть
                         </Button>
                       </TableCell>

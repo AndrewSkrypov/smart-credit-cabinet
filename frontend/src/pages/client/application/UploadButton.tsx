@@ -7,13 +7,14 @@ import { DocumentType } from '../../../types';
 interface UploadButtonProps extends Omit<ButtonProps, 'onError'> {
   applicationId: string;
   documentType: DocumentType;
+  privateToBank?: boolean;
   onUploaded: () => void;
   onError: (message: string) => void;
 }
 
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx';
 
-export function UploadButton({ applicationId, documentType, onUploaded, onError, children, ...props }: UploadButtonProps) {
+export function UploadButton({ applicationId, documentType, privateToBank, onUploaded, onError, children, ...props }: UploadButtonProps) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   return (
@@ -24,7 +25,7 @@ export function UploadButton({ applicationId, documentType, onUploaded, onError,
       <input
         ref={input}
         type="file"
-        accept={ACCEPT}
+        accept={privateToBank ? '.pdf,application/pdf' : ACCEPT}
         hidden
         onChange={async (event) => {
           const file = event.target.files?.[0];
@@ -32,7 +33,7 @@ export function UploadButton({ applicationId, documentType, onUploaded, onError,
           if (!file) return;
           setBusy(true);
           try {
-            await applicationsApi.uploadDocument(applicationId, documentType, file);
+            await applicationsApi.uploadDocument(applicationId, documentType, file, privateToBank);
             onUploaded();
           } catch (error) {
             onError(error instanceof Error ? error.message : 'Не удалось загрузить файл');

@@ -11,8 +11,8 @@ declare
     lease timestamptz;
     claimed_token uuid;
 begin
-    if current_database() <> 'alpha_qa_assessment' then
-        raise exception 'Lease verification requires the private alpha_qa_assessment database';
+    if current_database() !~ '^r2_migration_assessment_[a-z0-9]{8}$' then
+        raise exception 'Lease verification requires a private migration-test database';
     end if;
     if to_regclass('applications') is not null or to_regclass('credit_assessment_cycle') is not null then
         raise exception 'Assessment V1 shares Credit tables';

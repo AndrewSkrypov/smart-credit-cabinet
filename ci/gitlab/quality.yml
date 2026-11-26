@@ -56,12 +56,14 @@ backend:
       - '**/build/reports/jacoco/'
       - ci-artifacts/schema-rollback.json
       - ci-artifacts/migration-restore.json
+      - ci-artifacts/assessment/
       - security/reports/postgres-image.json
       - services/*/build/libs/app.jar
       - ci-artifacts/backend.sha256
     reports:
       junit:
         - '**/build/test-results/test/TEST-*.xml'
+        - 'services/assessment/build/test-results/assessmentKafkaTest/TEST-*.xml'
 frontend:
   stage: quality
   extends: .quality
@@ -160,6 +162,7 @@ image-security:
       - SERVICE:
           - identity
           - credit
+          - assessment
           - engagement
           - external-sim
           - frontend

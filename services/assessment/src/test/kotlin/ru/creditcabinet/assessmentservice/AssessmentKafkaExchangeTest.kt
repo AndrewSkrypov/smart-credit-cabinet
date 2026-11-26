@@ -8,7 +8,7 @@ import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringSerializer
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
+import org.junit.jupiter.api.Tag
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
@@ -37,7 +37,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 @SpringBootTest
-@EnabledIfEnvironmentVariable(named = "R2_KAFKA_BOOTSTRAP", matches = "127\\.0\\.0\\.1:[0-9]+")
+@Tag("assessment-kafka")
 class AssessmentKafkaExchangeTest {
     @Autowired private lateinit var jdbc: JdbcTemplate
 

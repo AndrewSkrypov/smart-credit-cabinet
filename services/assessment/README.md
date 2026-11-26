@@ -56,12 +56,10 @@ from assessment_exchange_outbox group by 1,2,3;
 ## Локальные проверки
 
 Проверка миграций требует локальных исполняемых файлов PostgreSQL 16.
-Сквозной сценарий также использует дистрибутив Kafka 4.3.2, JDK 21 и
-собранные JAR. Сценарий запускает процессы и временные БД на loopback,
-проверяет выдачу после рестарта Assessment и Kafka, а также ручное
-рассмотрение по истечении срока сбора фактов. Тест
-`AssessmentKafkaExchangeTest` запускается с `R2_KAFKA_BOOTSTRAP=127.0.0.1:<порт>`
-и отдельной тестовой БД Assessment.
+Сквозной сценарий использует дистрибутив Kafka 4.3.2, JDK 21 и собранные JAR.
+Сценарий запускает процессы и временные БД на loopback, повторно доставляет
+команду и результат, проверяет рестарт Assessment и Kafka, ручное
+рассмотрение при неполных фактах и обработку позднего результата.
 
 ```bash
 e2e/alpha-assessment/verify-migrations.sh "$PG_BIN"
@@ -71,5 +69,11 @@ python3 e2e/alpha-assessment/verify_exchange.py \
   --assessment services/assessment/build/libs/app.jar \
   --pg-bin "$PG_BIN" --kafka-home "$KAFKA_HOME"
 ```
+
+Обязательная проверка GitLab и GitHub вызывает `e2e/alpha-assessment/check-ci.sh`
+с портом временного PostgreSQL 16 раннера. Она создаёт отдельные пары БД,
+проверяет SHA-512 дистрибутива и запускает тест отката входящей транзакции через
+`assessmentKafkaTest`. Проверка требует один выполненный тест без пропусков.
+Логи сохраняются в `ci-artifacts/assessment/`.
 
 [Границы и матрица R2](../../docs/plans/alpha-r2-assessment-service.md)

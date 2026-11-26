@@ -44,7 +44,7 @@ retry 60 1 postgres_ready
 export DB_PORT
 DB_PORT=$(published_port "$postgres" 5432)
 export PGPASSWORD=cabinet
-for db in identity credit engagement common_test; do
+for db in identity credit engagement assessment common_test; do
     psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$DB_PORT" -U cabinet -d cabinet -c "create database $db"
 done
 
@@ -89,7 +89,10 @@ retry 30 1 valkey_ready
 export VALKEY_TEST_PORT
 VALKEY_TEST_PORT=$(published_port "$valkey" 6379)
 
+export ASSESSMENT_DB_URL="jdbc:postgresql://127.0.0.1:$DB_PORT/assessment"
+export ASSESSMENT_DB_USER=cabinet ASSESSMENT_DB_PASSWORD=cabinet
 OUTBOX_WORKER_ENABLED=false ./gradlew build --no-daemon
+bash e2e/alpha-assessment/check-ci.sh "$(pg_config --bindir)" "$DB_PORT"
 
 mkdir -p ci-artifacts
 for db in identity credit engagement; do
@@ -101,5 +104,4 @@ python3 deploy/check-schema-rollback.py --pg-bin "$(pg_config --bindir)" --port 
 python3 deploy/check-migration-restore.py --pg-bin "$(pg_config --bindir)" --java-bin "${JAVA_HOME:?}/bin" \
     --port "$DB_PORT" --user cabinet --output ci-artifacts/migration-restore.json
 
-test "$(find services -path '*/build/libs/app.jar' | wc -l)" -eq 4
-sha256sum services/*/build/libs/app.jar > ci-artifacts/backend.sha256
+bash ci/gitlab/quality/backend-artifacts.sh

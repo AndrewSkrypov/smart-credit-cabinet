@@ -39,6 +39,7 @@ import ru.creditcabinet.offer.OfferRepository
 import ru.creditcabinet.offer.OfferStatus
 import ru.creditcabinet.offer.SigningSessionRecord
 import ru.creditcabinet.offer.SigningSessions
+import ru.creditcabinet.pipeline.FakeSources
 import ru.creditcabinet.pipeline.MutableClock
 import ru.creditcabinet.pipeline.PipelineFakesConfig
 import ru.creditcabinet.pipeline.PipelineWorker
@@ -46,6 +47,7 @@ import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.LoanMath
 import ru.creditcabinet.servicing.application.LoanServicingService
 import java.math.BigDecimal
+import java.time.ZoneOffset
 import java.util.Date
 import java.util.UUID
 import kotlin.test.AfterTest
@@ -70,6 +72,8 @@ class LoanServicingIntegrationTest {
     @Autowired private lateinit var worker: PipelineWorker
 
     @Autowired private lateinit var clock: MutableClock
+
+    @Autowired private lateinit var sources: FakeSources
 
     @Autowired private lateinit var applications: ApplicationRepository
 
@@ -105,6 +109,7 @@ class LoanServicingIntegrationTest {
     fun setUp() {
         agentMandateActive = true
         jdbc.update("update pipeline_jobs set status = 'CANCELLED' where status in ('PENDING', 'RUNNING')")
+        sources.companies[companySnapshot.inn] = FakeSources.healthy(companySnapshot.inn, clock.instant().atOffset(ZoneOffset.UTC).toLocalDate())
         whenever(companies.find(any())).thenAnswer { inv ->
             when (inv.getArgument<UUID>(0)) {
                 companyId -> companySnapshot
@@ -176,6 +181,7 @@ class LoanServicingIntegrationTest {
                 statusChangedAt = now,
                 createdAt = now,
                 updatedAt = now,
+                submittedAt = now,
                 agentId = if (withAgent) agentId else null,
                 agentName = if (withAgent) "Агент Тест" else null,
             ),

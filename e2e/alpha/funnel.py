@@ -3,6 +3,7 @@
 
 import argparse
 from collections import Counter
+from decimal import Decimal
 import json
 import os
 from pathlib import Path
@@ -117,7 +118,7 @@ def probe_private(args):
     denied = {
         "missing": fetch(opener, url)["status"],
         "ordinary_manager": fetch(opener, url, manager)["status"],
-        "wrong": fetch(opener, url, service_token=service_token + "-incorrect")["status"],
+        "wrong": fetch(opener, url, service_token="invalid-alpha-qa-service-credential")["status"],
     }
     require(denied == dict.fromkeys(denied, 401), f"Private route admission codes differ from 401: {denied}")
     granted = fetch(opener, url, service_token=service_token, include_readiness=True)
@@ -132,6 +133,34 @@ def probe_private(args):
         if args.reason:
             require(granted["readiness"] == args.reason, "Private route readiness reason differs")
     return {"sha": args.sha, "expected": args.expect, "access": denied, "service": granted}
+
+
+def read_source_counts(path):
+    counts = Counter()
+    metric = "cabinet_analytics_current_statuses_read_total"
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if not line.startswith(metric + "{"):
+            continue
+        labels, sample = line[len(metric) + 1:].split("}", 1)
+        dimensions = dict(re.findall(r'([a-z_][a-z_0-9]*)="([^"]*)"', labels))
+        source = dimensions["source"]
+        reason = dimensions["reason"]
+        value = Decimal(sample.split()[0])
+        require(value.is_finite() and value >= 0 and value == value.to_integral_value(),
+                f"{path}: invalid count for {source}/{reason}")
+        counts[source, reason] += int(value)
+    return counts
+
+
+def verify_source(args):
+    before = read_source_counts(args.before)
+    after = read_source_counts(args.after)
+    deltas = {key: after[key] - before[key] for key in before.keys() | after.keys()}
+    changed = {key: delta for key, delta in deltas.items() if delta}
+    require(args.count > 0, "--count must be positive")
+    require(changed == {(args.source, args.reason): args.count},
+            f"Unexpected source counter changes: {changed}")
+    print(f"credit HTTP selected {args.source}/{args.reason} exactly {args.count} times")
 
 
 def read_json(path):
@@ -254,6 +283,12 @@ def main():
     private_parser.add_argument("--generation")
     private_parser.add_argument("--snapshot")
     private_parser.add_argument("--reason")
+    source_parser = commands.add_parser("verify-source")
+    source_parser.add_argument("--before", required=True)
+    source_parser.add_argument("--after", required=True)
+    source_parser.add_argument("--source", choices=("sql", "projection"), required=True)
+    source_parser.add_argument("--reason", required=True)
+    source_parser.add_argument("--count", type=int, default=5)
     verify_parser = commands.add_parser("verify")
     verify_parser.add_argument("--sql", required=True)
     verify_parser.add_argument("--fixture", choices=FIXTURES.keys(), default="initial")
@@ -265,6 +300,8 @@ def main():
     try:
         if args.command == "verify":
             verify(args)
+        elif args.command == "verify-source":
+            verify_source(args)
         else:
             result = capture(args) if args.command == "capture" else probe_private(args)
             json.dump(result, sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)

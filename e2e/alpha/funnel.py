@@ -35,6 +35,12 @@ FIXTURE = {
     7: (6, "REJECTED"), 8: (9, "DISBURSED"), 9: (8, "CLOSED"), 10: (4, "SUBMITTED"),
 }
 
+FIXTURES = {
+    "initial": FIXTURE,
+    "restored": FIXTURE | {10: (5, "WITHDRAWN")},
+    "recovered": FIXTURE | {5: (2, "WITHDRAWN"), 10: (5, "WITHDRAWN")},
+}
+
 
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -200,7 +206,7 @@ def stable_response(response):
 
 def verify(args):
     rows, counts = read_rows(read_json(args.sql), "credit SQL")
-    expected = {f"10000000-0000-4000-8000-{n:012d}": pair for n, pair in FIXTURE.items()}
+    expected = {f"10000000-0000-4000-8000-{n:012d}": pair for n, pair in FIXTURES[args.fixture].items()}
     require(rows == expected, f"Credit fixture rows differ at {sorted(set(rows.items()) ^ set(expected.items()))}")
     print(f"credit SQL: {len(rows)} visible fixture rows and exact status map")
     require(not args.snapshot_versions or args.projection, "--snapshot-versions requires --projection")
@@ -250,6 +256,7 @@ def main():
     private_parser.add_argument("--reason")
     verify_parser = commands.add_parser("verify")
     verify_parser.add_argument("--sql", required=True)
+    verify_parser.add_argument("--fixture", choices=FIXTURES.keys(), default="initial")
     verify_parser.add_argument("--projection")
     verify_parser.add_argument("--snapshot-versions", action="store_true", help="compare an unchanged bootstrap snapshot")
     verify_parser.add_argument("--baseline")

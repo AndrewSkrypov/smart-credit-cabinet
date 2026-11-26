@@ -10,7 +10,7 @@ import subprocess
 import sys
 import time
 
-from funnel import FIXTURE, fetch, local_opener, loopback_origin, read_json, read_rows, require
+from funnel import FIXTURES, fetch, local_opener, loopback_origin, read_json, read_rows, require
 
 
 def fixture_id(number):
@@ -37,13 +37,9 @@ OLD_EVENTS = (
     },
 )
 RECEIPT_KEYS = ("eventId", "applicationId", "applicationVersion", "status")
-INITIAL = {fixture_id(number): pair for number, pair in FIXTURE.items()}
-CHECKPOINTS = {
-    "initial": INITIAL,
-    "old": INITIAL | {TARGET: (3, "REJECTED"), GHOST: (8, "CLOSED")},
-    "restored": INITIAL | {STUCK: (5, "WITHDRAWN")},
-    "recovered": INITIAL | {STUCK: (5, "WITHDRAWN"), TARGET: (2, "WITHDRAWN")},
-}
+CHECKPOINTS = {phase: {fixture_id(number): pair for number, pair in rows.items()}
+               for phase, rows in FIXTURES.items()}
+CHECKPOINTS["old"] = CHECKPOINTS["initial"] | {TARGET: (3, "REJECTED"), GHOST: (8, "CLOSED")}
 
 
 def withdraw(args):

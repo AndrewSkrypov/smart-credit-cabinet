@@ -25,7 +25,7 @@ dependencies {
 }
 
 tasks.test {
-    exclude("**/DocumentsClaimFenceRuntimeTest.class")
+    exclude("**/DocumentsClaimFenceRuntimeTest.class", "**/DocumentsArtifactIntentRuntimeTest.class")
     // Twelve cached pools leave headroom on CI PostgreSQL with max_connections=100.
     systemProperty("spring.test.context.cache.maxSize", "12")
 }
@@ -34,6 +34,6 @@ val documentsClaimFenceRuntimeTest by tasks.registering(Test::class) {
     description = "Real PostgreSQL stale generic worker callback fence gate"
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
-    include("**/DocumentsClaimFenceRuntimeTest.class")
+    include("**/DocumentsClaimFenceRuntimeTest.class", "**/DocumentsArtifactIntentRuntimeTest.class")
     useJUnitPlatform()
 }

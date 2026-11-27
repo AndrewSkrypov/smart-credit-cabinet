@@ -68,6 +68,21 @@ class DocumentsBoundary(
         // A replay returns the original owner-chosen timestamp/backend/path, including after a lost reply.
         client().list(scope).single { it.id == document.id && it.deletedAt == null }.document()
     }
+    fun lockUpload(id: UUID) {
+        check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+        jdbc.queryForObject("select pg_advisory_xact_lock(hashtextextended(?,0))", { _, _ -> true }, id.toString())
+    }
+    fun committedUpload(applicationId: UUID, id: UUID): ApplicationDocument? {
+        val committed = jdbc.queryForObject(
+            "select exists(select 1 from document_references where document_id=? and application_id=?)",
+            Boolean::class.java,
+            id,
+            applicationId,
+        )!!
+        if (!committed) return null
+        val existing = if (remote) all(applicationId).singleOrNull { it.id == id && it.deletedAt == null }?.document() else local.find(applicationId, id)
+        return existing ?: throw ru.creditcabinet.common.exception.ConflictException("Документ с этим ключом уже удалён")
+    }
     fun commitReference(document: ApplicationDocument): Boolean {
         check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
         val inserted = jdbc.update(
@@ -93,9 +108,11 @@ class DocumentsBoundary(
         val deleted = jdbc.query("select document_id,deleted_at from document_deletion_intents where application_id=?", { rs, _ ->
             rs.getObject(1, UUID::class.java) to rs.getTimestamp(2).toInstant()
         }, applicationId).toMap()
-        return rpc { client().list(scope(applicationId)).filter { it.id in committed }.map { record ->
-            deleted[record.id]?.let { record.copy(deletedAt = it) } ?: record
-        } }
+        return rpc {
+            client().list(scope(applicationId)).filter { it.id in committed }.map { record ->
+                deleted[record.id]?.let { record.copy(deletedAt = it) } ?: record
+            }
+        }
     }
     override fun list(applicationId: UUID): List<ApplicationDocument> = if (!remote) {
         local.list(applicationId)
@@ -148,15 +165,26 @@ class DocumentsBoundary(
         }
         val document = find(applicationId, documentId) ?: throw ru.creditcabinet.common.exception.NotFoundException("Документ не найден")
         check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
-        jdbc.update("insert into document_deletion_intents(document_id,application_id,deleted_at) values(?,?,?) on conflict do nothing", document.id, applicationId, java.sql.Timestamp.from(at))
+        jdbc.update(
+            "insert into document_deletion_intents(document_id,application_id,deleted_at) values(?,?,?) on conflict do nothing",
+            document.id,
+            applicationId,
+            java.sql.Timestamp.from(at),
+        )
     }
-    private fun removed(id: UUID): Boolean = jdbc.queryForObject("select exists(select 1 from document_deletion_intents where document_id=?)", Boolean::class.java, id)!!
+    private fun removed(
+        id: UUID,
+    ): Boolean = jdbc.queryForObject("select exists(select 1 from document_deletion_intents where document_id=?)", Boolean::class.java, id)!!
     override fun isChatAttached(documentId: UUID): Boolean = local.isChatAttached(documentId)
     fun <T> rpc(
         action: () -> T,
     ): T = try {
         action()
     } catch (failure: io.grpc.StatusRuntimeException) {
+        val causes = generateSequence(failure.status.cause ?: failure.cause) { it.cause }.take(12)
+        if (causes.any { it is javax.net.ssl.SSLException || it is java.security.cert.CertificateException }) {
+            throw ApiException(HttpStatus.BAD_GATEWAY, "Ошибка доверия сервиса документов")
+        }
         when (failure.status.code) {
             io.grpc.Status.Code.NOT_FOUND, io.grpc.Status.Code.PERMISSION_DENIED, io.grpc.Status.Code.UNAUTHENTICATED ->
                 throw ru.creditcabinet.common.exception.NotFoundException("Файл не найден")

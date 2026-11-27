@@ -125,3 +125,6 @@ begin
  return new;
 end $$;
 create trigger document_deletion_intents_immutable before update or delete on document_deletion_intents for each row execute function preserve_document_deletion_intent();
+
+alter table pipeline_jobs add column business_failures integer not null default 0 check(business_failures>=0);
+comment on column pipeline_jobs.business_failures is 'Бюджет неожиданных бизнес-ошибок, независимый от монотонных попыток захвата и ожидаемых сбоев портов';

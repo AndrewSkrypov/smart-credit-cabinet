@@ -69,11 +69,16 @@ class DocumentsClaimFenceRuntimeTest {
                 jobs.failClaim(sameAttemptOldLease, clock.instant(), "stale")
                 jobs.retryDocumentsUnavailable(sameAttemptOldLease, clock.instant())
                 assertCurrent(jdbc, fresh)
-                val expired = fresh.leaseUntil!!.plusSeconds(1)
-                jobs.retryClaim(fresh, expired, expired, "expired")
-                jobs.failClaim(fresh, expired, "expired")
-                jobs.retryDocumentsUnavailable(fresh, expired)
-                assertCurrent(jdbc, fresh)
+                val expiredAt = clock.instant().minusSeconds(1)
+                jdbc.update("update pipeline_jobs set locked_until=? where id=?", Timestamp.from(expiredAt), id)
+                val expiredJob = fresh.copy(
+                    leaseUntil = jdbc.queryForObject("select locked_until from pipeline_jobs where id=?", Timestamp::class.java, id)!!.toInstant(),
+                )
+                jobs.retryClaim(expiredJob, clock.instant(), clock.instant(), "expired")
+                jobs.failClaim(expiredJob, clock.instant(), "expired")
+                jobs.retryDocumentsUnavailable(expiredJob, clock.instant())
+                assertCurrent(jdbc, expiredJob)
+                jdbc.update("update pipeline_jobs set locked_until=? where id=?", Timestamp.from(fresh.leaseUntil), id)
                 // An actual current callback still works; fenced APIs do not disable recovery.
                 jobs.retryClaim(fresh, clock.instant(), clock.instant().plusSeconds(10), "current")
                 assertEquals("PENDING", jdbc.queryForObject("select status from pipeline_jobs where id=?", String::class.java, id))
@@ -83,6 +88,53 @@ class DocumentsClaimFenceRuntimeTest {
                 executor.awaitTermination(10, TimeUnit.SECONDS)
                 jdbc.update("update pipeline_jobs set status='CANCELLED',locked_until=null where id=?", id)
             }
+        }
+    }
+
+    @Test
+    fun `lease expiry is checked after a real connection and row-lock wait`() {
+        val source =
+            DriverManagerDataSource(env("DOCUMENTS_TEST_DATABASE_BASE") + "/credit", env("DOCUMENTS_TEST_ADMIN_USER"), env("DOCUMENTS_TEST_ADMIN_PASSWORD"))
+        val jdbc = JdbcTemplate(source)
+        val jobs = JdbcPipelineJobs(NamedParameterJdbcTemplate(source))
+        for (operation in listOf("retry", "fail", "outage")) {
+            val id = UUID.randomUUID()
+            val application = UUID.fromString(env("DOCUMENTS_TEST_APPLICATION"))
+            jdbc.update(
+                "insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at,locked_until) values(?,?,'DATA_CHECK','RUNNING',1,now(),now(),now(),clock_timestamp()+interval '1 second')",
+                id,
+                application,
+            )
+            val lease = jdbc.queryForObject("select locked_until from pipeline_jobs where id=?", Timestamp::class.java, id)!!.toInstant()
+            val job = PipelineJob(id, application, ru.creditcabinet.application.domain.PipelineStep.DATA_CHECK, 1, lease)
+            source.connection.use { blocker ->
+                blocker.autoCommit = false
+                blocker.prepareStatement("select id from pipeline_jobs where id=? for update").use {
+                    it.setObject(1, id)
+                    it.executeQuery().close()
+                }
+                val executor = Executors.newSingleThreadExecutor()
+                try {
+                    val cachedNow = Instant.now()
+                    val callback = executor.submit {
+                        when (operation) {
+                            "retry" -> jobs.retryClaim(job, cachedNow, cachedNow.plusSeconds(10), "late")
+                            "fail" -> jobs.failClaim(job, cachedNow, "late")
+                            else -> jobs.retryDocumentsUnavailable(job, cachedNow)
+                        }
+                    }
+                    Thread.sleep(1500)
+                    assertTrue(!callback.isDone)
+                    blocker.commit()
+                    callback.get(5, TimeUnit.SECONDS)
+                    assertCurrent(jdbc, job)
+                } finally {
+                    blocker.rollback()
+                    executor.shutdownNow()
+                    executor.awaitTermination(5, TimeUnit.SECONDS)
+                }
+            }
+            jdbc.update("update pipeline_jobs set status='CANCELLED',locked_until=null where id=?", id)
         }
     }
 

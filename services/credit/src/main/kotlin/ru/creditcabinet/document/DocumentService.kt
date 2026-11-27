@@ -72,7 +72,9 @@ class DocumentService(
     /** A client adds documents while preparing the application or when the bank asked for them. */
     @Transactional
     override fun upload(applicationId: UUID, type: DocumentType, file: DocumentUpload, privateToBank: Boolean): ApplicationDocument {
-        val (claims, application) = ownForDocumentWrite(applicationId, forUpdate = privateToBank)
+        val (claims, application) = applications.own(applicationId, forUpdate = privateToBank)
+        replay(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, privateToBank, file.operationKey)?.let { return it }
+        if (application.status == ApplicationStatus.DRAFT && application.activeAgentId != null) throw NotFoundException("Заявка не найдена")
         if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
         if (privateToBank) {
             if (type != DocumentType.BANK_STATEMENT) throw BadRequestException("Приватная загрузка доступна для выписки по счёту")
@@ -93,6 +95,7 @@ class DocumentService(
         file: MultipartFile,
         operationKey: String? = null,
     ): ApplicationDocument {
+        replay(application, claims, type, file.originalFilename, file.size, { file.bytes }, DocumentContext.BUSINESS, false, operationKey)?.let { return it }
         if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
         val upload = DocumentUpload(file.originalFilename, file.size) { file.bytes }
         return persist(application, claims, type, upload.fileName, upload.size, upload.read, DocumentContext.BUSINESS, operationKey = operationKey)
@@ -136,11 +139,13 @@ class DocumentService(
         scanner.scan(bytes)
         val now = clock.instant()
         val key = operationKey?.also { if (it.isBlank() || it.length > 128) throw BadRequestException("Некорректный ключ загрузки") }
-        val id = if (boundary?.remote == true && key != null) {
-            UUID.nameUUIDFromBytes("credit-document-v1:${application.company.id}:${application.id}:${claims.userId}:$context:$key".toByteArray())
+        val id = if (key != null) {
+            uploadId(application, claims, context, key)
         } else {
             UUID.randomUUID()
         }
+        boundary?.lockUpload(id)
+        replay(application, claims, type, originalName, size, { bytes }, context, privateToBank, operationKey)?.let { return it }
         var document = ApplicationDocument(
             id = id,
             applicationId = application.id,
@@ -182,6 +187,42 @@ class DocumentService(
             )
         }
         return document
+    }
+
+    private fun uploadId(application: LoanApplication, caller: TokenClaims, context: DocumentContext, key: String): UUID =
+        UUID.nameUUIDFromBytes("credit-document-v1:${application.company.id}:${application.id}:${caller.userId}:$context:$key".toByteArray())
+
+    /** Called only after read/mandate authorization; a committed success survives later submit. */
+    private fun replay(
+        application: LoanApplication,
+        caller: TokenClaims,
+        type: DocumentType,
+        originalName: String?,
+        size: Long,
+        content: () -> ByteArray,
+        context: DocumentContext,
+        privateToBank: Boolean,
+        key: String?,
+    ): ApplicationDocument? {
+        if (key == null || boundary == null) return null
+        if (key.isBlank() || key.length > 128) throw BadRequestException("Некорректный ключ загрузки")
+        val previous = boundary.committedUpload(application.id, uploadId(application, caller, context, key)) ?: return null
+        if (size <= 0 || size > maxSizeBytes) throw ConflictException("Ключ загрузки уже использован для другого файла")
+        val fileName = originalName?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }?.take(MAX_NAME) ?: "document"
+        val bytes = content()
+        val checksum = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        if (previous.uploadedBy != caller.userId ||
+            previous.type != type ||
+            previous.context != context ||
+            previous.privateToBank != privateToBank ||
+            previous.fileName != fileName ||
+            previous.sizeBytes != size ||
+            bytes.size.toLong() != size ||
+            previous.checksumSha256 != checksum
+        ) {
+            throw ConflictException("Ключ загрузки уже использован для другого файла")
+        }
+        return previous
     }
 
     /** Only from a draft: once sent, what the bank received stays in the application. */

@@ -19,15 +19,10 @@ class StoreDocument(private val metadata: DocumentMetadata, private val objects:
     fun execute(record: DocumentRecord, bytes: ByteArray) {
         record.validate()
         require(record.deletedAt == null && bytes.size.toLong() == record.sizeBytes && sha256(bytes) == record.checksum)
+        metadata.reserve(record)
         val old = metadata.find(record.id)
         if (old != null) {
             if (old.deletedAt != null || old.copy(uploadedAt = record.uploadedAt, backend = record.backend) != record) throw DocumentConflict()
-            return
-        }
-        metadata.reserve(record)
-        val concurrent = metadata.find(record.id)
-        if (concurrent != null) {
-            if (concurrent.deletedAt != null || concurrent.copy(uploadedAt = record.uploadedAt, backend = record.backend) != record) throw DocumentConflict()
             return
         }
         scanner.scan(bytes)

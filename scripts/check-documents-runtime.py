@@ -353,7 +353,7 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         sql('credit',f"insert into enrichment_results(application_id,source,payload,fetched_at) values('{application}','BANK','{{\"client\":true,\"settlementAccount\":null,\"monthlyInflows\":[]}}',now()); insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at) values('{outage_job}','{application}','DATA_CHECK','PENDING',0,now(),now(),now());",user='credit_owner',password=credit_password,name='outage-fixture')
         deadline=time.monotonic()+35
         while True:
-            row=scalar('credit',f"select status||':'||attempts||':'||documents_outages from pipeline_jobs where id='{outage_job}'")
+            row=scalar('credit',f"select status||':'||business_failures||':'||documents_outages from pipeline_jobs where id='{outage_job}'")
             status,attempts,outages=row.split(':')
             assert status!='FAILED' and int(attempts)<=1,row
             if int(outages)>=4: break
@@ -373,7 +373,9 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         sql('credit',f"update applications set status='SUBMITTED' where id='{application}'; update pipeline_jobs set status='CANCELLED' where application_id='{application}' and status='PENDING'; drop trigger documents_gate_hold_enrichment on pipeline_jobs; drop function documents_gate_hold_enrichment();",user='credit_owner',password=credit_password,name='outage-fixture')
         (report/'data-check-outage-recovery.json').write_text(json.dumps({'outageRetries':int(outages),'maxBusinessAttempts':2,'failed':False,'recoveredStatus':'DONE','businessAttemptsPreserved':True})+'\n')
         replica=start([*own.args,f'--cabinet.documents.grpc.port={replica_port}'],'documents-replica-after-outage',own_env); wait_port(replica_port,replica)
-        test_env = base_env | {'DOCUMENTS_TEST_STORAGE_BACKEND':args.storage_backend.upper(),'DOCUMENTS_TEST_CERTS':str(certs),'DOCUMENTS_TEST_GRPC_PORT':str(grpc_port),'DOCUMENTS_TEST_APPLICATION':application,'DOCUMENTS_TEST_COMPANY':company,'DOCUMENTS_TEST_HIDDEN':hidden,'DOCUMENTS_TEST_VISIBLE':visible,'DOCUMENTS_TEST_PRIVATE':private,'DOCUMENTS_TEST_REVOKED_AGENT':revoked_agent,
+        stop(credit)
+        credit=start([*[arg for arg in credit.args if not arg.startswith(('-Dcabinet.documents.fixture.scope=','--cabinet.pipeline.poll-interval='))],'--cabinet.pipeline.poll-interval=PT1H'],'credit-runtime-assertions',credit_env); wait_port(http_port,credit)
+        test_env = base_env | {'DOCUMENTS_TEST_STORAGE_BACKEND':args.storage_backend.upper(),'DOCUMENTS_TEST_PROOF_DIR':str(report),'DOCUMENTS_TEST_CERTS':str(certs),'DOCUMENTS_TEST_GRPC_PORT':str(grpc_port),'DOCUMENTS_TEST_APPLICATION':application,'DOCUMENTS_TEST_COMPANY':company,'DOCUMENTS_TEST_HIDDEN':hidden,'DOCUMENTS_TEST_VISIBLE':visible,'DOCUMENTS_TEST_PRIVATE':private,'DOCUMENTS_TEST_REVOKED_AGENT':revoked_agent,
             'DOCUMENTS_TEST_CREDIT_URL':f'http://127.0.0.1:{http_port}','DOCUMENTS_TEST_JWT_SECRET':jwt,'DOCUMENTS_TEST_DATABASE_BASE':f'jdbc:postgresql://127.0.0.1:{pg_port}','DOCUMENTS_TEST_ADMIN_USER':admin,'DOCUMENTS_TEST_ADMIN_PASSWORD':admin_password,'DOCUMENTS_TEST_CREDIT_APP_PASSWORD':credit_app_password,'DOCUMENTS_TEST_DOCUMENTS_APP_PASSWORD':own_app_password}
         run([gradle,'--no-daemon','--max-workers=1','-Pkotlin.compiler.execution.strategy=in-process','-Dorg.gradle.jvmargs=-Xmx512m -XX:MaxMetaspaceSize=384m',':services:documents:documentsRuntimeTest',':services:credit:documentsClaimFenceRuntimeTest','--rerun-tasks'], 'tests', env=test_env)
         xml_paths = sorted((ROOT/'services/documents/build/test-results/documentsRuntimeTest').glob('TEST-*.xml')) + sorted((ROOT/'services/credit/build/test-results/documentsClaimFenceRuntimeTest').glob('TEST-*.xml'))
@@ -381,6 +383,11 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         totals = {key: sum(int(ET.parse(path).getroot().get(key,0)) for path in xml_paths) for key in ('tests','failures','errors','skipped')}
         assert totals['tests'] >= 3 and all(totals[key] == 0 for key in ('failures','errors','skipped')), totals
         for path in xml_paths: shutil.copy2(path, report/path.name)
+        concurrent_paths=json.loads((report/'concurrent-upload-paths.json').read_text())
+        if s3:
+            try: s3.request('target','HEAD',concurrent_paths['loser']); raise AssertionError('Conflicting extension created an extra S3 object')
+            except __import__('urllib.error',fromlist=['HTTPError']).HTTPError as failure: assert failure.code==404
+        else: assert not (target_files/concurrent_paths['loser']).exists()
         # Committed tombstone must deny direct reads even while BOTH Documents servers are down.
         stop(own); stop(replica)
         deleted=json.loads(scalar('credit', "select json_build_object('document',i.document_id,'application',i.application_id,'company',a.company_id,'actor',a.created_by) from document_deletion_intents i join applications a on a.id=i.application_id order by i.document_id limit 1"))
@@ -391,7 +398,7 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         sql('documents', "update artifact_records set lease_until=now()-interval '1 second',next_attempt_at=now() where template_version=2 and status<>'READY';", user='documents_owner', password=own_password, name='recovery')
         own = start([arg for arg in own.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')], 'documents-restart', own_env)
         wait_port(grpc_port, own)
-        credit = start([*[arg for arg in credit.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')],'--cabinet.documents.deletions.enabled=true'], 'credit-restart', credit_env)
+        credit = start([*[arg for arg in credit.args if not arg.startswith(('-Dcabinet.documents.fixture.scope=','--cabinet.documents.deletions.enabled='))],'--cabinet.documents.deletions.enabled=true'], 'credit-restart', credit_env)
         wait_port(http_port, credit)
         deadline=time.monotonic()+40
         while True:
@@ -412,6 +419,12 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         sql('credit', "do $$ begin if (select count(*) from generated_artifact_notices)<>1 then raise exception 'Notice dedup failed'; end if; if (select count(*) from delivery_outbox where event_key like 'generated-files:%')<>1 then raise exception 'Outbox dedup failed'; end if; end $$;", user='credit_owner', password=credit_password, name='recovery')
         physical_target_inventory = object_inventory('target','documents')
         target_inventory = object_inventory('target','documents',committed_only=True)
+        confirmed_ids=set(scalar('credit',"select document_id from document_references").splitlines())
+        orphan_ids=set(scalar('documents',"select id from document_records").splitlines())-confirmed_ids
+        assert orphan_ids, 'Gate must retain at least one actual failed-upload orphan'
+        abandoned_orphan=scalar('documents',"select id from document_records where metadata->>'fileName'='abandoned-upload.pdf'")
+        assert abandoned_orphan in orphan_ids, 'Failed journal upload must remain a known uncommitted orphan'
+        (report/'expected-orphan-ids.json').write_text(json.dumps(sorted(orphan_ids))+'\n')
         stop(credit); stop(own)
         sql('documents', "update document_ownership set owner='FROZEN',epoch=3;", user='documents_owner', password=own_password)
         sql('credit', "update document_ownership set owner='FROZEN',epoch=3;", user='credit_owner', password=credit_password)
@@ -463,6 +476,8 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         run(migration_command, 'migration-reverse', env=migration_env | {'DOCUMENTS_MIGRATION_DIRECTION':'reverse'})
         run(migration_command, 'migration-reverse-repeat', env=migration_env | {'DOCUMENTS_MIGRATION_DIRECTION':'reverse'})
         sql('credit', "do $$ begin if exists(select 1 from documents d left join document_references r on r.document_id=d.id and r.application_id=d.application_id where r.document_id is null) then raise exception 'Uncommitted orphan imported'; end if; end $$;", user='credit_owner',password=credit_password,name='orphan-reverse-invisibility')
+        for orphan_id in orphan_ids:
+            assert scalar('credit',f"select count(*) from documents where id='{uuid.UUID(orphan_id)}'")=='0', 'Reverse imported a known uncommitted upload'
         source_inventory = object_inventory('source','credit')
         assert not s3 or sorted(source_inventory,key=lambda row:row['storedName']) == sorted(target_inventory,key=lambda row:row['storedName'])
         sql('credit', "begin; update document_ownership set owner='LOCAL';"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;", user='credit_owner', password=credit_password)

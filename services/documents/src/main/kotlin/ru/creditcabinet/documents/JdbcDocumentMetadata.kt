@@ -14,6 +14,7 @@ class JdbcDocumentMetadata(private val jdbc: JdbcTemplate, private val mapper: O
         mapper.readValue<DocumentRecord>(rs.getString(1))
     }, id).firstOrNull()
     override fun reserve(record: DocumentRecord) {
+        jdbc.queryForObject("select pg_advisory_xact_lock(hashtextextended(?,0))", { _, _ -> true }, record.id.toString())
         jdbc.queryForObject("select pg_advisory_xact_lock(hashtextextended(?,0))", { _, _ -> true }, record.storedName)
         require(
             jdbc.queryForObject(

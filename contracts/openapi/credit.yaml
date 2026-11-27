@@ -3321,6 +3321,11 @@ paths:
         schema:
           default: false
           type: boolean
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          type: string
       requestBody:
         content:
           multipart/form-data:
@@ -6091,6 +6096,11 @@ paths:
         schema:
           default: false
           type: boolean
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          type: string
       requestBody:
         content:
           multipart/form-data:

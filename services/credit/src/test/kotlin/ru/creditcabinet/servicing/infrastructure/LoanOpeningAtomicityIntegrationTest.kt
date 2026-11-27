@@ -455,7 +455,7 @@ class LoanOpeningAtomicityIntegrationTest {
                     service.requestCode(application.id)
                     false
                 } catch (
-                    _: ru.creditcabinet.common.exception.ConflictException,
+                    _: ru.creditcabinet.application.application.CreditFailure.Conflict,
                 ) {
                     true
                 } finally {

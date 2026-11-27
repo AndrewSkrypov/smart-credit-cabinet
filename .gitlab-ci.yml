@@ -22,6 +22,7 @@ include:
       - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
         when: never
       - when: always
+  - local: ci/gitlab/vault/job-identity.yml
   - local: ci/alpha/gitlab.yml
     rules:
       - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'

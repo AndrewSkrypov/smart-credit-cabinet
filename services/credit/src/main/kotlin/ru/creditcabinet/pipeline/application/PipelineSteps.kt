@@ -49,10 +49,10 @@ import ru.creditcabinet.assessment.domain.toDomain
 import ru.creditcabinet.assessment.domain.toSnapshot
 import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.DocumentRequirements
-import ru.creditcabinet.integration.CompanySources
-import ru.creditcabinet.integration.CoreBanking
-import ru.creditcabinet.integration.LoanRequest
-import ru.creditcabinet.integration.SourceUnavailableException
+import ru.creditcabinet.integration.domain.CompanySources
+import ru.creditcabinet.integration.domain.CoreBanking
+import ru.creditcabinet.integration.domain.LoanRequest
+import ru.creditcabinet.integration.domain.SourceUnavailableException
 import ru.creditcabinet.offer.Loan
 import ru.creditcabinet.offer.Loans
 import ru.creditcabinet.offer.OfferKind

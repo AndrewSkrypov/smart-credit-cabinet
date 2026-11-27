@@ -1,6 +1,7 @@
 package ru.creditcabinet.document.infrastructure
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import io.grpc.ManagedChannel
 import jakarta.annotation.PreDestroy
@@ -10,6 +11,9 @@ import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import ru.creditcabinet.common.exception.ApiException
+import ru.creditcabinet.document.application.DocumentTransfer
+import ru.creditcabinet.document.application.DocumentUploadIntent
+import ru.creditcabinet.document.application.UploadOperation
 import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentContext
 import ru.creditcabinet.document.domain.DocumentRepository
@@ -18,6 +22,7 @@ import ru.creditcabinet.document.domain.StorageBackend
 import ru.creditcabinet.document.domain.StoredFile
 import ru.creditcabinet.documents.DocumentRecord
 import ru.creditcabinet.documents.DocumentScope
+import ru.creditcabinet.documents.sha256
 import ru.creditcabinet.documentsgrpc.DocumentsGrpcClient
 import ru.creditcabinet.documentsgrpc.documentsTlsChannel
 import java.io.File
@@ -39,7 +44,7 @@ class DocumentsBoundary(
     @Value("\${cabinet.documents.grpc.key:}") private val key: String,
     @Value("\${cabinet.documents.grpc.ca:}") private val ca: String,
     @Value("\${cabinet.documents.grpc.deadline-ms:30000}") private val deadlineMs: Long,
-) : DocumentRepository {
+) : DocumentRepository, DocumentTransfer {
     @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent::class)
     fun verifyOwnership() {
         if (remote) client // Validate required TLS files/channel settings before admitting traffic.
@@ -50,7 +55,7 @@ class DocumentsBoundary(
         channel = documentsTlsChannel(host, port, File(certificate), File(key), File(ca))
         DocumentsGrpcClient(channel!!, mapper, epoch, deadlineMs)
     }
-    val remote: Boolean get() {
+    override val remote: Boolean get() {
         val gate = jdbc.queryForMap("select owner,epoch from document_ownership where singleton")
         if (mode !in setOf("local", "remote") || gate["owner"] != mode.uppercase() || (gate["epoch"] as Number).toLong() != epoch) unavailable()
         return mode == "remote"
@@ -62,7 +67,7 @@ class DocumentsBoundary(
     fun scope(
         applicationId: UUID,
     ): DocumentScope = DocumentScope(jdbc.queryForObject("select company_id from applications where id=?", UUID::class.java, applicationId)!!, applicationId)
-    fun put(document: ApplicationDocument, bytes: ByteArray): ApplicationDocument = rpc {
+    override fun put(document: ApplicationDocument, bytes: ByteArray): ApplicationDocument = rpc {
         val scope = scope(document.applicationId)
         client().put(document.record(scope), bytes)
         // A replay returns the original owner-chosen timestamp/backend/path, including after a lost reply.
@@ -92,8 +97,17 @@ class DocumentsBoundary(
         }
         org.springframework.jdbc.core.JdbcTemplate(source).apply { queryTimeout = 5 }
     }
-    data class UploadOperation(val at: Instant, val backend: StorageBackend)
-    fun reserveUpload(id: UUID, applicationId: UUID, actor: UUID, requestHash: String, backend: StorageBackend, at: Instant): UploadOperation {
+    override fun reserveUpload(id: UUID, intent: DocumentUploadIntent, backend: StorageBackend, at: Instant): UploadOperation {
+        val applicationId = intent.applicationId
+        val actor = intent.actor
+        val requestHash = sha256(
+            jacksonObjectMapper().writeValueAsBytes(
+                listOf(
+                    "credit-upload-v1", intent.companyId, applicationId, actor, intent.context.name,
+                    intent.type.name, intent.fileName, intent.size, intent.privateToBank, intent.bytesHash,
+                ),
+            ),
+        )
         val company = scope(applicationId).companyId
         val transaction = org.springframework.transaction.support.TransactionTemplate(
             org.springframework.jdbc.datasource.DataSourceTransactionManager(operationJdbc.dataSource!!),
@@ -120,11 +134,11 @@ class DocumentsBoundary(
             UploadOperation((operation["requested_at"] as java.sql.Timestamp).toInstant(), StorageBackend.valueOf(operation["requested_backend"] as String))
         }!!
     }
-    fun lockUpload(id: UUID) {
+    override fun lockUpload(id: UUID) {
         check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
         jdbc.queryForObject("select pg_advisory_xact_lock(hashtextextended(?,0))", { _, _ -> true }, id.toString())
     }
-    fun committedUpload(applicationId: UUID, id: UUID): ApplicationDocument? {
+    override fun committedUpload(applicationId: UUID, id: UUID): ApplicationDocument? {
         val committed = jdbc.queryForObject(
             "select exists(select 1 from document_references where document_id=? and application_id=?)",
             Boolean::class.java,
@@ -135,7 +149,7 @@ class DocumentsBoundary(
         val existing = if (remote) all(applicationId).singleOrNull { it.id == id && it.deletedAt == null }?.document() else local.find(applicationId, id)
         return existing ?: throw ru.creditcabinet.common.exception.ConflictException("Документ с этим ключом уже удалён")
     }
-    fun commitReference(document: ApplicationDocument): Boolean {
+    override fun commitReference(document: ApplicationDocument): Boolean {
         check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
         val inserted = jdbc.update(
             "insert into document_references(document_id,application_id) values(?,?) on conflict do nothing",
@@ -147,7 +161,7 @@ class DocumentsBoundary(
         )
         return inserted == 1
     }
-    fun bytes(document: ApplicationDocument): StoredFile = rpc {
+    override fun bytes(document: ApplicationDocument): StoredFile = rpc {
         val bytes = client().read(scope(document.applicationId), document.id, document.context.name)
         require(bytes.size.toLong() == document.sizeBytes && ru.creditcabinet.documents.sha256(bytes) == document.checksumSha256)
         StoredFile(bytes.size.toLong(), bytes.inputStream())

@@ -9,6 +9,7 @@ import ru.creditcabinet.analytics.application.AnalyticsQueries
 import ru.creditcabinet.analytics.application.AnalyticsQuery
 import ru.creditcabinet.analytics.application.CurrentStatusesProjection
 import ru.creditcabinet.analytics.application.FunnelStep
+import ru.creditcabinet.application.infrastructure.SpringCreditCaller
 import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.exception.UnauthorizedException
 import ru.creditcabinet.common.security.Roles
@@ -36,7 +37,7 @@ class AnalyticsProjectionQueryTest {
         val queries = object : AnalyticsQueries {
             override fun read(from: Instant, to: Instant, projectedStatuses: Map<String, Int>?): Analytics = error("No read for denied requests")
         }
-        val query = AnalyticsQuery(queries, clock, projection)
+        val query = AnalyticsQuery(queries, clock, projection, SpringCreditCaller())
         assertFailsWith<UnauthorizedException> { query.funnel(start, end) }
         for (role in listOf(Roles.CLIENT, Roles.AGENT)) {
             actAs(role)
@@ -56,6 +57,7 @@ class AnalyticsProjectionQueryTest {
             },
             clock,
             CurrentStatusesProjection { projected },
+            SpringCreditCaller(),
         )
         for (role in listOf(Roles.MANAGER, Roles.UNDERWRITER, Roles.RISK_ADMIN)) {
             actAs(role)

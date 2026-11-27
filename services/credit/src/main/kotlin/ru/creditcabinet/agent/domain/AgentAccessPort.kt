@@ -53,3 +53,5 @@ object AgentPortfolioCalculator {
                 .sumOf { it.agentCommissionAmount ?: 0L },
         )
 }
+
+class AgentAccessUnavailable : RuntimeException("Сервис учётных записей недоступен — попробуйте через минуту")

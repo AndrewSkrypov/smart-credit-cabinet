@@ -11,6 +11,9 @@ interface ApplicationRepository {
 
     /** Saves and returns the stored state (number and version filled in). A stale version is a 409. */
     fun save(application: LoanApplication): LoanApplication
+
+    /** A concurrent creation rejected by the repository is reported as [ApplicationCreationConflict]. */
+    fun create(application: LoanApplication): LoanApplication = save(application)
     fun listByCompany(companyId: UUID): List<LoanApplication>
     fun listByAgent(agentId: UUID): List<LoanApplication>
 

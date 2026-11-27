@@ -5,9 +5,17 @@ import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
 import org.apache.pdfbox.pdmodel.font.PDType1Font
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts
-import org.springframework.http.HttpStatus
-import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.BadRequestException
+import ru.creditcabinet.financing.invoice.application.InvoiceExtraction
+import ru.creditcabinet.financing.invoice.application.InvoiceExtractionMode
+import ru.creditcabinet.financing.invoice.application.InvoiceModel
+import ru.creditcabinet.financing.invoice.application.InvoiceModelChoice
+import ru.creditcabinet.financing.invoice.application.InvoicePdfTooLarge
+import ru.creditcabinet.financing.invoice.domain.InvoiceDateLabel
+import ru.creditcabinet.financing.invoice.domain.InvoiceEvidence
+import ru.creditcabinet.financing.invoice.domain.InvoiceFact
+import ru.creditcabinet.financing.invoice.domain.InvoicePdfLine
+import ru.creditcabinet.financing.invoice.infrastructure.InvoicePdfReader
 import java.io.ByteArrayOutputStream
 import java.time.LocalDate
 import kotlin.test.Test
@@ -18,6 +26,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class InvoiceExtractionTest {
+    private val reader = InvoicePdfReader()
+
     @Test
     fun `model selects indices and response contains the exact real PDF lines`() {
         val result = InvoiceExtraction(
@@ -27,6 +37,7 @@ class InvoiceExtractionTest {
                 assertEquals(AUTHORIZATION, authorization)
                 InvoiceModelChoice(0, 0)
             },
+            reader,
         ).extract(pdf(listOf(), listOf("Invoice #102", "Total: 140 000,00 RUB", "Due date: 10.12.2026")), AUTHORIZATION)
 
         assertEquals(InvoiceExtractionMode.MODEL, result.mode)
@@ -37,7 +48,7 @@ class InvoiceExtractionTest {
 
     @Test
     fun `both actual dates are presented for explicit manual selection`() {
-        val result = InvoiceExtraction(InvoiceModel { _, _, _ -> error("An ambiguous date must not go to the model") }).extract(
+        val result = InvoiceExtraction(InvoiceModel { _, _, _ -> error("An ambiguous date must not go to the model") }, reader).extract(
             pdf(listOf("Total: 140 000 RUB", "Due date: 10.12.2026", "Valid until: 24.12.2026")),
             AUTHORIZATION,
         )
@@ -53,7 +64,7 @@ class InvoiceExtractionTest {
     @Test
     fun `unavailable or ungrounded model results return a manual result with real candidates`() {
         for (choice in listOf(null, InvoiceModelChoice(0, 400), InvoiceModelChoice(null, 0))) {
-            val result = InvoiceExtraction(InvoiceModel { _, _, _ -> choice }).extract(
+            val result = InvoiceExtraction(InvoiceModel { _, _, _ -> choice }, reader).extract(
                 pdf(listOf("Total: 140 000 RUB", "Due date: 10.12.2026")),
                 AUTHORIZATION,
             )
@@ -67,7 +78,7 @@ class InvoiceExtractionTest {
 
     @Test
     fun `scanner-only PDF has a manual route and a damaged PDF returns 400`() {
-        val extraction = InvoiceExtraction(InvoiceModel { _, _, _ -> error("No PDF text") })
+        val extraction = InvoiceExtraction(InvoiceModel { _, _, _ -> error("No PDF text") }, reader)
         val result = extraction.extract(pdf(emptyList()), AUTHORIZATION)
         assertEquals(InvoiceExtractionMode.MANUAL, result.mode)
         assertNull(result.amount)
@@ -75,7 +86,7 @@ class InvoiceExtractionTest {
 
         assertFailsWith<BadRequestException> { extraction.extract("%PDF- not a PDF".toByteArray(), AUTHORIZATION) }
         val tooManyPages = pdf(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
-        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, assertFailsWith<ApiException> { extraction.extract(tooManyPages, AUTHORIZATION) }.httpStatus)
+        assertFailsWith<InvoicePdfTooLarge> { extraction.extract(tooManyPages, AUTHORIZATION) }
     }
 
     @Test

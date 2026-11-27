@@ -1,10 +1,10 @@
 package ru.creditcabinet.servicing.application
 
+import ru.creditcabinet.application.application.CreditCaller
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.common.exception.NotFoundException
-import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.offer.Loan
 import ru.creditcabinet.servicing.contract.v1.DrawCommand
 import ru.creditcabinet.servicing.contract.v1.PayNextCommand
@@ -17,6 +17,7 @@ import java.util.UUID
 class LoanServicingService(
     private val operations: ServicingOperations,
     private val applications: ApplicationService,
+    private val callerContext: CreditCaller,
     private val legacyOpening: (LoanApplication, Loan) -> LoanAccount,
 ) {
     fun openOnDisbursement(application: LoanApplication, loan: Loan): LoanAccount = legacyOpening(application, loan)
@@ -38,7 +39,7 @@ class LoanServicingService(
     }
     private fun missing() = NotFoundException("Кредитный счёт по заявке не найден")
     private fun actor(): ServicingActor {
-        val (caller, companyId) = CurrentCaller.requireClient()
+        val (caller, companyId) = callerContext.requireClient()
         return ServicingActor(caller.userId, companyId)
     }
 }

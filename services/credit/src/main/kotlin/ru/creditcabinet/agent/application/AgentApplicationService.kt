@@ -1,15 +1,16 @@
 package ru.creditcabinet.agent.application
 
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.web.multipart.MultipartFile
 import ru.creditcabinet.agent.domain.ActionOwner
 import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.agent.domain.AgentPortfolioCalculator
 import ru.creditcabinet.agent.domain.AgentPortfolioSummary
+import ru.creditcabinet.application.application.CommitTransition
+import ru.creditcabinet.application.application.CreditCaller
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
+import ru.creditcabinet.application.domain.ApplicationCreationConflict
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
@@ -22,22 +23,23 @@ import ru.creditcabinet.application.domain.JournalNote
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
-import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.application.service.notFound
 import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.security.CurrentCaller
+import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.document.DocumentService
+import ru.creditcabinet.document.application.AgentDocuments
+import ru.creditcabinet.document.application.DocumentUpload
 import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.document.domain.StoredFile
-import ru.creditcabinet.financing.scenario.FinancingScenarios
+import ru.creditcabinet.financing.scenario.application.FinancingScenarios
 import ru.creditcabinet.offer.OfferRepository
 import ru.creditcabinet.preapproved.application.PreApprovedOfferService
 import ru.creditcabinet.preapproved.domain.PreApprovedOffer
 import ru.creditcabinet.product.domain.Product
+import ru.creditcabinet.product.domain.ProductCatalog
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
@@ -48,27 +50,31 @@ data class AgentApplicationAction(val owner: ActionOwner, val label: String, val
 class AgentApplicationService(
     private val agentAccess: AgentAccessPort,
     private val applications: ApplicationRepository,
-    private val applicationService: ApplicationService,
+    private val transitions: CommitTransition,
+    private val products: ProductCatalog,
     private val journal: ApplicationJournal,
     private val jobs: PipelineJobs,
     private val infoRequests: InfoRequests,
     private val documentRepository: DocumentRepository,
-    private val documentService: DocumentService,
+    private val documentService: AgentDocuments,
     private val preApprovedOffers: PreApprovedOfferService,
     private val clock: Clock,
+    private val callerIdentity: CreditCaller,
     private val eligibility: AgentClientEligibility,
     private val scenarios: FinancingScenarios,
     private val offers: OfferRepository,
 ) {
+    private fun draftProduct(code: String): Product = products.forDraft(code) ?: throw NotFoundException("Продукт не найден")
+
     fun portfolio(): AgentPortfolioSummary {
-        val caller = CurrentCaller.requireRole(Roles.AGENT)
+        val caller = callerIdentity.requireRole(Roles.AGENT)
         val companyIds = agentAccess.listCompanyIds(caller.userId).toSet()
         val visible = eligibleApplications(caller.userId, companyIds)
         return AgentPortfolioCalculator.summarize(companyIds.size, visible)
     }
 
     fun listPreApprovedOffers(): List<PreApprovedOffer> {
-        val caller = CurrentCaller.requireRole(Roles.AGENT)
+        val caller = callerIdentity.requireRole(Roles.AGENT)
         val companyIds = agentAccess.listCompanyIds(caller.userId)
         val offers = preApprovedOffers.listForCompanies(companyIds)
         val eligible = offers.map { it.companyId }.distinct().filter { companyId ->
@@ -80,13 +86,13 @@ class AgentApplicationService(
 
     @Transactional
     fun applyPreApprovedOffer(offerId: UUID): LoanApplication {
-        val caller = CurrentCaller.requireRole(Roles.AGENT)
+        val caller = callerIdentity.requireRole(Roles.AGENT)
         val companyIds = agentAccess.listCompanyIds(caller.userId)
         return preApprovedOffers.applyForAgent(offerId, caller.userId, companyIds, caller.fullName)
     }
 
     fun listApplications(statuses: Set<ApplicationStatus>? = null): List<LoanApplication> {
-        val caller = CurrentCaller.requireRole(Roles.AGENT)
+        val caller = callerIdentity.requireRole(Roles.AGENT)
         val companyIds = agentAccess.listCompanyIds(caller.userId).toSet()
         return eligibleApplications(caller.userId, companyIds)
             .filter { statuses.isNullOrEmpty() || it.status in statuses }
@@ -100,11 +106,11 @@ class AgentApplicationService(
 
     @Transactional
     fun create(companyId: UUID, terms: ApplicationTerms): LoanApplication {
-        val caller = CurrentCaller.requireRole(Roles.AGENT)
+        val caller = callerIdentity.requireRole(Roles.AGENT)
         val access = agentAccess.checkAccess(caller.userId, companyId)
         val company = access.company?.takeIf { access.allowed } ?: throw notFound()
         eligibility.requireEligible(company)
-        val product = applicationService.product(terms.productCode)
+        val product = draftProduct(terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
         if (applications.hasActive(companyId, product.code)) throw activeExists(product)
         val now = clock.instant()
@@ -123,8 +129,8 @@ class AgentApplicationService(
             agentCommissionStatus = CommissionStatus.EXPECTED,
         )
         val saved = try {
-            applications.save(draft)
-        } catch (_: DataIntegrityViolationException) {
+            applications.create(draft)
+        } catch (_: ApplicationCreationConflict) {
             throw activeExists(product)
         }
         journal.append(saved.note(JournalNote.CREATED, Actor(ActorType.AGENT, caller.userId), now))
@@ -159,7 +165,7 @@ class AgentApplicationService(
     @Transactional
     fun updateDraft(id: UUID, terms: ApplicationTerms): LoanApplication {
         val (_, application) = ownAgentApplication(id, forUpdate = true)
-        val product = applicationService.product(application.terms.productCode)
+        val product = draftProduct(application.terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
         val sanitizedTerms = terms.copy(bureauConsent = false)
         val refreshed = application.copy(
@@ -173,7 +179,7 @@ class AgentApplicationService(
     @Transactional
     fun requestClientConfirmation(id: UUID): LoanApplication {
         val (caller, application) = ownAgentApplication(id, forUpdate = true)
-        val product = applicationService.product(application.terms.productCode)
+        val product = draftProduct(application.terms.productCode)
         val commissionRateBps = product.agentCommissionRateBps
         val refreshed = application.copy(
             productVersion = product.version,
@@ -182,7 +188,7 @@ class AgentApplicationService(
         )
         val prepared = scenarios.prepareHandoff(refreshed, product)
         val ready = preApprovedOffers.detachIfOutOfBounds(prepared, prepared.terms)
-        return applicationService.commit(
+        return transitions.commit(
             ready.requestClientConfirmation(product, Actor(ActorType.AGENT, caller.userId), clock.instant()),
         )
     }
@@ -190,7 +196,7 @@ class AgentApplicationService(
     @Transactional
     fun cancel(id: UUID): LoanApplication {
         val (caller, application) = ownAgentApplication(id, forUpdate = true)
-        val saved = applicationService.commit(application.agentCancel(Actor(ActorType.AGENT, caller.userId), clock.instant()))
+        val saved = transitions.commit(application.agentCancel(Actor(ActorType.AGENT, caller.userId), clock.instant()))
         if (application.status in setOf(ApplicationStatus.DRAFT, ApplicationStatus.PENDING_CLIENT_CONFIRMATION)) {
             application.preApprovedOfferId?.let { preApprovedOffers.release(it, saved.id) }
         }
@@ -212,7 +218,7 @@ class AgentApplicationService(
         require(!request.hasQuestions || !answer.isNullOrBlank()) { "Ответьте на вопросы банка" }
         val now = clock.instant()
         infoRequests.resolve(request.id, now, answer?.take(MAX_COMMENT))
-        val saved = applicationService.commit(
+        val saved = transitions.commit(
             application.move(ApplicationEvent.INFO_PROVIDED, Actor(ActorType.AGENT, caller.userId), now, comment = answer?.take(MAX_COMMENT)),
         )
         jobs.enqueue(saved.id, PipelineStep.DATA_CHECK, now)
@@ -225,9 +231,9 @@ class AgentApplicationService(
     }
 
     @Transactional
-    fun uploadDocument(id: UUID, type: DocumentType, file: MultipartFile, operationKey: String? = null): ApplicationDocument {
+    fun uploadDocument(id: UUID, type: DocumentType, file: DocumentUpload): ApplicationDocument {
         val (caller, application) = ownAgentApplication(id, forUpdate = true)
-        return documentService.uploadForAgent(application, caller, type, file, operationKey)
+        return documentService.uploadForAgent(application, caller, type, file)
     }
 
     @Transactional
@@ -237,7 +243,7 @@ class AgentApplicationService(
     }
 
     fun openDocument(id: UUID, documentId: UUID): Pair<ApplicationDocument, StoredFile> {
-        CurrentCaller.requireRole(Roles.AGENT)
+        callerIdentity.requireRole(Roles.AGENT)
         // DocumentService.open delegates to ApplicationService.get(id), which enforces agentId + mandate check once.
         return documentService.open(id, documentId)
     }
@@ -249,7 +255,7 @@ class AgentApplicationService(
      * Any violation returns 404 Not Found without leaking existence.
      */
     fun ownAgentApplication(id: UUID, forUpdate: Boolean = false): Pair<TokenClaims, LoanApplication> {
-        val caller = CurrentCaller.requireRole(Roles.AGENT)
+        val caller = callerIdentity.requireRole(Roles.AGENT)
         val application = (if (forUpdate) applications.findForUpdate(id) else applications.find(id)) ?: throw notFound()
         if (application.activeAgentId != caller.userId) throw notFound()
         if (!agentAccess.checkAccess(caller.userId, application.company.id).allowed) throw notFound()

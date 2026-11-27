@@ -10,10 +10,13 @@ import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
+import ru.creditcabinet.application.infrastructure.SpringCreditCaller
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
+import ru.creditcabinet.document.application.DocumentService
+import ru.creditcabinet.document.application.DocumentUploadSettings
 import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentContext
 import ru.creditcabinet.document.domain.DocumentRepository
@@ -33,7 +36,14 @@ class DocumentAccessTest {
     private val applications = mock<ApplicationService>()
     private val documents = mock<DocumentRepository>()
     private val store = mock<FileStore>()
-    private val service = DocumentService(applications, documents, store, mock(), mock(), mock(), mock(), Clock.systemUTC(), 100, true)
+    private val service =
+        DocumentService(
+            applications, documents, store, mock(), mock(), mock(), mock(), Clock.systemUTC(), SpringCreditCaller(),
+            DocumentUploadSettings(
+                100,
+                true,
+            ),
+        )
     private val now = Instant.parse("2026-11-26T15:00:00Z")
     private val client = TokenClaims(UUID.randomUUID(), Roles.CLIENT, null, null, companyId = UUID.randomUUID())
     private val bank = TokenClaims(UUID.randomUUID(), Roles.UNDERWRITER, null, null)

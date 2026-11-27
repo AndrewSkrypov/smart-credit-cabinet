@@ -10,14 +10,13 @@ import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
 import ru.creditcabinet.application.service.toActor
-import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.BadRequestException
 import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.integration.SigningGateway
-import ru.creditcabinet.integration.SigningResult
-import ru.creditcabinet.integration.SourceUnavailableException
+import ru.creditcabinet.integration.domain.SigningGateway
+import ru.creditcabinet.integration.domain.SigningResult
+import ru.creditcabinet.integration.domain.SourceUnavailableException
 import ru.creditcabinet.offer.domain.Offer
 import ru.creditcabinet.offer.domain.OfferRepository
 import ru.creditcabinet.offer.domain.OfferStatus
@@ -26,6 +25,8 @@ import ru.creditcabinet.offer.domain.SigningSessions
 import ru.creditcabinet.product.domain.ProductCatalog
 import java.time.Clock
 import java.util.UUID
+
+class SigningUnavailable(cause: Throwable) : RuntimeException("Сервис подписания недоступен — попробуйте через минуту", cause)
 
 /**
  * What the client does with an offer: accept or decline it, then sign the contract with a
@@ -82,7 +83,7 @@ class OfferService(
         return try {
             startSigning(application, offer, claims)
         } catch (exception: SourceUnavailableException) {
-            throw ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Сервис подписания недоступен — попробуйте через минуту")
+            throw SigningUnavailable(exception)
         }
     }
 
@@ -105,7 +106,7 @@ class OfferService(
         val result = try {
             gateway.confirm(session.externalSessionId, code.trim())
         } catch (exception: SourceUnavailableException) {
-            throw ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Сервис подписания недоступен — попробуйте через минуту")
+            throw SigningUnavailable(exception)
         }
         return when (result) {
             is SigningResult.Refused -> throw BadRequestException(result.message)

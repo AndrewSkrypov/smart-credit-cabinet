@@ -1,12 +1,13 @@
 package ru.creditcabinet.application.service
 
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.agent.application.AgentClientEligibility
 import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.application.application.ApplicationOperations
 import ru.creditcabinet.application.application.CommitTransition
+import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.domain.ApplicationCreationConflict
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
@@ -22,9 +23,8 @@ import ru.creditcabinet.application.domain.PipelineStep
 import ru.creditcabinet.application.domain.Transition
 import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.exception.NotFoundException
-import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.financing.scenario.FinancingScenarios
+import ru.creditcabinet.financing.scenario.application.FinancingScenarios
 import ru.creditcabinet.preapproved.application.PreApprovedOfferService
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
@@ -50,19 +50,20 @@ class ApplicationService(
     private val agentAccess: AgentAccessPort,
     private val agentEligibility: AgentClientEligibility,
     private val scenarios: FinancingScenarios,
+    private val callerContext: CreditCaller,
 ) : ApplicationOperations {
     /** T1: a draft for the caller's company. One application in progress per company and product. */
     @Transactional
     override fun create(terms: ApplicationTerms): LoanApplication {
-        val (claims, companyId) = CurrentCaller.requireClient()
+        val (claims, companyId) = callerContext.requireClient()
         val product = product(terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
         if (applications.hasActive(companyId, product.code)) throw activeExists(product)
         val company = companies.find(companyId) ?: throw NotFoundException("Компания не найдена")
         val now = clock.instant()
         val saved = try {
-            applications.save(LoanApplication(company = company, createdBy = claims.userId, terms = terms, createdAt = now, productVersion = product.version))
-        } catch (exception: DataIntegrityViolationException) {
+            applications.create(LoanApplication(company = company, createdBy = claims.userId, terms = terms, createdAt = now, productVersion = product.version))
+        } catch (_: ApplicationCreationConflict) {
             // The same product requested twice at the same moment: the unique index decided.
             throw activeExists(product)
         }
@@ -193,7 +194,7 @@ class ApplicationService(
     }
 
     override fun get(id: UUID): LoanApplication {
-        val claims = CurrentCaller.claims()
+        val claims = callerContext.claims()
         val application = applications.find(id)?.takeIf { claims.canSee(it) } ?: throw notFound()
         if (claims.isAgent) {
             if (!agentAccess.checkAccess(claims.userId, application.company.id).allowed || !agentEligibility.isEligible(application.company)) {
@@ -205,14 +206,14 @@ class ApplicationService(
 
     /** A client sees their company's applications; bank staff the queue without drafts. */
     override fun list(statuses: Set<ApplicationStatus>?): List<LoanApplication> {
-        val claims = CurrentCaller.claims()
+        val claims = callerContext.claims()
         return when {
             claims.isClient -> {
-                val (_, companyId) = CurrentCaller.requireClient()
+                val (_, companyId) = callerContext.requireClient()
                 applications.listByCompany(companyId).filter { it.visibleToClient && (statuses.isNullOrEmpty() || it.status in statuses) }
             }
             else -> {
-                CurrentCaller.requireBankStaff()
+                callerContext.requireBankStaff()
                 applications.listForBank(statuses)
             }
         }
@@ -222,7 +223,7 @@ class ApplicationService(
     override fun journal(id: UUID): List<JournalEntry> {
         val application = get(id)
         val entries = journal.list(id)
-        if (application.agentId == null || CurrentCaller.claims().isAgent || !scenarios.hasHandedPacket(id)) return entries
+        if (application.agentId == null || callerContext.claims().isAgent || !scenarios.hasHandedPacket(id)) return entries
         val readableIds = documents.listForPacket(id, application.submittedAt).mapTo(mutableSetOf()) { it.id.toString() }
         return entries.map { entry ->
             val documentNote = entry.event == JournalNote.DOCUMENT_ADDED.name || entry.event == JournalNote.DOCUMENT_REMOVED.name
@@ -234,7 +235,7 @@ class ApplicationService(
 
     /** The application of the caller's company, for changing it: clients only (hiding private agent drafts). */
     override fun own(id: UUID, forUpdate: Boolean): Pair<TokenClaims, LoanApplication> {
-        val (claims, companyId) = CurrentCaller.requireClient()
+        val (claims, companyId) = callerContext.requireClient()
         val current = if (forUpdate) applications.findForUpdate(id) else applications.find(id)
         val application = current?.takeIf { it.company.id == companyId && it.visibleToClient } ?: throw notFound()
         return claims to application

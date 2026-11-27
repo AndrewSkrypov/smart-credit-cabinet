@@ -1,12 +1,13 @@
 package ru.creditcabinet.preapproved.application
 
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.agent.application.AgentClientEligibility
 import ru.creditcabinet.agent.domain.AgentAccessPort
+import ru.creditcabinet.application.application.CreditCaller
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
+import ru.creditcabinet.application.domain.ApplicationCreationConflict
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationTerms
@@ -17,7 +18,6 @@ import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.toActor
 import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.exception.NotFoundException
-import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.preapproved.domain.PreApprovedOffer
 import ru.creditcabinet.preapproved.domain.PreApprovedOfferStore
 import ru.creditcabinet.product.domain.Product
@@ -35,6 +35,7 @@ class PreApprovedOfferService(
     private val clock: Clock,
     private val agentAccess: AgentAccessPort,
     private val agentEligibility: AgentClientEligibility,
+    private val callerContext: CreditCaller,
 ) {
     fun listForCompany(companyId: UUID): List<PreApprovedOffer> =
         store.listActiveByCompany(companyId, clock.instant())
@@ -44,7 +45,7 @@ class PreApprovedOfferService(
 
     @Transactional
     fun applyForClient(offerId: UUID): LoanApplication {
-        val (claims, companyId) = CurrentCaller.requireClient()
+        val (claims, companyId) = callerContext.requireClient()
         val offer = store.find(offerId)?.takeIf { it.companyId == companyId }
             ?: throw NotFoundException("Предодобренное предложение не найдено")
         return createFromOffer(
@@ -143,8 +144,8 @@ class PreApprovedOfferService(
             agentCommissionStatus = commissionStatus,
         )
         val saved = try {
-            applications.save(draft)
-        } catch (exception: DataIntegrityViolationException) {
+            applications.create(draft)
+        } catch (_: ApplicationCreationConflict) {
             throw activeExists(product)
         }
         if (!store.markUsed(offer.id, saved.id, now)) {

@@ -3,6 +3,7 @@ package ru.creditcabinet.underwriting.application
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.application.application.CommitTransition
+import ru.creditcabinet.application.application.CreditCaller
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
@@ -23,7 +24,6 @@ import ru.creditcabinet.assessment.domain.RejectReason
 import ru.creditcabinet.assessment.domain.RuleSet
 import ru.creditcabinet.assessment.domain.RuleSets
 import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.offer.OfferKind
@@ -62,6 +62,7 @@ class UnderwritingService(
     private val ruleSets: RuleSets,
     private val settings: PipelineSettings,
     private val clock: Clock,
+    private val callerContext: CreditCaller,
 ) : UnderwritingDecisions {
     @Transactional
     override fun approve(id: UUID, comment: String?): LoanApplication {
@@ -153,7 +154,7 @@ class UnderwritingService(
     private data class Reviewed(val claims: TokenClaims, val application: LoanApplication, val automatic: Decision?, val rules: RuleSet)
 
     private fun reviewed(id: UUID, vararg roles: String): Reviewed {
-        val claims = CurrentCaller.requireRole(*roles)
+        val claims = callerContext.requireRole(*roles)
         val application = applications.find(id)?.takeIf { it.visibleToBank } ?: throw notFound()
         if (application.status != ApplicationStatus.MANUAL_REVIEW) throw ConflictException("Заявка не на ручном рассмотрении")
         val automatic = decisions.latestAutomatic(application.id)

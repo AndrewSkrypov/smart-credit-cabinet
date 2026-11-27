@@ -3,10 +3,10 @@
 package ru.creditcabinet.servicing.paymentreserve.application
 
 import ru.creditcabinet.agent.application.AgentApplicationService
+import ru.creditcabinet.application.application.CreditCaller
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.common.exception.NotFoundException
-import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.servicing.contract.v1.*
 import ru.creditcabinet.servicing.domain.LoanAccount
 import ru.creditcabinet.servicing.paymentreserve.domain.*
@@ -20,6 +20,7 @@ class PaymentReserveService(
     private val agentApplications: AgentApplicationService,
     private val clock: Clock,
     private val demoAccounts: Boolean,
+    private val callerContext: CreditCaller,
 ) {
     fun get(loanId: UUID): PaymentReserveQuote? {
         owned(loanId)
@@ -45,7 +46,7 @@ class PaymentReserveService(
         return account
     }
     private fun actor(): ServicingActor {
-        val (caller, companyId) = CurrentCaller.requireClient()
+        val (caller, companyId) = callerContext.requireClient()
         return ServicingActor(caller.userId, companyId)
     }
     private fun requireDemo() {

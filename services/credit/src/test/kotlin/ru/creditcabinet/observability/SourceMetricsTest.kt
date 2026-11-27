@@ -7,8 +7,8 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.ResourceAccessException
 import org.springframework.web.client.RestClient
-import ru.creditcabinet.integration.ExternalCalls
-import ru.creditcabinet.integration.SourceUnavailableException
+import ru.creditcabinet.integration.infrastructure.ExternalCalls
+import ru.creditcabinet.integration.domain.SourceUnavailableException
 import java.net.SocketTimeoutException
 import java.time.Clock
 import java.time.Duration

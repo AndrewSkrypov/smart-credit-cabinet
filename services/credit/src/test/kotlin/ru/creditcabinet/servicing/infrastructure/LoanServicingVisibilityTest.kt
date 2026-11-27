@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
+import ru.creditcabinet.application.application.CreditCaller
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CompanySnapshot
@@ -34,7 +35,7 @@ class LoanServicingVisibilityTest {
         val operations = mock<ServicingOperations>()
         val applications = mock<ApplicationService>()
         whenever(applications.get(app.id)).thenReturn(app)
-        val facade = LoanServicingService(operations, applications) { _, _ -> error("unused") }
+        val facade = LoanServicingService(operations, applications, mock<CreditCaller>()) { _, _ -> error("unused") }
         assertFailsWith<NotFoundException> { facade.getByApplicationId(app.id) }
         verifyNoInteractions(operations)
         val account = LoanAccount.open(

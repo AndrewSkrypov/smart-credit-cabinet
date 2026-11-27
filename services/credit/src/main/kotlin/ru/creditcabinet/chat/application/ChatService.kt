@@ -3,6 +3,7 @@ package ru.creditcabinet.chat.application
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
+import ru.creditcabinet.application.application.CreditCaller
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.chat.domain.ChatAction
@@ -22,7 +23,6 @@ import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.notifications.PlatformNotification
 import ru.creditcabinet.common.notifications.PlatformNotifications
-import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
 import java.time.Clock
@@ -36,6 +36,7 @@ class ChatService(
     private val limits: ChatLimits,
     private val notifications: PlatformNotifications,
     private val clock: Clock,
+    private val callerContext: CreditCaller,
 ) {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     fun page(id: UUID, after: Long?, before: Long?, limit: Int): ChatPage {
@@ -44,7 +45,7 @@ class ChatService(
         require(after == null || after >= 0) { "Номер последнего сообщения не может быть отрицательным" }
         require(before == null || before > 0) { "Номер сообщения для истории должен быть больше нуля" }
         require(after == null || before == null) { "Выберите один способ загрузки: новые сообщения или историю" }
-        val side = side(CurrentCaller.claims())
+        val side = side(callerContext.claims())
         val state = data.state(id, side)
         val messages = data.messages(id, after, before, limit)
         val reason = ChatRules.readOnlyReason(application.status)
@@ -58,7 +59,7 @@ class ChatService(
     @Transactional
     fun send(id: UUID, key: UUID, text: String, documents: List<UUID>): ChatMessage {
         val application = applications.get(id)
-        val caller = CurrentCaller.claims()
+        val caller = callerContext.claims()
         val status = data.lockApplication(id)
         val seq = data.lockState(id)
         ChatRules.validate(text, documents)
@@ -67,7 +68,7 @@ class ChatService(
             if (previous.payloadHash != hash) throw ConflictException("Этот ключ уже использован для другого сообщения")
             return previous
         }
-        ChatRules.requireWritable(status)
+        ChatRules.readOnlyReason(status)?.let { throw ConflictException(it) }
         limits.acquire(caller.userId)
         val attachments = documents.map { files.find(application, it, caller) }
         val now = clock.instant()
@@ -100,7 +101,7 @@ class ChatService(
     @Transactional
     fun read(id: UUID, seq: Long): ChatState {
         applications.get(id)
-        val caller = CurrentCaller.claims()
+        val caller = callerContext.claims()
         val side = side(caller)
         val lastSeq = data.lockState(id)
         require(seq in 0..lastSeq) { "Нельзя отметить прочитанным сообщение, которого нет в заявке" }
@@ -125,7 +126,7 @@ class ChatService(
     @Transactional
     fun upload(id: UUID, key: UUID, upload: ChatUpload): ChatFile {
         val application = applications.get(id)
-        val caller = CurrentCaller.claims()
+        val caller = callerContext.claims()
         val status = data.lockApplication(id)
         data.lockState(id)
         val hash = ChatRules.uploadHash(upload)
@@ -133,7 +134,7 @@ class ChatService(
             if (previous.hash != hash) throw ConflictException("Этот ключ уже использован для другого файла")
             return files.find(application, previous.documentId, caller)
         }
-        ChatRules.requireWritable(status)
+        ChatRules.readOnlyReason(status)?.let { throw ConflictException(it) }
         val stored = files.upload(application, caller, upload.copy(operationKey = key.toString()))
         val now = clock.instant()
         data.recordUpload(id, caller.userId, key, UploadReceipt(hash, stored.id), now)
@@ -151,10 +152,10 @@ class ChatService(
     }
 
     fun unread(applications: List<LoanApplication>): Map<UUID, Long> =
-        data.unread(applications.map { it.id }, side(CurrentCaller.claims()))
+        data.unread(applications.map { it.id }, side(callerContext.claims()))
 
     fun audit(id: UUID, limit: Int): List<ChatAudit> {
-        CurrentCaller.requireBankStaff()
+        callerContext.requireBankStaff()
         applications.get(id)
         require(limit in 1..100) { "За один запрос можно получить от 1 до 100 записей аудита" }
         return data.audit(id, limit)
@@ -201,11 +202,11 @@ class ChatService(
         notifications.send(notices)
     }
 
-    private fun role(caller: TokenClaims): String = caller.role ?: throw ForbiddenException(CurrentCaller.FORBIDDEN)
+    private fun role(caller: TokenClaims): String = caller.role ?: throw ForbiddenException(CreditCaller.FORBIDDEN)
 
     private fun side(caller: TokenClaims): ChatSide = when {
         caller.isClient || caller.isAgent -> ChatSide.COMPANY
         caller.isBankStaff -> ChatSide.BANK
-        else -> throw ForbiddenException(CurrentCaller.FORBIDDEN)
+        else -> throw ForbiddenException(CreditCaller.FORBIDDEN)
     }
 }

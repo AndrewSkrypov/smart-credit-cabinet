@@ -95,6 +95,24 @@ class TransferFixture:
 
 
 class ServicingDeliveryTest(unittest.TestCase):
+    def test_operation_receipts_are_in_snapshot_checksum_import_and_retired_grants(self):
+        receipt = {"loan_account_id": "loan", "operation_key": "operation", "fingerprint": "a" * 64,
+                   "result": {"disbursedAmount": 510000, "rate": "20.00"}}
+        self.assertEqual(TRANSFER.TABLES["loan_operations"], ["loan_account_id", "operation_key"])
+        self.assertIn("loan_operations", TRANSFER.query_snapshot())
+        data = {table: [] for table in TRANSFER.TABLES}
+        data["loan_operations"] = [receipt]
+        prior = TRANSFER.checksum(data)
+        data["loan_operations"][0]["result"]["disbursedAmount"] += 1
+        self.assertNotEqual(prior, TRANSFER.checksum(data))
+        with patch.object(TRANSFER, "sql", return_value="credit") as sql:
+            self.assertIn("public.loan_operations", TRANSFER.finance_grants("credit", False))
+            TRANSFER.import_snapshot("servicing", data)
+        statement = sql.call_args.args[1]
+        self.assertIn("lock table loan_operations in access exclusive mode", statement)
+        self.assertIn("insert into loan_operations", statement)
+        self.assertIn("on conflict (loan_account_id,operation_key)", statement)
+
     def setUp(self):
         temporary = TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

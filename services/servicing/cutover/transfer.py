@@ -20,6 +20,7 @@ TABLES = {
     "payment_reserves": ["loan_id"],
     "payment_reserve_receipt_events": ["loan_id", "event_id"],
     "servicing_opened_commands": ["application_id"],
+    "loan_operations": ["loan_account_id", "operation_key"],
 }
 
 

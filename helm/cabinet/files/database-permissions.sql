@@ -67,7 +67,7 @@ begin
     if (select writer from public.servicing_writer_fence where singleton)
        is distinct from (case current_database() when 'credit' then 'LOCAL' when 'servicing' then 'REMOTE' else null end) then
       foreach item in array array['loan_accounts','loan_tranches','loan_payments','payment_reserves',
-        'payment_reserve_receipt_events','servicing_opened_commands']
+        'payment_reserve_receipt_events','servicing_opened_commands','loan_operations']
       loop
         if to_regclass('public.' || item) is not null then
           execute format('revoke select,insert,update,delete on public.%I from __APP__',item);

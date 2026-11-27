@@ -30,3 +30,12 @@ CI использует отдельный mandatory job `servicing-integration`
 Forward содержит явный crash checkpoint сразу после target activation и до Credit marker/receipt. Storage fixture проводит новый target payment, active abort должен отказать, повторный resume завершает только metadata и сохраняет этот платеж. Затем live gRPC выполняет обычный draw по импортированному legacy счёту: scheduled UUID меняются при тех же payment numbers. Reverse проверяет новые UUID, paid history и checksum полного состояния. Эти сценарии защищают от повторного import поверх уже активного владельца и unique-key конфликта при замене графика.
 
 Reverse также прерывается до target activation; abort прерывается сразу после source reactivation. После нового source payment повтор abort должен только завершить Credit marker, не импортировать старые данные; затем полный reverse сохраняет этот платёж.
+
+V27/V2 включают `loan_operations` в тот же writer fence, snapshot/checksum,
+forward/reverse import и retired-runtime regrant. Fixture выполняет локальный
+транш с ключом до forward, повторяет его через реальный gRPC без изменения
+текущего счёта, создаёт новый remote-транш и после reverse повторяет его через
+LOCAL engine. В обоих направлениях возвращается первый immutable result;
+новые платежи и остатки сохраняются. Gate сравнивает все operation keys,
+fingerprints, results и timestamps и проверяет запрет чтения retired copies
+после общего regrant, в том числе на checkpoint отказавшего переноса.

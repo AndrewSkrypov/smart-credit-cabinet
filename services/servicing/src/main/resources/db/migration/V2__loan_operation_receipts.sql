@@ -7,6 +7,16 @@ create table loan_operations (
     primary key (loan_account_id, operation_key)
 );
 
+create trigger loan_operations_writer_fence before insert or update or delete on loan_operations
+    for each row execute function enforce_servicing_writer();
+
+do $$ begin
+    if (select writer from servicing_writer_fence where singleton) is distinct from 'REMOTE'
+       and to_regrole('servicing_app') is not null then
+        revoke select,insert,update,delete on loan_operations from servicing_app;
+    end if;
+end $$;
+
 comment on table loan_operations is 'Выполненные платежи и выдачи траншей для безопасного повтора запроса';
 comment on column loan_operations.loan_account_id is 'Кредитный счёт, к которому относится операция';
 comment on column loan_operations.operation_key is 'Ключ операции, переданный клиентом';

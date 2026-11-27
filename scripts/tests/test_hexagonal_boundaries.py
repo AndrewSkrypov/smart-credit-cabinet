@@ -273,8 +273,8 @@ main -> not found
         kotlin = platform / "kotlin/ru/creditcabinet/common/limits/SharedFailure.kt"
         kotlin.write_text("""package ru.creditcabinet.common.limits
 import ru.creditcabinet.common.exception.ApiException
-object SharedFailure {
-    class Throttled(message: String) : ApiException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, message)
+class SharedFailure {
+    inner class Throttled(message: String) : ApiException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, message)
 }
 """)
         java = platform / "java/ru/creditcabinet/common/limits/RetryLater.java"
@@ -326,3 +326,68 @@ public class RetryLater extends ApiException {
         self.assertEqual([], boundaries.bytecode_errors(output, catalog))
         catalog.add_http_descendants(ancestry)
         self.assertEqual(2, len(boundaries.bytecode_errors(output, catalog)))
+
+    def test_shared_adapter_inference_honors_framework_free_types_in_mixed_files(self):
+        platform = self.root / "libs/platform-common"
+        domain = platform / boundaries.COMMON_DOMAIN_PATH
+        domain.mkdir(parents=True)
+        consumer = domain / "Delivery.kt"
+        neutral = """package ru.creditcabinet.common.domain
+import ru.creditcabinet.common.limits.LimitWindow
+import ru.creditcabinet.common.mail.OutgoingMail
+import ru.creditcabinet.common.model.Inn
+import ru.creditcabinet.common.notifications.PlatformNotification
+import ru.creditcabinet.common.notifications.PlatformNotifications
+import ru.creditcabinet.common.outbox.DeliveryHandler
+import ru.creditcabinet.common.security.Roles
+import ru.creditcabinet.common.security.TokenClaims
+interface Delivery {
+    fun send(window: LimitWindow, mail: OutgoingMail, inn: Inn, note: PlatformNotification, claims: TokenClaims)
+    fun dispatcher(): PlatformNotifications
+    fun delivery(): DeliveryHandler
+    fun roles(): Roles
+}
+"""
+        consumer.write_text(neutral)
+        self.assertEqual([], boundaries.check(self.root)["errors"])
+
+        outbox = domain.parent / "outbox"
+        (outbox / "WorkerAccess.kt").write_text("""package ru.creditcabinet.common.outbox
+import org.springframework.stereotype.Component
+
+interface WorkerAccess {
+    fun worker(): OutboxWorker
+}
+class SchedulingEndpoint(private val access: WorkerAccess)
+@Component class WorkerRegistration
+""")
+        consumer.write_text(neutral + """
+class Leak(
+    val worker: ru.creditcabinet.common.outbox.OutboxWorker,
+    val endpoint: ru.creditcabinet.common.outbox.SchedulingEndpoint,
+    val registration: ru.creditcabinet.common.outbox.WorkerRegistration,
+)
+""")
+        report = boundaries.check(self.root)
+        self.assertEqual(3, len(report["errors"]), report)
+        for symbol in ("OutboxWorker", "SchedulingEndpoint", "WorkerRegistration"):
+            self.assertTrue(any(f"domain depends on ru.creditcabinet.common.outbox.{symbol}" in error for error in report["errors"]), report)
+
+    def test_shared_bytecode_dependencies_propagate_from_framework_to_consumers(self):
+        catalog = boundaries.BoundaryCatalog(self.root)
+        consumer = """
+   ru.creditcabinet.common.domain.Core -> ru.creditcabinet.common.outbox.OutboxWorker main
+   ru.creditcabinet.common.domain.Core -> ru.creditcabinet.common.schedule.Facade main
+   ru.creditcabinet.common.domain.Core -> ru.creditcabinet.common.outbox.DeliveryHandler main
+   ru.creditcabinet.common.domain.Core -> ru.creditcabinet.common.security.TokenClaims main
+"""
+        self.assertEqual(1, len(boundaries.bytecode_errors(consumer, catalog, common_domain_only=True)))
+        shared = """
+   ru.creditcabinet.common.schedule.Facade -> ru.creditcabinet.common.schedule.Wrapped main
+   ru.creditcabinet.common.schedule.Wrapped -> ru.creditcabinet.common.schedule.Access main
+   ru.creditcabinet.common.schedule.Access$Initializer -> org.springframework.jdbc.core.JdbcTemplate not found
+"""
+        catalog.add_shared_adapters(boundaries.shared_bytecode_edges(shared))
+        errors = boundaries.bytecode_errors(consumer, catalog, common_domain_only=True)
+        self.assertEqual(2, len(errors), errors)
+        self.assertTrue(any("common.schedule.Facade" in error for error in errors))

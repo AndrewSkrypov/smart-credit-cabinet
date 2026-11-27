@@ -61,17 +61,13 @@ TECHNOLOGY = (
 )
 DATABASE = ("java.sql", "javax.sql", "jakarta.persistence", "javax.persistence", "org.hibernate", "org.postgresql",
             "org.springframework.jdbc", "org.springframework.data.jpa")
-SHARED_ADAPTERS = (
-    "ru.creditcabinet.common.outbox.DurableOutbox", "ru.creditcabinet.common.limits.SharedLimits",
-    "ru.creditcabinet.common.limits.ValkeyState", "ru.creditcabinet.common.security.CurrentCaller",
-    "ru.creditcabinet.common.security.JwtVerifier", "ru.creditcabinet.common.security.RevocationWatermarks",
-    "ru.creditcabinet.common.mail.MailCapabilities",
-)
 HTTP_ERRORS = "ru.creditcabinet.common.exception"
 PACKAGE = re.compile(r"(?m)^[^\S\n]*package\s+([\w.]+)[^\S\n]*;?[^\S\n]*$")
 IMPORT = re.compile(r"(?m)^[^\S\n]*import\s+(?:static\s+)?([\w.]+\*?)(?:\s+as\s+(\w+))?[^\S\n]*;?[^\S\n]*$")
 DECLARATION = re.compile(r"(?m)(?:^|(?<=[{;]))[^\S\n]*"
-                         r"(?:(?:public|private|protected|internal|open|abstract|sealed|data|value|enum|annotation|fun|static|final)\s+)*"
+                         r"(?:@[\w.]+(?:\([^\n]*\))?[^\S\n]+)*"
+                         r"(?:(?:public|private|protected|internal|open|abstract|sealed|data|value|enum|annotation|fun|static|final|"
+                         r"inner|actual|expect|companion|inline|external|non-sealed|strictfp)\s+)*"
                          r"(class|interface|object|record|enum|typealias)\s+(\w+)")
 TYPE_NAME = re.compile(r"\s*((?:[a-zA-Z_]\w*\.)*[a-zA-Z_]\w*)")
 BRACE = re.compile(r"[{}]")
@@ -79,6 +75,7 @@ STRING = re.compile(r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
 ALIAS = re.compile(r"(?m)^typealias\s+(\w+)\s*=\s*([\w.]+)[^\S\n]*$")
 PROTO_PACKAGE = re.compile(r'(?m)^\s*option\s+java_package\s*=\s*"([\w.]+)"\s*;')
 QUALIFIED = re.compile(r"\b(?:[a-zA-Z_]\w*\.)+(?:[a-zA-Z_]\w*\b|\*)")
+IDENTIFIER = re.compile(r"\b[A-Za-z_]\w*")
 JDEPS_EDGE = re.compile(r"^\s+(\S+)\s+->\s+(\S+)\s+\S")
 CONTROLLER_LOCK = re.compile(r"\b(?:forUpdate\s*=\s*true|findForUpdate\s*\()")
 
@@ -123,12 +120,12 @@ def forbidden_reference(source_layer, reference, boundaries):
         )
         return (outer_application or target_layer in {"adapter", "transport"}
                 or external or http_error
-                or matches_prefix(reference, (*DOMAIN_FRAMEWORK, *TECHNOLOGY, *SHARED_ADAPTERS)))
+                or matches_prefix(reference, (*DOMAIN_FRAMEWORK, *TECHNOLOGY)))
     if source_layer == "application":
         return (target_layer in {"adapter", "transport"}
                 or external or http_error
                 or (matches_prefix(reference, DOMAIN_FRAMEWORK) and not matches_prefix(reference, APPLICATION_METADATA))
-                or matches_prefix(reference, (*TECHNOLOGY, *SHARED_ADAPTERS)))
+                or matches_prefix(reference, TECHNOLOGY))
     if source_layer == "transport":
         return matches_prefix(reference, (*DATABASE, "org.springframework.transaction"))
     return False
@@ -212,7 +209,7 @@ def skip_group(text, start, opening, closing):
 
 
 def type_header(text, start, java):
-    """Return explicit supertypes and the opening brace of a declared type's body."""
+    """Return explicit supertypes and where the declaration header ends."""
     header = text[start:].lstrip()
     if header.startswith("<"):
         header = header[skip_group(header, 0, "<", ">"):].lstrip()
@@ -233,7 +230,7 @@ def type_header(text, start, java):
         implements = re.match(r"implements\b[^\{;]*", header)
         if implements:
             header = header[implements.end():]
-    return parents, len(text) - len(header) if header.startswith("{") else None
+    return parents, len(text) - len(header)
 
 
 def source_types(text, java):
@@ -253,10 +250,32 @@ def source_types(text, java):
         else:
             kind, name = declaration.groups()
             enclosing = [owner for owner in owners if owner]
-            parents, body = type_header(text, declaration.end(), java)
+            parents, header_end = type_header(text, declaration.end(), java)
+            body = header_end if text[header_end:header_end + 1] == "{" else None
             if body is not None and kind != "typealias":
                 type_bodies[body] = name
-            yield kind, ".".join([*enclosing, name]), parents, declaration.end()
+            end = skip_group(text, body, "{", "}") if body is not None else header_end
+            yield kind, ".".join([*enclosing, name]), parents, declaration.end(), end
+
+
+def shared_source_edges(package, syntax, declarations, imports, star_imports, declared):
+    """Track dependencies of each shared type, including imports used in its annotations or body."""
+    cursor = 0
+    for kind, name, _, _, end in declarations:
+        if "." in name:
+            continue
+        # A mixed source file can declare both a clean contract and its framework adapter.
+        # A type owns its header/body and any preceding annotations, not the whole input file.
+        fragment = IMPORT.sub("", PACKAGE.sub("", syntax[cursor:end]))
+        cursor = end
+        if kind == "typealias":
+            continue
+        references = set(QUALIFIED.findall(fragment)) | set(IDENTIFIER.findall(fragment))
+        owner = f"{package}.{name}"
+        yield owner, {
+            BoundaryCatalog.resolve_name(reference, package, owner, imports, star_imports, declared)
+            for reference in references
+        }
 
 
 class BoundaryCatalog:
@@ -266,7 +285,7 @@ class BoundaryCatalog:
         self.explicit_class_layers = {}
         self.pure_application_packages = set()
         self.errors = []
-        self.aliases, ancestry = {}, {}
+        self.aliases, ancestry, shared_edges = {}, {}, {}
         declared, local_sources = set(), []
         for source in production_sources(root / "libs") + production_sources(root / "services"):
             code = without_comments(source.read_text()).replace("`", "")
@@ -281,7 +300,7 @@ class BoundaryCatalog:
             imports = IMPORT.findall(code)
             syntax = STRING.sub('""', code)
             declarations = list(source_types(syntax, source.suffix == ".java"))
-            symbols = {package + "." + name for _, name, _, _ in declarations}
+            symbols = {package + "." + name for _, name, _, _, _ in declarations}
             declared.update(symbols)
             if group == "libs" and module in ADAPTER_LIBRARIES:
                 # The renderer shares a package with pure document models. Classify its
@@ -297,11 +316,11 @@ class BoundaryCatalog:
                         self.adapter_symbols.update(emitted)
             if group == "libs" and module in MODULES and layer(package) == "application":
                 self.pure_application_packages.add(package)
-            local_sources.append((package, imports, syntax, declarations))
-        for package, imported, syntax, declarations in local_sources:
+            local_sources.append((module, package, imports, syntax, declarations))
+        for module, package, imported, syntax, declarations in local_sources:
             imports = {alias or name.rsplit(".", 1)[-1]: name for name, alias in imported if not name.endswith("*")}
             star_imports = [name[:-1] for name, _ in imported if name.endswith("*")]
-            for kind, name, parents, tail in declarations:
+            for kind, name, parents, tail, _ in declarations:
                 qualified = package + "." + name
                 owner = qualified.rsplit(".", 1)[0]
                 if kind == "typealias":
@@ -313,6 +332,8 @@ class BoundaryCatalog:
                         self.resolve_name(parent, package, owner, imports, star_imports, declared)
                         for parent in parents
                     ]
+            if module == "platform-common":
+                shared_edges.update(shared_source_edges(package, syntax, declarations, imports, star_imports, declared))
         for schema in sorted((root / "contracts/proto").rglob("*.proto")):
             package = PROTO_PACKAGE.search(without_comments(schema.read_text()))
             if package:
@@ -329,6 +350,15 @@ class BoundaryCatalog:
                 self.errors.append(f"services/{module.name}: production service has no configured layers")
         self.http_errors = {HTTP_ERRORS}
         self.add_http_descendants(ancestry)
+        self.add_shared_adapters(shared_edges)
+
+    def add_shared_adapters(self, graph):
+        pending = set(graph)
+        while inferred := {
+            symbol for symbol in pending if any(forbidden_reference("domain", dependency, self) for dependency in graph[symbol])
+        }:
+            self.adapter_symbols.update(inferred)
+            pending.difference_update(inferred)
 
     def add_http_descendants(self, ancestry):
         # A foreign subtype remains a transport type even when declared in another package.
@@ -419,20 +449,35 @@ def check(root=ROOT):
     return {"modules": modules, "errors": errors, "scope": "production source; Gradle separately checks pure-core classpaths"}
 
 
-def bytecode_errors(output, boundaries=None, pure_module=False, common_domain_only=False):
-    boundaries = boundaries or BoundaryCatalog(ROOT)
-    errors = set()
+def bytecode_edges(output):
     for line in output.splitlines():
         edge = JDEPS_EDGE.match(line)
         if edge:
-            source, reference = edge.groups()
-            if common_domain_only and not matches_prefix(source, (COMMON_DOMAIN,)):
-                continue
-            source_layer = "domain" if common_domain_only else boundaries.class_layer(source)
-            if pure_module:
-                source_layer = "pure-application" if source_layer == "application" else "pure"
-            if forbidden_reference(source_layer, reference, boundaries):
-                errors.add(f"{source} depends on {reference}")
+            yield edge.groups()
+
+
+def shared_bytecode_edges(output):
+    graph = {}
+    for source, reference in bytecode_edges(output):
+        symbol = source.replace("$", ".")
+        graph.setdefault(symbol, set()).add(reference.replace("$", "."))
+        if "$" in source:
+            owner = source.rsplit("$", 1)[0].replace("$", ".")
+            graph.setdefault(owner, set()).add(symbol)
+    return graph
+
+
+def bytecode_errors(output, boundaries=None, pure_module=False, common_domain_only=False):
+    boundaries = boundaries or BoundaryCatalog(ROOT)
+    errors = set()
+    for source, reference in bytecode_edges(output):
+        if common_domain_only and not matches_prefix(source, (COMMON_DOMAIN,)):
+            continue
+        source_layer = "domain" if common_domain_only else boundaries.class_layer(source)
+        if pure_module:
+            source_layer = "pure-application" if source_layer == "application" else "pure"
+        if forbidden_reference(source_layer, reference, boundaries):
+            errors.add(f"{source} depends on {reference}")
     return sorted(errors)
 
 
@@ -486,6 +531,7 @@ def check_bytecode(root, jdeps):
     boundaries = BoundaryCatalog(root)
     ancestry, errors = compiled_ancestry(root)
     boundaries.add_http_descendants(ancestry)
+    outputs = {}
     for group, name in GUARDED_MODULES:
         module = root / group / name
         classdirs = [module / f"build/classes/{language}/main" for language in ("kotlin", "java")]
@@ -498,13 +544,17 @@ def check_bytecode(root, jdeps):
         if result.returncode:
             errors.append(f"{name}: jdeps failed ({result.returncode}): {(result.stderr or result.stdout).strip()}")
             continue
+        outputs[name] = result.stdout
+        if name == "platform-common":
+            boundaries.add_shared_adapters(shared_bytecode_edges(result.stdout))
         if group == "services":
             for directory in classdirs:
                 for bytecode in directory.rglob("*.class"):
                     class_name = ".".join(bytecode.relative_to(directory).with_suffix("").parts)
                     if boundaries.class_layer(class_name) is None:
                         errors.append(f"{name}: unclassified production class {class_name}")
-        violations = bytecode_errors(result.stdout, boundaries, pure_module=name in MODULES, common_domain_only=name == "platform-common")
+    for name, output in outputs.items():
+        violations = bytecode_errors(output, boundaries, pure_module=name in MODULES, common_domain_only=name == "platform-common")
         errors.extend(f"{name}: {error}" for error in violations)
     return errors
 

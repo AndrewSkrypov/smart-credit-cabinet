@@ -162,7 +162,7 @@ def checks(version):
             ("v26_exact_reference_population", "select count(*) from document_references", "1"),
             ("v26_no_documents_outages", f"""select count(*) from pipeline_jobs
                 where id in ('{PENDING_JOB}', '{RUNNING_JOB}', '{DONE_JOB}', '{SUBMITTED_JOB}')
-                and documents_outages=0""", "4"),
+                and documents_outages=0 and business_failures=0""", "4"),
         ))
         for label, input_json, input_hash in (("historical", ARTIFACT_INPUT, ARTIFACT_INPUT_HASH),
                                               ("signed", SIGNED_ARTIFACT_INPUT, SIGNED_ARTIFACT_INPUT_HASH)):

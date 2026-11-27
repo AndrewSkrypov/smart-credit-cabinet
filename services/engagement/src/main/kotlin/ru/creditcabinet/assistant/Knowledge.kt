@@ -41,7 +41,6 @@ object Knowledge {
                 // It is exactly for cash gaps.
                 Regex("не\\s+(предназнач|подход)\\S*\\s+(\\S+\\s+){0,4}кассов"),
             ),
-            essentialFacts = facts("счет", "процент", "возобнов|восстан|снова", "кассов"),
         ),
         Article(
             "working-capital",

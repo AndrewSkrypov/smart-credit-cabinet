@@ -39,6 +39,7 @@ import { useApi } from '../../hooks/useApi';
 import { agentNextAction, SYSTEM_STATUSES, statusTitle, statusTone } from '../../shared/applicationText';
 import { fileSize, formatDateTime, months, percent, rub, rubExact } from '../../shared/format';
 import { commissionStatusLabels } from '../../shared/labels';
+import { transparentOutlineButtonSx } from '../../theme/theme';
 import { Application, ApplicationInput, DocumentType } from '../../types';
 import { HistoryBlock } from '../client/application/HistoryBlock';
 import { StageStepper } from '../client/application/StageStepper';
@@ -588,7 +589,7 @@ function AgentApplicationCard({ id }: { id: string }) {
             </Stack>
 
             {canCancel && (
-              <Button color="error" onClick={() => setCancelDialogOpen(true)} sx={{ mt: 2, ml: -1 }}>
+              <Button variant="outlined" size="small" onClick={() => setCancelDialogOpen(true)} sx={{ ...transparentOutlineButtonSx, mt: 2 }}>
                 Отменить черновик
               </Button>
             )}
@@ -601,9 +602,15 @@ function AgentApplicationCard({ id }: { id: string }) {
         <DialogContent>
           <Typography>Заявка перейдёт в статус «Отозвана». При необходимости вы сможете создать новую заявку для этого клиента.</Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCancelDialogOpen(false)}>Не отменять</Button>
-          <Button color="error" disabled={busyAction !== null} onClick={() => void handleCancel()}>
+        <DialogActions disableSpacing sx={(theme) => ({
+          flexWrap: 'wrap',
+          gap: 1,
+          [theme.breakpoints.down('sm')]: {
+            '& .MuiButton-root': { px: 1.5, fontSize: '0.875rem' },
+          },
+        })}>
+          <Button variant="outlined" onClick={() => setCancelDialogOpen(false)} sx={transparentOutlineButtonSx}>Не отменять</Button>
+          <Button variant="contained" color="error" disabled={busyAction !== null} onClick={() => void handleCancel()}>
             {busyAction === 'cancel' ? 'Отменяем…' : 'Отменить черновик'}
           </Button>
         </DialogActions>

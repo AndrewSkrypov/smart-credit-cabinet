@@ -180,24 +180,24 @@ class AssistantApiTest {
     fun `the stream supplies a reference before returning a grounded answer`() {
         whenever(model.available()).thenReturn(true)
         whenever(model.name).thenReturn("test-model")
-        whenever(model.chat(any())).thenReturn("Овердрафт — бесплатный лимит, проценты не начисляются.")
+        whenever(model.chat(any())).thenReturn("Из ЕГРЮЛ банк узнаёт о выручке от 500 000 ₽ за 18 месяцев.")
         val response = mockMvc.post("/api/v1/assistant/messages/stream") {
             header("Authorization", "Bearer $token")
             contentType = MediaType.APPLICATION_JSON
             accept = MediaType.TEXT_EVENT_STREAM
-            content = mapper.writeValueAsString(mapOf("question" to "Что такое овердрафт и для чего он нужен?"))
+            content = mapper.writeValueAsString(mapOf("question" to "Что банк узнаёт из ЕГРЮЛ и ФНС?"))
         }.andReturn().response
         assertEquals(200, response.status)
         val body = response.getContentAsString(Charsets.UTF_8)
         val frames = body.trimEnd().split("\n\n").map { it.split("\n", limit = 2) }
         assertEquals(listOf("event: status", "event: reference", "event: answer"), frames.map { it.first() })
         val reference = mapper.readTree(frames[1].last().removePrefix("data: "))
-        val overdraft = Knowledge.articles.single { it.id == "overdraft" }
-        assertEquals(overdraft.text, reference["text"].asText())
-        assertEquals(overdraft.title, reference["source"].asText())
+        val registry = Knowledge.articles.single { it.id == "registry" }
+        assertEquals(registry.text, reference["text"].asText())
+        assertEquals(registry.title, reference["source"].asText())
         val answer = mapper.readTree(frames[2].last().removePrefix("data: "))
         assertEquals("RULES", answer["mode"].asText())
-        assertTrue("бесплатный" !in body)
+        assertTrue("500 000" !in body)
         verify(model).chat(any())
     }
 
@@ -345,24 +345,40 @@ class AssistantApiTest {
     }
 
     @Test
-    fun `overdraft cannot inherit disbursement and repayment terms from a compared credit`() {
+    fun `overdraft comparison preserves the product that each condition applies to`() {
+        whenever(model.available()).thenReturn(true)
+        val question = "Чем овердрафт отличается от кредита на пополнение оборота?"
+        val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue("Кредит на пополнение оборота выдаётся одной суммой и гасится равными платежами по графику." in answer["text"].asText())
+        verify(model, org.mockito.kotlin.never()).chat(any())
+    }
+
+    @Test
+    fun `overdraft definition returns the authoritative interest basis without model generation`() {
         whenever(model.available()).thenReturn(true)
         val question = "Что такое овердрафт и для чего он нужен?"
-        val definition = "Овердрафт — платный лимит на расчётном счёте для кассовых разрывов. " +
-            "Проценты начисляются на использованную часть, а лимит возобновляется после погашения. "
-        val explicitComparison = "Кредит на пополнение оборота выдаётся одной суммой и гасится равными платежами."
-        for (confused in listOf(
-            "Он отличается от кредита на пополнение оборота тем, что выдаётся одной суммой и гасится равными платежами.",
-            "Овердрафт выдаётся единой суммой и погашается равными платежами.",
-        )) {
-            whenever(model.chat(any())).thenReturn(definition + confused)
-            val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
-            assertEquals("RULES", answer["mode"].asText())
-            assertTrue(answer["text"].asText().contains(explicitComparison.removeSuffix(".") + " по графику."))
-        }
-        whenever(model.chat(any())).thenReturn(definition + explicitComparison)
         val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
-        assertEquals("MODEL", answer["mode"].asText())
+        assertEquals("RULES", answer["mode"].asText())
+        val reference = Knowledge.articles.single { it.id == "overdraft" }
+        assertEquals(reference.text, answer["text"].asText())
+        assertTrue("проценты начисляются на использованную часть лимита" in answer["text"].asText())
+        verify(model, org.mockito.kotlin.never()).chat(any())
+    }
+
+    @Test
+    fun `overdraft terms do not take priority over exact application procedures and calculations`() {
+        whenever(model.available()).thenReturn(true)
+        for ((question, id) in listOf(
+            "Можно ли снова подать заявку на овердрафт?" to "reapply",
+            "Как считается долговая нагрузка по овердрафту, если использован лимит?" to "load",
+        )) {
+            val reference = Knowledge.articles.single { it.id == id }
+            val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+            assertEquals("RULES", answer["mode"].asText(), question)
+            assertTrue(answer["text"].asText().startsWith(reference.text), question)
+        }
+        verify(model, org.mockito.kotlin.never()).chat(any())
     }
 
     @Test

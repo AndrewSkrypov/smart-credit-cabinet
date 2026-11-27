@@ -1,10 +1,13 @@
 package ru.creditcabinet.servicing.infrastructure
 
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 import ru.creditcabinet.servicing.domain.LoanAccount
 import ru.creditcabinet.servicing.domain.LoanAccountStatus
 import ru.creditcabinet.servicing.domain.LoanAccountStore
+import ru.creditcabinet.servicing.domain.LoanOperationReceipt
 import ru.creditcabinet.servicing.domain.LoanPayment
 import ru.creditcabinet.servicing.domain.LoanPaymentStatus
 import ru.creditcabinet.servicing.domain.LoanTranche
@@ -16,7 +19,10 @@ import java.util.UUID
 @Repository
 class LoanServicingJdbcStore(
     private val jdbc: JdbcTemplate,
+    private val mapper: ObjectMapper,
 ) : LoanAccountStore {
+    private val snapshotReader = mapper.readerFor(LoanAccount::class.java).without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+
     override fun existsByApplicationId(applicationId: UUID): Boolean =
         (jdbc.queryForObject("select count(*) from loan_accounts where application_id = ?", Int::class.java, applicationId) ?: 0) > 0
 
@@ -34,17 +40,18 @@ class LoanServicingJdbcStore(
         return hydrate(row)
     }
 
-    override fun findByIdForUpdate(id: UUID): LoanAccount? {
+    override fun findByIdForUpdate(id: UUID, companyId: UUID): LoanAccount? {
         val row = jdbc.query(
             """
             select id, application_id, company_id, contract_number, approved_limit, disbursed_amount,
                    outstanding_principal, rate, term_months, revolving, status, disbursed_at, maturity_date, repaid_at
               from loan_accounts
-             where id = ?
+             where id = ? and company_id = ?
                for update
             """.trimIndent(),
             { rs, _ -> mapAccount(rs) },
             id,
+            companyId,
         ).firstOrNull() ?: return null
         return hydrate(row)
     }
@@ -98,6 +105,23 @@ class LoanServicingJdbcStore(
         }
         jdbc.update("delete from loan_payments where loan_account_id = ?", account.id)
         insertPayments(account.payments)
+    }
+
+    override fun findOperation(loanId: UUID, key: UUID): LoanOperationReceipt? = jdbc.query(
+        "select fingerprint, result from loan_operations where loan_account_id = ? and operation_key = ?",
+        { rs, _ -> LoanOperationReceipt(rs.getString("fingerprint"), snapshotReader.readValue(rs.getString("result"))) },
+        loanId,
+        key,
+    ).firstOrNull()
+
+    override fun recordOperation(loanId: UUID, key: UUID, receipt: LoanOperationReceipt) {
+        jdbc.update(
+            "insert into loan_operations (loan_account_id, operation_key, fingerprint, result) values (?, ?, ?, cast(? as jsonb))",
+            loanId,
+            key,
+            receipt.fingerprint,
+            mapper.writeValueAsString(receipt.result),
+        )
     }
 
     private fun hydrate(account: LoanAccount): LoanAccount {

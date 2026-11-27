@@ -96,7 +96,10 @@ VALKEY_TEST_PORT=$(published_port "$valkey" 6379)
 
 export ASSESSMENT_DB_URL="jdbc:postgresql://127.0.0.1:$DB_PORT/assessment"
 export ASSESSMENT_DB_USER=cabinet ASSESSMENT_DB_PASSWORD=cabinet
-OUTBOX_WORKER_ENABLED=false ./gradlew build --no-daemon
+# Bound the compiler for all eight services to one worker and a 2 GiB heap.
+OUTBOX_WORKER_ENABLED=false ./gradlew build --no-daemon --no-parallel --max-workers=1 \
+    -Dorg.gradle.jvmargs='-Xmx2048m -XX:MaxMetaspaceSize=768m -XX:+ExitOnOutOfMemoryError' \
+    -Pkotlin.compiler.execution.strategy=in-process
 GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}" CATALOG_TEST_POSTGRES_IMAGE="$image" \
     CATALOG_TEST_POSTGRES_NAME="$prefix-catalog-postgres" \
     bash scripts/check-catalog-integration.sh --no-daemon

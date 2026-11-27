@@ -124,7 +124,10 @@ class ServicingEngineTest {
             val allowed = day < opening.maturityDate
             assertEquals(allowed, account.canDrawTrancheOn(day))
             assertEquals(allowed, quote.canDraw)
-            assertEquals(if (allowed) AgentReserveAction.CLIENT_CONFIRM_DRAW else AgentReserveAction.REVIEW_REQUIRED, engine.agentSummary(opening.applicationId)?.action)
+            assertEquals(
+                if (allowed) AgentReserveAction.CLIENT_CONFIRM_DRAW else AgentReserveAction.REVIEW_REQUIRED,
+                engine.agentSummary(opening.applicationId)?.action,
+            )
             if (allowed) {
                 assertEquals(2, account.drawTranche(quote.suggestedDraw, null, now, day).tranches.size)
             } else {
@@ -158,9 +161,11 @@ class ServicingEngineTest {
         val id = db.engine(clock).open(command()).accountId
         val account = assertNotNull(db.engine(clock).byId(id))
         val day = account.payments.first().dueDate
-        val noFutureUnpaid = account.copy(payments = account.payments.map {
-            if (it.dueDate > day) it.copy(status = LoanPaymentStatus.PAID, paidAt = now) else it
-        })
+        val noFutureUnpaid = account.copy(
+            payments = account.payments.map {
+                if (it.dueDate > day) it.copy(status = LoanPaymentStatus.PAID, paidAt = now) else it
+            },
+        )
         val plan = PaymentReservePlan(id, 1, PaymentReserveInputs(20_000, 180_000, 100_000, 50_000, day, day), ReceiptStatus.DELAYED)
         assertFalse(noFutureUnpaid.canDrawTrancheOn(day))
         assertFalse(plan.quote(noFutureUnpaid, day).canDraw)

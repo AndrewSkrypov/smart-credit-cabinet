@@ -311,6 +311,26 @@ def alpha_outbox(deployment, cutoff=None):
     return data
 
 
+def alpha_committed_offsets(group, topic, description, bounds):
+    committed = {}
+    for line in description.splitlines():
+        fields = line.split()
+        if not fields or fields[0] == "GROUP":
+            continue
+        if (len(fields) < 6 or fields[:2] != [group, topic] or fields[2] not in {"0", "1", "2"}
+                or fields[2] in committed or not re.fullmatch(r"[0-9]+|-", fields[3])
+                or not re.fullmatch(r"[0-9]+", fields[4])):
+            raise RuntimeError("Не подтверждены offsets группы Alpha")
+        committed[fields[2]] = None if fields[3] == "-" else int(fields[3])
+    for partition in sorted({"0", "1", "2"} - committed.keys()):
+        # With no active members Kafka lists only partitions with stored commits.
+        # An omitted empty partition has no commit; preserve that state as None.
+        if bounds["begin"][partition] != 0 or bounds["end"][partition] != 0:
+            raise RuntimeError("Неполные offsets группы Alpha")
+        committed[partition] = None
+    return committed
+
+
 def alpha_checkpoint(deployment, cutoff=None):
     alpha = deployment.alpha_dev
     marker = analytics_owner(deployment, "-qtA", "-c",
@@ -336,17 +356,7 @@ def alpha_checkpoint(deployment, cutoff=None):
             checkpoint[key] = offsets
         topics[topic] = checkpoint
     groups = kafka(deployment, "kafka-consumer-groups", "--describe", "--group", alpha.group, "--offsets")
-    committed = {}
-    for line in groups.splitlines():
-        fields = line.split()
-        if not fields or fields[0] == "GROUP":
-            continue
-        if (len(fields) < 6 or fields[:2] != [alpha.group, alpha.topic] or fields[2] not in {"0", "1", "2"}
-                or fields[2] in committed or not re.fullmatch(r"[0-9]+|-", fields[3])):
-            raise RuntimeError("Не подтверждены offsets группы Alpha")
-        committed[fields[2]] = None if fields[3] == "-" else int(fields[3])
-    if set(committed) != {"0", "1", "2"}:
-        raise RuntimeError("Неполные offsets группы Alpha")
+    committed = alpha_committed_offsets(alpha.group, alpha.topic, groups, topics[alpha.topic])
     return {"generation": alpha.generation, "marker": marker, "topics": topics, "committed": committed,
             "outbox": alpha_outbox(deployment, cutoff)}
 

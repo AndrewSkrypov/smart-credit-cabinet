@@ -1,4 +1,5 @@
 -- Run only after reverse import, with stopped Credit and Documents writers.
+begin;
 do $$ begin
  if exists(select 1 from document_ownership where owner <> 'LOCAL') then
   raise exception 'Reverse cutover and checksum verification required';
@@ -15,3 +16,4 @@ drop trigger artifacts_owner_fence on generated_artifacts;
 drop function fence_local_documents();
 drop function assert_local_documents_writer();
 -- Frozen terms are retained for audit and retry compatibility.
+commit;

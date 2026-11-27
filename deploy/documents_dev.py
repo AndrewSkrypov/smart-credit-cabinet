@@ -3,17 +3,18 @@
 import argparse
 from contextlib import contextmanager
 from dataclasses import dataclass
+from decimal import Decimal
 import fcntl
-from hashlib import sha256
+from hashlib import md5, sha256
 import json
 import os
 from pathlib import Path
 import re
 import struct
 import subprocess
-from uuid import uuid4
+from uuid import UUID, uuid4
 
-from backup_support import checked_docker, digest, document_inventory
+from backup_support import checked_docker, digest, document_inventory, storage_backend_counts, storage_volume
 from maintenance import Database
 from runtime_delivery_support import (
     Descriptor, ensure_private, ensure_tls, fsync_dir, inspect_one, load_secrets, private_state,
@@ -38,6 +39,13 @@ MAX_OBJECT_BYTES = 20 * 1024 * 1024
 MAX_EPOCH = 2**63 - 1
 GATE_QUERY = "select owner,epoch from public.document_ownership where singleton"
 ZERO_SCOPE = b"00000000-0000-0000-0000-000000000000"
+# Shared identity contract with DocumentsMigration.materializePendingInputs.
+ARTIFACT_TEMPLATE_VERSION = 2
+ARTIFACT_KINDS = {
+    "CONTRACT_PDF": ("pdf", "application/pdf"),
+    "SCHEDULE_PDF": ("pdf", "application/pdf"),
+    "SCHEDULE_XLSX": ("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+}
 CREDIT_DOC = """
 select jsonb_build_object(
 'id',d.id,'scope',jsonb_build_object('companyId',a.company_id,'applicationId',d.application_id),
@@ -50,7 +58,7 @@ CREDIT_ARTIFACT = """
 select jsonb_build_object(
 'id',g.id,'scope',jsonb_build_object('companyId',a.company_id,'applicationId',g.application_id),
 'offerId',g.offer_id,'kind',g.kind,'phase',g.phase,'templateVersion',g.template_version,
-'inputHash',g.input_hash,'inputJson',g.input_json,'title',g.title,'fileName',g.file_name,
+'inputHash',g.input_hash,'inputJson',g.input_json{frozen_text},'title',g.title,'fileName',g.file_name,
 'contentType',g.content_type,'storedName',g.stored_name,'backend',g.storage_backend,'createdAt',g.created_at,
 'status',g.status,'sizeBytes',g.size_bytes,'checksum',g.checksum,'readyAt',g.ready_at,
 'attempts',g.attempts,'nextAttemptAt',g.next_attempt_at)::text
@@ -80,8 +88,16 @@ select (metadata || jsonb_build_object(
 from public.artifact_records order by id;
 """
 INTENTS = """
-select jsonb_build_array(application_id,offer_id,phase,input_hash,input_json,created_at,delivered_at)::text
-from public.document_artifact_inputs order by application_id,offer_id,phase,input_hash;
+select jsonb_build_array(i.application_id,i.offer_id,i.phase,i.input_hash,i.input_json::text,
+                         i.created_at,i.delivered_at,to_jsonb(i)->>'requested_backend',r.input_json::text)::text
+from public.document_artifact_inputs i left join public.document_artifact_references r
+using (application_id,offer_id,phase,input_hash) order by i.application_id,i.offer_id,i.phase,i.input_hash;
+"""
+UPLOAD_OPERATIONS = "select to_jsonb(o)::text from public.document_upload_operations o order by operation_id;"
+RUNTIME_BACKENDS = """
+select distinct metadata->>'backend' from (
+  select metadata from public.document_records union all select metadata from public.artifact_records
+) records;
 """
 DOCUMENTS_SHAPE = """
 select not exists(
@@ -220,11 +236,15 @@ def published_documents(records, references, deletions=()):
     return published
 
 
+def artifact_key(row):
+    return row["scope"]["applicationId"], row["offerId"], row["phase"], row["inputHash"]
+
+
 def published_artifacts(records, references):
     by_key = {tuple(row[:4]): row[4] for row in references}
     published = []
     for row in records:
-        key = row["scope"]["applicationId"], row["offerId"], row["phase"], row["inputHash"]
+        key = artifact_key(row)
         if key not in by_key:
             continue
         raw = row["inputJson"]
@@ -232,6 +252,72 @@ def published_artifacts(records, references):
             raise RuntimeError("Frozen input артефакта Documents отличается от ссылки Credit")
         published.append(row)
     return published
+
+
+def frozen_json(value):
+    def number(raw):
+        return Decimal(raw).as_tuple()
+
+    return json.loads(value, parse_float=number, parse_int=number)
+
+
+def reverse_artifacts(credit, remote, intents, references):
+    """Keep the shared records strict and verify the local queue reconstructed on reverse."""
+    remote_by_id = {row["id"]: row for row in remote}
+    remote_kinds = {}
+    for row in remote:
+        slots = remote_kinds.setdefault(artifact_key(row), set())
+        slot = (row["kind"], row["templateVersion"])
+        if slot in slots:
+            raise RuntimeError("Повтор вида и версии шаблона артефакта в Documents")
+        slots.add(slot)
+    by_intent = {tuple(row[:4]): row[4:] for row in intents}
+    reference_keys = {tuple(row[:4]) for row in references}
+    if any(key not in remote_kinds and key not in by_intent for key in reference_keys):
+        raise RuntimeError("Исторический артефакт Documents отсутствует в источнике обратного переноса")
+    expected = {}
+    for key, (frozen, created_at, delivered_at, backend, authorized_input) in by_intent.items():
+        application, offer, phase, input_hash = key
+        if key not in reference_keys or frozen != authorized_input or phase not in {"PREVIEW", "FINAL"}:
+            raise RuntimeError("Frozen intent артефакта не совпадает с подтверждённой ссылкой Credit")
+        kinds = set(ARTIFACT_KINDS)
+        if phase == "PREVIEW":
+            kinds.remove("CONTRACT_PDF")
+        present = remote_kinds.get(key, set())
+        if delivered_at is not None:
+            if not any(all((kind, version) in present for kind in kinds) for _, version in present):
+                raise RuntimeError("Доставленная группа артефактов Credit неполна в Documents")
+            continue
+        for kind in kinds:
+            if (kind, ARTIFACT_TEMPLATE_VERSION) in present:
+                continue
+            identity = f"credit-artifact-v1:{application}:{offer}:{kind}:{phase}:{ARTIFACT_TEMPLATE_VERSION}:{input_hash}"
+            artifact_id = str(UUID(bytes=md5(identity.encode(), usedforsecurity=False).digest(), version=3))
+            expected[artifact_id] = (key, kind, frozen, created_at, backend)
+
+    shared, restored = [], []
+    for row in credit:
+        identifier = row["id"]
+        if identifier in remote_by_id:
+            if frozen_json(row["inputJson"]) != frozen_json(remote_by_id[identifier]["inputJson"]):
+                raise RuntimeError("Различается frozen input существующего артефакта Documents")
+            shared.append({**row, "inputJson": json.loads(row["inputJson"])})
+            continue
+        task = expected.pop(identifier, None)
+        if task is None:
+            raise RuntimeError("Лишний артефакт Credit при обратном переносе Documents")
+        key, kind, frozen, created_at, backend = task
+        extension, content_type = ARTIFACT_KINDS[kind]
+        observed = (artifact_key(row), row["kind"], row["templateVersion"], row["inputJson"], row["createdAt"], row["backend"])
+        if (observed != (key, kind, ARTIFACT_TEMPLATE_VERSION, frozen, created_at, backend)
+                or backend not in {"LOCAL", "S3"} or row["status"] != "PENDING" or row["attempts"] != 0
+                or any(row[field] is not None for field in ("checksum", "sizeBytes", "readyAt"))
+                or row["storedName"] != f"generated-{identifier}.{extension}" or row["contentType"] != content_type):
+            raise RuntimeError("Локальная задача артефакта не совпадает с недоставленным frozen intent Credit")
+        restored.append(row)
+    if expected:
+        raise RuntimeError("В Credit отсутствуют локальные задачи недоставленного frozen intent")
+    return shared, restored
 
 
 def compare_parity(credit, documents, credit_bytes, documents_bytes):
@@ -269,6 +355,11 @@ def validate_intents(before, after):
     for row in before:
         if by_key.get(tuple(row[:4])) != row[4:]:
             raise RuntimeError("Изменился существующий immutable input в Credit")
+
+
+def input_backends(inputs):
+    return ({intent[7] for intent in inputs["artifacts"] if intent[6] is None and intent[7] is not None}
+            | {operation["requested_backend"] for operation in inputs["uploads"]})
 
 
 @dataclass
@@ -433,7 +524,11 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
         if running.strip():
             raise RuntimeError("Cutover Documents требует остановленных HTTPS, Credit и Documents")
 
-    def verify_source_store(self, deployment):
+    def verify_source_store(self, deployment, backends=()):
+        if set(backends) - {"LOCAL", "S3"}:
+            raise RuntimeError("Некорректный backend существующего файла или задания Documents")
+        if "S3" in backends and not self.has_s3:
+            raise RuntimeError("Для существующего файла или задания Documents нужен профиль S3")
         if self.has_s3:
             env = deployment.config()["services"]["credit"]["environment"]
             if (env["S3_ENDPOINT"] != "http://seaweedfs:8333"
@@ -442,6 +537,19 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
             for name in ("S3_BUCKET", "S3_REGION"):
                 if not re.fullmatch(r"[a-z0-9][a-z0-9.-]*", env[name]):
                     raise ValueError("Некорректная конфигурация источника S3 Documents")
+
+    def credit_storage_inputs(self, deployment):
+        sql = lambda statement: self.credit_sql(deployment, statement)
+        uploads = sql("select to_regclass('public.document_upload_operations') is not null;") == "t"
+        return {"artifacts": read_rows(sql, INTENTS), "uploads": read_rows(sql, UPLOAD_OPERATIONS) if uploads else []}
+
+    def verify_stores(self, deployment, backends):
+        self.verify_source_store(deployment, backends)
+        if backends:
+            payload = "".join(f"{side} {backend}\n" for side in ("credit", "documents") for backend in sorted(backends))
+            run(*deployment.command, "run", "--rm", "--no-deps", "-T", "--entrypoint", "/bin/sh",
+                "documents-cutover", "/cabinet/object-digests.sh", "--check-stores", stdin=payload,
+                env=deployment.environment, timeout=120)
 
     def maintenance(self, deployment):
         return Database(deployment.container("postgres"), deployment.values.get("POSTGRES_USER", "cabinet"))
@@ -464,8 +572,13 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
             self.preflight(deployment)
             image_id = self.descriptor.verify_image()
             self.assert_writers_stopped(deployment)
+            backends = set(storage_backend_counts(deployment)) | input_backends(self.credit_storage_inputs(deployment))
+            self.verify_source_store(deployment, backends)
             services = ["documents-db", *(["documents-s3"] if self.has_s3 else [])]
             deployment.compose(*arguments, *services)
+            if self.sql(deployment, "select to_regclass('public.documents_delivery_schema') is not null;") == "t":
+                backends.update(self.sql(deployment, RUNTIME_BACKENDS).splitlines())
+            self.verify_stores(deployment, backends)
             self.prepare_schema(deployment)
             if self.active_request():
                 self.cutover(deployment)
@@ -553,12 +666,13 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
         if len(re.findall(pattern, output, re.M)) != 1:
             raise RuntimeError("Documents JAR не подтвердил результат переноса")
 
-    def records(self, deployment):
+    def records(self, deployment, *, reversing=False):
         credit_sql = lambda statement: self.credit_sql(deployment, statement)
         own_sql = lambda statement: self.sql(deployment, statement)
         if own_sql(DOCUMENTS_SHAPE) != "t":
             raise RuntimeError("Нарушена связь metadata, scope или outbox Documents")
-        return (read_rows(credit_sql, CREDIT_DOC), read_rows(credit_sql, CREDIT_ARTIFACT),
+        artifacts = CREDIT_ARTIFACT.format(frozen_text="::text" if reversing else "")
+        return (read_rows(credit_sql, CREDIT_DOC), read_rows(credit_sql, artifacts),
                 read_rows(own_sql, DOCUMENTS_DOC), read_rows(own_sql, DOCUMENTS_ARTIFACT))
 
     def object_digests(self, deployment, source, target):
@@ -579,27 +693,33 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
         return {"documents": read_rows(sql, CREDIT_REFERENCES), "artifacts": read_rows(sql, ARTIFACT_REFERENCES),
                 "deletions": read_rows(sql, DELETION_INTENTS)}
 
-    def parity(self, deployment, original):
-        credit, credit_artifacts, own, own_artifacts = self.records(deployment)
+    def parity(self, deployment, original, *, reversing=False):
+        credit, credit_artifacts, own, own_artifacts = self.records(deployment, reversing=reversing)
         authority = self.credit_authority(deployment)
         if authority != original["authority"]:
             raise RuntimeError("Во время переноса изменилась бизнес-авторизация документов или артефактов Credit")
         own = published_documents(own, authority["documents"], authority["deletions"])
         own_artifacts = published_artifacts(own_artifacts, authority["artifacts"])
+        intents = read_rows(lambda statement: self.credit_sql(deployment, statement), INTENTS)
+        validate_intents(original["inputs"], intents)
+        restored = []
+        if reversing:
+            credit_artifacts, restored = reverse_artifacts(credit_artifacts, own_artifacts, original["inputs"], authority["artifacts"])
         ready = [row for row in credit_artifacts if row["status"] == "READY"]
         own_ready = [row for row in own_artifacts if row["status"] == "READY"]
         source, target = self.object_digests(deployment, credit + ready, own + own_ready)
         docs = compare_parity(credit, own, source[:len(credit)], target[:len(own)])
         artifacts = compare_parity(credit_artifacts, own_artifacts, source[len(credit):], target[len(own):])
-        intents = read_rows(lambda statement: self.credit_sql(deployment, statement), INTENTS)
-        validate_intents(original["inputs"], intents)
-        return {
+        evidence = {
             "documents": len(docs), "artifacts": len(artifacts), "ready_artifacts": len(own_ready),
             "backends": sorted({row["backend"] for row in docs + own_ready}),
             "metadata_and_bytes_sha256": stable_digest([docs, artifacts]),
             "credit_immutable_inputs_sha256": stable_digest(intents),
             "credit_authority_sha256": stable_digest(authority),
         }
+        if reversing:
+            evidence["credit_restored_pending"] = {"count": len(restored), "sha256": stable_digest(restored)}
+        return evidence
 
     def cutover(self, deployment):
         request = self.active_request()
@@ -648,7 +768,7 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
                 original = {"inputs": inputs, "authority": self.credit_authority(deployment)}
                 write_record(intent_path, original, immutable=True)
             self.migration(deployment, request)
-            evidence = self.parity(deployment, original)
+            evidence = self.parity(deployment, original, reversing=request["to_mode"] == "local")
             verified = {"request": stable_digest(request), "image": self.descriptor.image,
                         "jar_sha256": self.descriptor.jar_sha256, "evidence": evidence}
             write_record(verified_path, verified, immutable=True)
@@ -727,8 +847,20 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
     def store_snapshot(self, deployment):
         credit, artifacts, own, own_artifacts = self.records(deployment)
         authority = self.credit_authority(deployment)
+        inputs = self.credit_storage_inputs(deployment)
         published_documents(own, authority["documents"], authority["deletions"])
         published_artifacts(own_artifacts, authority["artifacts"])
+        backends = {row["backend"] for row in credit + artifacts + own + own_artifacts} | input_backends(inputs)
+        self.verify_source_store(deployment, backends)
+        self.volume(deployment, "local")
+        for key in ("cabinet-documents", *(["cabinet-seaweedfs"] if self.has_s3 else [])):
+            name = storage_volume(deployment, key)
+            labels = inspect_one("volume", "inspect", name).get("Labels") or {}
+            if (labels.get("com.docker.compose.project"), labels.get("com.docker.compose.volume")) != (self.project, key):
+                raise RuntimeError("Том файлов Credit не принадлежит выбранному проекту")
+        if self.has_s3:
+            self.volume(deployment, "s3")
+        self.verify_stores(deployment, backends)
         credit_ready = credit + [row for row in artifacts if row["status"] == "READY"]
         own_ready = own + [row for row in own_artifacts if row["status"] == "READY"]
         source, target = self.object_digests(deployment, credit_ready, own_ready)
@@ -744,7 +876,7 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
         }
         return {"docs_tables": snapshot, "source_sha256": stable_digest([authority, credit, artifacts, source]),
                 "target_sha256": stable_digest([own, own_artifacts, target]),
-                "backends": sorted({entry["backend"] for entry in credit_ready + own_ready})}
+                "credit_inputs_sha256": stable_digest(inputs), "backends": sorted(backends)}
 
     @staticmethod
     @contextmanager
@@ -818,6 +950,8 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
             raise ValueError("Некорректный формат копии Documents")
         cls.validate_identity(backup["identity"])
         valid_state(backup["current"])
+        if "S3" in backup["snapshot"].get("backends", ()) and not backup["identity"]["has_s3"]:
+            raise RuntimeError("Копия файлов или заданий Documents требует отдельный том S3")
         paths = {"db": "documents-runtime.dump", "local": "documents-runtime-local.tar.gz",
                  "state": "documents-runtime-state.tar.gz"}
         if backup["identity"]["has_s3"]:
@@ -888,6 +1022,7 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
             raise RuntimeError("Documents восстанавливается только в отдельный пустой Dev-проект")
         with self.state_lock(self.state):
             self.assert_writers_stopped(deployment)
+            self.verify_source_store(deployment, backup["snapshot"].get("backends", ()))
             # Verify exact project-scoped names before allowing Docker to materialize new data.
             current_volumes = set(run("docker", "volume", "ls", "--format", "{{.Name}}").splitlines())
             own_volumes = {self.compose_environment()[f"CABINET_DOCUMENTS_{key}_VOLUME"] for key in ("DB", "LOCAL", "S3")}

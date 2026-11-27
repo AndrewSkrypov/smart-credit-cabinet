@@ -15,7 +15,17 @@ from registry_release import RegistryRelease
 from runtime_backup import alpha_volumes, restore_private, runtime_modes, stage_private, verify_alpha_catchup
 from runtime_rollout import runtime_services
 from alpha_dev import SECRET_KEYS as ALPHA_SECRETS
-from backup_support import checked_docker, database_names, database_snapshot, digest, document_inventory, storage_volume, backup_archives
+from backup_support import backup_archives, backup_needs_s3, checked_docker, database_names, database_snapshot, digest, document_inventory, storage_volume
+
+
+def require_restore_s3(deployment, archive):
+    if "storage" not in deployment.profiles:
+        raise RuntimeError("Для восстановления S3 включите storage")
+    credit_environment = deployment.config()["services"]["credit"]["environment"]
+    if credit_environment["S3_ENDPOINT"] != "http://seaweedfs:8333":
+        raise RuntimeError("Восстановление тома S3 требует собственного SeaweedFS")
+    if credit_environment["S3_BUCKET"] != archive["storage"]["s3_bucket"]:
+        raise RuntimeError("S3_BUCKET должен совпасть с бакетом копии")
 
 parser = argparse.ArgumentParser(description="Восстановление только в новый пустой cabinet-prod-restore* проект")
 parser.add_argument("backup")
@@ -72,6 +82,10 @@ with deploy_lock(args.env_file, args.project) as lock_fd:
                 source_keys = [line.split(b"=", 1)[0] for line in source.splitlines() if b"=" in line]
                 assert set(source_keys) == keys and len(source_keys) == len(keys) and not keys.intersection(present)
                 initialized_env = initialized_env.rstrip(b"\r\n") + b"\n" + source
+            if backup_needs_s3(manifest):
+                preview = Deployment(args.project, env_file, args.local, args.release_manifest,
+                                     env_contents=initialized_env, open_hooks=False)
+                require_restore_s3(preview, manifest)
             stage_private(args.project, env_file, directory, manifest)
         deployment = Deployment(args.project, env_file, args.local, args.release_manifest, env_contents=initialized_env)
         if unified and runtime_modes(deployment) != manifest["runtimes"]:
@@ -82,11 +96,8 @@ with deploy_lock(args.env_file, args.project) as lock_fd:
     assert deployment.values["CABINET_RELEASE"] == manifest["release"], "Сначала выберите тот же выпуск приложений, что и в копии"
     for archive, (_, inventory) in archives.items():
         assert document_inventory(directory / archive) == inventory, "Архив хранилища не совпадает с manifest"
-    if manifest.get("storage", {}).get("backends", {}).get("S3", 0):
-        assert deployment.values.get("STORAGE_BACKEND") == "s3" or deployment.values.get("STORAGE_ENABLED") == "true", "Для восстановления S3 включите storage"
-        credit_environment = deployment.config()["services"]["credit"]["environment"]
-        assert credit_environment["S3_ENDPOINT"] == "http://seaweedfs:8333", "Восстановление тома S3 требует собственного SeaweedFS"
-        assert credit_environment["S3_BUCKET"] == manifest["storage"]["s3_bucket"], "S3_BUCKET должен совпасть с бакетом копии"
+    if not unified and backup_needs_s3(manifest):
+        require_restore_s3(deployment, manifest)
     report = {"checked_at": datetime.now(timezone.utc).isoformat(), "source_project": manifest["source_project"], "target_project": args.project,
               "passed": False, "checks": []}
     command = [sys.executable, str(ROOT / "deploy/start.py"), "--project", args.project, "--env-file", str(deployment.path),

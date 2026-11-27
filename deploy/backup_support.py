@@ -86,6 +86,15 @@ def storage_volume(deployment, key):
     return name
 
 
+def backup_needs_s3(manifest):
+    runtime = manifest.get("documents_runtime", {})
+    snapshot_backends = runtime.get("snapshot", {}).get("backends", [])
+    if not isinstance(snapshot_backends, list) or any(backend not in ("LOCAL", "S3") for backend in snapshot_backends):
+        raise ValueError("Некорректный состав backend в резерве Documents")
+    return (bool(manifest.get("storage", {}).get("backends", {}).get("S3"))
+            or "S3" in snapshot_backends or runtime.get("identity", {}).get("has_s3") is True)
+
+
 def backup_archives(manifest):
     """Validate the exact archive set, including Catalog when enabled."""
     assert manifest["format_version"] in (1, 2, 3, 4) and manifest["backup_complete"], "Копия не завершена или формат неизвестен"
@@ -98,7 +107,8 @@ def backup_archives(manifest):
         assert isinstance(storage["s3_volume_included"], bool)
         assert set(storage["backends"]) <= {"LOCAL", "S3"}
         assert all(isinstance(n, int) and n >= 0 for n in storage["backends"].values())
-        assert not storage["backends"].get("S3", 0) or storage["s3_volume_included"], "Нет копии S3 для документов S3"
+        if backup_needs_s3(manifest) and not storage["s3_volume_included"]:
+            raise RuntimeError("Нет копии S3 для файлов или заданий Documents")
         if storage["s3_volume_included"]:
             archives["seaweedfs.tar.gz"] = ("cabinet-seaweedfs", storage["seaweedfs_files"])
     databases = database_names(manifest)

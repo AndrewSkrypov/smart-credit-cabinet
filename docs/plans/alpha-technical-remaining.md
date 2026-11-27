@@ -131,7 +131,11 @@ Documents подготовил собственную БД, gRPC/mTLS, metadata/
 Credit V26/U26 и общую библиотеку `loan-math`. На `5952948` скомпилированы все новые
 модули, Credit, Documents и тесты; ktlint, оба JAR, lockfiles и 11 тестов прошли.
 `1059de4` добавил безопасное чтение invoice bytes через DocumentContent, ещё три
-теста и актуальные JAR. Реальный LOCAL gate сейчас выполняется; S3 ещё открыт.
+теста и актуальные JAR. Реальный LOCAL gate `11e17d8` завершён: 4 runtime-теста без ошибок и
+пропусков, native startup-cancel, forward/repeat, два worker, restart/lease/READY,
+notice/outbox dedup, reverse/conflicts/U26. Cleanup-only `5b11ff3` прошёл
+независимое ревью. Новая защита от чтения старым Credit после REMOTE требует
+свежего LOCAL; S3 ещё открыт.
 Исходники исправляют stale-worker ERROR, окружение, отмену CI, loopback и конфликт
 неизменяемой metadata при reverse. Нужны завершённые runtime/restart/READY/notice
 dedup и HTTP privacy receipts. Kafka для Documents не заявлен: готовность доставляется
@@ -141,14 +145,18 @@ dedup и HTTP privacy receipts. Kafka для Documents не заявлен: го
 R4 и бизнес-кандидат. При разрешении конфликтов сохранены обе защиты retired writer,
 восемь JAR и оба image scan inventory. Одинаковая кредитная формула вынесена в
 `:libs:loan-math`; Assessment и Servicing используют её без копирования исходника.
-Эта совокупная ветка ещё не скомпилирована и не опубликована: её CI и Dev не закрыты.
+На точном `97dd17643eeb32449550228d0f001d8ea1a66e85` прошли совместная
+компиляция Credit/Assessment/Servicing/Documents, весь ktlintCheck и resolved
+production dependency gate: 193 задачи выполнены. Динамическая runtime-зависимость
+ядра на Credit отклонена, включая транзитивный путь. Общая ветка ещё не
+опубликована; интеграционный CI и Dev не закрыты.
 Перед backend-сборкой CI проверяет исходники семи чистых ядер: запрет Spring,
 gRPC, Kafka, SQL/JPA и ссылок на адаптеры. Семь адресных регрессий включают
 fully-qualified ссылки, строки, вложенные комментарии и пробелы между токенами.
 Gradle `checkHexagonalDependencies` отдельно проверяет реально разрешённый
 production compileClasspath, включая транзитивные и динамически добавленные
-зависимости. Новый Gradle gate ещё должен пройти на итоговом SHA; source-проверка
-не подменяет компиляцию и runtime-приёмку.
+зависимости. Gradle gate прошёл на `97dd176`; на итоговом SHA его повторяет CI.
+Source-проверка не подменяет компиляцию и runtime-приёмку.
 
 ## R4. Стартеры и шаблон нового сервиса
 

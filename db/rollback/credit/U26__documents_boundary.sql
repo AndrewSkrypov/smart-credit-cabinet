@@ -4,6 +4,9 @@ do $$ begin
   raise exception 'Reverse cutover and checksum verification required';
  end if;
 end $$;
+alter table message_attachments drop constraint message_attachments_business_reference_fkey;
+alter table application_chat_upload_keys drop constraint application_chat_upload_keys_business_reference_fkey;
+alter table application_chat_audit drop constraint application_chat_audit_business_reference_fkey;
 alter table message_attachments add foreign key(document_id,application_id) references documents(id,application_id);
 alter table application_chat_upload_keys add foreign key(document_id,application_id) references documents(id,application_id);
 alter table application_chat_audit add foreign key(document_id,application_id) references documents(id,application_id);

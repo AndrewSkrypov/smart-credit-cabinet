@@ -13,6 +13,7 @@ import { BankQueuePage } from '../pages/bank/BankQueuePage';
 import { RulesPage } from '../pages/bank/RulesPage';
 import { ProductsPage } from '../pages/bank/ProductsPage';
 import { LandingPage } from '../pages/landing/LandingPage';
+import { AppDownloadPage } from '../pages/AppDownloadPage';
 import { ClientHomePage } from '../pages/ClientHomePage';
 import { ApplicationPage } from '../pages/client/application/ApplicationPage';
 import { NeedsWizardPage } from '../pages/client/NeedsWizardPage';
@@ -26,6 +27,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={demoAccess.basename ? <Navigate to="/sign-in" replace /> : <LandingPage />} />
+      <Route path="/app" element={<AppDownloadPage />} />
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/sign-up" element={<SignUpPage />} />
       <Route path="/password-recovery" element={<PasswordRecoveryPage />} />

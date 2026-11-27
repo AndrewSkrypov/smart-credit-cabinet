@@ -27,8 +27,11 @@ MAX_CONTAINERS = 64
 MAX_NETWORKS = 16
 READ_TIMEOUT = 8
 DOCKER_SOCKET = "unix:///var/run/docker.sock"
+DOCKER_ROOT_FORMAT = "{{json .DockerRootDir}}"
 DOCKER_READ_OPERATIONS = frozenset({"container.ls", "container.inspect", "network.ls", "network.inspect",
-                                    "image.inspect"})
+                                    "image.inspect", "system.info"})
+MEMINFO = Path("/proc/meminfo")
+CAPACITY_FILESYSTEMS = ("root", "state", "releases", "docker")
 SHA = re.compile(r"[0-9a-f]{40}")
 DIGEST = re.compile(r"[0-9a-f]{64}")
 ID = re.compile(r"[0-9a-f]{64}")
@@ -197,7 +200,8 @@ def docker_read_error(message):
 def docker_read(kind, action, *args):
     """Capture a bounded local-engine response with a deadline, without inheriting a Docker context."""
     operation = f"{kind}.{action}"
-    if operation not in DOCKER_READ_OPERATIONS:
+    if (operation not in DOCKER_READ_OPERATIONS
+            or (operation == "system.info" and args != ("--format", DOCKER_ROOT_FORMAT))):
         raise ValueError("Неподдерживаемая операция диагностики Docker")
     command = ["docker", "--host", DOCKER_SOCKET, kind, action, *args]
     environment = {"PATH": "/usr/local/bin:/usr/bin:/bin", "LC_ALL": "C"}
@@ -408,6 +412,79 @@ def collect(repository, pinned):
             "error_counts": dict(Counter(category for item in containers for category in item["error_categories"]))}
 
 
+def valid_byte_counts(total, available):
+    return type(total) is int and type(available) is int and 0 <= available <= total < 2**64 and total > 0
+
+
+def host_memory():
+    """Read the kernel's host totals without exposing any other procfs fields."""
+    fields = {b"MemTotal": "total_bytes", b"MemAvailable": "available_bytes"}
+    memory = {}
+    try:
+        for line in bounded_file(MEMINFO, 16 * 1024).splitlines():
+            key, _, value = line.partition(b":")
+            if key not in fields:
+                continue
+            match = re.fullmatch(rb"[ \t]+([0-9]{1,16})[ \t]+kB", value)
+            if match is None or fields[key] in memory:
+                return None
+            memory[fields[key]] = int(match[1]) * 1024
+    except (OSError, ValueError):
+        return None
+    return memory if valid_byte_counts(memory.get("total_bytes"), memory.get("available_bytes")) else None
+
+
+def docker_root():
+    try:
+        value = decode_json(docker_read("system", "info", "--format", DOCKER_ROOT_FORMAT),
+                            "Недоступен каталог данных Docker")
+    except (RuntimeError, ValueError):
+        return None
+    if not isinstance(value, str) or not value or any(ord(char) < 32 for char in value):
+        return None
+    path = Path(value)
+    return path if path.is_absolute() and ".." not in path.parts else None
+
+
+def resource_summary(releases, state):
+    paths = {"root": Path("/"), "state": state, "releases": releases, "docker": docker_root()}
+    groups = {}
+    filesystems = dict.fromkeys(CAPACITY_FILESYSTEMS)
+    for key, path in paths.items():
+        if path is None:
+            continue
+        try:
+            stats = os.statvfs(path)
+            device = path.stat().st_dev
+        except (OSError, ValueError):
+            continue
+        total = stats.f_blocks * stats.f_frsize
+        available = stats.f_bavail * stats.f_frsize
+        if valid_byte_counts(total, available):
+            filesystems[key] = {"total_bytes": total, "available_bytes": available,
+                                "group": groups.setdefault(device, len(groups))}
+    return {"source": "dev-host", "memory": host_memory(), "filesystems": filesystems}
+
+
+def valid_resources(resources):
+    if (not isinstance(resources, dict) or set(resources) != {"source", "memory", "filesystems"}
+            or resources["source"] != "dev-host"):
+        return False
+    memory = resources["memory"]
+    filesystems = resources["filesystems"]
+    counts = {"total_bytes", "available_bytes"}
+    if memory is not None and (not isinstance(memory, dict) or set(memory) != counts or not valid_byte_counts(
+            memory["total_bytes"], memory["available_bytes"])):
+        return False
+    return isinstance(filesystems, dict) and set(filesystems) == set(CAPACITY_FILESYSTEMS) and all(
+        value is None or (
+            isinstance(value, dict) and set(value) == counts | {"group"}
+            and valid_byte_counts(value["total_bytes"], value["available_bytes"])
+            and type(value["group"]) is int and 0 <= value["group"] < len(CAPACITY_FILESYSTEMS)
+        ) for value in filesystems.values()
+    )
+
+
 def diagnose(root, path, state_dir, request):
     if root.name != request["revision"] or path.resolve() != root / "release.json":
         raise ValueError("Запрос диагностики должен находиться в каталоге собственной ревизии")
@@ -424,7 +501,8 @@ def diagnose(root, path, state_dir, request):
         repository, refs = target_images(root.parent)
         current = state_summary(state_dir / "current.json")
         pending = state_summary(state_dir / "pending.json")
-        report = json.dumps({**request, "current": current, "pending": pending, **collect(repository, refs)},
+        report = json.dumps({**request, "current": current, "pending": pending, **collect(repository, refs),
+                             "resources": resource_summary(root.parent, state_dir)},
                             ensure_ascii=True, separators=(",", ":"))
         if len(report) > MAX_REPORT:
             raise RuntimeError("Превышен лимит отчёта диагностики")

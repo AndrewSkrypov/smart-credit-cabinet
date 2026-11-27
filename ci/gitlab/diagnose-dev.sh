@@ -69,19 +69,20 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path("deploy").resolve()))
-from dev_diagnostics import MAX_REPORT
+from dev_diagnostics import MAX_REPORT, decode_json, valid_resources
 
 request = json.loads(Path(sys.argv[1]).read_bytes())
 raw = sys.stdin.buffer.read(MAX_REPORT + 2)
 if len(raw) > MAX_REPORT + 1:
     raise SystemExit("Diagnostic report exceeded its size limit")
 try:
-    report = json.loads(raw)
-except (ValueError, RecursionError):
+    report = decode_json(raw, "Invalid diagnostic report")
+except ValueError:
     raise SystemExit("Invalid diagnostic report") from None
-fields = {"current", "pending", "containers", "networks", "error_counts"}
+fields = {"current", "pending", "containers", "networks", "error_counts", "resources"}
 if (not isinstance(report, dict) or set(report) != set(request) | fields
-        or any(report[key] != value for key, value in request.items())):
+        or any(report[key] != value for key, value in request.items())
+        or not valid_resources(report["resources"])):
     raise SystemExit("Diagnostic report does not match its request")
 Path("dev-diagnostics.json").write_bytes(raw)
 ' "$scratch/request.json"

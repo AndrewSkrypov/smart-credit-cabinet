@@ -93,4 +93,24 @@ describe('version editors', () => {
     expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
     expect(rulesApi.version).toHaveBeenCalledWith(1);
   });
+
+  it('allows smooth keyboard editing and clamping of agent commission percentage', async () => {
+    const user = userEvent.setup();
+    show(<ProductsPage />);
+    const commission = await screen.findByLabelText('Комиссия агента, %');
+    expect(commission).toHaveValue(1.5);
+
+    await user.clear(commission);
+    expect(commission).toHaveValue(null);
+
+    await user.type(commission, '2.25');
+    expect(commission).toHaveValue(2.25);
+    expect(screen.getByText(/225 б\.п\./)).toBeInTheDocument();
+
+    await user.clear(commission);
+    await user.type(commission, '150');
+    await user.tab();
+    expect(commission).toHaveValue(100);
+    expect(screen.getByText(/10000 б\.п\./)).toBeInTheDocument();
+  });
 });

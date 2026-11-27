@@ -7,5 +7,6 @@ parser = argparse.ArgumentParser(description="Остановить выбран�
 parser.add_argument("--project", default="cabinet-prod")
 parser.add_argument("--env-file", default="deploy/.env")
 parser.add_argument("--local", action="store_true")
+parser.add_argument("--release-manifest")
 args = parser.parse_args()
-Deployment(args.project, args.env_file, args.local).compose("stop")
+Deployment(args.project, args.env_file, args.local, args.release_manifest).compose("stop")

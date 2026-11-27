@@ -1,6 +1,5 @@
 package ru.creditcabinet.application.domain
 
-import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductMatcher.rubles
@@ -42,7 +41,7 @@ data class JournalEntry(
 }
 
 /** Journal entries that are not transitions. */
-enum class JournalNote { CREATED, DOCUMENT_ADDED, DOCUMENT_REMOVED }
+enum class JournalNote { CREATED, DOCUMENT_ADDED, DOCUMENT_REMOVED, PRIVATE_DOCUMENT_ADDED }
 
 data class Transition(val application: LoanApplication, val entry: JournalEntry)
 
@@ -69,33 +68,106 @@ data class LoanApplication(
     /** In a draft this is the version the client originally chose; after submission it is pinned. */
     val productVersion: Long = 1,
     val productCatalogSnapshot: Map<String, Long> = emptyMap(),
+    val agentId: UUID? = null,
+    val agentName: String? = null,
+    val preApprovedOfferId: UUID? = null,
+    val agentCommissionRateBps: Int? = null,
+    val agentCommissionAmount: Long? = null,
+    val agentCommissionStatus: CommissionStatus = CommissionStatus.NONE,
+    val clientHandoffAt: Instant? = null,
+    val clientManaged: Boolean = false,
 ) {
     val isActive: Boolean get() = !status.terminal
+    val activeAgentId: UUID? get() = agentId.takeUnless { clientManaged }
 
-    /** A draft is the client's own until it is sent: the bank does not see it. */
-    val visibleToBank: Boolean get() = status != ApplicationStatus.DRAFT
+    val visibleToBank: Boolean get() = submittedAt != null
+
+    /** The first handoff opens client visibility for the rest of the life of the application. */
+    val visibleToClient: Boolean get() =
+        agentId == null || clientHandoffAt != null || submittedAt != null || status == ApplicationStatus.PENDING_CLIENT_CONFIRMATION
 
     fun updateDraft(terms: ApplicationTerms, now: Instant): LoanApplication {
-        if (status != ApplicationStatus.DRAFT) throw ConflictException("Заявка уже отправлена — изменить её можно только по запросу банка")
+        if (status != ApplicationStatus.DRAFT) throw ApplicationConflictException("Заявка уже отправлена — изменить её можно только по запросу банка")
         require(terms.productCode == this.terms.productCode) { "Продукт заявки не меняется — создайте новую заявку" }
-        return copy(terms = terms, updatedAt = now)
+        val updatedCommission = if (agentId != null && agentCommissionRateBps != null) {
+            terms.amount * agentCommissionRateBps / 10_000L
+        } else {
+            agentCommissionAmount
+        }
+        return copy(terms = terms, agentCommissionAmount = updatedCommission, updatedAt = now)
     }
 
-    /** What still prevents sending the application (guard of T2), in words the client can act on. */
-    fun submissionProblems(product: Product): List<String> =
+    /** What still prevents sending the application (guard of T2/T23), in words the client can act on. */
+    fun submissionProblems(product: Product): List<String> = parameterProblems(product, requireBureauConsent = true)
+
+    /** What still prevents sending an agent draft to the client (guard of T22); client grants bureau consent later. */
+    fun agentSubmissionProblems(product: Product): List<String> = parameterProblems(product, requireBureauConsent = false)
+
+    private fun parameterProblems(product: Product, requireBureauConsent: Boolean): List<String> =
         buildList {
             if (terms.purpose !in product.purposes) add("Продукт «${product.name}» не подходит для этой цели")
             if (!product.amountFits(terms.amount)) add("Сумма — от ${rubles(product.minAmount)} до ${rubles(product.maxAmount)}")
             if (!product.termFits(terms.termMonths)) add("Срок — от ${product.minTermMonths} до ${product.maxTermMonths} мес.")
             if (terms.declaredRevenue12m == null || terms.declaredRevenue12m <= 0) add("Укажите выручку за последние 12 месяцев")
             if (terms.declaredMonthlyDebtPayments != null && terms.declaredMonthlyDebtPayments < 0) add("Платежи по кредитам не могут быть отрицательными")
-            if (!terms.bureauConsent) add("Без согласия на запрос в бюро кредитных историй заявку не рассмотреть")
+            if (requireBureauConsent && !terms.bureauConsent) {
+                add("Без согласия на запрос в бюро кредитных историй заявку не рассмотреть")
+            }
         }
 
     fun submit(product: Product, actor: Actor, now: Instant): Transition {
+        if (agentId != null) {
+            throw ApplicationConflictException("Агентскую заявку нельзя отправить напрямую — сначала требуется подтверждение клиента")
+        }
         val problems = submissionProblems(product)
         require(problems.isEmpty()) { problems.joinToString("; ") }
         return move(ApplicationEvent.SUBMIT, actor, now).let { it.copy(application = it.application.copy(submittedAt = now)) }
+    }
+
+    /** T22: agent sends a completed draft to the client for review and bureau consent. */
+    fun requestClientConfirmation(product: Product, actor: Actor, now: Instant): Transition {
+        if (actor.type !in ApplicationEvent.REQUEST_CLIENT_CONFIRMATION.actors) {
+            throw ApplicationConflictException("Это действие недоступно для вашей роли")
+        }
+        if (activeAgentId == null || activeAgentId != actor.id) {
+            throw ApplicationConflictException("Отправить заявку на подтверждение может только агент, создавший её")
+        }
+        val problems = agentSubmissionProblems(product)
+        require(problems.isEmpty()) { problems.joinToString("; ") }
+        return move(ApplicationEvent.REQUEST_CLIENT_CONFIRMATION, actor, now).let {
+            it.copy(application = it.application.copy(clientHandoffAt = clientHandoffAt ?: now))
+        }
+    }
+
+    /** T23: client reviews an agent-prepared application, grants bureau consent, and submits to the bank. */
+    fun confirmAndSubmit(product: Product, bureauConsent: Boolean, actor: Actor, now: Instant): Transition {
+        if (actor.type !in ApplicationEvent.CONFIRM_AND_SUBMIT.actors) {
+            throw ApplicationConflictException("Это действие недоступно для вашей роли")
+        }
+        if (status == ApplicationStatus.DRAFT && (!clientManaged || clientHandoffAt == null)) {
+            throw ApplicationConflictException("Для подтверждения нужна переданная клиенту заявка")
+        }
+        val withConsent = copy(terms = terms.copy(bureauConsent = bureauConsent))
+        val problems = withConsent.submissionProblems(product)
+        require(problems.isEmpty()) { problems.joinToString("; ") }
+        return withConsent.move(ApplicationEvent.CONFIRM_AND_SUBMIT, actor, now).let {
+            it.copy(application = it.application.copy(submittedAt = now))
+        }
+    }
+
+    /** T24: client returns an agent-prepared application back to DRAFT for corrections. */
+    fun returnToAgent(actor: Actor, comment: String?, now: Instant): Transition =
+        move(ApplicationEvent.RETURN_TO_AGENT, actor, now, comment = comment)
+
+    /** T25: agent cancels their own draft before it is submitted to the bank. */
+    fun agentCancel(actor: Actor, now: Instant): Transition {
+        if (actor.type !in ApplicationEvent.AGENT_CANCEL.actors) {
+            throw ApplicationConflictException("Это действие недоступно для вашей роли")
+        }
+        if (activeAgentId == null || activeAgentId != actor.id) {
+            throw ApplicationConflictException("Отменить черновик может только агент, создавший заявку")
+        }
+        return move(ApplicationEvent.AGENT_CANCEL, actor, now)
     }
 
     /**
@@ -110,13 +182,27 @@ data class LoanApplication(
         comment: String? = null,
         payload: Map<String, Any?> = emptyMap(),
     ): Transition {
-        if (actor.type !in event.actors) throw ConflictException("Это действие недоступно для вашей роли")
-        val target = ApplicationStateMachine.target(status, event) ?: throw ConflictException(refusal(event))
+        if (actor.type !in event.actors) throw ApplicationConflictException("Это действие недоступно для вашей роли")
+        val target = ApplicationStateMachine.target(status, event) ?: throw ApplicationConflictException(refusal(event))
+        val updatedCommissionStatus = when {
+            agentId == null -> agentCommissionStatus
+            target == ApplicationStatus.DISBURSED -> CommissionStatus.ACCRUED
+            target == ApplicationStatus.REJECTED || target == ApplicationStatus.WITHDRAWN || target == ApplicationStatus.CLOSED ->
+                CommissionStatus.CANCELLED
+            else -> agentCommissionStatus
+        }
+        val updatedCommissionAmount = when {
+            agentId == null -> agentCommissionAmount
+            target == ApplicationStatus.DISBURSED -> agentCommissionRateBps?.let { terms.amount * it / 10_000L } ?: agentCommissionAmount
+            else -> agentCommissionAmount
+        }
         val moved = copy(
             status = target,
             closeReason = closeReasonOf(event) ?: closeReason,
             updatedAt = now,
             statusChangedAt = if (target != status) now else statusChangedAt,
+            agentCommissionStatus = updatedCommissionStatus,
+            agentCommissionAmount = updatedCommissionAmount,
         )
         val entry = JournalEntry(
             applicationId = id,

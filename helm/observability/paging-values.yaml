@@ -1,0 +1,8 @@
+# Apply only after provisioning both Secrets described in docs/operations.md.
+kube-prometheus-stack:
+  alertmanager:
+    alertmanagerSpec:
+      useExistingSecret: true
+      configSecret: cabinet-alertmanager-paging-config
+      secrets: [cabinet-paging]
+      automountServiceAccountToken: false

@@ -1,0 +1,35 @@
+[
+  {
+    "name": "agent-awaits-client",
+    "key": "a4fd57ac-6182-4647-bdd2-176221bab0c2",
+    "payload": {
+      "eventId": "368920ef-dd01-4dd5-9e23-8fd20e8a9223",
+      "applicationId": "a4fd57ac-6182-4647-bdd2-176221bab0c2",
+      "applicationVersion": 2,
+      "status": "PENDING_CLIENT_CONFIRMATION",
+      "occurredAt": "2026-11-26T12:05:00Z"
+    }
+  },
+  {
+    "name": "client-confirms-after-version-gap",
+    "key": "a4fd57ac-6182-4647-bdd2-176221bab0c2",
+    "payload": {
+      "eventId": "32bb5ccb-40b9-41eb-a75e-715360e17517",
+      "applicationId": "a4fd57ac-6182-4647-bdd2-176221bab0c2",
+      "applicationVersion": 7,
+      "status": "SUBMITTED",
+      "occurredAt": "2026-11-26T12:15:11.123456789Z"
+    }
+  },
+  {
+    "name": "withdrawn-before-submission",
+    "key": "92cd0bde-373e-4ae2-abc8-14b5a31b52cb",
+    "payload": {
+      "eventId": "62825bc1-8004-4158-9b49-80fbe0af7dcf",
+      "applicationId": "92cd0bde-373e-4ae2-abc8-14b5a31b52cb",
+      "applicationVersion": 1,
+      "status": "WITHDRAWN",
+      "occurredAt": "2026-11-26T12:20:00.456Z"
+    }
+  }
+]

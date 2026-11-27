@@ -17,6 +17,7 @@ import time
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 from cabinet_api import Cabinet  # noqa: E402
+from gateway_config import running_gateway_source  # noqa: E402
 
 
 def main():
@@ -44,7 +45,7 @@ def main():
     replicas, gateways = containers("credit"), containers("gateway")
     assert len(replicas) == 2 and len(gateways) == 1, "Нужны два credit и один gateway"
     gateway, victim = gateways[0], replicas[0]
-    config = docker("exec", gateway, "cat", "/etc/nginx/conf.d/default.conf")
+    config = running_gateway_source(docker, gateway)
     api = Cabinet(args.base)
     token = api.register("gateway-probe")["token"]
     started = time.monotonic()

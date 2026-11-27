@@ -1,0 +1,44 @@
+{{- $root := . }}
+{{- $allowed := dict
+  "postgres" (dict "port" 5432 "sources" (list "identity" "credit" "engagement" "db-maintenance" "catalog-grpc"))
+  "valkey" (dict "port" 6379 "sources" (list "identity" "credit" "engagement" "external-sim" "db-maintenance"))
+  "clamav" (dict "port" 3310 "sources" (list "credit")) }}
+{{- if and .Values.app.enabled .Values.catalog.enabled }}
+{{- $_ := set $allowed "catalog-grpc" (dict "port" 9094 "sources" (list "credit")) }}
+{{- end }}
+{{- if .Values.app.enabled }}
+{{- $_ := set $allowed "frontend" (dict "port" 8080 "sources" (list "gateway")) }}
+{{- $_ := set $allowed "swagger-ui" (dict "port" 8080 "sources" (list "gateway")) }}
+{{- $_ := set $allowed "identity" (dict "port" 8080 "sources" (list "gateway" "credit" "engagement") "metrics" true) }}
+{{- $_ := set $allowed "credit" (dict "port" 8080 "sources" (list "gateway" "engagement") "metrics" true) }}
+{{- $_ := set $allowed "engagement" (dict "port" 8080 "sources" (list "gateway" "identity" "credit") "metrics" true) }}
+{{- $_ := set $allowed "external-sim" (dict "port" 8080 "sources" (list "gateway" "identity" "credit") "metrics" true) }}
+{{- end }}
+{{- range $name, $rule := $allowed }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-{{ $name }}-ingress
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list $root $name) | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - {protocol: TCP, port: {{ $rule.port }}}
+      from:
+        {{- range $source := $rule.sources }}
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list $root $source) | nindent 14 }}
+        {{- end }}
+        {{- if $rule.metrics }}
+        {{- range $namespace := $root.Values.monitoring.namespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $namespace | quote }}
+        {{- end }}
+        {{- end }}
+{{- end }}

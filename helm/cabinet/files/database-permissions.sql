@@ -1,0 +1,93 @@
+-- Used by privileged bootstrap, by the schema owner after migration, and after restore.
+-- Identifiers are replaced only from the fixed service database allowlist.
+begin;
+select pg_advisory_xact_lock(17127, 2);
+alter schema public owner to __OWNER__;
+revoke all on schema public from public;
+revoke all on schema public from __APP__;
+grant usage on schema public to __APP__;
+
+-- Never REASSIGN OWNED from the bootstrap role: that can also transfer shared objects
+-- belonging to other databases. Restrict adoption to this database's public schema.
+do $$
+declare item record;
+begin
+  for item in select c.relname,c.relkind from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='public' and c.relkind in ('r','p','v','m') order by c.oid
+  loop
+    execute format('alter %s public.%I owner to __OWNER__',
+      case item.relkind when 'v' then 'view' when 'm' then 'materialized view' else 'table' end,item.relname);
+  end loop;
+  for item in select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='public' and c.relkind='S'
+  loop execute format('alter sequence public.%I owner to __OWNER__',item.relname); end loop;
+  for item in select p.oid::regprocedure as signature from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public'
+  loop execute format('alter function %s owner to __OWNER__',item.signature); end loop;
+  for item in select t.typname from pg_type t join pg_namespace n on n.oid=t.typnamespace
+    where n.nspname='public' and t.typtype in ('e','d')
+  loop execute format('alter type public.%I owner to __OWNER__',item.typname); end loop;
+end $$;
+
+revoke all on all tables in schema public from public, __APP__;
+grant select,insert,update,delete on all tables in schema public to __APP__;
+revoke all on all sequences in schema public from public, __APP__;
+grant usage,select on all sequences in schema public to __APP__;
+revoke all on all functions in schema public from public, __APP__;
+grant execute on all functions in schema public to __APP__;
+alter default privileges for role __OWNER__ in schema public revoke all on tables from public;
+alter default privileges for role __OWNER__ in schema public grant select,insert,update,delete on tables to __APP__;
+alter default privileges for role __OWNER__ in schema public revoke all on sequences from public;
+alter default privileges for role __OWNER__ in schema public grant usage,select on sequences to __APP__;
+-- Function EXECUTE is granted to PUBLIC globally by default; a schema-only REVOKE
+-- would not subtract that global default. Remove it at the owner's database scope.
+alter default privileges for role __OWNER__ revoke execute on functions from public;
+alter default privileges for role __OWNER__ in schema public grant execute on functions to __APP__;
+
+do $$
+declare item text;
+begin
+  foreach item in array array['personal_data_consents','identity_audit','notification_receipts',
+    'product_versions','contract_text_snapshots','application_events','application_messages','message_attachments',
+    'application_chat_audit','application_chat_upload_keys']
+  loop
+    if to_regclass('public.' || item) is not null then
+      execute format('revoke update,delete on public.%I from __APP__',item);
+    end if;
+  end loop;
+  foreach item in array array['flyway_schema_history','application_status_generation','servicing_writer_fence','document_ownership']
+  loop
+    if to_regclass('public.' || item) is not null then
+      execute format('revoke insert,update,delete on public.%I from __APP__',item);
+    end if;
+  end loop;
+  -- A retired runtime must not return its stale financial copy after cutover.
+  -- Re-running migration grants must not silently restore that access.
+  if to_regclass('public.servicing_writer_fence') is not null then
+    if (select writer from public.servicing_writer_fence where singleton)
+       is distinct from (case current_database() when 'credit' then 'LOCAL' when 'servicing' then 'REMOTE' else null end) then
+      foreach item in array array['loan_accounts','loan_tranches','loan_payments','payment_reserves',
+        'payment_reserve_receipt_events','servicing_opened_commands','loan_operations']
+      loop
+        if to_regclass('public.' || item) is not null then
+          execute format('revoke select,insert,update,delete on public.%I from __APP__',item);
+        end if;
+      end loop;
+    end if;
+  end if;
+end $$;
+-- Documents retires both SQL writers and SQL readers together. A generic regrant
+-- must never reactivate a legacy Credit replica after the authoritative cutover.
+do $$
+begin
+ if to_regclass('public.document_ownership') is not null
+    and to_regclass('public.documents') is not null
+    and to_regclass('public.generated_artifacts') is not null then
+  if (select owner from public.document_ownership where singleton) = 'LOCAL' then
+   grant select,insert,update,delete on public.documents,public.generated_artifacts to __APP__;
+  else
+   revoke all on public.documents,public.generated_artifacts from __APP__;
+  end if;
+ end if;
+end $$;
+commit;

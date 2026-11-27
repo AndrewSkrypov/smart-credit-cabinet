@@ -1,6 +1,18 @@
 server:
   port: ${SERVER_PORT:8080}
 
+logging:
+  structured:
+    json:
+      add:
+        service: ${spring.application.name}
+
+management:
+  otlp:
+    tracing:
+      export:
+        enabled: ${MANAGEMENT_OTLP_TRACING_EXPORT_ENABLED:false}
+
 spring:
   application:
     name: engagement
@@ -41,6 +53,8 @@ cabinet:
     ollama-url: ${OLLAMA_URL:}
     model: ${ASSISTANT_MODEL:qwen2.5:3b}
     answer-timeout: ${ASSISTANT_TIMEOUT:PT30S}
+    keep-alive: ${ASSISTANT_KEEP_ALIVE:15m}
+    warmup: ${ASSISTANT_WARMUP:false}
   openapi:
     title: "Кабинет предпринимателя: уведомления и помощник"
   auth:

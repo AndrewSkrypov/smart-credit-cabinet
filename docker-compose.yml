@@ -17,7 +17,19 @@ x-service: &service
   networks:
     - cabinet
 
+x-observability: &observability
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: ${CABINET_LOG_FORMAT:-logstash}
+  LOGGING_STRUCTURED_FORMAT_FILE: logstash
+  LOGGING_FILE_NAME: ${CABINET_LOG_FILE:-}
+  LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE: 5MB
+  LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY: "2"
+  LOGGING_LOGBACK_ROLLINGPOLICY_TOTAL_SIZE_CAP: 32MB
+  MANAGEMENT_OTLP_TRACING_EXPORT_ENABLED: ${CABINET_OTLP_ENABLED:-false}
+  MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+  MANAGEMENT_TRACING_SAMPLING_PROBABILITY: ${CABINET_TRACE_SAMPLE_RATE:-0.1}
+
 x-service-env: &service-env
+  <<: *observability
   DB_HOST: postgres
   DB_PORT: 5432
   SPRING_FLYWAY_ENABLED: "false"
@@ -59,7 +71,7 @@ services:
       retries: 20
     networks: [cabinet]
   seaweedfs:
-    image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    image: chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9
     profiles: [storage]
     mem_limit: 512m
     restart: unless-stopped
@@ -81,7 +93,7 @@ services:
       retries: 30
     networks: [cabinet]
   clamav:
-    image: clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e
+    image: clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614
     # The official image is built for x86-64 only; on ARM hosts (Apple Silicon) Docker runs it emulated.
     platform: linux/amd64
     mem_limit: 2g
@@ -135,7 +147,7 @@ services:
     networks: [cabinet]
 
   grafana:
-    image: grafana/grafana:13.2.4
+    image: grafana/grafana:13.2.5@sha256:9f7aa1e1e3246aade5792d35a738049f7f32f89cd51d1956cf426a4e86268a84
     profiles: ["monitoring"]
     mem_limit: 512m
     restart: unless-stopped
@@ -152,7 +164,42 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - cabinet-grafana:/var/lib/grafana
-    depends_on: [prometheus]
+    depends_on: [prometheus, tempo, loki]
+    networks: [cabinet]
+
+  tempo:
+    image: grafana/tempo:2.9.0@sha256:65a5789759435f1ef696f1953258b9bbdb18eb571d5ce711ff812d2e128288a4
+    profiles: [monitoring]
+    mem_limit: 512m
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./monitoring/tempo.yaml:/etc/tempo.yaml:ro
+      - cabinet-tempo:/var/tempo
+    networks: [cabinet]
+
+  loki:
+    image: grafana/loki:3.6.7@sha256:3c8fd3570dd9219951a60d3f919c7f31923d10baee578b77bc26c4a0b32d092d
+    profiles: [monitoring]
+    mem_limit: 512m
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./monitoring/loki.yaml:/etc/loki/config.yaml:ro
+      - cabinet-loki:/loki
+    networks: [cabinet]
+
+  alloy:
+    image: grafana/alloy:v1.13.2@sha256:8abcd0d97a97099cabb34be8dcfc448fca6c35931ae9291aaf74056105dedcca
+    profiles: [monitoring]
+    mem_limit: 256m
+    restart: unless-stopped
+    command: ["run", "--storage.path=/var/lib/alloy", "/etc/alloy/cabinet.alloy"]
+    volumes:
+      - ./monitoring/cabinet.alloy:/etc/alloy/cabinet.alloy:ro
+      - cabinet-service-logs:/var/log/cabinet:ro
+      - cabinet-alloy:/var/lib/alloy
+    depends_on: [loki, identity]
     networks: [cabinet]
 
   postgres:
@@ -271,6 +318,8 @@ services:
       REGISTRY_URL: http://external-sim:8080
       ENGAGEMENT_URL: http://engagement:8080
       SIM_API_KEY: ${SIM_API_KEY:-dev-sim-api-key}
+    volumes:
+      - cabinet-service-logs:/var/log/cabinet
     depends_on:
       valkey:
         condition: service_healthy
@@ -279,6 +328,7 @@ services:
 
   credit:
     <<: *service
+    mem_limit: 896m
     image: ${COMPOSE_PROJECT_NAME:-smart-credit-cabinet}-credit:latest
     build:
       context: .
@@ -288,9 +338,12 @@ services:
         SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
     environment:
       <<: *service-env
+      # Leave room outside the heap for PDF rendering, the JVM and native buffers.
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
       DB_NAME: credit
       DB_USER: credit_app
       DB_PASSWORD: ${CREDIT_DB_PASSWORD:-dev-credit-runtime-password}
+      DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-true}
       STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
       DOCUMENT_UPLOADS_ENABLED: ${DOCUMENT_UPLOADS_ENABLED:-true}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://seaweedfs:8333}
@@ -312,6 +365,7 @@ services:
       SOURCE_TIMEOUT: ${SOURCE_TIMEOUT:-PT3M}
     volumes:
       - cabinet-documents:/app/uploads
+      - cabinet-service-logs:/var/log/cabinet
     depends_on:
       valkey:
         condition: service_healthy
@@ -338,7 +392,11 @@ services:
       CREDIT_URL: http://credit:8080
       # The assistant uses the model when the "ai" profile runs, and answers by rules otherwise.
       OLLAMA_URL: ${OLLAMA_URL-http://ollama:11434}
+      ASSISTANT_KEEP_ALIVE: ${ASSISTANT_KEEP_ALIVE:-15m}
+      ASSISTANT_WARMUP: ${ASSISTANT_WARMUP:-true}
       ASSISTANT_MODEL: ${ASSISTANT_MODEL:-qwen2.5:3b}
+    volumes:
+      - cabinet-service-logs:/var/log/cabinet
     depends_on:
       valkey:
         condition: service_healthy
@@ -355,9 +413,12 @@ services:
         SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
     mem_limit: 512m
     environment:
+      <<: *observability
       JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-32bytes+}
       SIM_API_KEY: ${SIM_API_KEY:-dev-sim-api-key}
       SIM_CONTROL_ENABLED: ${SIM_CONTROL_ENABLED:-true}
+    volumes:
+      - cabinet-service-logs:/var/log/cabinet
 
   frontend:
     build:
@@ -376,6 +437,8 @@ services:
     image: ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8
     profiles: ["ai"]
     mem_limit: 4g
+    environment:
+      OLLAMA_NO_CLOUD: "1"
     volumes:
       - cabinet-ollama:/root/.ollama
     healthcheck:
@@ -389,6 +452,7 @@ services:
   ollama-pull:
     image: ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8
     profiles: ["ai"]
+    mem_limit: 128m
     environment:
       OLLAMA_HOST: http://ollama:11434
     entrypoint: ["ollama", "pull", "${ASSISTANT_MODEL:-qwen2.5:3b}"]
@@ -399,7 +463,10 @@ services:
       - cabinet
 
   swagger-ui:
-    image: swaggerapi/swagger-ui:v5.34.0@sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0
+    image: cabinet/swagger-ui:v5.35.0-brotli
+    build:
+      context: .
+      dockerfile: docker/swagger/Dockerfile
     mem_limit: 128m
     environment:
       BASE_URL: /swagger
@@ -412,11 +479,12 @@ services:
       - cabinet
 
   gateway:
-    image: nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
+    image: nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
     ports:
       - "${GATEWAY_PORT:-8080}:80"
     volumes:
       - ./docker/gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/gateway/conf.d:/etc/nginx/cabinet-gateway:ro
     depends_on:
       - frontend
       - identity
@@ -428,6 +496,10 @@ services:
       - cabinet
 
 volumes:
+  cabinet-service-logs:
+  cabinet-tempo:
+  cabinet-loki:
+  cabinet-alloy:
   cabinet-valkey:
   cabinet-seaweedfs:
   cabinet-clamav-signatures:

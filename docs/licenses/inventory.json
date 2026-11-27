@@ -14,6 +14,36 @@
       ]
     },
     {
+      "name": "at.yawk.lz4:lz4-java",
+      "version": "1.10.1",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/yawkat/lz4-java",
+        "https://www.apache.org/licenses/LICENSE-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "ch.qos.logback:logback-classic",
+      "version": "1.3.14",
+      "licenses": [
+        "Eclipse Public License - v 1.0",
+        "GNU Lesser General Public License"
+      ],
+      "sources": [
+        "http://www.eclipse.org/legal/epl-v10.html",
+        "http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html",
+        "http://www.qos.ch"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "ch.qos.logback:logback-classic",
       "version": "1.5.34",
       "licenses": [
@@ -24,6 +54,22 @@
         "http://www.qos.ch",
         "https://www.eclipse.org/legal/epl-v20.html",
         "https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "ch.qos.logback:logback-core",
+      "version": "1.3.14",
+      "licenses": [
+        "Eclipse Public License - v 1.0",
+        "GNU Lesser General Public License"
+      ],
+      "sources": [
+        "http://www.eclipse.org/legal/epl-v10.html",
+        "http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html",
+        "http://www.qos.ch"
       ],
       "scopes": [
         "backend"
@@ -338,6 +384,20 @@
       ]
     },
     {
+      "name": "com.github.luben:zstd-jni",
+      "version": "1.5.6-4",
+      "licenses": [
+        "BSD 2-Clause License"
+      ],
+      "sources": [
+        "https://github.com/luben/zstd-jni",
+        "https://opensource.org/licenses/BSD-2-Clause"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "com.github.virtuald:curvesapi",
       "version": "1.08",
       "licenses": [
@@ -346,6 +406,34 @@
       "sources": [
         "http://opensource.org/licenses/BSD-3-Clause",
         "https://github.com/virtuald/curvesapi"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.android:annotations",
+      "version": "4.1.1.4",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "http://source.android.com/",
+        "http://www.apache.org/licenses/LICENSE-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.api.grpc:proto-google-common-protos",
+      "version": "2.64.1",
+      "licenses": [
+        "Apache-2.0"
+      ],
+      "sources": [
+        "https://github.com/googleapis/sdk-platform-java",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
       ],
       "scopes": [
         "backend"
@@ -362,6 +450,7 @@
         "http://www.apache.org/licenses/LICENSE-2.0.txt"
       ],
       "scopes": [
+        "backend",
         "build-logic"
       ]
     },
@@ -416,6 +505,163 @@
       "sources": [
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
         "https://errorprone.info/error_prone_annotations"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.errorprone:error_prone_annotations",
+      "version": "2.50.0",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://errorprone.info/error_prone_annotations"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.gradle:osdetector-gradle-plugin",
+      "version": "1.7.3",
+      "licenses": [
+        "Apache License 2.0"
+      ],
+      "sources": [
+        "http://opensource.org/licenses/Apache-2.0",
+        "https://github.com/google/osdetector-gradle-plugin",
+        "https://repo.maven.apache.org/maven2/com/google/gradle/osdetector-gradle-plugin/1.7.3/osdetector-gradle-plugin-1.7.3.pom"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.guava:failureaccess",
+      "version": "1.0.3",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/google/guava/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.guava:guava",
+      "version": "33.6.0-android",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/google/guava",
+        "https://github.com/google/guava/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.guava:listenablefuture",
+      "version": "9999.0-empty-to-avoid-conflict-with-guava",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.j2objc:j2objc-annotations",
+      "version": "3.1",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/google/j2objc/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.protobuf:com.google.protobuf.gradle.plugin",
+      "version": "0.9.5",
+      "licenses": [
+        "BSD-3-Clause"
+      ],
+      "sources": [
+        "https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-gradle-plugin/0.9.5/protobuf-gradle-plugin-0.9.5.pom"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.protobuf:protobuf-gradle-plugin",
+      "version": "0.9.5",
+      "licenses": [
+        "BSD 3-Clause"
+      ],
+      "sources": [
+        "http://opensource.org/licenses/BSD-3-Clause",
+        "https://github.com/google/protobuf-gradle-plugin",
+        "https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-gradle-plugin/0.9.5/protobuf-gradle-plugin-0.9.5.pom"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.protobuf:protobuf-java",
+      "version": "4.33.2",
+      "licenses": [
+        "BSD-3-Clause"
+      ],
+      "sources": [
+        "https://developers.google.com/protocol-buffers/",
+        "https://opensource.org/licenses/BSD-3-Clause"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.protobuf:protobuf-java-util",
+      "version": "4.33.2",
+      "licenses": [
+        "BSD-3-Clause"
+      ],
+      "sources": [
+        "https://developers.google.com/protocol-buffers/",
+        "https://opensource.org/licenses/BSD-3-Clause"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.google.protobuf:protoc",
+      "version": "4.33.2",
+      "licenses": [
+        "BSD-3-Clause",
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://developers.google.com/protocol-buffers/",
+        "https://opensource.org/licenses/BSD-3-Clause"
       ],
       "scopes": [
         "backend"
@@ -646,6 +892,48 @@
       ]
     },
     {
+      "name": "com.squareup.okhttp3:okhttp",
+      "version": "4.12.0",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://square.github.io/okhttp/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.squareup.okio:okio",
+      "version": "3.6.0",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/square/okio/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "com.squareup.okio:okio-jvm",
+      "version": "3.6.0",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/square/okio/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "com.sun.istack:istack-commons-runtime",
       "version": "4.1.2",
       "licenses": [
@@ -813,8 +1101,36 @@
       ]
     },
     {
+      "name": "io.github.detekt.sarif4k:sarif4k",
+      "version": "0.6.0",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://detekt.github.io/detekt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "io.github.detekt.sarif4k:sarif4k-jvm",
       "version": "0.5.0",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://detekt.github.io/detekt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.github.detekt.sarif4k:sarif4k-jvm",
+      "version": "0.6.0",
       "licenses": [
         "The Apache Software License, Version 2.0"
       ],
@@ -883,6 +1199,148 @@
         "https://github.com/resilience4j/resilience4j/blob/master/LICENSE.txt",
         "https://resilience4j.readme.io",
         "https://www.apache.org/licenses/LICENSE-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.grpc:grpc-api",
+      "version": "1.85.1",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "https://github.com/grpc/grpc-java",
+        "https://opensource.org/licenses/Apache-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.grpc:grpc-context",
+      "version": "1.85.1",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "https://github.com/grpc/grpc-java",
+        "https://opensource.org/licenses/Apache-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.grpc:grpc-core",
+      "version": "1.85.1",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "https://github.com/grpc/grpc-java",
+        "https://opensource.org/licenses/Apache-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.grpc:grpc-inprocess",
+      "version": "1.85.1",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "https://github.com/grpc/grpc-java",
+        "https://opensource.org/licenses/Apache-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.grpc:grpc-netty-shaded",
+      "version": "1.85.1",
+      "licenses": [
+        "Apache 2.0",
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/grpc/grpc-java",
+        "https://opensource.org/licenses/Apache-2.0",
+        "https://www.apache.org/licenses/LICENSE-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.grpc:grpc-protobuf",
+      "version": "1.85.1",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "https://github.com/grpc/grpc-java",
+        "https://opensource.org/licenses/Apache-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.grpc:grpc-protobuf-lite",
+      "version": "1.85.1",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "https://github.com/grpc/grpc-java",
+        "https://opensource.org/licenses/Apache-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.grpc:grpc-stub",
+      "version": "1.85.1",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "https://github.com/grpc/grpc-java",
+        "https://opensource.org/licenses/Apache-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.grpc:grpc-util",
+      "version": "1.85.1",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "https://github.com/grpc/grpc-java",
+        "https://opensource.org/licenses/Apache-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.grpc:protoc-gen-grpc-java",
+      "version": "1.85.1",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "https://github.com/grpc/grpc-java",
+        "https://opensource.org/licenses/Apache-2.0"
       ],
       "scopes": [
         "backend"
@@ -1043,7 +1501,7 @@
       ]
     },
     {
-      "name": "io.micrometer:micrometer-tracing-bridge-brave",
+      "name": "io.micrometer:micrometer-tracing-bridge-otel",
       "version": "1.5.12",
       "licenses": [
         "Apache License, Version 2.0",
@@ -1053,6 +1511,216 @@
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
         "https://github.com/micrometer-metrics/tracing",
         "https://www.apache.org/licenses/LICENSE-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry.semconv:opentelemetry-semconv",
+      "version": "1.32.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/semantic-conventions-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-api",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-context",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-exporter-common",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-exporter-otlp",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-exporter-otlp-common",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-exporter-sender-okhttp",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-extension-trace-propagators",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk-common",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk-logs",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk-metrics",
+      "version": "1.49.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/open-telemetry/opentelemetry-java"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.opentelemetry:opentelemetry-sdk-trace",
+      "version": "1.49.0",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://github.com/JCTools"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "io.perfmark:perfmark-api",
+      "version": "0.27.0",
+      "licenses": [
+        "Apache 2.0"
+      ],
+      "sources": [
+        "https://github.com/perfmark/perfmark",
+        "https://opensource.org/licenses/Apache-2.0"
       ],
       "scopes": [
         "backend"
@@ -1226,85 +1894,6 @@
       ]
     },
     {
-      "name": "io.zipkin.aws:brave-propagation-aws",
-      "version": "1.3.0",
-      "licenses": [
-        "Apache License, Version 2.0",
-        "The Apache Software License, Version 2.0"
-      ],
-      "sources": [
-        "https://www.apache.org/licenses/LICENSE-2.0",
-        "https://www.apache.org/licenses/LICENSE-2.0.txt"
-      ],
-      "scopes": [
-        "backend"
-      ]
-    },
-    {
-      "name": "io.zipkin.brave:brave",
-      "version": "6.1.0",
-      "licenses": [
-        "Apache License, Version 2.0",
-        "The Apache Software License, Version 2.0"
-      ],
-      "sources": [
-        "https://www.apache.org/licenses/LICENSE-2.0",
-        "https://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://zipkin.io/"
-      ],
-      "scopes": [
-        "backend"
-      ]
-    },
-    {
-      "name": "io.zipkin.brave:brave-context-slf4j",
-      "version": "6.1.0",
-      "licenses": [
-        "Apache License, Version 2.0",
-        "The Apache Software License, Version 2.0"
-      ],
-      "sources": [
-        "https://www.apache.org/licenses/LICENSE-2.0",
-        "https://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://zipkin.io/"
-      ],
-      "scopes": [
-        "backend"
-      ]
-    },
-    {
-      "name": "io.zipkin.brave:brave-instrumentation-http",
-      "version": "6.1.0",
-      "licenses": [
-        "Apache License, Version 2.0",
-        "The Apache Software License, Version 2.0"
-      ],
-      "sources": [
-        "https://www.apache.org/licenses/LICENSE-2.0",
-        "https://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://zipkin.io/"
-      ],
-      "scopes": [
-        "backend"
-      ]
-    },
-    {
-      "name": "io.zipkin.contrib.brave-propagation-w3c:brave-propagation-tracecontext",
-      "version": "0.2.0",
-      "licenses": [
-        "Apache License, Version 2.0",
-        "The Apache Software License, Version 2.0"
-      ],
-      "sources": [
-        "https://www.apache.org/licenses/LICENSE-2.0",
-        "https://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://zipkin.io/"
-      ],
-      "scopes": [
-        "backend"
-      ]
-    },
-    {
       "name": "jakarta.activation:jakarta.activation-api",
       "version": "2.1.4",
       "licenses": [
@@ -1445,6 +2034,37 @@
       ]
     },
     {
+      "name": "javax.annotation:javax.annotation-api",
+      "version": "1.3.2",
+      "licenses": [
+        "CDDL + GPLv2 with classpath exception",
+        "COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.0"
+      ],
+      "sources": [
+        "http://jcp.org/en/jsr/detail?id=250",
+        "https://github.com/javaee/javax.annotation/blob/master/LICENSE",
+        "https://javaee.github.io/glassfish",
+        "https://opensource.org/licenses/CDDL-1.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "kr.motd.maven:os-maven-plugin",
+      "version": "1.7.1",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0",
+        "https://github.com/trustin/os-maven-plugin/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "net.bytebuddy:byte-buddy",
       "version": "1.17.8",
       "licenses": [
@@ -1538,7 +2158,8 @@
       ],
       "sources": [
         "https://github.com/swiftzer/semver",
-        "https://opensource.org/licenses/mit-license.php"
+        "https://opensource.org/licenses/mit-license.php",
+        "https://repo.maven.apache.org/maven2/net/swiftzer/semver/semver/1.1.1/semver-1.1.1.pom"
       ],
       "scopes": [
         "build-logic"
@@ -1743,6 +2364,24 @@
       ],
       "sources": [
         "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.apache.kafka:kafka-clients",
+      "version": "3.9.2",
+      "licenses": [
+        "Apache License, Version 2.0",
+        "COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.0",
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://kafka.apache.org",
+        "https://opensource.org/licenses/CDDL-1.0",
+        "https://www.apache.org/licenses/LICENSE-2.0"
       ],
       "scopes": [
         "backend"
@@ -2000,6 +2639,21 @@
       "sources": [
         "https://checkerframework.org/",
         "https://opensource.org/licenses/MIT"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.codehaus.mojo:animal-sniffer-annotations",
+      "version": "1.27",
+      "licenses": [
+        "Apache-2.0",
+        "MIT license"
+      ],
+      "sources": [
+        "https://spdx.org/licenses/MIT.txt",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
       ],
       "scopes": [
         "backend"
@@ -2508,6 +3162,20 @@
     },
     {
       "name": "org.jetbrains.kotlin:kotlin-compiler-embeddable",
+      "version": "2.1.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://kotlinlang.org/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlin:kotlin-compiler-embeddable",
       "version": "2.1.21",
       "licenses": [
         "The Apache License, Version 2.0"
@@ -2590,6 +3258,20 @@
       ],
       "scopes": [
         "build-logic"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlin:kotlin-daemon-embeddable",
+      "version": "2.1.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://kotlinlang.org/"
+      ],
+      "scopes": [
+        "backend"
       ]
     },
     {
@@ -2926,7 +3608,8 @@
       ],
       "sources": [
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://kotlinlang.org/"
+        "https://kotlinlang.org/",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-project-model/1.9.24/kotlin-project-model-1.9.24.pom"
       ],
       "scopes": [
         "build-logic"
@@ -2943,6 +3626,7 @@
         "https://kotlinlang.org/"
       ],
       "scopes": [
+        "backend",
         "build-logic"
       ]
     },
@@ -2982,7 +3666,8 @@
       ],
       "sources": [
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://kotlinlang.org/"
+        "https://kotlinlang.org/",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-sam-with-receiver/1.9.24/kotlin-sam-with-receiver-1.9.24.pom"
       ],
       "scopes": [
         "build-logic"
@@ -3018,6 +3703,20 @@
     },
     {
       "name": "org.jetbrains.kotlin:kotlin-script-runtime",
+      "version": "2.1.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://kotlinlang.org/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlin:kotlin-script-runtime",
       "version": "2.1.21",
       "licenses": [
         "The Apache License, Version 2.0"
@@ -3158,7 +3857,35 @@
     },
     {
       "name": "org.jetbrains.kotlin:kotlin-stdlib",
+      "version": "2.1.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://kotlinlang.org/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlin:kotlin-stdlib",
       "version": "2.1.21",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://kotlinlang.org/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlin:kotlin-stdlib-common",
+      "version": "2.1.0",
       "licenses": [
         "The Apache License, Version 2.0"
       ],
@@ -3186,7 +3913,35 @@
     },
     {
       "name": "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
+      "version": "1.8.0",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://kotlinlang.org/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
       "version": "2.1.21",
+      "licenses": [
+        "The Apache License, Version 2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "https://kotlinlang.org/"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
+      "version": "1.8.0",
       "licenses": [
         "The Apache License, Version 2.0"
       ],
@@ -3248,7 +4003,8 @@
       ],
       "sources": [
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://kotlinlang.org/"
+        "https://kotlinlang.org/",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-tooling-core/1.9.24/kotlin-tooling-core-1.9.24.pom"
       ],
       "scopes": [
         "build-logic"
@@ -3276,7 +4032,8 @@
       ],
       "sources": [
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://kotlinlang.org/"
+        "https://kotlinlang.org/",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-util-io/1.9.24/kotlin-util-io-1.9.24.pom"
       ],
       "scopes": [
         "build-logic"
@@ -3304,7 +4061,8 @@
       ],
       "sources": [
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://kotlinlang.org/"
+        "https://kotlinlang.org/",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-util-klib/1.9.24/kotlin-util-klib-1.9.24.pom"
       ],
       "scopes": [
         "build-logic"
@@ -3354,6 +4112,21 @@
     },
     {
       "name": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
+      "version": "1.6.4",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/Kotlin/kotlinx.coroutines",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.pom",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
       "version": "1.8.0",
       "licenses": [
         "The Apache Software License, Version 2.0"
@@ -3363,6 +4136,7 @@
         "https://www.apache.org/licenses/LICENSE-2.0.txt"
       ],
       "scopes": [
+        "backend",
         "build-logic"
       ]
     },
@@ -3396,7 +4170,35 @@
     },
     {
       "name": "org.jetbrains.kotlinx:kotlinx-serialization-core",
+      "version": "1.4.1",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/Kotlin/kotlinx.serialization",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlinx:kotlinx-serialization-core",
       "version": "1.6.3",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/Kotlin/kotlinx.serialization",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm",
+      "version": "1.4.1",
       "licenses": [
         "The Apache Software License, Version 2.0"
       ],
@@ -3424,7 +4226,35 @@
     },
     {
       "name": "org.jetbrains.kotlinx:kotlinx-serialization-json",
+      "version": "1.4.1",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/Kotlin/kotlinx.serialization",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlinx:kotlinx-serialization-json",
       "version": "1.6.3",
+      "licenses": [
+        "The Apache Software License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/Kotlin/kotlinx.serialization",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm",
+      "version": "1.4.1",
       "licenses": [
         "The Apache Software License, Version 2.0"
       ],
@@ -3877,6 +4707,20 @@
       ]
     },
     {
+      "name": "org.slf4j:slf4j-api",
+      "version": "2.0.7",
+      "licenses": [
+        "MIT License"
+      ],
+      "sources": [
+        "http://www.opensource.org/licenses/mit-license.php",
+        "http://www.slf4j.org"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "org.springdoc:springdoc-openapi-starter-common",
       "version": "2.8.9",
       "licenses": [
@@ -4244,6 +5088,36 @@
       ]
     },
     {
+      "name": "org.springframework.kafka:spring-kafka",
+      "version": "3.3.16",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/spring-projects/spring-kafka",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.springframework.retry:spring-retry",
+      "version": "2.0.13",
+      "licenses": [
+        "Apache 2.0",
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/spring-projects/spring-retry",
+        "https://www.apache.org/licenses/LICENSE-2.0",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "org.springframework.security:spring-security-config",
       "version": "6.5.11",
       "licenses": [
@@ -4442,6 +5316,20 @@
       ]
     },
     {
+      "name": "org.springframework:spring-messaging",
+      "version": "6.2.19",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/spring-projects/spring-framework",
+        "https://www.apache.org/licenses/LICENSE-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "org.springframework:spring-orm",
       "version": "6.2.19",
       "licenses": [
@@ -4547,6 +5435,22 @@
       "sources": [
         "https://github.com/webjars/webjars-locator-lite/blob/main/LICENSE.md",
         "https://webjars.org"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.xerial.snappy:snappy-java",
+      "version": "1.1.10.5",
+      "licenses": [
+        "Apache-2.0"
+      ],
+      "sources": [
+        "http://www.apache.org/licenses/LICENSE-2.0.txt",
+        "http://www.xerial.org/",
+        "https://github.com/xerial/snappy-java",
+        "https://www.apache.org/licenses/LICENSE-2.0.html"
       ],
       "scopes": [
         "backend"
@@ -10575,22 +11479,22 @@
       "source": "https://www.postgresql.org/about/licence/"
     },
     {
-      "image": "nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94",
+      "image": "nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3",
       "component": "nginx",
       "license": "BSD-2-Clause",
       "source": "https://github.com/nginx/nginx/blob/master/LICENSE"
     },
     {
-      "image": "nginxinc/nginx-unprivileged:1.30-alpine",
+      "image": "nginx/nginx-unprivileged:1.30.7-alpine@sha256:0c53a1f2890c3526bfd201440f0fd3970e5b78f80630f58284aad0d34b5ec7bd",
       "component": "nginx / непривилегированный образ",
       "license": "BSD-2-Clause / Apache-2.0 (рецепт образа)",
       "source": "https://github.com/nginx/docker-nginx-unprivileged/blob/main/LICENSE"
     },
     {
-      "image": "swaggerapi/swagger-ui:v5.34.0@sha256:58c1fbf5f5cf6d2ae857e4d1296cb02192fa5de472c1cd76f58b2be99523e1d0",
-      "component": "Swagger UI",
+      "image": "swaggerapi/swagger-ui:v5.35.0@sha256:3e7305b17cb806a2925ed16145eae469a6084ab50d82fcec7ede600bba91650b",
+      "component": "Swagger UI / основа cabinet/swagger-ui:v5.35.0-brotli",
       "license": "Apache-2.0",
-      "source": "https://github.com/swagger-api/swagger-ui/blob/v5.34.0/LICENSE"
+      "source": "https://github.com/swagger-api/swagger-ui/blob/v5.35.0/LICENSE"
     },
     {
       "image": "ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8",
@@ -10635,13 +11539,31 @@
       "source": "https://github.com/prometheus/prometheus/blob/v3.15.1/LICENSE"
     },
     {
-      "image": "grafana/grafana:13.2.4",
+      "image": "grafana/grafana:13.2.5@sha256:9f7aa1e1e3246aade5792d35a738049f7f32f89cd51d1956cf426a4e86268a84",
       "component": "Grafana OSS",
       "license": "AGPL-3.0",
       "source": "https://github.com/grafana/grafana/blob/v13.2.4/LICENSE"
     },
     {
-      "image": "caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd",
+      "image": "grafana/tempo:2.9.0@sha256:65a5789759435f1ef696f1953258b9bbdb18eb571d5ce711ff812d2e128288a4",
+      "component": "Grafana Tempo",
+      "license": "AGPL-3.0-only",
+      "source": "https://github.com/grafana/tempo/blob/v2.9.0/LICENSE"
+    },
+    {
+      "image": "grafana/loki:3.6.7@sha256:3c8fd3570dd9219951a60d3f919c7f31923d10baee578b77bc26c4a0b32d092d",
+      "component": "Grafana Loki",
+      "license": "AGPL-3.0-only",
+      "source": "https://github.com/grafana/loki/blob/v3.6.7/LICENSE"
+    },
+    {
+      "image": "grafana/alloy:v1.13.2@sha256:8abcd0d97a97099cabb34be8dcfc448fca6c35931ae9291aaf74056105dedcca",
+      "component": "Grafana Alloy",
+      "license": "Apache-2.0",
+      "source": "https://github.com/grafana/alloy/blob/v1.13.2/LICENSE"
+    },
+    {
+      "image": "caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9",
       "component": "Caddy",
       "license": "Apache-2.0",
       "source": "https://github.com/caddyserver/caddy/blob/v2.11.7/LICENSE"
@@ -10653,13 +11575,13 @@
       "source": "https://github.com/axllent/mailpit/blob/v1.31.6/LICENSE"
     },
     {
-      "image": "chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
+      "image": "chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9",
       "component": "SeaweedFS, отдельное приватное хранилище S3",
       "license": "Apache-2.0",
       "source": "https://github.com/seaweedfs/seaweedfs/blob/4.48/LICENSE"
     },
     {
-      "image": "clamav/clamav:1.5.4@sha256:e19130cdebaeacc71fa46eab3ed6f69941f2f22aa5e08d55e9197f8edf43ce5e",
+      "image": "clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614",
       "component": "ClamAV, отдельный антивирусный контейнер; взаимодействие по TCP INSTREAM без связывания с кодом приложения",
       "license": "GPL-2.0",
       "source": "https://github.com/Cisco-Talos/clamav/blob/clamav-1.5.4/COPYING"
@@ -10672,6 +11594,13 @@
     }
   ],
   "assets": [
+    {
+      "name": "Apache Kafka (дистрибутив для CI Assessment)",
+      "version": "4.3.2 (Scala 2.13)",
+      "license": "Apache-2.0",
+      "source": "https://github.com/apache/kafka/blob/4.3.2/LICENSE",
+      "note": "Локальный брокер обязательного интеграционного теста. SHA-512 архива закреплён в e2e/alpha-assessment/kafka-ci.sha512. Лицензии встроенных зависимостей перечислены в LICENSE и NOTICE дистрибутива."
+    },
     {
       "name": "Inter",
       "version": "@fontsource/inter 5.3.0 (точная версия — npm lock)",

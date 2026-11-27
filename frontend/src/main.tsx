@@ -11,11 +11,15 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import App from './App';
 import { DocumentCanvas } from './components/DocumentSurface';
 import { AuthProvider } from './auth/AuthProvider';
+import { demoAccess } from './auth/demoAccess';
 import { cabinetTheme } from './theme/theme';
 
 // A data router provides navigation blocking, including browser Back, for version editors.
 // The existing route tree and authentication remain in App.
-const router = createBrowserRouter([{ path: '*', element: <AuthProvider><App /></AuthProvider> }]);
+const router = createBrowserRouter(
+  [{ path: '*', element: <AuthProvider><App /></AuthProvider> }],
+  { basename: demoAccess.basename || '/' }
+);
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

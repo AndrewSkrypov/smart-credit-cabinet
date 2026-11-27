@@ -1,0 +1,151 @@
+{{- if and .Values.app.enabled .Values.publicDemo.enabled }}
+{{- if or (ne .Release.Namespace "cabinet-prod") (ne .Values.app.publicURL "https://credit-cabinet.ru") }}
+{{- fail "the public demo proxy can only be enabled for the canonical production site" }}
+{{- end }}
+{{- $address := required "publicDemo.upstreamIPv4 is required" .Values.publicDemo.upstreamIPv4 }}
+{{- if not (regexMatch "^([0-9]{1,3}\\.){3}[0-9]{1,3}$" $address) }}
+{{- fail "publicDemo.upstreamIPv4 must be one verified IPv4 address" }}
+{{- end }}
+{{- $name := "demo-proxy" }}
+{{- $config := printf `
+server {
+    listen 8080;
+    server_tokens off;
+    client_max_body_size 20m;
+    proxy_http_version 1.1;
+    proxy_set_header Host demo.dev.credit-cabinet.ru;
+    proxy_set_header Origin "";
+    proxy_set_header Referer "";
+    proxy_set_header Cookie "";
+    proxy_set_header Forwarded "";
+    proxy_set_header X-Forwarded-For "";
+    proxy_set_header X-Forwarded-Host "";
+    proxy_set_header X-Forwarded-Proto "";
+    proxy_set_header X-Forwarded-Port "";
+    proxy_set_header X-Real-IP "";
+    proxy_hide_header Set-Cookie;
+    proxy_hide_header Location;
+    proxy_hide_header Access-Control-Allow-Origin;
+    proxy_hide_header Cache-Control;
+    add_header Cache-Control "no-store" always;
+    proxy_ssl_server_name on;
+    proxy_ssl_name demo.dev.credit-cabinet.ru;
+    proxy_ssl_verify on;
+    proxy_ssl_verify_depth 3;
+    proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+    proxy_connect_timeout 3s;
+    proxy_read_timeout 120s;
+    proxy_buffering off;
+    proxy_next_upstream off;
+
+    location = /healthz { access_log off; return 200; }
+
+    location = /demo/__ready {
+        if ($request_method != GET) { return 405; }
+        proxy_pass_request_headers off;
+        proxy_pass https://%s/api/v1/auth/options;
+    }
+
+    location ^~ /demo/api/v1/ {
+        proxy_pass https://%s/api/v1/;
+    }
+
+    location / { return 404; }
+}
+` $address $address }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cabinet-demo-proxy
+data:
+  default.conf: |
+    {{- $config | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cabinet-demo-proxy
+spec:
+  selector:
+    {{- include "cabinet.selector" (list . $name) | nindent 4 }}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cabinet-demo-proxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list . $name) | nindent 8 }}
+      annotations:
+        checksum/config: {{ $config | sha256sum | quote }}
+    spec:
+      automountServiceAccountToken: false
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list . $name) | nindent 14 }}
+      containers:
+        - name: nginx
+          image: {{ include "cabinet.image" (list . "gateway") | quote }}
+          ports:
+            - {name: http, containerPort: 8080}
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 96Mi}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+          securityContext:
+            allowPrivilegeEscalation: false
+            seccompProfile: {type: RuntimeDefault}
+          volumeMounts:
+            - {name: config, mountPath: /etc/nginx/conf.d, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: cabinet-demo-proxy}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cabinet-demo-proxy
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . $name) | nindent 6 }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-demo-proxy
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . $name) | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list . "gateway") | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: 8080}
+  egress:
+    - to:
+        - ipBlock:
+            cidr: {{ printf "%s/32" $address | quote }}
+      ports:
+        - {protocol: TCP, port: 443}
+{{- end }}

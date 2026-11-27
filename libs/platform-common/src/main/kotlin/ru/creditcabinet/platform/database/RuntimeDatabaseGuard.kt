@@ -14,7 +14,7 @@ class RuntimeDatabaseGuard(private val sources: ObjectProvider<DataSource>, priv
         val source = sources.ifAvailable ?: return
         if ("prod" !in environment.activeProfiles && environment.getProperty("cabinet.database.guard-enabled") != "true") return
         val database = environment.getRequiredProperty("spring.application.name")
-        require(database in setOf("identity", "credit", "engagement"))
+        require(database in setOf("identity", "credit", "engagement", "analytics", "servicing"))
         require(environment.getProperty("spring.flyway.enabled") == "false") { "Runtime Flyway must be disabled; use the migration process" }
         val sql = JdbcTemplate(source)
         val safe = sql.queryForObject(

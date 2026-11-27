@@ -2,11 +2,14 @@ package ru.creditcabinet.application
 
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
+import ru.creditcabinet.application.domain.ApplicationConflictException
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationEvent.ACCEPT_OFFER
+import ru.creditcabinet.application.domain.ApplicationEvent.AGENT_CANCEL
 import ru.creditcabinet.application.domain.ApplicationEvent.APPROVE
 import ru.creditcabinet.application.domain.ApplicationEvent.AUTO_OFFER
 import ru.creditcabinet.application.domain.ApplicationEvent.AUTO_REJECT
+import ru.creditcabinet.application.domain.ApplicationEvent.CONFIRM_AND_SUBMIT
 import ru.creditcabinet.application.domain.ApplicationEvent.COUNTER_OFFER
 import ru.creditcabinet.application.domain.ApplicationEvent.DATA_COMPLETE
 import ru.creditcabinet.application.domain.ApplicationEvent.DATA_INCOMPLETE
@@ -18,7 +21,9 @@ import ru.creditcabinet.application.domain.ApplicationEvent.INFO_EXPIRED
 import ru.creditcabinet.application.domain.ApplicationEvent.INFO_PROVIDED
 import ru.creditcabinet.application.domain.ApplicationEvent.OFFER_EXPIRED
 import ru.creditcabinet.application.domain.ApplicationEvent.REJECT
+import ru.creditcabinet.application.domain.ApplicationEvent.REQUEST_CLIENT_CONFIRMATION
 import ru.creditcabinet.application.domain.ApplicationEvent.REQUEST_INFO
+import ru.creditcabinet.application.domain.ApplicationEvent.RETURN_TO_AGENT
 import ru.creditcabinet.application.domain.ApplicationEvent.SIGN
 import ru.creditcabinet.application.domain.ApplicationEvent.SOURCE_FAILED
 import ru.creditcabinet.application.domain.ApplicationEvent.SOURCE_TIMED_OUT
@@ -34,6 +39,7 @@ import ru.creditcabinet.application.domain.ApplicationStatus.ENRICHMENT
 import ru.creditcabinet.application.domain.ApplicationStatus.INFO_REQUESTED
 import ru.creditcabinet.application.domain.ApplicationStatus.MANUAL_REVIEW
 import ru.creditcabinet.application.domain.ApplicationStatus.OFFER_ISSUED
+import ru.creditcabinet.application.domain.ApplicationStatus.PENDING_CLIENT_CONFIRMATION
 import ru.creditcabinet.application.domain.ApplicationStatus.REJECTED
 import ru.creditcabinet.application.domain.ApplicationStatus.SCORING
 import ru.creditcabinet.application.domain.ApplicationStatus.SIGNING
@@ -44,7 +50,6 @@ import ru.creditcabinet.application.domain.CloseReason
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.product.domain.FinancingPurpose
 import java.time.Instant
 import java.util.UUID
@@ -55,7 +60,7 @@ import kotlin.test.assertTrue
 import ru.creditcabinet.application.domain.ApplicationStatus.DISBURSED as DISBURSED_STATUS
 
 class ApplicationStateMachineTest {
-    /** T1–T21 of docs/state-machine.md, row by row. A change of either side must change the other. */
+    /** T1–T25 of docs/state-machine.md, row by row. A change of either side must change the other. */
     private val documented = setOf(
         Triple(DRAFT, SUBMIT, SUBMITTED), // T2
         Triple(SUBMITTED, DATA_COMPLETE, ENRICHMENT), // T3
@@ -78,7 +83,22 @@ class ApplicationStateMachineTest {
         Triple(SIGNING, SIGN, DISBURSING), // T18
         Triple(DISBURSING, DISBURSEMENT_FAILED, DISBURSING), // T19
         Triple(DISBURSING, DISBURSED, DISBURSED_STATUS), // T20
-    ) + setOf(DRAFT, SUBMITTED, INFO_REQUESTED, ENRICHMENT, MANUAL_REVIEW, OFFER_ISSUED, SIGNING).map { Triple(it, WITHDRAW, WITHDRAWN) } // T21
+        Triple(DRAFT, REQUEST_CLIENT_CONFIRMATION, PENDING_CLIENT_CONFIRMATION), // T22
+        Triple(DRAFT, CONFIRM_AND_SUBMIT, SUBMITTED), // Returned application after mandate revocation
+        Triple(PENDING_CLIENT_CONFIRMATION, CONFIRM_AND_SUBMIT, SUBMITTED), // T23
+        Triple(PENDING_CLIENT_CONFIRMATION, RETURN_TO_AGENT, DRAFT), // T24
+        Triple(DRAFT, AGENT_CANCEL, WITHDRAWN), // T25
+        Triple(PENDING_CLIENT_CONFIRMATION, AGENT_CANCEL, WITHDRAWN), // T25
+    ) + setOf(
+        DRAFT,
+        PENDING_CLIENT_CONFIRMATION,
+        SUBMITTED,
+        INFO_REQUESTED,
+        ENRICHMENT,
+        MANUAL_REVIEW,
+        OFFER_ISSUED,
+        SIGNING,
+    ).map { Triple(it, WITHDRAW, WITHDRAWN) } // T21
 
     private val now = Instant.parse("2026-10-21T10:00:00Z")
     private val client = Actor(ActorType.CLIENT, UUID.randomUUID())
@@ -105,16 +125,16 @@ class ApplicationStateMachineTest {
             for (event in ApplicationEvent.entries) {
                 if (documented.any { it.first == status && it.second == event }) continue
                 val before = application(status)
-                assertFailsWith<ConflictException>("$status + $event") { before.move(event, actorFor(event), now) }
+                assertFailsWith<ApplicationConflictException>("$status + $event") { before.move(event, actorFor(event), now) }
             }
         }
     }
 
     @Test
     fun `an event caused by the wrong actor is refused even where the transition exists`() {
-        assertFailsWith<ConflictException> { application(SUBMITTED).move(DATA_COMPLETE, client, now) }
-        assertFailsWith<ConflictException> { application(MANUAL_REVIEW).move(APPROVE, Actor(ActorType.MANAGER, UUID.randomUUID()), now) }
-        assertFailsWith<ConflictException> { application(DRAFT).move(SUBMIT, Actor.SYSTEM, now) }
+        assertFailsWith<ApplicationConflictException> { application(SUBMITTED).move(DATA_COMPLETE, client, now) }
+        assertFailsWith<ApplicationConflictException> { application(MANUAL_REVIEW).move(APPROVE, Actor(ActorType.MANAGER, UUID.randomUUID()), now) }
+        assertFailsWith<ApplicationConflictException> { application(DRAFT).move(SUBMIT, Actor.SYSTEM, now) }
     }
 
     @Test
@@ -140,7 +160,7 @@ class ApplicationStateMachineTest {
 
     @Test
     fun `a running system step cannot be withdrawn, a finished application cannot change at all`() {
-        assertTrue(assertFailsWith<ConflictException> { application(SCORING).move(WITHDRAW, client, now) }.message!!.contains("автоматический шаг"))
+        assertTrue(assertFailsWith<ApplicationConflictException> { application(SCORING).move(WITHDRAW, client, now) }.message.contains("автоматический шаг"))
         for (terminal in ApplicationStatus.entries.filter { it.terminal }) {
             assertTrue(ApplicationStateMachine.eventsFrom(terminal, ActorType.CLIENT).isEmpty(), "$terminal")
             assertTrue(ApplicationStateMachine.eventsFrom(terminal, ActorType.SYSTEM).isEmpty(), "$terminal")
@@ -149,7 +169,11 @@ class ApplicationStateMachineTest {
 
     @Test
     fun `the buttons of each role follow the table`() {
-        assertEquals(listOf(SUBMIT, WITHDRAW), ApplicationStateMachine.eventsFrom(DRAFT, ActorType.CLIENT))
+        assertEquals(listOf(SUBMIT, CONFIRM_AND_SUBMIT, WITHDRAW), ApplicationStateMachine.eventsFrom(DRAFT, ActorType.CLIENT))
+        assertEquals(listOf(REQUEST_CLIENT_CONFIRMATION, AGENT_CANCEL), ApplicationStateMachine.eventsFrom(DRAFT, ActorType.AGENT))
+        assertEquals(listOf(CONFIRM_AND_SUBMIT, RETURN_TO_AGENT, WITHDRAW), ApplicationStateMachine.eventsFrom(PENDING_CLIENT_CONFIRMATION, ActorType.CLIENT))
+        assertEquals(listOf(AGENT_CANCEL), ApplicationStateMachine.eventsFrom(PENDING_CLIENT_CONFIRMATION, ActorType.AGENT))
+        assertEquals(listOf(INFO_PROVIDED), ApplicationStateMachine.eventsFrom(INFO_REQUESTED, ActorType.AGENT))
         assertEquals(listOf(APPROVE, COUNTER_OFFER, REQUEST_INFO, REJECT), ApplicationStateMachine.eventsFrom(MANUAL_REVIEW, ActorType.UNDERWRITER))
         assertEquals(listOf(REQUEST_INFO), ApplicationStateMachine.eventsFrom(MANUAL_REVIEW, ActorType.MANAGER))
         assertEquals(listOf(ACCEPT_OFFER, DECLINE_OFFER, WITHDRAW), ApplicationStateMachine.eventsFrom(OFFER_ISSUED, ActorType.CLIENT))

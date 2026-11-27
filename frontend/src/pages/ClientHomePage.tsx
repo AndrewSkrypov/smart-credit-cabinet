@@ -1,8 +1,10 @@
-import { Alert, Box, Button, Card, CardActionArea, Chip, Grid, IconButton, Paper, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardActionArea, CardContent, Chip, Grid, IconButton, Paper, Stack, Typography } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import { useCallback, useState } from 'react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
-import { companyApi } from '../api/client';
+import { companyApi, preApprovedApi } from '../api/client';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
 import { LoadingBlock } from '../components/LoadingBlock';
@@ -12,7 +14,7 @@ import { ApplicationListRegion, ApplicationPageFilters, ApplicationPageNavigatio
 import { useApplicationPage, useApplicationPageParams } from '../hooks/useApplicationPage';
 import { useApi } from '../hooks/useApi';
 import { statusTitle, statusTone } from '../shared/applicationText';
-import { formatDateTime, months, rub } from '../shared/format';
+import { formatDate, formatDateTime, months, percent, rub } from '../shared/format';
 import { legalFormLabels } from '../shared/labels';
 import { tokens } from '../theme/theme';
 import { ApplicationSummary } from '../types';
@@ -20,14 +22,23 @@ import { ApplicationSummary } from '../types';
 function ApplicationRow({ item, onOpen }: { item: ApplicationSummary; onOpen: () => void }) {
   const location = useLocation();
   const tone = statusTone(item.status);
+  const needsConfirmation = item.status === 'PENDING_CLIENT_CONFIRMATION';
   return (
-    <Card>
+    <Card sx={needsConfirmation ? { border: 1, borderColor: 'warning.main' } : undefined}>
       <CardActionArea component={RouterLink} onClick={onOpen} to={`/client/applications/${item.id}`} state={{ listUrl: location.pathname + location.search }} sx={{ p: { xs: 2, md: 3 } }}>
         <Stack direction="row" spacing={2} alignItems="center">
           <Box sx={{ flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
-            <Typography variant="body2" color="text.secondary">№ {item.number} · обновлена {formatDateTime(item.statusChangedAt)}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              № {item.number} · обновлена {formatDateTime(item.statusChangedAt)}
+              {item.agentName ? ` · агент ${item.agentName}` : ''}
+            </Typography>
             <Typography fontWeight={700} sx={{ mt: 0.5 }}>{item.productName}</Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 2 }} alignItems={{ sm: 'center' }} sx={{ mt: 1 }}>
+            {needsConfirmation && (
+              <Typography variant="body2" color="warning.dark" fontWeight={600} sx={{ mt: 0.5 }}>
+                Агент подготовил заявку — проверьте и подтвердите
+              </Typography>
+            )}
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 2 }} alignItems={{ sm: 'center' }} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
               <Typography variant="subtitle1" component="p" fontWeight={700}>{rub(item.amount)} <Typography component="span" color="text.secondary">· {months(item.termMonths)}</Typography></Typography>
               <Chip label={statusTitle(item.status)} color={tone === 'default' ? 'default' : tone} sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }} />
               {(item.unreadChatCount ?? 0) > 0 && <Chip size="small" color="info" label={`Сообщений: ${item.unreadChatCount}`} />}
@@ -43,6 +54,10 @@ function ApplicationRow({ item, onOpen }: { item: ApplicationSummary; onOpen: ()
 export function ClientHomePage() {
   const navigate = useNavigate();
   const company = useApi(companyApi.mine);
+  const loadOffers = useCallback(async () => (preApprovedApi?.list ? preApprovedApi.list() : []), []);
+  const preApproved = useApi(loadOffers);
+  const [applyingOfferId, setApplyingOfferId] = useState<string | null>(null);
+  const [offerError, setOfferError] = useState<string | null>(null);
   const location = useLocation();
   const pageParams = useApplicationPageParams();
   const finished = useApplicationPage('done', 10, ['done'], [10], 5000, { params: pageParams, fixedGroup: 'done', pageParam: 'donePage', scrollTarget: 'client-done', restoreScroll: false });
@@ -52,14 +67,27 @@ export function ClientHomePage() {
   const page = applications.data ?? applications.previousData;
   const waitingForClient = page?.actionRequiredPreview ?? [];
   const counts = applications.counts ?? finished.counts;
+  const activeOffers = (preApproved.data ?? []).filter((offer) => offer.status === 'ACTIVE');
   const rememberPosition = () => { applications.rememberPosition(); finished.rememberPosition(); };
+
+  const applyOffer = async (offerId: string) => {
+    setApplyingOfferId(offerId);
+    setOfferError(null);
+    try {
+      const created = await preApprovedApi.apply(offerId);
+      navigate(`/client/applications/${created.id}`);
+    } catch (nextError) {
+      setOfferError(nextError instanceof Error ? nextError.message : 'Не удалось оформить предодобренное предложение');
+      setApplyingOfferId(null);
+    }
+  };
 
   return (
     <>
       <PageHeader
         title={company.data.name ?? `ИНН ${company.data.inn}`}
         subtitle={`${legalFormLabels[company.data.legalForm]} · ИНН ${company.data.inn}`}
-        actions={<Button component={RouterLink} to="/client/new" variant="contained" size="large" startIcon={<AddRoundedIcon />}>Подобрать финансирование</Button>}
+        actions={<Button data-tour="client-new-btn" component={RouterLink} to="/client/new" variant={waitingForClient.length ? 'outlined' : 'contained'} size="large" startIcon={<AddRoundedIcon />}>Подобрать финансирование</Button>}
       />
       {company.error && (
         <Alert severity="warning" sx={{ mb: 3 }} action={<Button onClick={() => {
@@ -77,8 +105,8 @@ export function ClientHomePage() {
                 <Typography variant="h6" component="h2">Нужно ваше действие · {page?.actionRequiredCount}</Typography>
                 <Stack spacing={0.5} sx={{ mt: 1 }}>
                   {waitingForClient.map((item) => (
-                    <Typography key={item.id} component={RouterLink} onClick={rememberPosition} to={`/client/applications/${item.id}`} state={{ listUrl: location.pathname + location.search }} sx={{ color: 'inherit' }}>
-                      № {item.number} — {statusTitle(item.status).toLowerCase()}
+                    <Typography key={item.id} component={RouterLink} onClick={rememberPosition} to={`/client/applications/${item.id}`} state={{ listUrl: location.pathname + location.search }} sx={{ color: 'text.primary', py: 0.5, fontWeight: 600 }}>
+                      № {item.number} — {item.status === 'PENDING_CLIENT_CONFIRMATION' ? 'агент подготовил заявку — проверьте и подтвердите' : statusTitle(item.status).toLowerCase()}
                     </Typography>
                   ))}
                 </Stack>
@@ -86,7 +114,42 @@ export function ClientHomePage() {
               </Paper>
             )}
 
-            <Box>
+            {activeOffers.length > 0 && (
+              <Box data-tour="client-preapproved">
+                <Typography variant="h6" component="h2" sx={{ mb: 1.5 }}>Персональные предодобренные предложения</Typography>
+                {offerError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setOfferError(null)}>{offerError}</Alert>}
+                <Grid container spacing={2}>
+                  {activeOffers.map((offer) => (
+                    <Grid item xs={12} sm={6} key={offer.id}>
+                      <Card variant="outlined" sx={{ height: '100%', borderColor: 'success.main' }}>
+                        <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%' }}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+                            <Typography variant="subtitle1" fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>{offer.productName}</Typography>
+                            <Chip size="small" color="success" icon={<AutoAwesomeRoundedIcon />} label={percent(offer.rate)} />
+                          </Stack>
+                          <Typography variant="h5" fontWeight={700}>до {rub(offer.maxAmount)}</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Срок от {months(offer.minTermMonths)} до {months(offer.maxTermMonths)} · до {formatDate(offer.validUntil)}
+                          </Typography>
+                          <Box sx={{ mt: 'auto', pt: 1 }}>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              disabled={applyingOfferId === offer.id}
+                              onClick={() => void applyOffer(offer.id)}
+                            >
+                              {applyingOfferId === offer.id ? 'Создаём…' : 'Оформить'}
+                            </Button>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
+            )}
+
+            <Box data-tour="client-applications">
               <ApplicationPageFilters state={applications} status={false} />
               <ApplicationPageStatus states={[applications, finished]} />
               <Stack spacing={3}>

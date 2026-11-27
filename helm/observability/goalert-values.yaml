@@ -1,0 +1,6 @@
+goalert:
+  enabled: true
+  # Used when generating links for operators accessing the service via port-forward.
+  publicURL: http://localhost:8081
+  # Keys: db-url and data-encryption-key. Provision the DB before enabling.
+  existingSecret: cabinet-goalert

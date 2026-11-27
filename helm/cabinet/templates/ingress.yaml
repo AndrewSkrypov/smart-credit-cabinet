@@ -1,0 +1,71 @@
+{{- if and .Values.app.enabled .Values.ingress.enabled }}
+{{- if ne .Values.gateway.service.type "ClusterIP" }}
+{{- fail "Ingress requires gateway.service.type=ClusterIP; the externally managed ingress controller owns NodePorts" }}
+{{- end }}
+{{- $hostname := required "ingress.host must match the public DNS record" .Values.ingress.host }}
+{{- $hosts := concat (list $hostname) .Values.ingress.aliases }}
+{{- if ne (len $hosts) (len (uniq $hosts)) }}
+{{- fail "ingress aliases must be distinct from the primary hostname" }}
+{{- end }}
+{{- range $hosts }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9.-]*[a-z0-9]$" .) }}
+{{- fail "ingress hosts must be validated lowercase DNS names" }}
+{{- end }}
+{{- end }}
+{{- if ne .Values.app.publicURL (printf "https://%s" $hostname) }}
+{{- fail "app.publicURL must match the configured ingress host" }}
+{{- end }}
+{{- if not .Values.gateway.trustedProxyCIDRs }}
+{{- fail "gateway.trustedProxyCIDRs must identify the actual ingress controller peers" }}
+{{- end }}
+{{- if or (not .Values.ingress.sourceNamespaces) (not .Values.ingress.sourcePodLabels) }}
+{{- fail "ingress.sourceNamespaces and ingress.sourcePodLabels must identify the actual ingress controller pods" }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cabinet
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ required "ingress.className is required for the existing ingress controller" .Values.ingress.className | quote }}
+  tls:
+    - hosts:
+        {{- toYaml $hosts | nindent 8 }}
+      secretName: {{ required "ingress.tlsSecret must identify the Edge-managed certificate" .Values.ingress.tlsSecret | quote }}
+  rules:
+    {{- range $hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port: {name: http}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-gateway-ingress
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . "gateway") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports: [{protocol: TCP, port: 80}]
+      from:
+        {{- range .Values.ingress.sourceNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . | quote }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $.Values.ingress.sourcePodLabels | nindent 14 }}
+        {{- end }}
+{{- end }}

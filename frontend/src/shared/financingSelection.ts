@@ -32,7 +32,7 @@ export function roleDestination(role: Role, search: string, home: string): strin
   if (!requested || !requested.startsWith('/')) return home;
   try {
     const url = new URL(requested, 'https://cabinet.invalid');
-    const area = role === 'CLIENT' ? '/client' : '/bank';
+    const area = role === 'CLIENT' ? '/client' : role === 'AGENT' ? '/agent' : '/bank';
     const ownArea = url.pathname === area || url.pathname.startsWith(`${area}/`);
     return url.origin === 'https://cabinet.invalid' && ownArea ? `${url.pathname}${url.search}${url.hash}` : home;
   } catch { return home; }

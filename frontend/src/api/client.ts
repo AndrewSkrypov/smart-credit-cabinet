@@ -1,10 +1,15 @@
 import axios from 'axios';
+import { cabinetPathname, demoAccess } from '../auth/demoAccess';
 import { clearSession, readSession } from '../auth/session';
 import {
+  AgentClientSummary,
+  AgentCreateApplicationInput,
+  AgentPortfolioSummary,
   Analytics,
   Application,
   ApplicationDocument,
   ApplicationInput,
+  ApplicationStatus,
   ApplicationSummary,
   AssessmentView,
   AssistantAnswer,
@@ -14,9 +19,13 @@ import {
   DocumentType,
   FinancingPurpose,
   JournalEntry,
+  LoanAccount,
   NotificationPage,
   NotificationSettings,
+  PreApprovedApplicationView,
+  PreApprovedOffer,
   Product,
+  ProductCreateInput,
   ProductMatch,
   ProductRevision,
   Purpose,
@@ -30,7 +39,13 @@ import {
 import { ChatAudit, ChatFile, ChatMessage, ChatPage, ChatRead } from '../types';
 import { CompanyInvitation, Employees, InvitationPreview } from '../types';
 
-const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+const baseURL = demoAccess.basename ? `${demoAccess.basename}/api/v1` : (import.meta.env.VITE_API_BASE_URL ?? '/api/v1');
 
 export const api = axios.create({
   baseURL,
@@ -52,10 +67,14 @@ api.interceptors.response.use(
     // sign-in page instead of showing the same error on every page.
     const sentToken = error?.config?.headers?.Authorization;
     const currentToken = readSession()?.token;
-    if (error?.response?.status === 401 && currentToken && sentToken === `Bearer ${currentToken}` && !window.location.pathname.startsWith('/sign-in')) {
-      clearSession();
-      window.location.assign(`/sign-in?expired=1&next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
-      return new Promise(() => undefined);
+    if (error?.response?.status === 401 && currentToken && sentToken === `Bearer ${currentToken}`) {
+      const { pathname, search } = window.location;
+      const route = cabinetPathname(pathname);
+      if (!route.startsWith('/sign-in')) {
+        clearSession();
+        window.location.assign(`${demoAccess.basename}/sign-in?expired=1&next=${encodeURIComponent(route + search)}`);
+        return new Promise(() => undefined);
+      }
     }
     let responseData = error?.response?.data;
     if (responseData instanceof Blob && responseData.type.includes('json')) {
@@ -63,7 +82,7 @@ api.interceptors.response.use(
     }
     const backendMessage = responseData?.message;
     if (typeof backendMessage === 'string' && backendMessage.trim()) {
-      return Promise.reject(new Error(backendMessage));
+      return Promise.reject(new ApiError(backendMessage, error.response.status));
     }
     if (error?.response?.status === 401) {
       return Promise.reject(new Error('Сессия истекла — войдите заново'));
@@ -146,8 +165,24 @@ export const productsApi = {
 
 export const productEditorApi = {
   list: () => get<Product[]>('/bank/products'),
+  create: (input: ProductCreateInput) => post<ProductRevision>('/bank/products', input),
   history: (code: string) => get<ProductRevision[]>(`/bank/products/${code}`),
-  save: (product: Product, reason: string) => put<ProductRevision>(`/bank/products/${product.code}`, { ...product, expectedVersion: product.version, reason })
+  save: (product: Product, reason: string) => put<ProductRevision>(`/bank/products/${product.code}`, { ...product, expectedVersion: product.version, reason }),
+  publish: (code: string, expectedVersion: number, reason: string) =>
+    post<ProductRevision>(`/bank/products/${code}/publish`, { expectedVersion, reason }),
+  archive: (code: string, expectedVersion: number, reason: string) =>
+    post<ProductRevision>(`/bank/products/${code}/archive`, { expectedVersion, reason }),
+  restore: (code: string, expectedVersion: number, reason: string) =>
+    post<ProductRevision>(`/bank/products/${code}/restore`, { expectedVersion, reason })
+};
+
+export const loanServicingApi = {
+  getByApplication: (applicationId: string) => get<LoanAccount>(`/applications/${applicationId}/loan`),
+  drawTranche: async (loanId: string, amount: number, purpose: string | undefined, key: string) =>
+    (await api.post<LoanAccount>(`/loans/${loanId}/tranches`, { amount, purpose }, { headers: { 'Idempotency-Key': key } })).data,
+  payNext: async (loanId: string, paymentId: string, key: string) =>
+    (await api.post<LoanAccount>(`/loans/${loanId}/payments/next`, { paymentId }, { headers: { 'Idempotency-Key': key } })).data,
+  repayEarly: (loanId: string) => post<LoanAccount>(`/loans/${loanId}/repay-early`)
 };
 
 export const chatApi = {
@@ -173,12 +208,16 @@ export const applicationsApi = {
   /** The key makes a repeated click or a retry after a timeout return the first result. */
   submit: async (id: string, idempotencyKey: string, acceptedProductVersion?: number) =>
     (await api.post<Application>(`/applications/${id}/submit`, { acceptedProductVersion }, { headers: { 'Idempotency-Key': idempotencyKey } })).data,
+  confirm: (id: string, bureauConsent: boolean, acceptedProductVersion?: number, acceptedScenarioRevision?: number) =>
+    post<Application>(`/applications/${id}/confirm`, { bureauConsent, acceptedProductVersion, acceptedScenarioRevision }),
+  returnToAgent: (id: string, comment?: string) =>
+    post<Application>(`/applications/${id}/return-to-agent`, { comment }),
   withdraw: (id: string, comment?: string) => post<Application>(`/applications/${id}/withdraw`, { comment }),
   events: (id: string) => get<JournalEntry[]>(`/applications/${id}/events`),
-  uploadDocument: async (id: string, type: DocumentType, file: File) => {
+  uploadDocument: async (id: string, type: DocumentType, file: File, privateToBank: boolean | undefined, key: string) => {
     const form = new FormData();
     form.append('file', file);
-    return (await api.post<ApplicationDocument>(`/applications/${id}/documents`, form, { params: { type }, headers: { 'Content-Type': 'multipart/form-data' } })).data;
+    return (await api.post<ApplicationDocument>(`/applications/${id}/documents`, form, { params: { type, privateToBank }, headers: { 'Idempotency-Key': key, 'Content-Type': 'multipart/form-data' } })).data;
   },
   deleteDocument: async (id: string, documentId: string) => {
     await api.delete(`/applications/${id}/documents/${documentId}`);
@@ -230,6 +269,50 @@ export const notificationsApi = {
   unreadCount: async () => (await get<{ unread: number }>('/notifications/unread-count')).unread,
   markRead: (id: string) => post<void>(`/notifications/${id}/read`),
   markAllRead: () => post<{ updated: number }>('/notifications/read-all')
+};
+
+export const preApprovedApi = {
+  list: () => get<PreApprovedOffer[]>('/pre-approved-offers'),
+  apply: (id: string) => post<PreApprovedApplicationView>(`/pre-approved-offers/${id}/apply`)
+};
+
+export const agentApi = {
+  portfolio: () => get<AgentPortfolioSummary>('/agent/portfolio'),
+  clients: () => get<AgentClientSummary[]>('/agent/clients'),
+  preApprovedOffers: () => get<PreApprovedOffer[]>('/agent/pre-approved-offers'),
+  applyPreApprovedOffer: (id: string) => post<Application>(`/agent/pre-approved-offers/${id}/apply`),
+  applications: (status?: ApplicationStatus[]) =>
+    get<ApplicationSummary[]>('/agent/applications', status?.length ? { status: status.join(',') } : undefined),
+  createApplication: (input: AgentCreateApplicationInput) => post<Application>('/agent/applications', input),
+  getApplication: (id: string) => get<Application>(`/agent/applications/${id}`),
+  events: (id: string) => get<JournalEntry[]>(`/agent/applications/${id}/events`),
+  getLoan: (id: string) => get<LoanAccount>(`/agent/applications/${id}/loan`),
+  updateApplication: (id: string, input: ApplicationInput) => put<Application>(`/agent/applications/${id}`, input),
+  requestConfirmation: (id: string) => post<Application>(`/agent/applications/${id}/request-confirmation`),
+  cancelApplication: (id: string) => post<Application>(`/agent/applications/${id}/cancel`),
+  provideInfo: (id: string, answer?: string) => post<Application>(`/agent/applications/${id}/info-provided`, { answer }),
+  listDocuments: (id: string) => get<ApplicationDocument[]>(`/agent/applications/${id}/documents`),
+  uploadDocument: async (id: string, type: DocumentType, file: File, key: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    return (await api.post<ApplicationDocument>(`/agent/applications/${id}/documents`, form, { params: { type }, headers: { 'Idempotency-Key': key, 'Content-Type': 'multipart/form-data' } })).data;
+  },
+  deleteDocument: async (id: string, documentId: string) => {
+    await api.delete(`/agent/applications/${id}/documents/${documentId}`);
+  },
+  downloadDocument: async (id: string, documentId: string, fileName: string) => {
+    await downloadFile(`/agent/applications/${id}/documents/${documentId}`, fileName);
+  },
+  chatPage: async (id: string, params: { after?: number; before?: number; limit?: number } = {}) =>
+    (await api.get<ChatPage>(`/agent/applications/${id}/messages`, { params })).data,
+  chatSend: async (id: string, key: string, text: string, documentIds: string[]) =>
+    (await api.post<ChatMessage>(`/agent/applications/${id}/messages`, { text, documentIds }, { headers: { 'Idempotency-Key': key } })).data,
+  chatRead: (id: string, lastReadSeq: number) => post<ChatRead>(`/agent/applications/${id}/messages/read`, { lastReadSeq }),
+  chatUpload: async (id: string, key: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return (await api.post<ChatFile>(`/agent/applications/${id}/messages/attachments`, form, { headers: { 'Idempotency-Key': key, 'Content-Type': 'multipart/form-data' } })).data;
+  }
 };
 
 export const assistantApi = {

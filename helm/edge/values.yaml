@@ -1,0 +1,149 @@
+image:
+  tag: v3.7.20
+
+deployment:
+  kind: DaemonSet
+
+ingressClass:
+  name: cabinet-public
+  isDefaultClass: false
+
+providers:
+  kubernetesCRD:
+    enabled: false
+  kubernetesIngress:
+    ingressClass: cabinet-public
+    namespaces:
+      - cabinet-prod
+      - monitoring
+    publishedService:
+      enabled: false
+  kubernetesGateway:
+    enabled: false
+
+api:
+  dashboard: false
+  insecure: false
+
+service:
+  spec:
+    type: NodePort
+    externalTrafficPolicy: Local
+
+ports:
+  web:
+    nodePort: 30080
+    forwardedHeaders:
+      trustedIPs: []
+      insecure: false
+    proxyProtocol:
+      trustedIPs: []
+      insecure: false
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+          # Keep cert-manager's HTTP-01 solver route ahead of the catch-all.
+          priority: 1
+  websecure:
+    nodePort: 30443
+    forwardedHeaders:
+      trustedIPs: []
+      insecure: false
+    proxyProtocol:
+      trustedIPs: []
+      insecure: false
+
+rbac:
+  enabled: false
+
+# The provider watches cabinet-prod and monitoring for Services, Secrets, and Ingresses.
+# IngressClasses and Nodes are cluster-scoped and are read-only here.
+extraObjects:
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: cabinet-edge-traefik
+      namespace: cabinet-prod
+    rules:
+      - apiGroups: [""]
+        resources: [services, secrets]
+        verbs: [get, list, watch]
+      - apiGroups: [discovery.k8s.io]
+        resources: [endpointslices]
+        verbs: [get, list, watch]
+      - apiGroups: [networking.k8s.io]
+        resources: [ingresses]
+        verbs: [get, list, watch]
+      - apiGroups: [networking.k8s.io]
+        resources: [ingresses/status]
+        verbs: [update]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: cabinet-edge-traefik
+      namespace: cabinet-prod
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: Role
+      name: cabinet-edge-traefik
+    subjects:
+      - kind: ServiceAccount
+        name: cabinet-edge-traefik
+        namespace: cabinet-prod
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: cabinet-edge-traefik
+      namespace: monitoring
+    rules:
+      - apiGroups: [""]
+        resources: [services, secrets]
+        verbs: [get, list, watch]
+      - apiGroups: [discovery.k8s.io]
+        resources: [endpointslices]
+        verbs: [get, list, watch]
+      - apiGroups: [networking.k8s.io]
+        resources: [ingresses]
+        verbs: [get, list, watch]
+      - apiGroups: [networking.k8s.io]
+        resources: [ingresses/status]
+        verbs: [update]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: cabinet-edge-traefik
+      namespace: monitoring
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: Role
+      name: cabinet-edge-traefik
+    subjects:
+      - kind: ServiceAccount
+        name: cabinet-edge-traefik
+        namespace: cabinet-prod
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: cabinet-edge-traefik-cabinet-prod
+    rules:
+      - apiGroups: [networking.k8s.io]
+        resources: [ingressclasses]
+        verbs: [get, list, watch]
+      - apiGroups: [""]
+        resources: [nodes]
+        verbs: [get, list, watch]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: cabinet-edge-traefik-cabinet-prod
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: cabinet-edge-traefik-cabinet-prod
+    subjects:
+      - kind: ServiceAccount
+        name: cabinet-edge-traefik
+        namespace: cabinet-prod

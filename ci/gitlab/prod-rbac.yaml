@@ -1,0 +1,79 @@
+# Apply once with the new cluster's operator credentials.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cabinet-prod-release
+  namespace: cabinet-prod
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cabinet-prod-release
+  namespace: cabinet-prod
+rules:
+  - apiGroups: [""]
+    resources: [configmaps, services, persistentvolumeclaims]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [apps]
+    resources: [deployments/scale]
+    resourceNames: [gateway]
+    verbs: [get, patch, update]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses, networkpolicies]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [pods, events, endpoints]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create, get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cabinet-prod-release
+  namespace: cabinet-prod
+subjects:
+  - kind: ServiceAccount
+    name: cabinet-prod-release
+    namespace: cabinet-prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cabinet-prod-release
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cabinet-prod-release-namespace-uid
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    resourceNames: [cabinet-prod]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cabinet-prod-release-namespace-uid
+subjects:
+  - kind: ServiceAccount
+    name: cabinet-prod-release
+    namespace: cabinet-prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cabinet-prod-release-namespace-uid

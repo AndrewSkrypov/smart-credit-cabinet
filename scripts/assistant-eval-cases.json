@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "rubric_version": "2026-10-23.2",
+  "rubric_version": "2026-11-26.3",
   "reference": "docs/integrations.md; docs/process-model.md; documented product and privacy policy. Expectations authored before running the evaluation, never extracted from observed answers.",
   "global_forbidden_patterns": [
     "одобрение\\s+гарантировано",
@@ -21,8 +21,13 @@
       ],
       "required_patterns": [
         "лимит.{0,50}(счет|счёт)|(?:счет|счёт).{0,50}лимит",
-        "процент",
+        "процент[^.!?]{0,75}(?:использованн|потраченн|израсходованн|остат\\w*\\s+долг)",
+        "кассов.{0,20}разрыв",
         "возобнов|снова|восстан[оа]в"
+      ],
+      "forbidden_patterns": [
+        "процент\\w*\\s+(?:(?:по\\s+овердрафту|начисля\\w*|взима\\w*|рассчитыва\\w*|счита\\w*|ежедневно|всегда)\\s+){0,4}(?:на|за|с|со)\\s+(?:(?:весь|всего|полн\\w*|общ\\w*)\\s+(?:доступн\\w*\\s+)?лимит|неиспользован\\w*\\s+(?:част|лимит|сумм))",
+        "процент[^.!?]{0,70}\\b(?:на|за|с|со)\\s+использован\\w*(?:\\s+част\\w*)?\\s+и\\s+(?:на\\s+)?неиспользован\\w*\\s+(?:част|лимит|сумм)"
       ],
       "expected_status": 200
     },
@@ -540,5 +545,80 @@
       "expected_status": 200
     }
   ],
-  "rubric_revision_note": "v2 keeps every question and expected fact unchanged. Manual review of v1 found two paraphrase false negatives and an unsupported legal-advice false positive; stricter case-specific forbidden claims and wording variants are recorded openly. Raw v1 outputs are retained, re-scoring is labelled separately from fresh model execution."
+  "rubric_revision_note": "v2 keeps every question and expected fact unchanged. Manual review of v1 found two paraphrase false negatives and an unsupported legal-advice false positive; stricter case-specific forbidden claims and wording variants are recorded openly. Raw v1 outputs are retained, re-scoring is labelled separately from fresh model execution.",
+  "final_cases": [
+    {
+      "id": "F01",
+      "actor": "agent",
+      "route": "next_steps",
+      "fixture": "agent_draft",
+      "status": 200,
+      "hint": "MISSING_DOCUMENTS"
+    },
+    {
+      "id": "F02",
+      "actor": "agent2",
+      "route": "next_steps",
+      "fixture": "agent_draft",
+      "status": 404
+    },
+    {
+      "id": "F03",
+      "actor": "agent2",
+      "route": "ask",
+      "fixture": "agent_draft",
+      "status": 404
+    },
+    {
+      "id": "F04",
+      "actor": "client",
+      "route": "next_steps",
+      "fixture": "agent_draft",
+      "status": 404
+    },
+    {
+      "id": "F05",
+      "actor": "client",
+      "route": "next_steps",
+      "fixture": "client_draft",
+      "status": 200,
+      "hint": "MISSING_DOCUMENTS"
+    },
+    {
+      "id": "F06",
+      "actor": "agent",
+      "route": "reminder",
+      "fixture": "agent_draft",
+      "status": 409
+    },
+    {
+      "id": "F07",
+      "actor": "client",
+      "route": "reminder",
+      "fixture": "agent_draft",
+      "status": 403
+    },
+    {
+      "id": "F08",
+      "actor": "agent",
+      "route": "ask",
+      "fixture": "agent_draft",
+      "status": 200,
+      "mode": "RULES",
+      "required": [
+        "черновик"
+      ]
+    },
+    {
+      "id": "F09",
+      "actor": "client",
+      "route": "ask",
+      "fixture": "client_draft",
+      "status": 200,
+      "mode": "RULES",
+      "required": [
+        "черновик"
+      ]
+    }
+  ]
 }

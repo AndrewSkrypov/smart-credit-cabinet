@@ -1,0 +1,729 @@
+{
+  "scope": "Isolated native synthetic cabinet, loopback gateway, SSH forwarding to gpu-vm3. No Dev or production evaluation.",
+  "assistant_revision": "a19b9e37c8ef0f8ec1b1996f5849da9dd652834a",
+  "gpu": {
+    "model": "NVIDIA H100 PCIe",
+    "driver": "580.178.04",
+    "memory_mib": 81559
+  },
+  "ollama": {
+    "version": "0.40.18",
+    "context_tokens": 2048,
+    "parallel_slots": 1,
+    "flash_attention": true
+  },
+  "rubric_sha256": "d530dc78047bee52200abfbca6395d6dcc787617e7ad2de52877ddcc51dbf8bb",
+  "arms": {
+    "h100-flash-baseline-15b": {
+      "revision": "1ae8ab1ad08692745cd5c680a08b6d1d54ab7490",
+      "model": {
+        "name": "qwen2.5:1.5b",
+        "digest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+        "size": 986061892,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "1.5B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 32768,
+          "embedding_length": 1536,
+          "runner": "ggml"
+        }
+      },
+      "summary": {
+        "questions": 36,
+        "correct": 36,
+        "correct_fraction": 1.0,
+        "answer_modes": {
+          "RULES": 33,
+          "MODEL": 1,
+          "HTTP_ERROR": 2
+        },
+        "p50_seconds": 0.013,
+        "p95_seconds": 0.215,
+        "latency_by_mode": {
+          "RULES": {
+            "count": 33,
+            "p50_seconds": 0.013,
+            "p95_seconds": 0.215
+          },
+          "MODEL": {
+            "count": 1,
+            "p50_seconds": 0.213,
+            "p95_seconds": 0.213
+          },
+          "HTTP_ERROR": {
+            "count": 2,
+            "p50_seconds": 0.017,
+            "p95_seconds": 0.043
+          }
+        }
+      },
+      "automated_gate_passed": true,
+      "guard_rejections": 2,
+      "raw_report_sha256": "cd29f207d9ee34dbce970649c8056bff58f235b5af2288da7a8af722e30c2270",
+      "events": {
+        "ACCEPTED": 1,
+        "GUARD_REJECTED": 2
+      }
+    },
+    "h100-verified-15b": {
+      "revision": "a19b9e37c8ef0f8ec1b1996f5849da9dd652834a",
+      "model": {
+        "name": "qwen2.5:1.5b",
+        "digest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+        "size": 986061892,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "1.5B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 32768,
+          "embedding_length": 1536,
+          "runner": "ggml"
+        }
+      },
+      "summary": {
+        "questions": 36,
+        "correct": 36,
+        "correct_fraction": 1.0,
+        "answer_modes": {
+          "RULES": 34,
+          "HTTP_ERROR": 2
+        },
+        "p50_seconds": 0.009,
+        "p95_seconds": 0.319,
+        "latency_by_mode": {
+          "RULES": {
+            "count": 34,
+            "p50_seconds": 0.009,
+            "p95_seconds": 0.319
+          },
+          "HTTP_ERROR": {
+            "count": 2,
+            "p50_seconds": 0.016,
+            "p95_seconds": 0.033
+          }
+        }
+      },
+      "automated_gate_passed": true,
+      "guard_rejections": 2,
+      "raw_report_sha256": "3512511334042280d5bc64b5750e3a4113013632be38be6edc83fc996d3d2a3f",
+      "events": {
+        "GUARD_REJECTED": 2
+      }
+    },
+    "h100-flash-baseline-7b": {
+      "revision": "1ae8ab1ad08692745cd5c680a08b6d1d54ab7490",
+      "model": {
+        "name": "qwen2.5:7b-instruct-q4_K_M",
+        "digest": "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e",
+        "size": 4683087332,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "7.6B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 32768,
+          "embedding_length": 3584,
+          "runner": "ggml"
+        }
+      },
+      "summary": {
+        "questions": 36,
+        "correct": 36,
+        "correct_fraction": 1.0,
+        "answer_modes": {
+          "MODEL": 3,
+          "RULES": 31,
+          "HTTP_ERROR": 2
+        },
+        "p50_seconds": 0.013,
+        "p95_seconds": 0.519,
+        "latency_by_mode": {
+          "MODEL": {
+            "count": 3,
+            "p50_seconds": 0.519,
+            "p95_seconds": 4.089
+          },
+          "RULES": {
+            "count": 31,
+            "p50_seconds": 0.013,
+            "p95_seconds": 0.036
+          },
+          "HTTP_ERROR": {
+            "count": 2,
+            "p50_seconds": 0.025,
+            "p95_seconds": 0.064
+          }
+        }
+      },
+      "automated_gate_passed": true,
+      "guard_rejections": 0,
+      "raw_report_sha256": "a3fee60932374efbb5d6b3661dd0a285b9ef02186b8fb0d94c11f7e041b7c64e",
+      "events": {
+        "ACCEPTED": 3
+      }
+    },
+    "h100-verified-7b": {
+      "revision": "a19b9e37c8ef0f8ec1b1996f5849da9dd652834a",
+      "model": {
+        "name": "qwen2.5:7b-instruct-q4_K_M",
+        "digest": "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e",
+        "size": 4683087332,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "7.6B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 32768,
+          "embedding_length": 3584,
+          "runner": "ggml"
+        }
+      },
+      "summary": {
+        "questions": 36,
+        "correct": 36,
+        "correct_fraction": 1.0,
+        "answer_modes": {
+          "RULES": 34,
+          "HTTP_ERROR": 2
+        },
+        "p50_seconds": 0.01,
+        "p95_seconds": 0.556,
+        "latency_by_mode": {
+          "RULES": {
+            "count": 34,
+            "p50_seconds": 0.009,
+            "p95_seconds": 0.556
+          },
+          "HTTP_ERROR": {
+            "count": 2,
+            "p50_seconds": 0.015,
+            "p95_seconds": 0.033
+          }
+        }
+      },
+      "automated_gate_passed": true,
+      "guard_rejections": 2,
+      "raw_report_sha256": "c6051b1fb51c855b61c4c33e85ed1803ac5df271494533a46b824a15597960e7",
+      "events": {
+        "GUARD_REJECTED": 2
+      }
+    },
+    "h100-flash-rules": {
+      "revision": "224b1362bb002fa3d488b566481c9f2a6835bc0d",
+      "model": null,
+      "summary": {
+        "questions": 36,
+        "correct": 36,
+        "correct_fraction": 1.0,
+        "answer_modes": {
+          "RULES": 34,
+          "HTTP_ERROR": 2
+        },
+        "p50_seconds": 0.019,
+        "p95_seconds": 0.078,
+        "latency_by_mode": {
+          "RULES": {
+            "count": 34,
+            "p50_seconds": 0.018,
+            "p95_seconds": 0.05
+          },
+          "HTTP_ERROR": {
+            "count": 2,
+            "p50_seconds": 0.041,
+            "p95_seconds": 0.078
+          }
+        }
+      },
+      "automated_gate_passed": true,
+      "guard_rejections": 0,
+      "raw_report_sha256": "9bb0600501ddd0a023af75cc743b29a96d02783664bb74ae773ef5bfc441e780",
+      "events": {
+        "UNAVAILABLE": 3
+      }
+    }
+  },
+  "agent": {
+    "checks": 27,
+    "passed": true,
+    "fast_path": {
+      "n": 6,
+      "p50_ms": 14.938,
+      "p95_ms": 19.758,
+      "under_200_ms": 6
+    }
+  },
+  "holdouts": {
+    "15": [
+      {
+        "id": "H01",
+        "status": 200,
+        "mode": "RULES",
+        "passed": true
+      },
+      {
+        "id": "H02",
+        "status": 404,
+        "mode": null,
+        "passed": true
+      },
+      {
+        "id": "H03",
+        "status": 200,
+        "mode": "RULES",
+        "passed": true
+      },
+      {
+        "id": "H04",
+        "status": 200,
+        "mode": "MODEL",
+        "passed": true
+      },
+      {
+        "id": "H05",
+        "status": 200,
+        "mode": "MODEL",
+        "passed": true
+      },
+      {
+        "id": "H07",
+        "status": 200,
+        "mode": "RULES",
+        "passed": true
+      },
+      {
+        "id": "H06",
+        "status": 403,
+        "mode": null,
+        "passed": true
+      }
+    ],
+    "7": [
+      {
+        "id": "H01",
+        "status": 200,
+        "mode": "RULES",
+        "passed": true
+      },
+      {
+        "id": "H02",
+        "status": 404,
+        "mode": null,
+        "passed": true
+      },
+      {
+        "id": "H03",
+        "status": 200,
+        "mode": "RULES",
+        "passed": true
+      },
+      {
+        "id": "H04",
+        "status": 200,
+        "mode": "MODEL",
+        "passed": true
+      },
+      {
+        "id": "H05",
+        "status": 200,
+        "mode": "MODEL",
+        "passed": true
+      },
+      {
+        "id": "H07",
+        "status": 200,
+        "mode": "RULES",
+        "passed": true
+      },
+      {
+        "id": "H06",
+        "status": 403,
+        "mode": null,
+        "passed": true
+      }
+    ]
+  },
+  "sse_7b": {
+    "cold": {
+      "label": "verified-gpu-7-cold",
+      "concurrency": 1,
+      "cold_model": "qwen2.5:7b-instruct-q4_K_M",
+      "modes": {
+        "RULES": 1,
+        "MODEL": 7
+      },
+      "samples": [
+        {
+          "status_ms": 10.356,
+          "reference_ms": 12.712,
+          "answer_ms": 2878.861,
+          "mode": "RULES"
+        },
+        {
+          "status_ms": 9.057,
+          "reference_ms": 9.077,
+          "answer_ms": 2921.883,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 7.928,
+          "reference_ms": 7.979,
+          "answer_ms": 2901.702,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 7.701,
+          "reference_ms": 7.784,
+          "answer_ms": 2927.088,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 9.484,
+          "reference_ms": 9.518,
+          "answer_ms": 2993.032,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 7.177,
+          "reference_ms": 7.198,
+          "answer_ms": 2889.429,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 9.132,
+          "reference_ms": 9.152,
+          "answer_ms": 2841.327,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 140.347,
+          "reference_ms": 140.379,
+          "answer_ms": 2949.239,
+          "mode": "MODEL"
+        }
+      ],
+      "reference": {
+        "n": 8,
+        "p95_ms": 140.379
+      },
+      "answer": {
+        "n": 8,
+        "p95_ms": 2993.032
+      }
+    },
+    "warm": {
+      "label": "verified-gpu-7-warm",
+      "concurrency": 1,
+      "cold_model": null,
+      "modes": {
+        "RULES": 4,
+        "MODEL": 4
+      },
+      "samples": [
+        {
+          "status_ms": 7.696,
+          "reference_ms": 7.732,
+          "answer_ms": 732.091,
+          "mode": "RULES"
+        },
+        {
+          "status_ms": 8.144,
+          "reference_ms": 8.167,
+          "answer_ms": 762.132,
+          "mode": "RULES"
+        },
+        {
+          "status_ms": 12.097,
+          "reference_ms": 12.117,
+          "answer_ms": 698.453,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 12.85,
+          "reference_ms": 12.913,
+          "answer_ms": 728.82,
+          "mode": "RULES"
+        },
+        {
+          "status_ms": 7.288,
+          "reference_ms": 7.306,
+          "answer_ms": 714.718,
+          "mode": "RULES"
+        },
+        {
+          "status_ms": 9.001,
+          "reference_ms": 9.038,
+          "answer_ms": 704.407,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 7.562,
+          "reference_ms": 7.787,
+          "answer_ms": 626.898,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 8.611,
+          "reference_ms": 8.631,
+          "answer_ms": 722.33,
+          "mode": "MODEL"
+        }
+      ],
+      "reference": {
+        "n": 8,
+        "p95_ms": 12.913
+      },
+      "answer": {
+        "n": 8,
+        "p95_ms": 762.132
+      }
+    },
+    "parallel": {
+      "label": "verified-gpu-7-parallel",
+      "concurrency": 4,
+      "cold_model": null,
+      "modes": {
+        "MODEL": 14,
+        "RULES": 2
+      },
+      "samples": [
+        {
+          "status_ms": 29.011,
+          "reference_ms": 29.141,
+          "answer_ms": 867.572,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 29.071,
+          "reference_ms": 29.08,
+          "answer_ms": 1433.455,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 30.02,
+          "reference_ms": 30.029,
+          "answer_ms": 2187.105,
+          "mode": "RULES"
+        },
+        {
+          "status_ms": 29.374,
+          "reference_ms": 29.387,
+          "answer_ms": 2911.34,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 14.132,
+          "reference_ms": 14.161,
+          "answer_ms": 2655.903,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 17.217,
+          "reference_ms": 17.272,
+          "answer_ms": 2869.446,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 7.108,
+          "reference_ms": 7.126,
+          "answer_ms": 2688.655,
+          "mode": "RULES"
+        },
+        {
+          "status_ms": 10.465,
+          "reference_ms": 10.483,
+          "answer_ms": 2669.817,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 7.987,
+          "reference_ms": 8.008,
+          "answer_ms": 2692.66,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 9.823,
+          "reference_ms": 9.846,
+          "answer_ms": 2522.427,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 7.688,
+          "reference_ms": 7.712,
+          "answer_ms": 2617.396,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 6.988,
+          "reference_ms": 7.025,
+          "answer_ms": 2572.649,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 6.463,
+          "reference_ms": 6.481,
+          "answer_ms": 2552.181,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 8.339,
+          "reference_ms": 8.358,
+          "answer_ms": 2542.055,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 8.245,
+          "reference_ms": 8.266,
+          "answer_ms": 2541.166,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 12.599,
+          "reference_ms": 12.676,
+          "answer_ms": 2744.813,
+          "mode": "MODEL"
+        }
+      ],
+      "reference": {
+        "n": 16,
+        "p95_ms": 30.029
+      },
+      "answer": {
+        "n": 16,
+        "p95_ms": 2911.34
+      }
+    }
+  },
+  "sse_7b_metrics": {
+    "ACCEPTED": 25,
+    "GUARD_REJECTED": 7,
+    "UNAVAILABLE": 0,
+    "CACHE_HIT": 0
+  },
+  "outage_7b": {
+    "before_recovery": {
+      "label": "verified-gpu-7-outage",
+      "concurrency": 1,
+      "cold_model": null,
+      "modes": {
+        "RULES": 2
+      },
+      "samples": [
+        {
+          "status_ms": 10.348,
+          "reference_ms": 10.372,
+          "answer_ms": 13.078,
+          "mode": "RULES"
+        },
+        {
+          "status_ms": 6.305,
+          "reference_ms": 6.332,
+          "answer_ms": 6.34,
+          "mode": "RULES"
+        }
+      ],
+      "reference": {
+        "n": 2,
+        "p95_ms": 10.372
+      },
+      "answer": {
+        "n": 2,
+        "p95_ms": 13.078
+      }
+    },
+    "after_recovery": {
+      "label": "verified-gpu-7-recovered",
+      "concurrency": 1,
+      "cold_model": null,
+      "modes": {
+        "MODEL": 3,
+        "RULES": 3
+      },
+      "samples": [
+        {
+          "status_ms": 18.407,
+          "reference_ms": 18.655,
+          "answer_ms": 736.423,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 8.939,
+          "reference_ms": 8.959,
+          "answer_ms": 869.416,
+          "mode": "RULES"
+        },
+        {
+          "status_ms": 7.218,
+          "reference_ms": 7.237,
+          "answer_ms": 700.275,
+          "mode": "MODEL"
+        },
+        {
+          "status_ms": 9.795,
+          "reference_ms": 9.82,
+          "answer_ms": 733.692,
+          "mode": "RULES"
+        },
+        {
+          "status_ms": 13.437,
+          "reference_ms": 13.457,
+          "answer_ms": 796.49,
+          "mode": "RULES"
+        },
+        {
+          "status_ms": 6.93,
+          "reference_ms": 6.948,
+          "answer_ms": 713.698,
+          "mode": "MODEL"
+        }
+      ],
+      "reference": {
+        "n": 6,
+        "p95_ms": 18.655
+      },
+      "answer": {
+        "n": 6,
+        "p95_ms": 869.416
+      }
+    },
+    "during_outage_metrics": {
+      "ACCEPTED": 0,
+      "GUARD_REJECTED": 0,
+      "UNAVAILABLE": 2,
+      "CACHE_HIT": 0
+    },
+    "during_recovery_metrics": {
+      "ACCEPTED": 3,
+      "GUARD_REJECTED": 3,
+      "UNAVAILABLE": 0,
+      "CACHE_HIT": 0
+    },
+    "same_engagement_pid": true
+  },
+  "loaded_model": [
+    {
+      "name": "qwen2.5:7b-instruct-q4_K_M",
+      "digest": "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e",
+      "size": 4635859352,
+      "size_vram": 4635859352
+    }
+  ]
+}

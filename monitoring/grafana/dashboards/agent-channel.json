@@ -1,0 +1,314 @@
+{
+  "uid": "cabinet-agent-final",
+  "title": "Агентский канал и помощник",
+  "schemaVersion": 39,
+  "refresh": "15s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "editable": false,
+  "tags": [
+    "Кабинет",
+    "Агентский канал"
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Агент → клиент → предложение → выдача",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "max(cabinet_agent_applications_reached{stage=\"DRAFT\"})",
+          "legendFormat": "Черновик агента",
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "expr": "max(cabinet_agent_applications_reached{stage=\"SUBMITTED\"})",
+          "legendFormat": "Клиент подтвердил",
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "C",
+          "editorMode": "code",
+          "expr": "max(cabinet_agent_applications_reached{stage=\"OFFER_ISSUED\"})",
+          "legendFormat": "Одобрение или встречное предложение",
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "D",
+          "editorMode": "code",
+          "expr": "max(cabinet_agent_applications_reached{stage=\"DISBURSED\"})",
+          "legendFormat": "Выдача",
+          "range": true,
+          "exemplar": false
+        }
+      ],
+      "description": "Историческая когорта заявок с агентом и зафиксированным событием этапа. По каждой стадии учитывается одна запись на заявку. Воронка показывает путь через предложение. Отказы показаны отдельно."
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Конверсия от агентского черновика",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "(max(cabinet_agent_applications_reached{stage=\"SUBMITTED\"})) / (max(cabinet_agent_applications_reached{stage=\"DRAFT\"}) > 0)",
+          "legendFormat": "Клиент подтвердил",
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "expr": "(max(cabinet_agent_applications_reached{stage=\"OFFER_ISSUED\"})) / (max(cabinet_agent_applications_reached{stage=\"DRAFT\"}) > 0)",
+          "legendFormat": "Одобрение или встречное предложение",
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "C",
+          "editorMode": "code",
+          "expr": "(max(cabinet_agent_applications_reached{stage=\"DISBURSED\"})) / (max(cabinet_agent_applications_reached{stage=\"DRAFT\"}) > 0)",
+          "legendFormat": "Выдача",
+          "range": true,
+          "exemplar": false
+        }
+      ],
+      "description": "Историческая когорта заявок с агентом и зафиксированным событием этапа. По каждой стадии учитывается одна запись на заявку. Знаменатель: агентские черновики. При нуле черновиков значение отсутствует."
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Запреты агентского доступа",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (increase(cabinet_agent_access_denied_total[5m]))",
+          "legendFormat": "HTTP {{status}}",
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Помощник, p95 ответа",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, operation, outcome) (rate(cabinet_assistant_answer_seconds_bucket[5m])))",
+          "legendFormat": "{{operation}} / {{outcome}}",
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Исходы работы с моделью",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (increase(cabinet_assistant_model_total[5m]))",
+          "legendFormat": "{{outcome}}",
+          "exemplar": false
+        }
+      ],
+      "description": "События модели: успешная проверка, кэш, недоступность или отклонение защитной проверкой."
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Режимы ответа помощника",
+      "description": "MODEL, RULES и ERROR показываются раздельно. RULES включает штатный режим и fallback.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "sum by (operation, outcome) (increase(cabinet_assistant_answer_seconds_count[5m]))",
+          "legendFormat": "{{operation}} {{outcome}}",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Агентские заявки с отказом",
+      "description": "Историческая когорта заявок с агентом и зафиксированным событием этапа. По каждой стадии учитывается одна запись на заявку.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "max(cabinet_agent_applications_reached{stage=\"REJECTED\"})",
+          "legendFormat": "Отказ",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Время до первого итогового решения",
+      "description": "От первого события SUBMIT до первого одобрения, встречного предложения или отказа. Событие CONFIRM_AND_SUBMIT агентского пути не входит в этот снимок.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cabinet-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "h": 8,
+        "w": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "max(cabinet_decision_time_average_seconds)",
+          "legendFormat": "среднее",
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "expr": "max(cabinet_decision_time_maximum_seconds)",
+          "legendFormat": "максимум",
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    }
+  ],
+  "version": 2
+}

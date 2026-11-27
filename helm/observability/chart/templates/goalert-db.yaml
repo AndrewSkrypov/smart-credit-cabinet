@@ -1,0 +1,152 @@
+{{- $db := .Values.goalertDB | default dict }}
+{{- if $db.enabled }}
+{{- $secret := required "goalertDB.existingSecret is required" $db.existingSecret }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cabinet-goalert-db-bootstrap
+data:
+  10-goalert.sql: |
+    \set ON_ERROR_STOP on
+    \getenv goalert_app_password GOALERT_DB_APP_PASSWORD
+    SET log_min_error_statement = 'panic';
+    CREATE ROLE goalert LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS
+      PASSWORD :'goalert_app_password';
+    CREATE DATABASE goalert OWNER goalert;
+    REVOKE CONNECT ON DATABASE goalert, postgres, template1 FROM PUBLIC;
+    \connect goalert
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cabinet-goalert-db
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: cabinet-goalert-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cabinet-goalert-db
+spec:
+  serviceName: cabinet-goalert-db
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cabinet-goalert-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cabinet-goalert-db
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: postgres
+          image: postgres:17.12-alpine3.23@sha256:57a828ad76b719bbed499fc30f71754bbe37d78c8c4c990a1a2096380b8d7ca5
+          env:
+            - name: POSTGRES_USER
+              value: goalert_admin
+            - name: POSTGRES_DB
+              value: postgres
+            - name: POSTGRES_INITDB_ARGS
+              value: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: scram-sha-256
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: admin-password
+            - name: GOALERT_DB_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: app-password
+          ports:
+            - name: postgres
+              containerPort: 5432
+          startupProbe:
+            exec:
+              command: [sh, -ec, 'PGPASSWORD="$GOALERT_DB_APP_PASSWORD" psql -w -h 127.0.0.1 -U goalert -d goalert -Atqc "SELECT 1"']
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            exec:
+              command: [pg_isready, -h, 127.0.0.1, -U, goalert, -d, goalert]
+          livenessProbe:
+            exec:
+              command: [pg_isready, -h, 127.0.0.1, -U, goalert, -d, goalert]
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 768Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: bootstrap
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+            - name: socket
+              mountPath: /run/postgresql
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: bootstrap
+          configMap:
+            name: cabinet-goalert-db-bootstrap
+        - name: socket
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with $db.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ required "goalertDB.storage is required" $db.storage | quote }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-goalert-db-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cabinet-goalert-db
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cabinet-goalert
+      ports:
+        - protocol: TCP
+          port: 5432
+{{- end }}

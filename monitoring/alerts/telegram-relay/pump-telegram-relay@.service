@@ -1,0 +1,27 @@
+[Unit]
+Description=PUMP Telegram CONNECT relay (%i)
+Wants=network-online.target
+After=network-online.target docker.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+DynamicUser=yes
+EnvironmentFile=/etc/pump/telegram-relay/%i.env
+LoadCredential=authorization-sha256:/etc/pump/telegram-relay/%i.authorization-sha256
+ExecStart=/usr/bin/python3 -I /usr/local/libexec/pump-telegram-relay.py
+Restart=on-failure
+RestartSec=3s
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictAddressFamilies=AF_INET AF_UNIX
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryMax=64M
+TasksMax=22
+
+[Install]
+WantedBy=multi-user.target

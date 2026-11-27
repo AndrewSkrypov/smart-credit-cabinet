@@ -1,0 +1,11 @@
+# Extend the monitoring profile with HTTP exemplars and availability rules.
+services:
+  prometheus:
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --storage.tsdb.retention.size=512MB
+      - --enable-feature=exemplar-storage
+    volumes:
+      - ./monitoring/alerts/cabinet-availability.yml:/etc/prometheus/rules/cabinet-availability.yml:ro

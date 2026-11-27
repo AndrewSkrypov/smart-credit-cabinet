@@ -124,7 +124,7 @@ object ProductAdvice {
     const val ASK_AMOUNT = "Сколько нужно и на какой срок?"
     private const val DEFAULT_TERM = 12
 
-    fun answer(need: FinancingNeed, products: CreditProducts, authorization: String): Pair<String, AnswerLink?> {
+    fun answer(need: FinancingNeed, products: CreditProducts, authorization: String, excludeProductCode: String? = null): Pair<String, AnswerLink?> {
         val purposes = products.purposes(authorization)
         if (need.purpose == null) {
             val examples = purposes.values.take(4).joinToString(", ") { it.lowercase() }
@@ -141,12 +141,14 @@ object ProductAdvice {
         }
         val term = need.termMonths ?: DEFAULT_TERM
         val matches = products.match(need.purpose, need.amount, term, authorization)
-            ?: return "Подбор сейчас недоступен — откройте «Подобрать финансирование», там тот же расчёт." to link(need.purpose, need.amount, term)
-        val fitting = matches.filter { it["fits"].asBoolean() }
+            ?: return "Подбор сейчас недоступен. Попробуйте ещё раз через несколько минут." to
+                (if (excludeProductCode == null) link(need.purpose, need.amount, term) else null)
+        val eligible = matches.filter { it.path("product").path("code").asText() != excludeProductCode }
+        val fitting = eligible.filter { it["fits"].asBoolean() }
         val header = "Цель «$purposeTitle», ${rub(need.amount)} на ${months(term)}" + (if (need.termMonths == null) " (срок я взял для примера)" else "") + "."
         val body = if (fitting.isEmpty()) {
-            val nearest = matches.firstOrNull()
-            "Ни один продукт не подходит на этих условиях." +
+            val nearest = eligible.firstOrNull()
+            (if (excludeProductCode == null) "Ни один продукт не подходит на этих условиях." else "Других продуктов с такими условиями сейчас нет.") +
                 (nearest?.let { "\nБлиже всего — ${it["product"]["name"].asText()}: ${it["adjustments"].joinToString("; ") { a -> a.asText() }}." } ?: "")
         } else {
             "Подходят:\n" + fitting.joinToString("\n") { match ->
@@ -156,13 +158,19 @@ object ProductAdvice {
             }
         }
         val tail = "\n\nЭто расчёт по базовой ставке. Итоговые условия банк предложит после оценки заявки — одобрение заранее не обещаю."
-        return "$header\n$body$tail" to link(need.purpose, need.amount, term)
+        val action = if (excludeProductCode == null || fitting.isNotEmpty()) link(need.purpose, need.amount, term, excludeProductCode) else null
+        return "$header\n$body$tail" to action
     }
 
-    private fun link(purpose: String, amount: Long?, term: Int?): AnswerLink =
+    private fun link(purpose: String, amount: Long?, term: Int?, excludeProductCode: String? = null): AnswerLink =
         AnswerLink(
             "Оформить",
-            "/client/new?" + listOfNotNull("purpose=$purpose", amount?.let { "amount=$it" }, term?.let { "termMonths=$it" }).joinToString("&"),
+            "/client/new?" + listOfNotNull(
+                "purpose=$purpose",
+                amount?.let { "amount=$it" },
+                term?.let { "termMonths=$it" },
+                excludeProductCode?.let { "excludeProductCode=$it" },
+            ).joinToString("&"),
         )
 
     private fun rub(amount: Long) = "%,d ₽".format(Locale.ROOT, amount).replace(',', ' ')

@@ -28,6 +28,61 @@ components:
       required:
       - message
       type: object
+    AgentClientSummary:
+      properties:
+        assignedAt:
+          format: date-time
+          type: string
+        companyId:
+          format: uuid
+          type: string
+        inn:
+          type: string
+        legalForm:
+          enum:
+          - LEGAL_ENTITY
+          - ENTREPRENEUR
+          type: string
+        name:
+          type: string
+      required:
+      - assignedAt
+      - companyId
+      - inn
+      - legalForm
+      type: object
+    AgentMandateResponse:
+      properties:
+        agentName:
+          type: string
+        agentUserId:
+          format: uuid
+          type: string
+        assignedAt:
+          format: date-time
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        id:
+          format: uuid
+          type: string
+        revokedAt:
+          format: date-time
+          type: string
+        status:
+          enum:
+          - ACTIVE
+          - EXPIRED
+          - REVOKED
+          type: string
+      required:
+      - agentName
+      - agentUserId
+      - assignedAt
+      - id
+      - status
+      type: object
     AuthOptionsResponse:
       properties:
         demoAccounts:
@@ -194,6 +249,18 @@ components:
       - canSign
       - email
       type: object
+    IssueAgentMandateRequest:
+      properties:
+        agentUserId:
+          format: uuid
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+      required:
+      - agentUserId
+      - expiresAt
+      type: object
     RecoveryRequest:
       properties:
         email:
@@ -302,6 +369,7 @@ components:
         role:
           enum:
           - CLIENT
+          - AGENT
           - MANAGER
           - UNDERWRITER
           - RISK_ADMIN
@@ -344,6 +412,62 @@ info:
   version: 0.1.0
 openapi: 3.1.0
 paths:
+  /api/v1/agent/clients:
+    get:
+      operationId: clients
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/AgentClientSummary'
+                type: array
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/agent/clients
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/agent/clients
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/agent/clients
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Компании, закреплённые за текущим агентом
+      tags:
+      - Агентский канал
   /api/v1/auth/invitations/accept:
     post:
       operationId: accept
@@ -1106,6 +1230,243 @@ paths:
       security:
       - bearerAuth: []
       summary: Компания и представители текущего клиента; компания определяется подписанным токеном
+      tags:
+      - Компания клиента
+  /api/v1/companies/me/agent-mandates:
+    get:
+      operationId: list
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: '#/components/schemas/AgentMandateResponse'
+                type: array
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/companies/me/agent-mandates
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/companies/me/agent-mandates
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/companies/me/agent-mandates
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: История агентских мандатов текущей компании
+      tags:
+      - Компания клиента
+    post:
+      operationId: issue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueAgentMandateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AgentMandateResponse'
+          description: Created
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/companies/me/agent-mandates
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/companies/me/agent-mandates
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/companies/me/agent-mandates
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/companies/me/agent-mandates
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/companies/me/agent-mandates
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Выдать агенту мандат от имени текущей компании
+      tags:
+      - Компания клиента
+  /api/v1/companies/me/agent-mandates/{id}:
+    delete:
+      operationId: revoke_1
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '204':
+          description: No Content
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/companies/me/agent-mandates/{id}
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/companies/me/agent-mandates/{id}
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/companies/me/agent-mandates/{id}
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/companies/me/agent-mandates/{id}
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/companies/me/agent-mandates/{id}
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/companies/me/agent-mandates/{id}
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Отозвать агентский мандат текущей компании
       tags:
       - Компания клиента
   /api/v1/companies/me/employees:

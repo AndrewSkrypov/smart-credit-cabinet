@@ -11,12 +11,17 @@ import subprocess
 import time
 import urllib.parse
 import urllib.request
+from urllib.error import HTTPError
+from uuid import uuid4
 
 parser = argparse.ArgumentParser(description="Проверка работающих Prometheus/Grafana и метрик конвейера")
+parser.add_argument("--environment", choices=["dev", "prod"], default="dev")
+parser.add_argument("--gateway-url", default=f"http://127.0.0.1:{os.environ.get('GATEWAY_PORT', '8080')}")
 parser.add_argument("--replicas", type=int, choices=[1, 2], default=1)
 parser.add_argument("--require-activity", action="store_true")
 parser.add_argument("--require-source-errors", action="store_true")
 parser.add_argument("--require-source-timeouts", action="store_true")
+parser.add_argument("--require-correlation", action="store_true", help="Проверить OTLP и Loki на синтетическом запросе агента")
 parser.add_argument("--report-name", default="verification")
 parser.add_argument("--wait", type=int, default=180)
 args = parser.parse_args()
@@ -26,7 +31,10 @@ prometheus = f"http://127.0.0.1:{os.environ.get('PROMETHEUS_PORT', '9090')}"
 grafana = f"http://127.0.0.1:{os.environ.get('GRAFANA_PORT', '3000')}"
 credentials = f"{os.environ.get('GRAFANA_USER', 'admin')}:{os.environ.get('GRAFANA_PASSWORD', 'local-monitoring-change-me')}"
 authorization = "Basic " + base64.b64encode(credentials.encode()).decode()
-report = {"checked_at": datetime.now(timezone.utc).isoformat(), "passed": False}
+if args.environment == "prod" and args.require_correlation:
+    if not all(os.environ.get(key) for key in ["CABINET_SYNTHETIC_AGENT_EMAIL", "CABINET_SYNTHETIC_AGENT_PASSWORD"]):
+        parser.error("Для prod нужны учётные данные выделенного синтетического агента")
+report = {"environment": args.environment, "checked_at": datetime.now(timezone.utc).isoformat(), "passed": False}
 root = Path(__file__).resolve().parent.parent
 report["checkout"] = {"commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
                       "dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=root, text=True).strip())}
@@ -48,11 +56,85 @@ def positive(expression):
     return bool(rows) and float(rows[0]["value"][1]) > 0
 
 
+def make_correlation_request():
+    gateway = args.gateway_url.rstrip("/")
+    auth_request = urllib.request.Request(
+        gateway + "/api/v1/auth/sign-in",
+        data=json.dumps({
+            "email": os.environ.get("CABINET_SYNTHETIC_AGENT_EMAIL", "agent@demo.test"),
+            "password": os.environ.get("CABINET_SYNTHETIC_AGENT_PASSWORD", "Demo2026"),
+        }).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(auth_request, timeout=10) as response:
+        token = json.load(response)["token"]
+    trace_id = uuid4().hex
+    request = urllib.request.Request(
+        gateway + "/api/v1/agent/applications",
+        data=json.dumps({
+            "companyId": str(uuid4()), "productCode": "INVESTMENT", "purpose": "EQUIPMENT",
+            "amount": 1_000_000, "termMonths": 12,
+        }).encode(),
+        headers={
+            "Authorization": "Bearer " + token, "traceparent": f"00-{trace_id}-{uuid4().hex[:16]}-01",
+            "Content-Type": "application/json",
+        },
+    )
+    # An unassigned company makes credit consult identity and logs the expected denial.
+    # The request leaves no application behind.
+    try:
+        with urllib.request.urlopen(request, timeout=10):
+            raise AssertionError("Создание заявки для незакреплённой компании разрешено")
+    except HTTPError as error:
+        with error:
+            assert error.code == 404, f"Проверка мандата агента вернула HTTP {error.code}"
+            request_id = error.headers["X-Request-Id"]
+    assert request_id, "Ответ API без X-Request-Id"
+    return trace_id, request_id
+
+
+def verify_correlation(trace_id, request_id):
+    proxy = grafana + "/api/datasources/proxy/uid/"
+    auth = {"Authorization": authorization, "Accept": "application/json"}
+    trace = get(proxy + f"cabinet-tempo/api/traces/{trace_id}", auth)
+    batches = trace.get("batches", trace.get("resourceSpans", []))
+    if not batches and isinstance(trace.get("trace"), dict):
+        batches = trace["trace"].get("batches", trace["trace"].get("resourceSpans", []))
+    traced_services = {
+        attribute["value"]["stringValue"]
+        for batch in batches
+        for attribute in batch.get("resource", {}).get("attributes", [])
+        if attribute.get("key") == "service.name" and "stringValue" in attribute.get("value", {})
+    }
+    assert {"credit", "identity"} <= traced_services, "Tempo пока не содержит связанные спаны credit и identity"
+    now = time.time_ns()
+    query_string = urllib.parse.urlencode({
+        "query": '{service="credit"} | json | traceId="' + trace_id + '"',
+        "start": str(now - 300_000_000_000), "end": str(now), "limit": "10",
+    })
+    streams = get(proxy + "cabinet-loki/loki/api/v1/query_range?" + query_string, auth)["data"]["result"]
+    logs = [json.loads(line) for stream in streams for _, line in stream["values"]]
+    assert any(
+        row.get("requestId") == request_id and row.get("traceId") == trace_id and row.get("spanId")
+        and row.get("service") == "credit" and row.get("environment") == args.environment
+        for row in logs
+    ), "Loki пока не содержит связанный структурированный лог запроса"
+    assert all(set(row) <= {"service", "environment", "level", "traceId", "spanId", "requestId", "timestamp"} for row in logs), (
+        "Loki содержит поля за пределами списка разрешённых"
+    )
+    return {"trace_id": trace_id, "request_id": request_id, "services": sorted(traced_services), "matching_log": True}
+
+
 try:
     deadline = time.monotonic() + args.wait
+    denied = 'sum(cabinet_agent_access_denied_total{service="credit",status="404"}) or vector(0)'
+    denied_before = None
+    correlation_request = None
     while True:
         try:
             targets = get(prometheus + "/api/v1/targets")["data"]["activeTargets"]
+            targets = [target for target in targets if target["labels"].get("service") in
+                       {"credit", "identity", "engagement", "external-sim"}]
             credit = [target for target in targets if target["labels"].get("service") == "credit"]
             assert len(credit) == args.replicas, "DNS discovery пока не видит все реплики credit"
             assert len(targets) == args.replicas + 3 and all(target["health"] == "up" for target in targets), "Не все сервисы доступны для scrape"
@@ -78,6 +160,12 @@ try:
                 queries = json.load(response)["results"]
             assert len(queries) == 14 and all(not value.get("error") for value in queries.values()), "Не все 14 запросов панелей исполняются через Grafana"
             assert queries["0"].get("frames"), "Grafana не получила ряды доступности"
+            if args.require_correlation:
+                if correlation_request is None:
+                    denied_before = float(query(denied)[0]["value"][1])
+                    correlation_request = make_correlation_request()
+                assert float(query(denied)[0]["value"][1]) > denied_before, "Счётчик 404 агента не вырос"
+                report["correlation"] = verify_correlation(*correlation_request)
             break
         except Exception as error:
             if time.monotonic() >= deadline:

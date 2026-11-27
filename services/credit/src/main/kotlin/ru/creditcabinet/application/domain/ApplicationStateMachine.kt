@@ -1,5 +1,6 @@
 package ru.creditcabinet.application.domain
 
+import ru.creditcabinet.application.domain.ActorType.AGENT
 import ru.creditcabinet.application.domain.ActorType.CLIENT
 import ru.creditcabinet.application.domain.ActorType.MANAGER
 import ru.creditcabinet.application.domain.ActorType.SYSTEM
@@ -12,6 +13,7 @@ import ru.creditcabinet.application.domain.ApplicationStatus.ENRICHMENT
 import ru.creditcabinet.application.domain.ApplicationStatus.INFO_REQUESTED
 import ru.creditcabinet.application.domain.ApplicationStatus.MANUAL_REVIEW
 import ru.creditcabinet.application.domain.ApplicationStatus.OFFER_ISSUED
+import ru.creditcabinet.application.domain.ApplicationStatus.PENDING_CLIENT_CONFIRMATION
 import ru.creditcabinet.application.domain.ApplicationStatus.REJECTED
 import ru.creditcabinet.application.domain.ApplicationStatus.SCORING
 import ru.creditcabinet.application.domain.ApplicationStatus.SIGNING
@@ -21,9 +23,13 @@ import ru.creditcabinet.application.domain.ApplicationStatus.WITHDRAWN
 /** Events of docs/state-machine.md, section 3, with the actors allowed to cause them. */
 enum class ApplicationEvent(val actors: Set<ActorType>) {
     SUBMIT(setOf(CLIENT)),
+    REQUEST_CLIENT_CONFIRMATION(setOf(AGENT)),
+    CONFIRM_AND_SUBMIT(setOf(CLIENT)),
+    RETURN_TO_AGENT(setOf(CLIENT)),
+    AGENT_CANCEL(setOf(AGENT)),
     DATA_COMPLETE(setOf(SYSTEM)),
     DATA_INCOMPLETE(setOf(SYSTEM)),
-    INFO_PROVIDED(setOf(CLIENT)),
+    INFO_PROVIDED(setOf(CLIENT, AGENT)),
     INFO_EXPIRED(setOf(SYSTEM)),
     SOURCE_FAILED(setOf(SYSTEM)),
     ENRICHMENT_DONE(setOf(SYSTEM)),
@@ -47,12 +53,21 @@ enum class ApplicationEvent(val actors: Set<ActorType>) {
 }
 
 /**
- * The transition table, T1–T21 of docs/state-machine.md. Anything not listed is refused: the
+ * The transition table, T1–T25 of docs/state-machine.md. Anything not listed is refused: the
  * caller gets 409 with the reason, not a silently changed status.
  */
 object ApplicationStateMachine {
     // Declared before the table, which reads it while initialising.
-    val WITHDRAWABLE = setOf(DRAFT, SUBMITTED, INFO_REQUESTED, ENRICHMENT, MANUAL_REVIEW, OFFER_ISSUED, SIGNING)
+    val WITHDRAWABLE = setOf(
+        DRAFT,
+        PENDING_CLIENT_CONFIRMATION,
+        SUBMITTED,
+        INFO_REQUESTED,
+        ENRICHMENT,
+        MANUAL_REVIEW,
+        OFFER_ISSUED,
+        SIGNING,
+    )
 
     private val table: Map<Pair<ApplicationStatus, ApplicationEvent>, ApplicationStatus> = buildMap {
         put(DRAFT to ApplicationEvent.SUBMIT, SUBMITTED)
@@ -79,6 +94,14 @@ object ApplicationStateMachine {
         // T21: a client may withdraw until the money is on its way, but not while a system
         // step is running (SCORING, DISBURSING): those finish within seconds.
         for (status in WITHDRAWABLE) put(status to ApplicationEvent.WITHDRAW, WITHDRAWN)
+        // T22–T25: agent-assisted application workflow before bank submission.
+        put(DRAFT to ApplicationEvent.REQUEST_CLIENT_CONFIRMATION, PENDING_CLIENT_CONFIRMATION)
+        // The service checks the first handoff and the revoked mandate before resuming a returned draft.
+        put(DRAFT to ApplicationEvent.CONFIRM_AND_SUBMIT, SUBMITTED)
+        put(PENDING_CLIENT_CONFIRMATION to ApplicationEvent.CONFIRM_AND_SUBMIT, SUBMITTED)
+        put(PENDING_CLIENT_CONFIRMATION to ApplicationEvent.RETURN_TO_AGENT, DRAFT)
+        put(DRAFT to ApplicationEvent.AGENT_CANCEL, WITHDRAWN)
+        put(PENDING_CLIENT_CONFIRMATION to ApplicationEvent.AGENT_CANCEL, WITHDRAWN)
     }
 
     fun target(from: ApplicationStatus, event: ApplicationEvent): ApplicationStatus? = table[from to event]

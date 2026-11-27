@@ -1,0 +1,49 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  structured:
+    json:
+      add:
+        service: ${spring.application.name}
+
+management:
+  otlp:
+    tracing:
+      export:
+        enabled: ${MANAGEMENT_OTLP_TRACING_EXPORT_ENABLED:false}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+spring:
+  application:
+    name: analytics
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:analytics}
+    username: ${DB_USER:analytics_app}
+    password: ${DB_PASSWORD:}
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:false}
+  kafka:
+    bootstrap-servers: ${APPLICATION_STATUS_KAFKA_BOOTSTRAP_SERVERS:}
+    consumer:
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+cabinet:
+  auth:
+    jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}
+  analytics:
+    kafka:
+      enabled: ${ANALYTICS_KAFKA_ENABLED:false}
+      topic: ${APPLICATION_STATUS_KAFKA_TOPIC:}
+      group-id: ${ANALYTICS_KAFKA_GROUP_ID:}
+      dlq-topic: ${ANALYTICS_KAFKA_DLQ_TOPIC:}

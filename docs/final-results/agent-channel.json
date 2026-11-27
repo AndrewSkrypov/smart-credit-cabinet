@@ -1,0 +1,51 @@
+{
+  "measuredAt": "2026-11-26T16:52:38+00:00",
+  "commit": "5c86717",
+  "baseUrl": "http://localhost:8080",
+  "runs": 10,
+  "succeeded": 10,
+  "successRate": 1.0,
+  "timingsSeconds": {
+    "agent_ready_s": {
+      "min": 0.04,
+      "median": 0.06,
+      "p95": 0.12,
+      "max": 0.12
+    },
+    "client_confirmed_s": {
+      "min": 0.07,
+      "median": 0.09,
+      "p95": 0.14,
+      "max": 0.14
+    },
+    "bank_decision_s": {
+      "min": 1.04,
+      "median": 1.57,
+      "p95": 2.1,
+      "max": 2.1
+    },
+    "disbursement_s": {
+      "min": 0.53,
+      "median": 0.8,
+      "p95": 1.6,
+      "max": 1.6
+    },
+    "total_s": {
+      "min": 2.36,
+      "median": 3.43,
+      "p95": 4.47,
+      "max": 4.47
+    }
+  },
+  "manualActionsPerApplication": {
+    "AGENT": 3,
+    "CLIENT": 4,
+    "BANK": 0
+  },
+  "authorityChecks": {
+    "total": 100,
+    "asExpected": 100,
+    "failed": []
+  },
+  "errors": []
+}

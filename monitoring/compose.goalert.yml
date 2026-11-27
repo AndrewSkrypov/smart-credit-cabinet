@@ -1,0 +1,74 @@
+# Standalone dev rehearsal. Do not append this file to the cabinet-dev project.
+services:
+  postgres:
+    image: postgres:17.12-alpine3.23@sha256:57a828ad76b719bbed499fc30f71754bbe37d78c8c4c990a1a2096380b8d7ca5
+    env_file: [postgres.env]
+    environment:
+      POSTGRES_USER: goalert_admin
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    healthcheck:
+      test: [CMD-SHELL, 'PGPASSWORD="$$GOALERT_DB_APP_PASSWORD" psql -w -h 127.0.0.1 -U goalert -d goalert -Atqc "SELECT 1"']
+      interval: 5s
+      timeout: 4s
+      retries: 20
+    volumes:
+      - goalert-dev-postgres:/var/lib/postgresql/data
+      - ./alerts/goalert-dev-db.sql:/docker-entrypoint-initdb.d/10-goalert.sql:ro
+    networks: [isolated]
+    mem_limit: 384m
+    restart: unless-stopped
+  goalert:
+    image: goalert/goalert:v0.35.0@sha256:f090a90538d7e61446aad245c21a7a1694d36d7b4f6c56fc55e9cc7405d9c03f
+    env_file: [goalert.env]
+    environment:
+      GOALERT_LISTEN: :8081
+      GOALERT_PUBLIC_URL: http://127.0.0.1:18081
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [isolated]
+    user: "65534:65534"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 384m
+    restart: unless-stopped
+  cabinet-goalert-mailpit:
+    image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
+    environment:
+      MP_DATABASE: /tmp/mailpit.db
+      MP_MAX_MESSAGES: "100"
+      MP_DISABLE_VERSION_CHECK: "true"
+    networks: [isolated]
+    tmpfs: ["/tmp:mode=1777,size=32m"]
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    restart: unless-stopped
+
+  access:
+    image: nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
+    entrypoint: [nginx, -g, daemon off;]
+    volumes:
+      - ./alerts/goalert-dev-access.conf:/etc/nginx/nginx.conf:ro
+    ports: ["127.0.0.1:18081:18081", "127.0.0.1:18025:18025"]
+    networks: [isolated, access]
+    user: "101:101"
+    read_only: true
+    tmpfs: ["/tmp:mode=1777,size=8m"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 32m
+    depends_on: [goalert, cabinet-goalert-mailpit]
+    restart: unless-stopped
+
+networks:
+  isolated:
+    internal: true
+  access:
+volumes:
+  goalert-dev-postgres:

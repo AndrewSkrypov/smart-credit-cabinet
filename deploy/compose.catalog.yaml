@@ -1,0 +1,55 @@
+# Included only for a manifest that enables Catalog.
+services:
+  credit:
+    networks: [catalog-rpc]
+    environment:
+      CABINET_CATALOG_MODE: ${CABINET_CATALOG_MODE:?Нужен проверенный режим Credit Catalog}
+      CABINET_CATALOG_GRPC_CLIENT_HOST: catalog-grpc
+      CABINET_CATALOG_GRPC_CLIENT_PORT: "9094"
+      CABINET_CATALOG_GRPC_CLIENT_CERTIFICATE: /run/catalog-tls/tls.crt
+      CABINET_CATALOG_GRPC_CLIENT_KEY: /run/catalog-tls/tls.key
+      CABINET_CATALOG_GRPC_CLIENT_SERVER_CA: /run/catalog-tls/ca.crt
+    volumes:
+      - type: bind
+        source: ${CABINET_CATALOG_TLS_DIR:?Нужен каталог mTLS}/credit
+        target: /run/catalog-tls
+        read_only: true
+        bind: {create_host_path: false}
+
+  postgres:
+    networks: [catalog-db]
+
+  catalog-grpc:
+    image: ${CABINET_IMAGE_CATALOG_GRPC:?Нужен digest образа Catalog}
+    pull_policy: never
+    networks: [catalog-rpc, catalog-db]
+    mem_limit: 384m
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      JWT_SECRET: ${JWT_SECRET:?Нужен ключ проверки JWT}
+      CABINET_CATALOG_GRPC_DATABASE_URL: jdbc:postgresql://postgres:5432/catalog
+      CABINET_CATALOG_GRPC_DATABASE_USER: catalog_app
+      CABINET_CATALOG_GRPC_DATABASE_PASSWORD: ${CATALOG_DB_PASSWORD:?Нужен пароль Catalog}
+      CABINET_CATALOG_GRPC_SERVER_HOST: 0.0.0.0
+      CABINET_CATALOG_GRPC_SERVER_PORT: "9094"
+      CABINET_CATALOG_GRPC_SERVER_CERTIFICATE: /run/catalog-tls/tls.crt
+      CABINET_CATALOG_GRPC_SERVER_KEY: /run/catalog-tls/tls.key
+      CABINET_CATALOG_GRPC_SERVER_CLIENT_CA: /run/catalog-tls/ca.crt
+    volumes:
+      - type: bind
+        source: ${CABINET_CATALOG_TLS_DIR:?Нужен каталог mTLS}/server
+        target: /run/catalog-tls
+        read_only: true
+        bind: {create_host_path: false}
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, bash, -ec, "exec 3<>/dev/tcp/127.0.0.1/9094"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+networks:
+  catalog-rpc: {internal: true}
+  catalog-db: {internal: true}

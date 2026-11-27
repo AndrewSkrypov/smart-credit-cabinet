@@ -8,6 +8,7 @@ groups:
           severity: warning
         annotations:
           summary: 'Есть недоставленные уведомления или письма'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-delivery'
       - alert: CabinetNotificationDeliveryDelayed
         expr: max(cabinet_delivery_outbox_oldest_seconds) > 120
         for: 2m
@@ -15,13 +16,15 @@ groups:
           severity: warning
         annotations:
           summary: 'Очередь уведомлений или писем ждёт больше двух минут'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-delivery'
       - alert: CabinetServiceDown
-        expr: up == 0
+        expr: up{service=~"credit|identity|engagement|external-sim"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: 'Экземпляр сервиса недоступен'
+          summary: 'Экземпляр {{ $labels.service }} {{ $labels.instance }} недоступен'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-metrics'
       - alert: CabinetFailedJobs
         expr: sum(max by (status, attempts) (cabinet_pipeline_jobs{status="FAILED"})) > 0
         for: 1m
@@ -29,6 +32,7 @@ groups:
           severity: warning
         annotations:
           summary: 'Есть задачи FAILED — нужна диагностика оператора'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-queue'
       - alert: CabinetQueueDelayed
         expr: max(cabinet_pipeline_queue_oldest_due_seconds) > 60
         for: 2m
@@ -36,13 +40,15 @@ groups:
           severity: warning
         annotations:
           summary: 'Просроченная очередь не разбирается более минуты'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-queue'
       - alert: CabinetMetricsStale
-        expr: (cabinet_pipeline_metrics_snapshot_age_seconds > 60) or ((up{job="credit"} == 1) unless on (instance) (cabinet_pipeline_metrics_snapshot_age_seconds >= 0))
+        expr: (cabinet_pipeline_metrics_snapshot_age_seconds > 60) or ((up{service="credit"} == 1) unless on (instance) (cabinet_pipeline_metrics_snapshot_age_seconds >= 0))
         for: 1m
         labels:
           severity: warning
         annotations:
           summary: 'Снимок метрик БД устарел — счётчики нельзя считать актуальными'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-metrics'
       - alert: CabinetSourceCircuitOpen
         expr: cabinet_source_breaker{state="OPEN"} == 1
         for: 1m
@@ -50,3 +56,4 @@ groups:
           severity: warning
         annotations:
           summary: 'Circuit breaker источника открыт больше минуты'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-source'

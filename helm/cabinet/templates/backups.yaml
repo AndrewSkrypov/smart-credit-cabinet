@@ -1,0 +1,48 @@
+{{- $root := . }}
+{{- if lt (int .Values.backup.retentionDays) 1 }}
+{{- fail "backup.retentionDays must be at least 1" }}
+{{- end }}
+{{- range $i, $engine := list "postgres" "valkey" }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cabinet-{{ $engine }}-backup
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- include "cabinet.storageClass" $root | nindent 2 }}
+  resources:
+    requests:
+      storage: {{ $root.Values.persistence.backup | quote }}
+{{- if $root.Values.app.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cabinet-{{ $engine }}-pre-migrate-backup
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: {{ add -30 $i | quote }}
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  {{- include "cabinet.backup-job" (list $root $engine) | nindent 2 }}
+{{- with $root.Values.backup.schedule }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cabinet-{{ $engine }}-backup
+spec:
+  schedule: {{ . | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 1800
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      {{- include "cabinet.backup-job" (list $root $engine) | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}

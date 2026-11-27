@@ -19,6 +19,7 @@ data class TokenClaims(
     val credentialsVersion: Int = 0,
 ) {
     val isClient: Boolean get() = role == Roles.CLIENT
+    val isAgent: Boolean get() = role == Roles.AGENT
     val isBankStaff: Boolean get() = role in Roles.BANK_STAFF
 
     companion object {
@@ -34,6 +35,7 @@ data class TokenClaims(
 /** Role names as they travel in tokens; identity's UserRole enum uses the same names. */
 object Roles {
     const val CLIENT = "CLIENT"
+    const val AGENT = "AGENT"
     const val MANAGER = "MANAGER"
     const val UNDERWRITER = "UNDERWRITER"
     const val RISK_ADMIN = "RISK_ADMIN"

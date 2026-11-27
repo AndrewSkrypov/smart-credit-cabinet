@@ -13,6 +13,7 @@ import org.hibernate.type.SqlTypes
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CloseReason
+import ru.creditcabinet.application.domain.CommissionStatus
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
@@ -78,6 +79,23 @@ class ApplicationEntity(
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "product_catalog_snapshot", nullable = false, columnDefinition = "jsonb")
     val productCatalogSnapshot: Map<String, Long>,
+    @Column(name = "agent_id")
+    val agentId: UUID? = null,
+    @Column(name = "agent_name")
+    val agentName: String? = null,
+    @Column(name = "pre_approved_offer_id")
+    val preApprovedOfferId: UUID? = null,
+    @Column(name = "agent_commission_rate_bps")
+    val agentCommissionRateBps: Int? = null,
+    @Column(name = "agent_commission_amount")
+    val agentCommissionAmount: Long? = null,
+    @Enumerated(EnumType.STRING)
+    @Column(name = "agent_commission_status", nullable = false)
+    val agentCommissionStatus: CommissionStatus = CommissionStatus.NONE,
+    @Column(name = "client_handoff_at")
+    val clientHandoffAt: Instant? = null,
+    @Column(name = "client_managed", nullable = false)
+    val clientManaged: Boolean = false,
 ) {
     fun toDomain() =
         LoanApplication(
@@ -104,6 +122,14 @@ class ApplicationEntity(
             version = version,
             productVersion = productVersion,
             productCatalogSnapshot = productCatalogSnapshot,
+            agentId = agentId,
+            agentName = agentName,
+            preApprovedOfferId = preApprovedOfferId,
+            agentCommissionRateBps = agentCommissionRateBps,
+            agentCommissionAmount = agentCommissionAmount,
+            agentCommissionStatus = agentCommissionStatus,
+            clientHandoffAt = clientHandoffAt,
+            clientManaged = clientManaged,
         )
 
     companion object {
@@ -134,6 +160,14 @@ class ApplicationEntity(
                     version = version,
                     productVersion = productVersion,
                     productCatalogSnapshot = productCatalogSnapshot,
+                    agentId = agentId,
+                    agentName = agentName,
+                    preApprovedOfferId = preApprovedOfferId,
+                    agentCommissionRateBps = agentCommissionRateBps,
+                    agentCommissionAmount = agentCommissionAmount,
+                    agentCommissionStatus = agentCommissionStatus,
+                    clientHandoffAt = clientHandoffAt,
+                    clientManaged = clientManaged,
                 )
             }
     }

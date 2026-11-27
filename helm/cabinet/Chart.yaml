@@ -1,0 +1,5 @@
+apiVersion: v2
+name: cabinet
+description: Smart Credit Cabinet application and persistent services
+type: application
+version: 0.1.0

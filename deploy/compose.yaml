@@ -57,10 +57,12 @@ services:
   credit:
     profiles: [prod]
     image: cabinet/credit:${CABINET_RELEASE:?Задайте CABINET_RELEASE}
-    mem_limit: 640m
+    # Preserve the 2 GiB host reserve on the 8 GiB Compose target with S3.
+    mem_limit: 768m
     environment:
       <<: *prod-env
       DB_PASSWORD: ${CREDIT_DB_PASSWORD:?Задайте CREDIT_DB_PASSWORD}
+      DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-false}
       SIM_API_KEY: ${SIM_API_KEY:?Задайте SIM_API_KEY в deploy/.env}
       INFO_REQUEST_TTL: ${INFO_REQUEST_TTL:-P14D}
       OFFER_TTL: ${OFFER_TTL:-P5D}
@@ -86,6 +88,8 @@ services:
     mem_limit: 96m
   swagger-ui:
     profiles: [documentation]
+  prometheus:
+    ports: !override []
   gateway:
     profiles: [prod]
     mem_limit: 48m
@@ -101,13 +105,13 @@ services:
       edge:
         ipv4_address: ${GATEWAY_EDGE_IP:-172.30.40.3}
   caddy:
-    image: caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd
+    image: caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9
     profiles: [prod]
     mem_limit: 96m
     restart: unless-stopped
     environment:
       CABINET_DOMAIN: ${CABINET_DOMAIN:?Задайте CABINET_DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL:?Задайте ACME_EMAIL}
+      ACME_CONTACT: "${ACME_EMAIL:+email ${ACME_EMAIL}}"
       GOMEMLIMIT: 64MiB
     ports:
       - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-80}:80"

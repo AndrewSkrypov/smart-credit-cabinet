@@ -1,0 +1,17 @@
+# Optional overlay. The shared chart renders no Assessment resources by default.
+assessment:
+  enabled: false
+  creditMode: local
+  generation: ""
+  clusterId: ""
+  databaseSecret: cabinet-assessment-db
+  databaseStorage: 12Gi
+  kafkaStorage: 24Gi
+  bootstrapTopics: false
+  receipt:
+    revision: ""
+    generation: ""
+    sha256: ""
+images:
+  assessment: ""
+  assessment-kafka: ""

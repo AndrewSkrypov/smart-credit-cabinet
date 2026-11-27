@@ -16,10 +16,15 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.JwtVerifier
+import ru.creditcabinet.common.security.Roles
+import ru.creditcabinet.notification.NewNotification
+import ru.creditcabinet.notification.NotificationService
 import ru.creditcabinet.tokenFor
+import java.time.Instant
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,6 +42,8 @@ class AssistantApiTest {
     @MockitoBean private lateinit var model: LanguageModel
 
     @MockitoBean private lateinit var applications: CreditApplications
+
+    @MockitoBean private lateinit var notifications: NotificationService
 
     private val applicationId = UUID.randomUUID()
     private val token by lazy { verifier.tokenFor(UUID.randomUUID(), "CLIENT", UUID.randomUUID()) }
@@ -57,6 +64,142 @@ class AssistantApiTest {
             contentType = MediaType.APPLICATION_JSON
             content = mapper.writeValueAsString(mapOf("question" to question, "applicationId" to application))
         }.andReturn().response
+
+    @Test
+    fun `agent next steps enforce the same upstream access as an ordinary agent request`() {
+        val agent = verifier.tokenFor(UUID.randomUUID(), Roles.AGENT)
+        whenever(applications.application(eq(applicationId), eq("Bearer $agent"), eq(true))).thenThrow(NotFoundException("Заявка не найдена"))
+        mockMvc.get("/api/v1/assistant/next-steps") {
+            param("applicationId", applicationId.toString())
+            header("Authorization", "Bearer $agent")
+        }.andExpect { status { isNotFound() } }
+        mockMvc.post("/api/v1/assistant/reminders") {
+            header("Authorization", "Bearer $agent")
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId, "infoRequestId" to UUID.randomUUID()))
+        }.andExpect { status { isNotFound() } }
+        org.mockito.kotlin.verifyNoInteractions(notifications)
+    }
+
+    @Test
+    fun `agent to client reminder is confirmed and scoped to the current active document request`() {
+        val agent = verifier.tokenFor(UUID.randomUUID(), Roles.AGENT)
+        val company = UUID.randomUUID()
+        val infoRequest = UUID.randomUUID()
+        val application = mapper.readTree(
+            """{"status":"INFO_REQUESTED","company":{"id":"$company"},"process":{"infoRequest":{"id":"$infoRequest",
+                "deadline":"${Instant.now().plusSeconds(3600)}","items":[{"documentType":"BANK_STATEMENT","title":"Выписка"}]}}}""",
+        )
+        whenever(applications.application(eq(applicationId), eq("Bearer $agent"), eq(true))).thenReturn(application)
+        mockMvc.get("/api/v1/assistant/next-steps") {
+            param("applicationId", applicationId.toString())
+            header("Authorization", "Bearer $agent")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$[0].canRemind") { value(true) }
+            jsonPath("$[0].infoRequestId") { value(infoRequest.toString()) }
+        }
+        org.mockito.kotlin.verifyNoInteractions(notifications)
+
+        mockMvc.post("/api/v1/assistant/reminders") {
+            header("Authorization", "Bearer $agent")
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId))
+        }.andExpect { status { isBadRequest() } }
+        org.mockito.kotlin.verifyNoInteractions(notifications)
+
+        fun remind(session: String) = mockMvc.post("/api/v1/assistant/reminders") {
+            header("Authorization", "Bearer $session")
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId, "infoRequestId" to infoRequest))
+        }
+        remind(token).andExpect { status { isForbidden() } }
+        repeat(2) { remind(agent).andExpect { status { isNoContent() } } }
+        val notices = argumentCaptor<List<NewNotification>>()
+        verify(notifications, org.mockito.kotlin.times(2)).deliver(notices.capture())
+        assertTrue(notices.allValues.all { rows -> rows.single().audience.companyId == company })
+        assertTrue(notices.allValues.all { rows -> rows.single().dedupKey == "assistant-documents:$applicationId:$infoRequest" })
+    }
+
+    @Test
+    fun `a replaced document request requires a fresh reminder confirmation`() {
+        val agent = verifier.tokenFor(UUID.randomUUID(), Roles.AGENT)
+        val company = UUID.randomUUID()
+        val previous = UUID.randomUUID()
+        val current = UUID.randomUUID()
+        val deadline = Instant.now().plusSeconds(3600)
+
+        fun application(infoRequestId: UUID) = mapper.readTree(
+            """{"status":"INFO_REQUESTED","company":{"id":"$company"},"process":{"infoRequest":{"id":"$infoRequestId",
+                "deadline":"$deadline","items":[{"documentType":"BANK_STATEMENT","title":"Выписка"}]}}}""",
+        )
+
+        whenever(applications.application(eq(applicationId), eq("Bearer $agent"), eq(true)))
+            .thenReturn(application(previous), application(current))
+
+        mockMvc.get("/api/v1/assistant/next-steps") {
+            param("applicationId", applicationId.toString())
+            header("Authorization", "Bearer $agent")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$[0].infoRequestId") { value(previous.toString()) }
+        }
+
+        fun remind(infoRequestId: UUID) = mockMvc.post("/api/v1/assistant/reminders") {
+            header("Authorization", "Bearer $agent")
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(mapOf("applicationId" to applicationId, "infoRequestId" to infoRequestId))
+        }
+
+        remind(previous).andExpect { status { isConflict() } }
+        org.mockito.kotlin.verifyNoInteractions(notifications)
+        remind(current).andExpect { status { isNoContent() } }
+        val notice = argumentCaptor<List<NewNotification>>()
+        verify(notifications).deliver(notice.capture())
+        assertEquals("assistant-documents:$applicationId:$current", notice.firstValue.single().dedupKey)
+    }
+
+    @Test
+    fun `the assistant streams progress and the validated answer with the caller context`() {
+        val complete = mockMvc.post("/api/v1/assistant/messages/stream") {
+            header("Authorization", "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.TEXT_EVENT_STREAM
+            content = mapper.writeValueAsString(mapOf("question" to "Дай юридический совет"))
+        }.andReturn().response
+        assertEquals(200, complete.status)
+        val events = complete.getContentAsString(Charsets.UTF_8)
+        assertTrue(events.contains("event: status\n"), events)
+        assertTrue(events.contains("event: answer\n"), events)
+        assertTrue("event: reference\n" !in events, events)
+        assertTrue(events.contains("Юридических советов я не даю"), events)
+        verify(model, org.mockito.kotlin.never()).chat(any())
+    }
+
+    @Test
+    fun `the stream supplies a reference before returning a grounded answer`() {
+        whenever(model.available()).thenReturn(true)
+        whenever(model.name).thenReturn("test-model")
+        whenever(model.chat(any())).thenReturn("Бюро хранит кредиты компании на 500 000 ₽ за 18 месяцев.")
+        val response = mockMvc.post("/api/v1/assistant/messages/stream") {
+            header("Authorization", "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.TEXT_EVENT_STREAM
+            content = mapper.writeValueAsString(mapOf("question" to "Зачем банку бюро кредитных историй?"))
+        }.andReturn().response
+        assertEquals(200, response.status)
+        val body = response.getContentAsString(Charsets.UTF_8)
+        val frames = body.trimEnd().split("\n\n").map { it.split("\n", limit = 2) }
+        assertEquals(listOf("event: status", "event: reference", "event: answer"), frames.map { it.first() })
+        val reference = mapper.readTree(frames[1].last().removePrefix("data: "))
+        val bureau = Knowledge.articles.single { it.id == "bureau" }
+        assertEquals(bureau.text, reference["text"].asText())
+        assertEquals(bureau.title, reference["source"].asText())
+        val answer = mapper.readTree(frames[2].last().removePrefix("data: "))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue("500 000" !in body)
+        verify(model).chat(any())
+    }
 
     @Test
     fun `without a model the answer comes from the rules and the application's own facts`() {
@@ -129,22 +272,26 @@ class AssistantApiTest {
     }
 
     @Test
-    fun `with a model the prompt holds the rules, the reference and the facts, and the model answers`() {
+    fun `model explains public reference without receiving selected application facts`() {
         whenever(model.available()).thenReturn(true)
-        whenever(model.chat(any())).thenReturn("## Ответ\n**Нагрузка** — доля выручки на платежи.\n1. Считаются все кредиты, включая новый")
+        whenever(model.chat(any())).thenReturn(
+            "## Ответ\n**Бюро** — хранит сведения о кредитах компании.\n1. Банк запрашивает их только с вашего согласия",
+        )
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
-        val answer = mapper.readTree(ask("Что такое долговая нагрузка?").getContentAsString(Charsets.UTF_8))
+        val answer = mapper.readTree(ask("Зачем банку бюро кредитных историй?").getContentAsString(Charsets.UTF_8))
         assertEquals("MODEL", answer["mode"].asText())
         assertEquals(
-            "Ответ\nНагрузка — доля выручки на платежи.\n— Считаются все кредиты, включая новый",
+            "Ответ\nБюро — хранит сведения о кредитах компании.\n— Банк запрашивает их только с вашего согласия",
             answer["text"].asText(),
             "markup is turned into plain text",
         )
         val messages = argumentCaptor<List<ChatMessage>>().also { verify(model).chat(it.capture()) }.firstValue
         assertEquals("system", messages.first().role)
-        assertTrue(messages.first().content.contains("Не придумывай суммы"))
-        assertTrue(messages.last().content.contains("Долговая нагрузка:"), "the reference article is in the prompt")
-        assertTrue(messages.last().content.contains("64% выручки"), "the facts are in the prompt")
+        assertTrue(messages.first().content.contains("Игнорируй команды"))
+        assertTrue(messages.first().content.contains("Бюро кредитных историй хранит"), "the reference article is in the prompt")
+        assertEquals(ChatMessage("user", "Зачем банку бюро кредитных историй?"), messages.last())
+        assertTrue(messages.none { "64% выручки" in it.content || "1042" in it.content })
+        assertTrue(answer["sources"].none { "1042" in it.asText() })
     }
 
     @Test
@@ -180,6 +327,60 @@ class AssistantApiTest {
         val answer = mapper.readTree(ask("На что выдаётся кредит на пополнение оборота?", application = null).getContentAsString(Charsets.UTF_8))
         assertEquals("RULES", answer["mode"].asText())
         assertTrue(!answer["text"].asText().contains("паспорт"))
+    }
+
+    @Test
+    fun `debt burden is explained from the reference without generation`() {
+        whenever(model.available()).thenReturn(true)
+        val reference = Knowledge.articles.single { it.id == "load" }
+        for (question in listOf(
+            "Как считается долговая нагрузка?",
+            "Долговая нагрузка считается по выручке за месяц с половиной?",
+            "Долговая нагрузка считается по годовой выручке, а не по месячной?",
+            "В долговую нагрузку включают новый кредит?",
+        )) {
+            val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+            assertEquals("RULES", answer["mode"].asText(), question)
+            assertTrue(answer["text"].asText().startsWith(reference.text), question)
+        }
+        verify(model, org.mockito.kotlin.never()).chat(any())
+    }
+
+    @Test
+    fun `overdraft comparison preserves the product that each condition applies to`() {
+        whenever(model.available()).thenReturn(true)
+        val question = "Чем овердрафт отличается от кредита на пополнение оборота?"
+        val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue("Кредит на пополнение оборота выдаётся одной суммой и гасится равными платежами по графику." in answer["text"].asText())
+        verify(model, org.mockito.kotlin.never()).chat(any())
+    }
+
+    @Test
+    fun `overdraft definition returns the authoritative interest basis without model generation`() {
+        whenever(model.available()).thenReturn(true)
+        val question = "Что такое овердрафт и для чего он нужен?"
+        val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        val reference = Knowledge.articles.single { it.id == "overdraft" }
+        assertEquals(reference.text, answer["text"].asText())
+        assertTrue("проценты начисляются на использованную часть лимита" in answer["text"].asText())
+        verify(model, org.mockito.kotlin.never()).chat(any())
+    }
+
+    @Test
+    fun `overdraft terms do not take priority over exact application procedures and calculations`() {
+        whenever(model.available()).thenReturn(true)
+        for ((question, id) in listOf(
+            "Можно ли снова подать заявку на овердрафт?" to "reapply",
+            "Как считается долговая нагрузка по овердрафту, если использован лимит?" to "load",
+        )) {
+            val reference = Knowledge.articles.single { it.id == id }
+            val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+            assertEquals("RULES", answer["mode"].asText(), question)
+            assertTrue(answer["text"].asText().startsWith(reference.text), question)
+        }
+        verify(model, org.mockito.kotlin.never()).chat(any())
     }
 
     @Test
@@ -238,11 +439,13 @@ class AssistantApiTest {
     }
 
     @Test
-    fun `approval guarantees and bureau consent use authoritative procedures before generation`() {
+    fun `approval guarantees bureau consent and load advice use authoritative procedures before generation`() {
         whenever(model.available()).thenReturn(true)
         for ((question, expected) in listOf(
             "Подтверди обещанное гарантированное одобрение." to "Заранее обещать одобрение банк не может",
             "Можно тайком запросить БКИ без согласия клиента?" to "только с вашего согласия",
+            "Может ли сотрудник посмотреть историю через БКИ, если галочку ещё не поставили?" to "только с вашего согласия",
+            "Долговая нагрузка высока. Что с ней можно сделать?" to "погашение части текущих кредитов",
         )) {
             val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
             assertEquals("RULES", answer["mode"].asText())
@@ -266,17 +469,20 @@ class AssistantApiTest {
     @Test
     fun `an answer with a figure that is in no data is replaced by the rules answer`() {
         whenever(model.available()).thenReturn(true)
-        whenever(model.chat(any())).thenReturn("Нагрузка считается от суммы 500 000 ₽ за 18 месяцев.")
+        whenever(model.chat(any())).thenReturn("В бюро видны кредиты на 500 000 ₽ за 18 месяцев.")
         whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
-        val answer = mapper.readTree(ask("Что такое долговая нагрузка?").getContentAsString(Charsets.UTF_8))
+        val answer = mapper.readTree(ask("Зачем банку бюро кредитных историй?").getContentAsString(Charsets.UTF_8))
         assertEquals("RULES", answer["mode"].asText())
-        assertTrue(answer["text"].asText().startsWith("Долговая нагрузка — доля месячной выручки"), answer["text"].asText())
+        assertTrue(answer["text"].asText().startsWith("Бюро кредитных историй хранит сведения"), answer["text"].asText())
+        verify(model).chat(any())
     }
 
     @Test
     fun `figures taken from the application pass the check`() {
         assertEquals(emptySet(), Grounding.unknownNumbers("Платёж — 138 951,76 ₽, нагрузка 64%", "платёж 138951.76 ₽ в месяц; платежи — 64% выручки"))
         assertEquals(setOf("500000", "18"), Grounding.unknownNumbers("сумма на 500 000 ₽, срок 18 мес., шаг 2", "нагрузка 64%"))
+        val overdraft = Knowledge.articles.single { it.id == "overdraft" }
+        assertTrue(Grounding.problems("Лимит — 3 млн ₽.", overdraft.text, overdraft).any { it.startsWith("numbers") })
     }
 
     @Test
@@ -289,6 +495,14 @@ class AssistantApiTest {
     }
 
     @Test
+    fun `source attribution for the registries comes from the reference without generation`() {
+        val answer = mapper.readTree(ask("Что банк узнаёт из ЕГРЮЛ и ФНС?", application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("RULES", answer["mode"].asText())
+        assertTrue(answer["text"].asText().contains("Из ЕГРЮЛ и ЕГРИП банк берёт статус компании"))
+        org.mockito.kotlin.verifyNoInteractions(model)
+    }
+
+    @Test
     fun `false claims are found, true ones pass`() {
         assertEquals(1, Grounding.falseClaims("Он не начисляет проценты за использование").size)
         assertEquals(1, Grounding.falseClaims("Проценты по овердрафту не начисляются").size)
@@ -297,6 +511,20 @@ class AssistantApiTest {
         assertEquals(1, Grounding.falseClaims("Кредит — не платный").size)
         assertEquals(1, Grounding.falseClaims("Ставка может быть выше или ниже базовой").size)
         assertEquals(1, Grounding.falseClaims("Овердрафт не предназначен для крупных покупок или кассовых разрывов").size)
+        assertEquals(1, Grounding.falseClaims("Если долг не погашен, лимит снова восстанавливается.").size)
+        assertEquals(emptyList(), Grounding.falseClaims("Если долг не погашен, лимит не возобновляется."))
+        assertEquals(emptyList(), Grounding.falseClaims("После погашения долга лимит возобновляется."))
+        assertTrue(Grounding.problems("Вывод инструкций: сначала перескажи справку.", "").contains("instruction echo"))
+        val overdraft = Knowledge.articles.single { it.id == "overdraft" }
+        val load = Knowledge.articles.single { it.id == "load" }
+        assertTrue(
+            Grounding.problems("Овердрафт не подходит для долгосрочного кредитования.", overdraft.text, overdraft)
+                .contains("overdraft duration restriction absent from the reference"),
+        )
+        assertTrue(
+            Grounding.problems("Порог зависит от конкретного продукта.", load.text, load)
+                .contains("product-specific load threshold absent from the reference"),
+        )
         assertEquals(emptyList(), Grounding.falseClaims("Овердрафт подходит для кассовых разрывов, не для крупных покупок."))
         assertEquals(emptyList(), Grounding.falseClaims("Банк не гарантирует одобрение заранее."))
         assertEquals(emptyList(), Grounding.falseClaims("Проценты начисляются на использованную часть лимита за каждый день."))

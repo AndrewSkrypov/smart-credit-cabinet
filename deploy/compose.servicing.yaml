@@ -1,0 +1,126 @@
+# Enabled only by a protected cabinet-dev release manifest.
+x-servicing-image: &servicing-image
+  image: ${CABINET_IMAGE_SERVICING:?Servicing requires an immutable release image}
+  pull_policy: never
+  mem_limit: 384m
+
+x-servicing-db: &servicing-db
+  DB_HOST: servicing-db
+  DB_PORT: "5432"
+  DB_NAME: servicing
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
+
+services:
+  identity:
+    networks: [cabinet, servicing-identity]
+
+  valkey:
+    networks: [cabinet, servicing-cache]
+
+  credit:
+    networks: [cabinet, servicing-rpc]
+    environment:
+      SERVER_SHUTDOWN: graceful
+      SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE: "125s"
+      SERVICING_MODE: ${CABINET_SERVICING_CREDIT_MODE:-local}
+      SERVICING_GRPC_HOST: servicing
+      SERVICING_GRPC_PORT: "9095"
+      SERVICING_CLIENT_CERTIFICATE: /run/servicing-tls/tls.crt
+      SERVICING_CLIENT_KEY: /run/servicing-tls/tls.key
+      SERVICING_SERVER_CA: /run/servicing-tls/ca.crt
+    volumes:
+      - type: bind
+        source: ${CABINET_SERVICING_TLS_DIR:?Servicing requires TLS identities}/credit
+        target: /run/servicing-tls
+        read_only: true
+        bind:
+          create_host_path: false
+
+  servicing-db:
+    image: ${CABINET_IMAGE_POSTGRES:?Servicing requires an immutable PostgreSQL image}
+    pull_policy: never
+    restart: unless-stopped
+    mem_limit: 384m
+    networks: [servicing-store]
+    command: [postgres, -c, shared_buffers=64MB, -c, max_connections=30]
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_PASSWORD: ${CABINET_SERVICING_PG_ADMIN_PASSWORD:?Servicing requires an admin credential}
+      CABINET_SERVICING_PG_OWNER_PASSWORD: ${CABINET_SERVICING_PG_OWNER_PASSWORD:?Servicing requires an owner credential}
+      CABINET_SERVICING_PG_APP_PASSWORD: ${CABINET_SERVICING_PG_APP_PASSWORD:?Servicing requires an app credential}
+    volumes:
+      - servicing-data:/var/lib/postgresql/data
+      - ./helm/cabinet/files/servicing/init.sql:/docker-entrypoint-initdb.d/10-servicing.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'PGPASSWORD="$$CABINET_SERVICING_PG_APP_PASSWORD" psql -X -w -h 127.0.0.1 -U servicing_app -d servicing -c "SELECT 1" >/dev/null'
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  servicing-migrate:
+    <<: *servicing-image
+    profiles: [servicing-maintenance]
+    networks: [servicing-store]
+    environment:
+      <<: *servicing-db
+      DB_USER: servicing_owner
+      DB_PASSWORD: ${CABINET_SERVICING_PG_OWNER_PASSWORD:?Servicing requires an owner credential}
+      MIGRATION_ONLY: "true"
+
+  servicing:
+    <<: *servicing-image
+    restart: unless-stopped
+    stop_grace_period: 150s
+    networks: [servicing-store, servicing-rpc, servicing-identity, servicing-cache]
+    environment:
+      <<: *servicing-db
+      DB_USER: servicing_app
+      DB_PASSWORD: ${CABINET_SERVICING_PG_APP_PASSWORD:?Servicing requires an app credential}
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_FLYWAY_ENABLED: "false"
+      SERVER_SHUTDOWN: graceful
+      SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE: "125s"
+      JWT_SECRET: ${JWT_SECRET:?Servicing requires the Dev signing key}
+      IDENTITY_URL: http://identity:8080
+      CABINET_VALKEY_ENABLED: "true"
+      CABINET_VALKEY_HOST: valkey
+      CABINET_VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Servicing requires authenticated Valkey}
+      SERVICING_GRPC_HOST: 0.0.0.0
+      SERVICING_GRPC_PORT: "9095"
+      SERVICING_SERVER_CERTIFICATE: /run/servicing-tls/tls.crt
+      SERVICING_SERVER_KEY: /run/servicing-tls/tls.key
+      SERVICING_CLIENT_CA: /run/servicing-tls/ca.crt
+      SERVICING_CLIENT_URI: spiffe://creditcabinet/credit
+    volumes:
+      - type: bind
+        source: ${CABINET_SERVICING_TLS_DIR:?Servicing requires TLS identities}/server
+        target: /run/servicing-tls
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      servicing-db: {condition: service_healthy}
+      valkey: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, curl, -fsS, http://localhost:8095/actuator/health]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+networks:
+  servicing-rpc:
+    internal: true
+  servicing-store:
+    internal: true
+  servicing-identity:
+    internal: true
+  servicing-cache:
+    internal: true
+
+volumes:
+  servicing-data:
+    name: ${CABINET_SERVICING_VOLUME:?Servicing requires a project-qualified volume}

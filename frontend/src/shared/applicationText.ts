@@ -5,6 +5,7 @@ export const stages = ['Заявка', 'Проверка данных', 'Све�
 
 const stageOf: Record<ApplicationStatus, number> = {
   DRAFT: 0,
+  PENDING_CLIENT_CONFIRMATION: 0,
   SUBMITTED: 1,
   INFO_REQUESTED: 1,
   ENRICHMENT: 2,
@@ -35,6 +36,7 @@ const closeReasons: Record<CloseReason, string> = {
 
 const titles: Record<ApplicationStatus, string> = {
   DRAFT: 'Черновик',
+  PENDING_CLIENT_CONFIRMATION: 'Ждёт подтверждения клиента',
   SUBMITTED: 'Заявка принята',
   INFO_REQUESTED: 'Нужны дополнительные данные',
   ENRICHMENT: 'Запрашиваем сведения',
@@ -56,11 +58,47 @@ export type StatusTone = 'default' | 'info' | 'warning' | 'success' | 'error';
 
 /** Whether the status needs the client (warning), is good news (success) or bad (error). */
 export function statusTone(status: ApplicationStatus): StatusTone {
-  if (status === 'INFO_REQUESTED' || status === 'OFFER_ISSUED' || status === 'SIGNING' || status === 'DRAFT') return 'warning';
+  if (status === 'INFO_REQUESTED' || status === 'OFFER_ISSUED' || status === 'SIGNING' || status === 'DRAFT' || status === 'PENDING_CLIENT_CONFIRMATION') return 'warning';
   if (status === 'DISBURSED') return 'success';
   if (status === 'REJECTED') return 'error';
   if (status === 'WITHDRAWN' || status === 'CLOSED') return 'default';
   return 'info';
+}
+
+export interface AgentNextAction {
+  label: string;
+  requiresAgent: boolean;
+}
+
+/** Next-step hint shown in the agent portfolio and application header. */
+export function agentNextAction(status: ApplicationStatus): AgentNextAction {
+  switch (status) {
+    case 'DRAFT':
+      return { label: 'Заполните черновик и отправьте клиенту на подтверждение', requiresAgent: true };
+    case 'PENDING_CLIENT_CONFIRMATION':
+      return { label: 'Ожидаем подтверждения клиента и согласия на БКИ', requiresAgent: false };
+    case 'INFO_REQUESTED':
+      return { label: 'Догрузить документы по запросу банка', requiresAgent: true };
+    case 'SUBMITTED':
+    case 'ENRICHMENT':
+    case 'SCORING':
+    case 'MANUAL_REVIEW':
+      return { label: 'На рассмотрении в банке', requiresAgent: false };
+    case 'OFFER_ISSUED':
+      return { label: 'Клиент рассматривает предложение банка', requiresAgent: false };
+    case 'SIGNING':
+      return { label: 'Клиент подписывает договор', requiresAgent: false };
+    case 'DISBURSING':
+      return { label: 'Зачисление средств на счёт клиента', requiresAgent: false };
+    case 'DISBURSED':
+      return { label: 'Кредит выдан, комиссия начислена', requiresAgent: false };
+    case 'REJECTED':
+      return { label: 'Отказ банка', requiresAgent: false };
+    case 'WITHDRAWN':
+      return { label: 'Заявка отозвана', requiresAgent: false };
+    case 'CLOSED':
+      return { label: 'Заявка закрыта', requiresAgent: false };
+  }
 }
 
 export interface StatusExplanation {
@@ -76,6 +114,13 @@ export function explainStatus(application: Application): StatusExplanation {
   switch (application.status) {
     case 'DRAFT':
       return { now: 'Заявка ещё не отправлена в банк.', action: 'Заполните данные о бизнесе, загрузите документы и отправьте заявку.' };
+    case 'PENDING_CLIENT_CONFIRMATION':
+      return {
+        now: application.agentName
+          ? `Агент ${application.agentName} подготовил заявку и ждёт вашего подтверждения.`
+          : 'Агент подготовил заявку и ждёт вашего подтверждения.',
+        action: 'Проверьте условия, дайте согласие на запрос в БКИ и отправьте заявку в банк — или верните агенту на доработку.'
+      };
     case 'SUBMITTED':
       return { now: 'Банк получил заявку и проверяет, всё ли на месте. Обычно это несколько секунд.', action: null };
     case 'INFO_REQUESTED':
@@ -108,8 +153,13 @@ export function explainStatus(application: Application): StatusExplanation {
 const eventTexts: Record<string, string> = {
   CREATED: 'Заявка создана',
   DOCUMENT_ADDED: 'Загружен документ',
+  PRIVATE_DOCUMENT_ADDED: 'Клиент передал документ банку',
   DOCUMENT_REMOVED: 'Удалён документ',
   SUBMIT: 'Заявка отправлена в банк',
+  REQUEST_CLIENT_CONFIRMATION: 'Агент отправил заявку клиенту на подтверждение',
+  CONFIRM_AND_SUBMIT: 'Клиент подтвердил заявку и отправил в банк',
+  RETURN_TO_AGENT: 'Клиент вернул заявку агенту на доработку',
+  AGENT_CANCEL: 'Агент отменил черновик заявки',
   DATA_COMPLETE: 'Данные полные — заявка передана на проверку',
   DATA_INCOMPLETE: 'Банк запросил документы',
   INFO_PROVIDED: 'Вы дополнили заявку',

@@ -1,0 +1,83 @@
+groups:
+  - name: cabinet-availability
+    rules:
+      - alert: CabinetHTTPSUnavailable
+        expr: (probe_success{target="cabinet-public"} == 0) or (up{target="cabinet-public"} == 0)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Публичный HTTPS-маршрут кабинета недоступен'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-https'
+      - alert: CabinetHTTPHighErrorRate
+        expr: |
+          (
+            (sum by (service) (rate(http_server_requests_seconds_count{service!="", uri=~"/api/.*", status=~"5.."}[5m]))
+              / sum by (service) (rate(http_server_requests_seconds_count{service!="", uri=~"/api/.*"}[5m]))) > 0.05
+          )
+          and on (service)
+          (sum by (service) (increase(http_server_requests_seconds_count{service!="", uri=~"/api/.*"}[5m])) >= 20)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Более 5% ответов HTTP API {{ $labels.service }} — 5xx'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-http'
+      - alert: CabinetHTTPHighLatency
+        expr: |
+          (
+            sum by (service) (rate(http_server_requests_seconds_sum{service!="", uri=~"/api/.*"}[5m]))
+            / sum by (service) (rate(http_server_requests_seconds_count{service!="", uri=~"/api/.*"}[5m]))
+          ) > 2
+          and on (service)
+          (sum by (service) (increase(http_server_requests_seconds_count{service!="", uri=~"/api/.*"}[5m])) >= 20)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Средняя задержка HTTP API превышает 2 секунды'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-http'
+      - alert: CabinetPVCLowSpace
+        expr: (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes < 0.15) and (kubelet_volume_stats_capacity_bytes > 0)
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'На постоянном томе осталось меньше 15% места'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-storage'
+      - alert: CabinetNodeDiskLowSpace
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.10)
+          and (node_filesystem_readonly{mountpoint="/"} == 0)
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'На корневой ФС узла {{ $labels.instance }} осталось меньше 10% места'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-storage'
+      - alert: CabinetAssistantFallbackElevated
+        expr: |
+          (
+            sum(increase(cabinet_assistant_model_total{outcome=~"UNAVAILABLE|GUARD_REJECTED"}[10m]))
+            / sum(increase(cabinet_assistant_model_total{outcome=~"ACCEPTED|UNAVAILABLE|GUARD_REJECTED"}[10m]))
+          ) > 0.5
+          and sum(increase(cabinet_assistant_model_total{outcome=~"ACCEPTED|UNAVAILABLE|GUARD_REJECTED"}[10m])) >= 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Более половины обращений к модели ушли на резервные правила'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-assistant'
+      - alert: CabinetAssistantAnswerErrors
+        expr: |
+          (
+            sum(increase(cabinet_assistant_answer_seconds_count{outcome="ERROR"}[10m]))
+            / sum(increase(cabinet_assistant_answer_seconds_count[10m]))
+          ) > 0.1
+          and sum(increase(cabinet_assistant_answer_seconds_count[10m])) >= 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Более 10% запросов к ассистенту завершаются ошибкой'
+          runbook_url: 'https://github.com/AndrewSkrypov/smart-credit-cabinet/blob/HEAD/docs/operations.md#incident-assistant'

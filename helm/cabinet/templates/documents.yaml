@@ -1,0 +1,358 @@
+{{- $d := .Values.documents | default dict }}
+{{- if $d.enabled }}
+{{- if or (ne .Release.Namespace "cabinet-dev") (ne $d.devMode "local") }}
+{{- fail "Documents Helm candidate requires cabinet-dev and documents.devMode=local" }}
+{{- end }}
+{{- $revision := .Values.release.revision | default "" }}
+{{- $jar := $d.jarSha256 | default "" }}
+{{- if not (and (regexMatch "^[a-f0-9]{40}$" $revision) (regexMatch "^[a-f0-9]{64}$" $jar)) }}
+{{- fail "Documents requires the immutable release revision and JAR SHA-256" }}
+{{- end }}
+{{- $image := include "cabinet.image" (list . "documents") }}
+{{- $postgres := include "cabinet.image" (list . "postgres") }}
+{{- $credit := include "cabinet.image" (list . "credit") }}
+{{- if or (not (hasSuffix "/documents" (first (splitList "@" $image)))) (ne (dir $image) (dir $credit)) }}
+{{- fail "Documents and Credit images must be digest-bound references in the same release repository" }}
+{{- end }}
+{{- $secret := required "documents.databaseSecret is required" $d.databaseSecret }}
+{{- $server := required "documents.serverTlsSecret is required" $d.serverTlsSecret }}
+{{- $client := required "documents.clientTlsSecret is required" $d.clientTlsSecret }}
+{{- $appS3 := required "documents.s3.appSecret is required" $d.s3.appSecret }}
+{{- $operatorS3 := required "documents.s3.operatorSecret is required" $d.s3.operatorSecret }}
+{{- $bucket := required "documents.s3.bucket is required" $d.s3.bucket }}
+{{- $names := list $secret $server $client $appS3 $operatorS3 .Values.secrets.existingSecret }}
+{{- if or (ne (len $names) (len (uniq $names))) (has $appS3 (list .Values.s3.internal.appSecret .Values.s3.internal.adminSecret)) (has $operatorS3 (list .Values.s3.internal.appSecret .Values.s3.internal.adminSecret)) }}
+{{- fail "Documents DB, mTLS and object-store credentials must be separate from Credit and each other" }}
+{{- end }}
+{{- if or (eq $bucket .Values.s3.bucket) (not (regexMatch "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$" $bucket)) (contains ".." $bucket) }}
+{{- fail "Documents requires its own valid S3 bucket" }}
+{{- end }}
+{{- $schema := .Files.Get "files/documents/schema.sql" }}
+{{- $baseline := .Files.Get "files/database-permissions.sql" | replace "__OWNER__" "documents_owner" | replace "__APP__" "documents_app" | trimSuffix "commit;\n" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: documents-postgres-init
+data:
+  10-roles.sh: |
+    {{- .Files.Get "files/documents/init.sh" | nindent 4 }}
+  20-schema.sql: |
+    begin;
+    set local role documents_owner;
+    {{- $schema | nindent 4 }}
+    create table public.documents_delivery_schema (version int primary key check(version=1),sha256 text not null);
+    insert into public.documents_delivery_schema values (1,'{{ sha256sum $schema }}');
+    commit;
+    {{- $baseline | nindent 4 }}
+    {{- .Files.Get "files/documents/grants.sql" | nindent 4 }}
+    {{- .Files.Get "files/documents/fence-documents.sql" | nindent 4 }}
+    commit;
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: documents-db
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cabinet.selector" (list . "documents-db") | nindent 4 }}
+  ports:
+    - {name: postgres, port: 5432, targetPort: postgres}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: documents-db
+spec:
+  serviceName: documents-db
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . "documents-db") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list . "documents-db") | nindent 8 }}
+    spec:
+      {{- include "cabinet.pod" . | nindent 6 }}
+      containers:
+        - name: postgres
+          image: {{ $postgres | quote }}
+          args: [postgres, -c, shared_buffers=64MB, -c, max_connections=30]
+          env:
+            - {name: POSTGRES_DB, value: documents}
+            - {name: POSTGRES_USER, value: postgres}
+            - {name: POSTGRES_INITDB_ARGS, value: "--auth-host=scram-sha-256"}
+            {{- include "cabinet.secretFrom" (list $secret "POSTGRES_PASSWORD" "POSTGRES_PASSWORD") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $secret "CABINET_DOCUMENTS_PG_OWNER_PASSWORD" "OWNER_PASSWORD") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $secret "CABINET_DOCUMENTS_PG_APP_PASSWORD" "APP_PASSWORD") | nindent 12 }}
+          ports:
+            - {name: postgres, containerPort: 5432}
+          readinessProbe:
+            exec:
+              command: [/bin/sh, -ec, 'PGPASSWORD="$CABINET_DOCUMENTS_PG_APP_PASSWORD" psql -X -w -h 127.0.0.1 -U documents_app -d documents -qAtc "select owner from public.document_ownership where singleton for share" | grep -qx FROZEN']
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests: {cpu: 100m, memory: 192Mi}
+            limits: {cpu: "1", memory: 384Mi}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: init, mountPath: /docker-entrypoint-initdb.d, readOnly: true}
+      volumes:
+        - name: init
+          configMap: {name: documents-postgres-init}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        {{- include "cabinet.storageClass" . | nindent 8 }}
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ required "documents.dbStorage is required" $d.dbStorage | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: documents-s3-init
+data:
+  start.sh: |
+    {{- .Files.Get "files/seaweedfs.sh" | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: documents-s3
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cabinet.selector" (list . "documents-s3") | nindent 4 }}
+  ports:
+    - {name: s3, port: 8333, targetPort: s3}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: documents-s3
+spec:
+  serviceName: documents-s3
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . "documents-s3") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list . "documents-s3") | nindent 8 }}
+    spec:
+      {{- include "cabinet.pod" . | nindent 6 }}
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: seaweedfs
+          image: {{ include "cabinet.image" (list . "seaweedfs") | quote }}
+          command: [/bin/sh, /cabinet/start.sh]
+          ports:
+            - {name: s3, containerPort: 8333}
+          readinessProbe:
+            exec:
+              command: [wget, -q, -O, /dev/null, "http://127.0.0.1:9333/cluster/status"]
+            timeoutSeconds: 3
+          env:
+            - {name: S3_BUCKET, value: {{ $bucket | quote }}}
+            - {name: GOMEMLIMIT, value: 384MiB}
+            {{- include "cabinet.secretFrom" (list $appS3 "S3_ACCESS_KEY" "S3_ACCESS_KEY") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $appS3 "S3_SECRET_KEY" "S3_SECRET_KEY") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $operatorS3 "S3_ADMIN_ACCESS_KEY" "S3_ADMIN_ACCESS_KEY") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $operatorS3 "S3_ADMIN_SECRET_KEY" "S3_ADMIN_SECRET_KEY") | nindent 12 }}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: startup, mountPath: /cabinet, readOnly: true}
+      volumes:
+        - name: startup
+          configMap: {name: documents-s3-init}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        {{- include "cabinet.storageClass" . | nindent 8 }}
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ required "documents.s3.storage is required" $d.s3.storage | quote }}
+{{- if .Values.app.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cabinet-documents-credit-grants
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: "-16"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 120
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list . "db-maintenance") | nindent 8 }}
+    spec:
+      {{- include "cabinet.pod" . | nindent 6 }}
+      restartPolicy: Never
+      containers:
+        - name: grant-credit-fence
+          image: {{ $postgres | quote }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              psql -X -w -v ON_ERROR_STOP=1 >/dev/null <<'SQL'
+              begin;
+              {{- .Files.Get "files/documents/credit-grants.sql" | trimSuffix "\n" | nindent 14 }}
+              {{- .Files.Get "files/documents/fence-credit.sql" | trimSuffix "\n" | nindent 14 }}
+              commit;
+              SQL
+              test "$(psql -X -w -qAtc 'select owner,epoch from public.document_ownership where singleton')" = 'LOCAL|1'
+          env:
+            - {name: PGHOST, value: postgres}
+            - {name: PGUSER, value: credit_owner}
+            - {name: PGDATABASE, value: credit}
+            {{- include "cabinet.secret" (list . "PGPASSWORD" "CREDIT_MIGRATION_PASSWORD") | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: documents
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cabinet.selector" (list . "documents") | nindent 4 }}
+  ports:
+    - {name: grpc, port: 9096, targetPort: grpc}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: documents-local
+spec:
+  {{- include "cabinet.storageClass" . | nindent 2 }}
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ required "documents.localStorage is required" $d.localStorage | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: documents
+  annotations:
+    cabinet.release/revision: {{ $revision | quote }}
+    cabinet.release/jar-sha256: {{ $jar | quote }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . "documents") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list . "documents") | nindent 8 }}
+      annotations:
+        cabinet.release/revision: {{ $revision | quote }}
+        cabinet.release/jar-sha256: {{ $jar | quote }}
+    spec:
+      {{- include "cabinet.pod" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: documents
+          image: {{ $image | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          env:
+            - {name: SPRING_FLYWAY_ENABLED, value: "false"}
+            - {name: DOCUMENTS_DATABASE_URL, value: "jdbc:postgresql://documents-db:5432/documents"}
+            - {name: DOCUMENTS_DATABASE_USER, value: documents_app}
+            {{- include "cabinet.secretFrom" (list $secret "DOCUMENTS_DATABASE_PASSWORD" "APP_PASSWORD") | nindent 12 }}
+            - {name: DOCUMENTS_GRPC_HOST, value: "0.0.0.0"}
+            - {name: DOCUMENTS_GRPC_PORT, value: "9096"}
+            - {name: DOCUMENTS_TLS_CA, value: /run/documents-tls/ca.crt}
+            - {name: DOCUMENTS_TLS_CERTIFICATE, value: /run/documents-tls/tls.crt}
+            - {name: DOCUMENTS_TLS_KEY, value: /run/documents-tls/tls.key}
+            - {name: DOCUMENTS_CREDIT_PEER, value: "spiffe://credit-cabinet/credit"}
+            - {name: CABINET_ANTIVIRUS_ENABLED, value: "true"}
+            - {name: CABINET_ANTIVIRUS_HOST, value: clamav}
+            {{- include "cabinet.secretFrom" (list $appS3 "CABINET_STORAGE_S3_ACCESS_KEY" "S3_ACCESS_KEY") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $appS3 "CABINET_STORAGE_S3_SECRET_KEY" "S3_SECRET_KEY") | nindent 12 }}
+            - name: SPRING_APPLICATION_JSON
+              value: >-
+                {"cabinet":{"storage":{"mode":"s3","local-dir":"/app/uploads","s3":{"endpoint":"http://documents-s3:8333","region":"us-east-1","bucket":"{{ $bucket }}","access-key":"$(CABINET_STORAGE_S3_ACCESS_KEY)","secret-key":"$(CABINET_STORAGE_S3_SECRET_KEY)"}}}}
+          ports:
+            - {name: grpc, containerPort: 9096}
+          startupProbe:
+            tcpSocket: {port: grpc}
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            tcpSocket: {port: grpc}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 576Mi}
+          volumeMounts:
+            - {name: local, mountPath: /app/uploads}
+            - {name: tls, mountPath: /run/documents-tls, readOnly: true}
+      volumes:
+        - name: local
+          persistentVolumeClaim: {claimName: documents-local}
+        - name: tls
+          secret: {secretName: {{ $server | quote }}, defaultMode: 0444}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cabinet-documents-mtls
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 90
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list . "documents-probe") | nindent 8 }}
+    spec:
+      {{- include "cabinet.pod" . | nindent 6 }}
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: mtls
+          image: {{ $image | quote }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              id=00000000-0000-0000-0000-000000000000
+              url=https://documents:9096/creditcabinet.documents.v1.DocumentsService/ListDocuments
+              rpc() {
+                printf '\000\000\000\000\116\012\044%s\022\044%s\030\001' "$id" "$id" |
+                  curl --disable --noproxy '*' --http2 --max-time 20 -sSf --cacert /run/documents-tls/ca.crt \
+                    -H 'content-type: application/grpc' -H 'te: trailers' --data-binary @- -D - -o /dev/null "$@" "$url"
+              }
+              if rpc >/dev/null 2>&1; then exit 1; fi
+              headers=$(rpc --cert /run/documents-tls/tls.crt --key /run/documents-tls/tls.key)
+              printf '%s\n' "$headers" | tr -d '\r' | grep -qi '^grpc-status: 9$'
+          volumeMounts:
+            {{- include "cabinet.documents.creditMounts" . | nindent 12 }}
+      volumes:
+        {{- include "cabinet.documents.creditVolumes" . | nindent 8 }}
+{{- end }}
+{{- end }}

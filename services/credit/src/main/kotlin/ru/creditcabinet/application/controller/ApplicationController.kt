@@ -7,6 +7,7 @@ import jakarta.validation.Valid
 import org.springframework.core.io.InputStreamResource
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -22,29 +23,21 @@ import org.springframework.web.bind.annotation.RequestPart
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
-import ru.creditcabinet.application.domain.ActorType
-import ru.creditcabinet.application.domain.ApplicationEvent
-import ru.creditcabinet.application.domain.ApplicationStateMachine
+import ru.creditcabinet.application.application.ApplicationDetails
+import ru.creditcabinet.application.application.ApplicationOperations
+import ru.creditcabinet.application.application.ApplicationPages
+import ru.creditcabinet.application.application.ApplicationProcess
+import ru.creditcabinet.application.application.ApplicationProcesses
 import ru.creditcabinet.application.domain.ApplicationStatus
-import ru.creditcabinet.application.domain.InfoRequests
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.application.infrastructure.ApplicationPages
-import ru.creditcabinet.application.service.ApplicationService
-import ru.creditcabinet.application.service.toActor
-import ru.creditcabinet.assessment.domain.DecisionRepository
 import ru.creditcabinet.chat.application.ChatService
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller
-import ru.creditcabinet.document.DocumentService
-import ru.creditcabinet.document.domain.DocumentRequirements
+import ru.creditcabinet.document.application.ApplicationDocuments
+import ru.creditcabinet.document.controller.toDocumentUpload
 import ru.creditcabinet.document.domain.DocumentType
-import ru.creditcabinet.offer.ContractTextView
-import ru.creditcabinet.offer.Loans
-import ru.creditcabinet.offer.OfferKind
-import ru.creditcabinet.offer.OfferService
-import ru.creditcabinet.offer.SigningSessions
+import ru.creditcabinet.offer.application.ContractTextView
+import ru.creditcabinet.offer.application.OfferActions
 import ru.creditcabinet.product.domain.Calculation
-import ru.creditcabinet.product.domain.LoanMath
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
@@ -52,13 +45,11 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/v1/applications")
 class ApplicationController(
-    private val service: ApplicationService,
-    private val documents: DocumentService,
-    private val offers: OfferService,
-    private val infoRequests: InfoRequests,
-    private val decisions: DecisionRepository,
-    private val signing: SigningSessions,
-    private val loans: Loans,
+    private val service: ApplicationOperations,
+    private val details: ApplicationDetails,
+    private val documents: ApplicationDocuments,
+    private val offers: OfferActions,
+    private val processes: ApplicationProcesses,
     private val chat: ChatService,
     private val pages: ApplicationPages,
 ) {
@@ -91,7 +82,7 @@ class ApplicationController(
     @Operation(summary = "Создать черновик заявки")
     @PostMapping
     @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
-    fun create(@Valid @RequestBody request: ApplicationRequest): ApplicationResponse = detail(service.create(request.toTerms()))
+    fun create(@Valid @RequestBody request: ApplicationRequest): ApplicationResponse = detail(service.create(request.toTerms()), newDraft = true)
 
     @Operation(summary = "Карточка своей заявки с состоянием конвейера, решением и документами")
     @GetMapping("/{id}")
@@ -110,6 +101,16 @@ class ApplicationController(
         @RequestHeader("Idempotency-Key", required = false) idempotencyKey: String?,
         @RequestBody(required = false) request: SubmitRequest?,
     ): ApplicationResponse = detail(service.submit(id, idempotencyKey?.trim()?.takeIf { it.isNotEmpty() }?.take(128), request?.acceptedProductVersion))
+
+    @Operation(summary = "Подтвердить агентскую заявку, дать согласие на БКИ и отправить в банк (T23)")
+    @PostMapping("/{id}/confirm")
+    fun confirm(@PathVariable id: UUID, @RequestBody request: ConfirmApplicationRequest): ApplicationResponse =
+        detail(service.confirmByClient(id, request.bureauConsent, request.acceptedProductVersion, request.acceptedScenarioRevision))
+
+    @Operation(summary = "Вернуть агентскую заявку агенту на доработку (T24)")
+    @PostMapping("/{id}/return-to-agent")
+    fun returnToAgent(@PathVariable id: UUID, @Valid @RequestBody(required = false) request: ReturnToAgentRequest?): ApplicationResponse =
+        detail(service.returnToAgentByClient(id, request?.comment))
 
     @Operation(summary = "Отозвать заявку (T21)")
     @PostMapping("/{id}/withdraw")
@@ -143,13 +144,7 @@ class ApplicationController(
 
     @Operation(summary = "График платежей по выданному кредиту или по предложению банка")
     @GetMapping("/{id}/schedule")
-    fun schedule(@PathVariable id: UUID): Calculation {
-        val application = service.get(id)
-        val loan = loans.find(application.id)
-        val offer = offers.current(application.id) ?: throw NotFoundException("Графика пока нет: банк ещё не сделал предложение")
-        val product = service.product(application, offer.productCode)
-        return LoanMath.calculate(loan?.amount ?: offer.amount, loan?.rate ?: offer.rate, loan?.termMonths ?: offer.termMonths, product.revolving)
-    }
+    fun schedule(@PathVariable id: UUID): Calculation = processes.schedule(service.get(id))
 
     @Operation(summary = "Подписываемый текст договора и сохранённый снимок; для старых заявок — сводка условий")
     @GetMapping("/{id}/contract")
@@ -165,8 +160,13 @@ class ApplicationController(
     @Operation(summary = "Загрузить документ (в черновик или по запросу банка)")
     @PostMapping("/{id}/documents", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
-    fun upload(@PathVariable id: UUID, @RequestParam type: DocumentType, @RequestPart file: MultipartFile): DocumentView =
-        DocumentView.of(documents.upload(id, type, file))
+    fun upload(
+        @PathVariable id: UUID,
+        @RequestParam type: DocumentType,
+        @RequestParam(defaultValue = "false") privateToBank: Boolean,
+        @RequestPart file: MultipartFile,
+        @RequestHeader("Idempotency-Key", required = false) operationKey: String?,
+    ): DocumentView = DocumentView.of(documents.upload(id, type, file.toDocumentUpload().copy(operationKey = operationKey), privateToBank))
 
     @Operation(summary = "Удалить свой документ из редактируемого черновика")
     @DeleteMapping("/{id}/documents/{documentId}")
@@ -186,39 +186,22 @@ class ApplicationController(
             .body(InputStreamResource(file.content))
     }
 
-    private fun process(application: LoanApplication, isOwnClient: Boolean): ProcessView {
-        val offer = offers.current(application.id)
-        // What changed against the request: the rules' notes for an automatic counter offer, the underwriter's comment for theirs.
-        val offerDecision = offer?.let { decisions.find(it.decisionId) }
-        val changes = when {
-            offer?.kind != OfferKind.COUNTER || offerDecision == null -> emptyList()
-            offerDecision.decidedByType == ActorType.SYSTEM -> offerDecision.recommendation?.notes.orEmpty()
-            else -> listOfNotNull(offerDecision.comment)
-        }
-        val decision = decisions.latest(application.id)
-        return ProcessView(
-            infoRequest = infoRequests.open(application.id)?.let(InfoRequestView::of),
-            offer = offer?.let {
-                OfferView.of(
-                    it,
-                    service.product(application, it.productCode).name,
-                    if (decision?.decidedByType ==
-                        ActorType.SYSTEM
-                    ) {
-                        changes
-                    } else {
-                        listOfNotNull(decision?.comment)
-                    },
-                )
-            },
-            signing = signing.latest(application.id)?.toView(showCode = isOwnClient && CurrentCaller.claims().canSign),
-            loan = loans.find(application.id)?.let(LoanView::of),
-            outcome = decision?.takeIf { application.status == ApplicationStatus.REJECTED }?.let(OutcomeView::of),
+    private fun processView(process: ApplicationProcess, showSigningCode: Boolean): ProcessView =
+        ProcessView(
+            infoRequest = process.infoRequest?.let { InfoRequestView.of(it, documents.satisfiedDocumentTypes(it)) },
+            offer = process.offer?.let { OfferView.of(it.offer, it.productName, it.changes) },
+            signing = process.signing?.toView(showCode = showSigningCode),
+            loan = process.loan?.let(LoanView::of),
+            outcome = process.rejection?.let(OutcomeView::of),
         )
-    }
 
-    private fun summary(application: LoanApplication): ApplicationSummary {
-        val product = service.product(application)
+    internal fun summaryView(application: LoanApplication): ApplicationSummary = summary(application)
+
+    internal fun detailView(application: LoanApplication): ApplicationResponse = detail(application)
+
+    private fun summary(original: LoanApplication): ApplicationSummary {
+        val application = details.readView(original, CurrentCaller.claims())
+        val product = details.product(application)
         return ApplicationSummary(
             id = application.id,
             number = application.number,
@@ -232,25 +215,19 @@ class ApplicationController(
             createdAt = application.createdAt,
             submittedAt = application.submittedAt,
             statusChangedAt = application.statusChangedAt,
+            agentId = application.agentId,
+            agentName = application.agentName,
+            agentCommissionAmount = application.agentCommissionAmount,
+            agentCommissionStatus = application.agentCommissionStatus,
         )
     }
 
-    private fun detail(application: LoanApplication): ApplicationResponse {
-        val claims = CurrentCaller.claims()
-        val product = service.product(application)
+    private fun detail(original: LoanApplication, newDraft: Boolean = false): ApplicationResponse {
+        val detail = details.read(original, CurrentCaller.claims(), newDraft)
+        val application = detail.application
+        val product = detail.product
         val terms = application.terms
-        val uploaded = documents.list(application.id)
-        val isOwnClient = claims.isClient && claims.companyId == application.company.id
-        val actions = claims.toActor()?.let { actor ->
-            ApplicationStateMachine.eventsFrom(application.status, actor.type)
-                // Only a person with the right to sign may sign for the company.
-                .filter { it != ApplicationEvent.SIGN || claims.canSign }
-        }.orEmpty()
-        val estimate = if (product.amountFits(terms.amount) && product.termFits(terms.termMonths)) {
-            LoanMath.calculate(terms.amount, product.baseRate, terms.termMonths, product.revolving).let { EstimateView(it.rate, it.monthlyPayment) }
-        } else {
-            null
-        }
+        val uploaded = detail.documents
         return ApplicationResponse(
             id = application.id,
             number = application.number,
@@ -258,7 +235,7 @@ class ApplicationController(
             closeReason = application.closeReason,
             company = with(application.company) { CompanyView(id, inn, name, legalForm) },
             product = ProductView(product.code, product.name, product.revolving, product.version),
-            currentProduct = if (application.status == ApplicationStatus.DRAFT) service.currentProduct(product.code) else null,
+            currentProduct = detail.currentProduct,
             purpose = terms.purpose,
             purposeTitle = terms.purpose.title,
             purposeComment = terms.purposeComment,
@@ -271,21 +248,24 @@ class ApplicationController(
             submittedAt = application.submittedAt,
             statusChangedAt = application.statusChangedAt,
             version = application.version,
-            allowedActions = actions,
-            editable = isOwnClient && application.status == ApplicationStatus.DRAFT,
-            canUploadDocuments = isOwnClient && application.status in setOf(ApplicationStatus.DRAFT, ApplicationStatus.INFO_REQUESTED),
-            submissionProblems = if (application.status == ApplicationStatus.DRAFT) {
-                val current = service.currentProduct(product.code)
-                if (current?.active != true) listOf("Продукт выключен из каталога — выберите другой продукт") else application.submissionProblems(current)
-            } else {
-                emptyList()
-            },
-            requiredDocuments = DocumentRequirements.required(product, terms.amount, application.company.legalForm).map { requirement ->
+            allowedActions = detail.allowedActions,
+            editable = detail.editable,
+            canUploadDocuments = detail.canUploadDocuments,
+            submissionProblems = detail.submissionProblems,
+            requiredDocuments = detail.requiredDocuments.map { requirement ->
                 RequiredDocumentView(requirement.type, requirement.type.title, requirement.reason, uploaded.any { it.type == requirement.type })
             },
             documents = uploaded.map(DocumentView::of),
-            estimate = estimate,
-            process = process(application, isOwnClient),
+            estimate = detail.estimate?.let { EstimateView(it.rate, it.monthlyPayment) },
+            process = processView(detail.process, detail.showSigningCode),
+            agentId = application.agentId,
+            agentName = application.agentName,
+            preApprovedOfferId = application.preApprovedOfferId,
+            agentCommissionRateBps = application.agentCommissionRateBps,
+            agentCommissionAmount = application.agentCommissionAmount,
+            agentCommissionStatus = application.agentCommissionStatus,
+            canResumeIndependently = detail.canResumeIndependently,
+            clientManaged = application.clientManaged,
         )
     }
 }

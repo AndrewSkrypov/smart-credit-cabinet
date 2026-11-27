@@ -51,3 +51,6 @@ Lending_Alpha.xml
 
 # Local working notes.
 notes/
+
+.worktrees/
+.superpowers/

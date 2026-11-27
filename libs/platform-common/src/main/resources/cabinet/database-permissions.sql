@@ -1,5 +1,5 @@
 -- Used by privileged bootstrap, by the schema owner after migration, and after restore.
--- Identifiers are replaced only from the fixed identity/credit/engagement allowlist.
+-- Identifiers are replaced only from the fixed service database allowlist.
 begin;
 select pg_advisory_xact_lock(17127, 2);
 alter schema public owner to __OWNER__;
@@ -55,8 +55,39 @@ begin
       execute format('revoke update,delete on public.%I from __APP__',item);
     end if;
   end loop;
-  if to_regclass('public.flyway_schema_history') is not null then
-    revoke insert,update,delete on public.flyway_schema_history from __APP__;
+  foreach item in array array['flyway_schema_history','application_status_generation','servicing_writer_fence','document_ownership']
+  loop
+    if to_regclass('public.' || item) is not null then
+      execute format('revoke insert,update,delete on public.%I from __APP__',item);
+    end if;
+  end loop;
+  -- A retired runtime must not return its stale financial copy after cutover.
+  -- Re-running migration grants must not silently restore that access.
+  if to_regclass('public.servicing_writer_fence') is not null then
+    if (select writer from public.servicing_writer_fence where singleton)
+       is distinct from (case current_database() when 'credit' then 'LOCAL' when 'servicing' then 'REMOTE' else null end) then
+      foreach item in array array['loan_accounts','loan_tranches','loan_payments','payment_reserves',
+        'payment_reserve_receipt_events','servicing_opened_commands','loan_operations']
+      loop
+        if to_regclass('public.' || item) is not null then
+          execute format('revoke select,insert,update,delete on public.%I from __APP__',item);
+        end if;
+      end loop;
+    end if;
   end if;
+end $$;
+-- Documents retires both SQL writers and SQL readers together. A generic regrant
+-- must never reactivate a legacy Credit replica after the authoritative cutover.
+do $$
+begin
+ if to_regclass('public.document_ownership') is not null
+    and to_regclass('public.documents') is not null
+    and to_regclass('public.generated_artifacts') is not null then
+  if (select owner from public.document_ownership where singleton) = 'LOCAL' then
+   grant select,insert,update,delete on public.documents,public.generated_artifacts to __APP__;
+  else
+   revoke all on public.documents,public.generated_artifacts from __APP__;
+  end if;
+ end if;
 end $$;
 commit;

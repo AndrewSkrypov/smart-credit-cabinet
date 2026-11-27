@@ -1,5 +1,38 @@
 # Развёртывание, резервная копия и восстановление
 
+## Профили финального стенда
+
+В `deploy/.env` перечислите нужные профили в `CABINET_OPTIONAL_PROFILES=ai,monitoring`.
+Профиль `ai` на финальном сервере использует локальную Qwen 2.5 1.5B по умолчанию.
+Замеры модели и проверка правил приведены в [отчёте помощника](assistant-eval.md).
+Версию можно задать в `ASSISTANT_MODEL`.
+Проверку Compose и суммы лимитов можно пройти до запуска. Для сервера с 32 ГБ RAM:
+
+```bash
+python deploy/start.py --project cabinet-prod-final --host-memory-gib 32 --check-only
+python deploy/start.py --project cabinet-prod-final --host-memory-gib 32
+```
+
+Профиль `ai` загружает веса в том Ollama до перезапуска приложений. Посмотрите статус
+помощника после запуска и повторите проверку с отключённой моделью на отдельном стенде.
+Доступ к Grafana на сервере предоставляется через локальный SSH-туннель. Остальные
+компоненты мониторинга остаются в сети Compose.
+
+Для локального production-проекта с внутренним CA используйте тот же объём памяти при
+запуске и в `deploy/verify.py --host-memory-gib`. Проверка допускает loopback-порт
+Grafana и учитывает лимиты всех выбранных профилей. В CI сценарий `final-profiles`
+проверяет исходный проект с `ai,monitoring,storage`, включая ответ Ollama, сбор метрик
+четырёх сервисов и переход помощника на правила после остановки Ollama.
+
+Быстрый сброс предназначен для заранее собранного проекта `cabinet-demo-*`. Команда
+удаляет только тома указанного синтетического проекта, требует точного подтверждения
+его имени, проверяет пустую БД заявок и вход демо-агента и клиента. Отчёт содержит время
+от начала сброса до успешного входа и порог 300 секунд.
+
+```bash
+python deploy/rehearse-demo.py --project cabinet-demo-final --confirm-project cabinet-demo-final --port 18082
+```
+
 ## Для какого стенда предназначен комплект
 
 Это способ разместить проверяемый прототип на одном Linux VPS, а не замена инфраструктуры
@@ -127,11 +160,20 @@ python deploy/provision-bank-user.py --project cabinet-prod --role UNDERWRITER -
 
 ```bash
 python deploy/backup.py --project cabinet-prod
-git fetch origin feature/submission-kit
+git fetch origin
 git checkout --detach НОВЫЙ_ПРОВЕРЕННЫЙ_SHA
 python deploy/set-release.py НОВЫЙ_ПРОВЕРЕННЫЙ_SHA
 python deploy/start.py --project cabinet-prod
+python deploy/verify-release.py --project cabinet-prod --expected-revision НОВЫЙ_ПРОВЕРЕННЫЙ_SHA
 ```
+
+После запуска `verify-release.py` считывает OCI revision и ID образа у пяти работающих
+сервисов выбранного Docker-проекта. Из ответа с проверенным HTTPS-сертификатом берёт
+входной JavaScript и сравнивает его SHA-256 с файлом внутри контейнера frontend.
+При расхождении команда завершится с ошибкой. При успехе она выведет JSON со временем
+проверки, идентификаторами образов и хешем JavaScript. Эту команду можно повторить
+без перезапуска сервисов и изменения данных. Проверки с локальным CA выполняются
+в изолированных прогонах CI до и после восстановления.
 
 Образы приложений получают тег выбранного SHA. Это локальные образы, registry не требуется.
 Сборка проверяет, что checkout чистый и HEAD точно равен `CABINET_RELEASE`; одна смена

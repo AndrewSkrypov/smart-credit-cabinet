@@ -69,11 +69,17 @@ class ChatService(
         }
         ChatRules.requireWritable(status)
         limits.acquire(caller.userId)
-        val attachments = documents.map { files.find(id, it, caller.userId) }
+        val attachments = documents.map { files.find(application, it, caller) }
         val now = clock.instant()
         val message = ChatMessage(
             applicationId = id, seq = seq + 1, authorId = caller.userId,
-            authorName = (caller.fullName ?: if (caller.isClient) "Представитель компании" else "Сотрудник банка").take(255),
+            authorName = (
+                caller.fullName ?: when {
+                    caller.isClient -> "Представитель компании"
+                    caller.isAgent -> "Агент"
+                    else -> "Сотрудник банка"
+                }
+                ).take(255),
             authorRole = role(caller), side = side(caller), text = text, key = key, payloadHash = hash, createdAt = now, attachments = attachments,
         )
         data.append(message)
@@ -125,10 +131,10 @@ class ChatService(
         val hash = ChatRules.uploadHash(upload)
         data.previousUpload(id, caller.userId, key)?.let { previous ->
             if (previous.hash != hash) throw ConflictException("Этот ключ уже использован для другого файла")
-            return files.find(id, previous.documentId, caller.userId)
+            return files.find(application, previous.documentId, caller)
         }
         ChatRules.requireWritable(status)
-        val stored = files.upload(application, caller, upload)
+        val stored = files.upload(application, caller, upload.copy(operationKey = key.toString()))
         val now = clock.instant()
         data.recordUpload(id, caller.userId, key, UploadReceipt(hash, stored.id), now)
         data.audit(
@@ -155,6 +161,7 @@ class ChatService(
     }
 
     private fun notifyOtherParty(application: LoanApplication, message: ChatMessage) {
+        if (message.side == ChatSide.COMPANY && !application.visibleToBank) return
         val title = "Новое сообщение по заявке № ${application.number}"
         val body = "Откройте переписку в кабинете, чтобы прочитать сообщение."
         val key = "chat:${message.id}"
@@ -170,7 +177,7 @@ class ChatService(
                 )
             }
         } else {
-            listOf(
+            listOfNotNull(
                 PlatformNotification(
                     recipientCompanyId = application.company.id,
                     type = "APPLICATION_MESSAGE",
@@ -179,6 +186,16 @@ class ChatService(
                     link = "/client/applications/${application.id}",
                     dedupKey = "$key:company",
                 ),
+                application.activeAgentId?.let { agentId ->
+                    PlatformNotification(
+                        recipientId = agentId,
+                        type = "APPLICATION_MESSAGE",
+                        title = title,
+                        body = body,
+                        link = "/agent/applications/${application.id}",
+                        dedupKey = "$key:agent",
+                    )
+                },
             )
         }
         notifications.send(notices)
@@ -187,7 +204,7 @@ class ChatService(
     private fun role(caller: TokenClaims): String = caller.role ?: throw ForbiddenException(CurrentCaller.FORBIDDEN)
 
     private fun side(caller: TokenClaims): ChatSide = when {
-        caller.isClient -> ChatSide.COMPANY
+        caller.isClient || caller.isAgent -> ChatSide.COMPANY
         caller.isBankStaff -> ChatSide.BANK
         else -> throw ForbiddenException(CurrentCaller.FORBIDDEN)
     }

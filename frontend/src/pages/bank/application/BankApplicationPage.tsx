@@ -3,6 +3,9 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useParams, useLocation } from 'react-router-dom';
+import { financingApi } from '../../../api/financing';
+import { FinancingScenarioView } from '../../../components/FinancingScenarioView';
+import { useApi } from '../../../hooks/useApi';
 import { applicationsApi, underwritingApi } from '../../../api/client';
 import { ErrorState } from '../../../components/ErrorState';
 import { LoadingBlock } from '../../../components/LoadingBlock';
@@ -69,6 +72,10 @@ function BankApplicationCard({ id }: { id: string }) {
     return () => { mounted.current = false; window.clearInterval(timer); };
   }, [load]);
 
+  const scenario = useApi(
+    () => application?.agentId ? financingApi.bank(id) : Promise.resolve(null),
+    [id, application?.agentId, application?.status, application?.version]
+  );
   if (error && !application) return <ErrorState message={error} onRetry={load} />;
   if (!application || !assessment) return <LoadingBlock />;
 
@@ -80,7 +87,8 @@ function BankApplicationCard({ id }: { id: string }) {
     ['Сумма и срок', `${rub(application.amount)} · ${months(application.termMonths)}`],
     ['Выручка за 12 мес. (со слов клиента)', application.declaredRevenue12m != null ? rub(application.declaredRevenue12m) : '—'],
     ['Платежи по кредитам (со слов клиента)', application.declaredMonthlyDebtPayments != null ? rub(application.declaredMonthlyDebtPayments) : '—'],
-    ['Отправлена', application.submittedAt ? formatDateTime(application.submittedAt) : '—']
+    ['Отправлена', application.submittedAt ? formatDateTime(application.submittedAt) : '—'],
+    ...(application.agentId ? [['Агентский канал', application.agentName ?? 'Партнёрский агент'] as [string, string]] : [])
   ];
 
   return (
@@ -89,17 +97,26 @@ function BankApplicationCard({ id }: { id: string }) {
       <PageHeader
         title={`Заявка № ${application.number}`}
         subtitle={`${application.company.name ?? 'Компания'} · ИНН ${application.company.inn}`}
-        actions={<Chip label={statusTitle(application.status)} color={tone === 'default' ? 'default' : tone} sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }} />}
+        actions={
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}>
+            {application.agentId && (
+              <Chip color="secondary" variant="outlined" label={`Агентский канал: ${application.agentName ?? 'агент'}`} />
+            )}
+            <Chip label={statusTitle(application.status)} color={tone === 'default' ? 'default' : tone} />
+          </Stack>
+        }
       />
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
       {error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => void load()}>Повторить</Button>}>{error}. Показаны последние полученные данные; действия появятся после обновления.</Alert>}
-      <BankSummary application={application} assessment={assessment} stale={Boolean(error)} />
+      <Box data-tour="bank-app-summary"><BankSummary application={application} assessment={assessment} stale={Boolean(error)} /></Box>
+      {scenario.data && !scenario.error && <Box sx={{ mb: 3 }}><FinancingScenarioView applicationId={id} scenario={scenario.data} /></Box>}
+      {scenario.error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => void scenario.reload()}>Повторить</Button>}>{scenario.error}</Alert>}
       <Grid container spacing={3}>
         <Grid item xs={12} lg={7}>
           <Stack spacing={3}>
-            {!error && <DecisionPanel application={application} assessment={assessment} onDone={() => { setNotice('Решение сохранено, клиент увидит его в кабинете'); void load(); }} />}
-            <AdviceBlock applicationId={application.id} version={`${application.status}-${application.statusChangedAt}`} />
-            <ScoreBlock decision={assessment.automaticDecision} />
+            {!error && <Box data-tour="bank-app-decision"><DecisionPanel application={application} assessment={assessment} onDone={() => { setNotice('Решение сохранено, клиент увидит его в кабинете'); void load(); }} /></Box>}
+            <Box data-tour="bank-app-advice"><AdviceBlock applicationId={application.id} version={`${application.status}-${application.statusChangedAt}`} /></Box>
+            <Box data-tour="bank-app-score"><ScoreBlock decision={assessment.automaticDecision} /></Box>
             {assessment.latestDecision && assessment.latestDecision.decidedByType !== 'SYSTEM' && (
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
                 <Typography variant="h6" component="h2">Решение специалиста</Typography>
@@ -107,13 +124,13 @@ function BankApplicationCard({ id }: { id: string }) {
                 {assessment.latestDecision.comment && <Typography color="text.secondary">{assessment.latestDecision.comment}</Typography>}
               </Paper>
             )}
-            <SourcesBlock assessment={assessment} />
+            <Box data-tour="bank-app-sources"><SourcesBlock assessment={assessment} /></Box>
             <MessagesBlock key={application.id} applicationId={application.id} status={application.status} />
           </Stack>
         </Grid>
         <Grid item xs={12} lg={5}>
           <Stack spacing={3}>
-            <DiscrepanciesBlock assessment={assessment} />
+            <Box data-tour="bank-app-discrepancies"><DiscrepanciesBlock assessment={assessment} /></Box>
             <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
               <Typography variant="h6" component="h2" gutterBottom>Заявка клиента</Typography>
               <Stack spacing={1}>
@@ -168,7 +185,7 @@ function BankApplicationCard({ id }: { id: string }) {
                 </List>
               )}
             </Paper>
-            <AuditBlock applicationId={application.id} version={`${application.status}-${application.statusChangedAt}`} />
+            <Box data-tour="bank-app-audit"><AuditBlock applicationId={application.id} version={`${application.status}-${application.statusChangedAt}`} /></Box>
           </Stack>
         </Grid>
       </Grid>

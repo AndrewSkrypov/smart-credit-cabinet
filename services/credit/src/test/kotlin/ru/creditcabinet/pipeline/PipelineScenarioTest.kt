@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.jsonwebtoken.Jwts
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argThat
+import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -14,6 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.context.bean.override.mockito.MockitoBean
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.multipart
@@ -22,12 +25,13 @@ import ru.creditcabinet.application.domain.CompanyDirectory
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.assessment.domain.SourceKind
+import ru.creditcabinet.common.notifications.PlatformNotifications
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.domain.StorageBackend
 import ru.creditcabinet.document.generated.GeneratedArtifacts
-import ru.creditcabinet.offer.ContractTexts
+import ru.creditcabinet.offer.application.ContractTexts
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
@@ -44,6 +48,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -77,6 +82,8 @@ class PipelineScenarioTest {
     @Autowired private lateinit var fileStore: FileStore
 
     @MockitoBean private lateinit var companies: CompanyDirectory
+
+    @MockitoSpyBean private lateinit var notifications: PlatformNotifications
 
     private val companyId = UUID.randomUUID()
     private val inn = "00" + (1..8).joinToString("") { Random.nextInt(10).toString() }
@@ -365,7 +372,7 @@ class PipelineScenarioTest {
     }
 
     @Test
-    fun `a corrupted stored file is never downloaded and recovery keeps the issued loan and object key`() {
+    fun `corrupted published bytes are never served or rewritten and exact restoration preserves the issued loan`() {
         val id = submitted()
         worker.runDue()
         post("/api/v1/applications/$id/offer/accept", client)
@@ -377,19 +384,33 @@ class PipelineScenarioTest {
         repeat(3) { artifacts.generateOne() }
         val fileId = UUID.fromString(records[0]["id"].asText())
         val storedName = jdbc.queryForObject("select stored_name from generated_artifacts where id=?", String::class.java, fileId)!!
+        val url = "/api/v1/applications/$id/artifacts/$fileId"
+        fun download() = mockMvc.get("$url/download") { header("Authorization", "Bearer $client") }.andReturn().response
+        fun registry() = jdbc.queryForObject("select to_jsonb(a)::text from generated_artifacts a where id=?", String::class.java, fileId)
+        val original = download()
+        assertEquals(200, original.status)
+        val published = registry()
         val corrupt = "Synthetic corrupted bytes".toByteArray()
         fileStore.put(storedName, corrupt.inputStream(), corrupt.size.toLong(), StorageBackend.LOCAL)
-        val url = "/api/v1/applications/$id/artifacts/$fileId"
-        val failed = mockMvc.get("$url/download") { header("Authorization", "Bearer $client") }.andReturn().response
+        val failed = download()
         assertEquals(503, failed.status)
         assertTrue(json(failed)["message"].asText().contains("временно недоступен"))
-        assertEquals("ERROR", list().first { it["id"].asText() == fileId.toString() }["status"].asText())
-        assertEquals(200, post("$url/retry", client).status)
-        assertTrue(artifacts.generateOne())
-        assertEquals(storedName, jdbc.queryForObject("select stored_name from generated_artifacts where id=?", String::class.java, fileId))
-        val restored = mockMvc.get("$url/download") { header("Authorization", "Bearer $client") }.andReturn().response
+        assertEquals("READY", list().first { it["id"].asText() == fileId.toString() }["status"].asText())
+        val replay = post("$url/retry", client)
+        assertEquals(200, replay.status)
+        assertEquals("READY", json(replay)["status"].asText())
+        assertEquals(fileId.toString(), json(replay)["id"].asText())
+        assertTrue(!artifacts.generateOne(), "Retry cannot authorize replacing an already published object")
+        assertEquals(published, registry(), "Read failure and retry preserve the complete published registry row")
+        assertContentEquals(corrupt, fileStore.get(storedName, StorageBackend.LOCAL)!!.content.use { it.readBytes() })
+        assertEquals(503, download().status)
+        // The operator restores the immutable original; rendering a new document under its ID is forbidden.
+        val originalBytes = original.contentAsByteArray
+        fileStore.put(storedName, originalBytes.inputStream(), originalBytes.size.toLong(), StorageBackend.LOCAL)
+        val restored = download()
         assertEquals(200, restored.status)
-        assertTrue(restored.contentAsByteArray.size > corrupt.size)
+        assertContentEquals(originalBytes, restored.contentAsByteArray)
+        assertEquals(published, registry())
         assertEquals(3, list().size())
         assertEquals(loan, get(id)["process"]["loan"])
         assertEquals("DISBURSED", status(id))
@@ -425,6 +446,33 @@ class PipelineScenarioTest {
         assertEquals(1, jdbc.queryForObject("select count(*) from generated_artifact_notices where application_id=?::uuid", Int::class.java, id))
         assertEquals(1, jdbc.queryForObject("select count(*) from delivery_outbox where event_key like ?", Int::class.java, "generated-files:$id:%"))
         assertEquals("DISBURSED", status(id))
+    }
+
+    @Test
+    fun `a failure after enqueue rolls back both the readiness claim and the outbox event`() {
+        val id = submitted()
+        worker.runDue()
+        post("/api/v1/applications/$id/offer/accept", client)
+        post("/api/v1/applications/$id/sign", client, """{"code":"424242"}""")
+        worker.runDue()
+        assertEquals("DISBURSED", status(id))
+        mockMvc.get("/api/v1/applications/$id/artifacts") { header("Authorization", "Bearer $client") }.andExpect { status { isOk() } }
+        repeat(3) { assertTrue(artifacts.generateOne()) }
+
+        val eventPrefix = "generated-files:$id:"
+        doAnswer { invocation ->
+            invocation.callRealMethod()
+            throw IllegalStateException("Synthetic failure after queuing generated files")
+        }.doCallRealMethod().whenever(notifications).send(argThat { any { item -> item.dedupKey.startsWith(eventPrefix) } })
+
+        fun claims() = jdbc.queryForObject("select count(*) from generated_artifact_notices where application_id=?::uuid", Int::class.java, id)
+        fun events() = jdbc.queryForObject("select count(*) from delivery_outbox where event_key like ?", Int::class.java, "$eventPrefix%")
+        assertFailsWith<IllegalStateException> { artifacts.notifyReadyGroups() }
+        assertEquals(0, claims())
+        assertEquals(0, events())
+        artifacts.notifyReadyGroups()
+        assertEquals(1, claims())
+        assertEquals(1, events())
     }
 
     @Test

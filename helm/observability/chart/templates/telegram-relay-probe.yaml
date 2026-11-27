@@ -1,0 +1,20 @@
+{{- with .Values.telegramRelayProbe }}
+{{- if .enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: cabinet-telegram-relay-tls
+spec:
+  module: cabinet_telegram_relay_tls
+  interval: 60s
+  scrapeTimeout: 8s
+  prober:
+    url: cabinet-blackbox.{{ $.Release.Namespace }}.svc:9115
+  targets:
+    staticConfig:
+      static:
+        - {{ required "telegramRelayProbe.address must contain the TLS relay host:port" .address | quote }}
+      labels:
+        target: telegram-relay-tls
+{{- end }}
+{{- end }}

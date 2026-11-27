@@ -1,0 +1,85 @@
+package ru.creditcabinet.pipeline.infrastructure
+
+import org.slf4j.LoggerFactory
+import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.stereotype.Component
+import ru.creditcabinet.application.domain.PipelineJob
+import ru.creditcabinet.application.domain.PipelineJobs
+import ru.creditcabinet.observability.PipelineMetrics
+import ru.creditcabinet.pipeline.PipelineSettings
+import ru.creditcabinet.pipeline.application.PipelineJobHandler
+import java.time.Clock
+import java.time.Duration
+
+/**
+ * Runs due pipeline jobs. Several instances can run side by side: a job is taken with FOR UPDATE
+ * SKIP LOCKED and a lease, so each runs once, and the job of a crashed instance is taken over
+ * when its lease ends. An unexpected error is retried with a growing pause and, after
+ * [PipelineSettings.maxAttempts], left FAILED for an operator.
+ */
+@Component
+@EnableScheduling
+@EnableConfigurationProperties(PipelineSettings::class)
+class PipelineWorker(
+    private val jobs: PipelineJobs,
+    private val steps: PipelineJobHandler,
+    private val settings: PipelineSettings,
+    private val clock: Clock,
+    private val metrics: PipelineMetrics,
+) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    @Scheduled(fixedDelayString = "\${cabinet.pipeline.poll-interval:PT1S}")
+    fun poll() {
+        if (settings.enabled) runDue()
+    }
+
+    /** Runs everything due now, including the steps the finished ones enqueue for now. Returns the number of jobs run. */
+    fun runDue(): Int {
+        var total = 0
+        while (true) {
+            val now = clock.instant()
+            val batch = jobs.claim(now, now.plus(settings.lease), BATCH)
+            if (batch.isEmpty()) return total
+            batch.forEach(::process)
+            total += batch.size
+        }
+    }
+
+    private fun process(job: PipelineJob) {
+        val startedNanos = System.nanoTime()
+        var failed = false
+        try {
+            steps.run(job)
+        } catch (exception: ru.creditcabinet.document.application.DocumentsUnavailable) {
+            failed = true
+            if (job.step == ru.creditcabinet.application.domain.PipelineStep.DATA_CHECK) {
+                jobs.retryDocumentsUnavailable(job, clock.instant())
+                log.warn("Pipeline DATA_CHECK waiting for Documents for application {}", job.applicationId)
+            } else {
+                unexpectedFailure(job, exception)
+            }
+        } catch (exception: Exception) {
+            failed = true
+            unexpectedFailure(job, exception)
+        } finally {
+            metrics.step(job.step, startedNanos, failed)
+        }
+    }
+
+    private fun unexpectedFailure(job: PipelineJob, exception: Exception) {
+        log.error("Pipeline step {} of application {} failed (attempt {})", job.step, job.applicationId, job.attempts, exception)
+        if (job.businessFailures + 1 >= settings.maxAttempts) {
+            jobs.failClaim(job, clock.instant(), exception.message)
+        } else {
+            val pause = Duration.ofSeconds(10).multipliedBy(1L shl job.businessFailures.coerceIn(0, 5))
+            jobs.retryClaim(job, clock.instant(), clock.instant().plus(pause), exception.message)
+        }
+    }
+
+    private companion object {
+        const val BATCH = 10
+    }
+}

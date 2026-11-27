@@ -12,6 +12,7 @@ import ru.creditcabinet.document.domain.DocumentScanner
 import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.generated.ArtifactInput
 import ru.creditcabinet.document.generated.ArtifactRenderer
+import ru.creditcabinet.document.infrastructure.DocumentStorageErrors
 import ru.creditcabinet.documents.StoreDocument
 import ru.creditcabinet.documents.application.ArtifactOperations
 import ru.creditcabinet.documents.application.DocumentsStore
@@ -23,6 +24,9 @@ import java.time.Clock
 
 @Configuration
 class DocumentsConfiguration {
+    @Bean
+    fun documentsStorageErrors(): DocumentStorageErrors = NeutralDocumentStorageErrors
+
     @Bean
     fun documentsStore(
         jdbc: JdbcTemplate,
@@ -36,16 +40,18 @@ class DocumentsConfiguration {
         val repository = JdbcDocumentsRepository(jdbc, mapper, tx)
         val input = FrozenArtifactInput { mapper.readValue<ArtifactInput>(it) }
         val lifecycle = ArtifactLifecycle(ArtifactRenderer.TEMPLATE_VERSION)
-        val artifacts = ArtifactOperations(repository, repository, input, files, lifecycle)
+        val objects = NeutralDocumentFileStore(files)
+        val scanning = NeutralDocumentScanner(scanner)
+        val artifacts = ArtifactOperations(repository, repository, input, objects, lifecycle)
         val generation = GenerateArtifact(
             JdbcArtifactJobs(jdbc, mapper, tx, repository),
             input,
             RenderArtifact(renderer::render),
-            files,
+            objects,
             lifecycle,
             Clock.systemUTC(),
         )
-        return DocumentsStore(repository, StoreDocument(metadata, files, scanner), artifacts, generation, repository, files)
+        return DocumentsStore(repository, StoreDocument(metadata, objects, scanning), artifacts, generation, repository, objects)
     }
 }
 

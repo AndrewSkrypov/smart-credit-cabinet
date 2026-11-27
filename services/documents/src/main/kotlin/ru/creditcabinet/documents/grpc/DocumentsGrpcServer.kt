@@ -29,6 +29,7 @@ import ru.creditcabinet.documents.DocumentConflict
 import ru.creditcabinet.documents.DocumentRecord
 import ru.creditcabinet.documents.DocumentScope
 import ru.creditcabinet.documents.MAX_DOCUMENT_BYTES
+import ru.creditcabinet.documents.application.DocumentsContentRejected
 import ru.creditcabinet.documents.application.DocumentsStorageRejected
 import ru.creditcabinet.documents.application.DocumentsStorageUnavailable
 import ru.creditcabinet.documents.application.DocumentsStore
@@ -72,18 +73,8 @@ class DocumentsRpc(private val store: DocumentsStore, private val mapper: Object
             observer.onCompleted()
         } catch (_: DocumentConflict) {
             observer.onError(Status.ALREADY_EXISTS.asRuntimeException())
-        } catch (failure: ru.creditcabinet.common.exception.ApiException) {
-            observer.onError(
-                (
-                    if (failure.httpStatus ==
-                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE
-                    ) {
-                        Status.UNAVAILABLE
-                    } else {
-                        Status.INVALID_ARGUMENT
-                    }
-                    ).asRuntimeException(),
-            )
+        } catch (failure: DocumentsContentRejected) {
+            observer.onError(Status.INVALID_ARGUMENT.withCause(failure).asRuntimeException())
         } catch (
             _: IllegalArgumentException,
         ) {

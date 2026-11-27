@@ -15,6 +15,7 @@ import ru.creditcabinet.contracts.documents.v1.Scope
 import ru.creditcabinet.document.domain.DocumentScanner
 import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.generated.ArtifactRenderer
+import ru.creditcabinet.documents.application.DocumentsContentRejected
 import ru.creditcabinet.documents.application.DocumentsStorageRejected
 import ru.creditcabinet.documents.application.DocumentsStorageUnavailable
 import ru.creditcabinet.documents.application.DocumentsStore
@@ -81,6 +82,8 @@ class DocumentsDatabaseFailureTest {
         for ((failure, code) in listOf(
             DocumentsStorageUnavailable(cause) to Status.Code.UNAVAILABLE,
             DocumentsStorageRejected(cause) to Status.Code.FAILED_PRECONDITION,
+            DocumentsContentRejected("Synthetic private scanner message", cause) to Status.Code.INVALID_ARGUMENT,
+            DocumentsStorageUnavailable("Synthetic private storage message", cause) to Status.Code.UNAVAILABLE,
             IllegalStateException("Artifact not ready") to Status.Code.FAILED_PRECONDITION,
         )) {
             val store = mock<DocumentsStore>()

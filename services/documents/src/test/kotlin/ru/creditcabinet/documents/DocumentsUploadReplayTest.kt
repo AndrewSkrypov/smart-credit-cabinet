@@ -17,7 +17,19 @@ class DocumentsUploadReplayTest {
     fun `lost upload reply replay preserves original metadata and rejects changed payload or deleted identity`() {
         val bytes = "%PDF-1.4\nreplay\n%%EOF".toByteArray()
         val id = UUID.randomUUID()
-        val first = DocumentRecord(id, DocumentScope(UUID.randomUUID(), UUID.randomUUID()), "OTHER", "proof.pdf", "$id.pdf", bytes.size.toLong(), UUID.randomUUID(), Instant.parse("2026-01-01T00:00:00Z"), "CHAT", "LOCAL", sha256(bytes), false)
+        val first =
+            DocumentRecord(
+                id,
+                DocumentScope(
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                ),
+                "OTHER", "proof.pdf", "$id.pdf", bytes.size.toLong(), UUID.randomUUID(),
+                Instant.parse(
+                    "2026-01-01T00:00:00Z",
+                ),
+                "CHAT", "LOCAL", sha256(bytes), false,
+            )
         val metadata = mock<DocumentMetadata>()
         val files = mock<FileStore>()
         val scanner = mock<DocumentScanner>()

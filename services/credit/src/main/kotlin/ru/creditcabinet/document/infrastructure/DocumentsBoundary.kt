@@ -72,9 +72,12 @@ class DocumentsBoundary(
         check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
         val inserted = jdbc.update(
             "insert into document_references(document_id,application_id) values(?,?) on conflict do nothing",
-            document.id, document.applicationId,
+            document.id,
+            document.applicationId,
         )
-        check(jdbc.queryForObject("select application_id from document_references where document_id=?", UUID::class.java, document.id) == document.applicationId)
+        check(
+            jdbc.queryForObject("select application_id from document_references where document_id=?", UUID::class.java, document.id) == document.applicationId,
+        )
         return inserted == 1
     }
     fun bytes(document: ApplicationDocument): StoredFile = rpc {
@@ -83,7 +86,9 @@ class DocumentsBoundary(
         StoredFile(bytes.size.toLong(), bytes.inputStream())
     }
     fun all(applicationId: UUID): List<DocumentRecord> {
-        val committed = jdbc.query("select document_id from document_references where application_id=?", { rs, _ -> rs.getObject(1, UUID::class.java) }, applicationId).toSet()
+        val committed = jdbc.query("select document_id from document_references where application_id=?", { rs, _ ->
+            rs.getObject(1, UUID::class.java)
+        }, applicationId).toSet()
         if (committed.isEmpty()) return emptyList()
         return rpc { client().list(scope(applicationId)).filter { it.id in committed } }
     }
@@ -147,11 +152,15 @@ class DocumentsBoundary(
                 throw ru.creditcabinet.common.exception.NotFoundException("Файл не найден")
             io.grpc.Status.Code.ALREADY_EXISTS -> throw ru.creditcabinet.common.exception.ConflictException("Ключ загрузки уже использован для другого файла")
             io.grpc.Status.Code.INVALID_ARGUMENT -> throw ru.creditcabinet.common.exception.BadRequestException("Некорректные данные документа")
-            io.grpc.Status.Code.UNAVAILABLE, io.grpc.Status.Code.DEADLINE_EXCEEDED, io.grpc.Status.Code.RESOURCE_EXHAUSTED, io.grpc.Status.Code.CANCELLED -> unavailable()
+            io.grpc.Status.Code.UNAVAILABLE,
+            io.grpc.Status.Code.DEADLINE_EXCEEDED,
+            io.grpc.Status.Code.RESOURCE_EXHAUSTED,
+            io.grpc.Status.Code.CANCELLED,
+            -> unavailable()
             else -> throw ApiException(HttpStatus.BAD_GATEWAY, "Ошибка обработки документа")
         }
     } catch (_: IllegalArgumentException) {
-        unavailable()
+        throw ApiException(HttpStatus.BAD_GATEWAY, "Некорректный ответ сервиса документов")
     }
     private fun unavailable(): Nothing = throw ru.creditcabinet.document.application.DocumentsUnavailable()
 

@@ -86,7 +86,13 @@ class DocumentService(
 
     /** An agent adds documents to their own mandate-verified application in DRAFT or INFO_REQUESTED. */
     @Transactional
-    fun uploadForAgent(application: LoanApplication, claims: TokenClaims, type: DocumentType, file: MultipartFile, operationKey: String? = null): ApplicationDocument {
+    fun uploadForAgent(
+        application: LoanApplication,
+        claims: TokenClaims,
+        type: DocumentType,
+        file: MultipartFile,
+        operationKey: String? = null,
+    ): ApplicationDocument {
         if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
         val upload = DocumentUpload(file.originalFilename, file.size) { file.bytes }
         return persist(application, claims, type, upload.fileName, upload.size, upload.read, DocumentContext.BUSINESS, operationKey = operationKey)
@@ -95,7 +101,9 @@ class DocumentService(
     /** Chat shares validation and storage, but its files cannot satisfy financial requirements or add process events. */
     @Transactional
     fun uploadChat(application: LoanApplication, caller: TokenClaims, upload: ChatUpload): ApplicationDocument =
-        persist(application, caller, DocumentType.OTHER, upload.fileName, upload.bytes.size.toLong(), { upload.bytes }, DocumentContext.CHAT, operationKey = upload.operationKey)
+        persist(application, caller, DocumentType.OTHER, upload.fileName, upload.bytes.size.toLong(), {
+            upload.bytes
+        }, DocumentContext.CHAT, operationKey = upload.operationKey)
 
     private fun persist(
         application: LoanApplication,

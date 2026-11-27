@@ -413,7 +413,10 @@ class DocumentsRuntimeTest {
         val uploaded = multipart("$base/messages/attachments", client, UUID.randomUUID().toString(), "chat.pdf", "%PDF-1.4\nchat\n%%EOF".toByteArray())
         assertEquals(200, uploaded.statusCode(), String(uploaded.body()))
         val chatId = mapper.readTree(uploaded.body())["id"].asText()
-        assertEquals(200, http("$base/messages", client, """{"idempotencyKey":"${UUID.randomUUID()}","text":"Remote attachment","documentIds":["$chatId"]}""").statusCode())
+        assertEquals(
+            200,
+            http("$base/messages", client, """{"idempotencyKey":"${UUID.randomUUID()}","text":"Remote attachment","documentIds":["$chatId"]}""").statusCode(),
+        )
         val messages = http("$base/messages", bank)
         assertEquals(200, messages.statusCode())
         assertTrue(String(messages.body()).contains(chatId))
@@ -464,16 +467,30 @@ class DocumentsRuntimeTest {
         val documentScope = DocumentScope(company, application)
         val base = "/api/v1/applications/$application"
         db("credit") { connection ->
-            connection.createStatement().use { it.executeUpdate("insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,status_changed_at,product_catalog_snapshot) values('$application','$company','000100000004','Upload rollback','ENTREPRENEUR','$actor','WORKING_CAPITAL','CASH_GAP',123456,6,'DRAFT',now(),now(),now(),'{\"WORKING_CAPITAL\":1}')") }
+            connection.createStatement().use {
+                it.executeUpdate(
+                    "insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,status_changed_at,product_catalog_snapshot) values('$application','$company','000100000004','Upload rollback','ENTREPRENEUR','$actor','WORKING_CAPITAL','CASH_GAP',123456,6,'DRAFT',now(),now(),now(),'{\"WORKING_CAPITAL\":1}')",
+                )
+            }
         }
         for ((index, lostReply) in listOf(false, true, false).withIndex()) {
             val key = UUID.randomUUID().toString()
-            val fileName = if (index == 2) "abandoned-upload.pdf" else if (lostReply) "timeout-rollback.pdf" else "journal-rollback.pdf"
+            val fileName = if (index == 2) {
+                "abandoned-upload.pdf"
+            } else if (lostReply) {
+                "timeout-rollback.pdf"
+            } else {
+                "journal-rollback.pdf"
+            }
             val bytes = "%PDF-1.4\n$fileName\n%%EOF".toByteArray()
             db("credit") { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("create function documents_gate_journal_failure() returns trigger language plpgsql as $$ begin if new.application_id='$application' and new.payload->>'fileName'='$fileName' then perform pg_sleep(${if (lostReply) 2 else 0}); raise exception 'Synthetic journal rollback'; end if; return new; end $$")
-                    statement.execute("create trigger documents_gate_journal_failure before insert on application_events for each row execute function documents_gate_journal_failure()")
+                    statement.execute(
+                        "create function documents_gate_journal_failure() returns trigger language plpgsql as $$ begin if new.application_id='$application' and new.payload->>'fileName'='$fileName' then perform pg_sleep(${if (lostReply) 2 else 0}); raise exception 'Synthetic journal rollback'; end if; return new; end $$",
+                    )
+                    statement.execute(
+                        "create trigger documents_gate_journal_failure before insert on application_events for each row execute function documents_gate_journal_failure()",
+                    )
                 }
             }
             try {
@@ -492,11 +509,18 @@ class DocumentsRuntimeTest {
                 assertTrue(mapper.readTree(view.body())["documents"].none { it["id"].asText() == stored.id.toString() })
                 db("credit") { connection ->
                     connection.createStatement().use { statement ->
-                        statement.executeQuery("select count(*) from document_references where document_id='${stored.id}'").use { rs -> rs.next(); assertEquals(0, rs.getInt(1)) }
+                        statement.executeQuery("select count(*) from document_references where document_id='${stored.id}'").use { rs ->
+                            rs.next()
+                            assertEquals(0, rs.getInt(1))
+                        }
                     }
                 }
             } finally {
-                db("credit") { connection -> connection.createStatement().use { it.execute("drop trigger documents_gate_journal_failure on application_events; drop function documents_gate_journal_failure()") } }
+                db("credit") { connection ->
+                    connection.createStatement().use {
+                        it.execute("drop trigger documents_gate_journal_failure on application_events; drop function documents_gate_journal_failure()")
+                    }
+                }
             }
             if (index == 2) continue
             var before: DocumentRecord? = null
@@ -511,7 +535,12 @@ class DocumentsRuntimeTest {
             client { remote -> assertEquals(before, remote.list(documentScope).single { it.fileName == fileName }) }
             db("credit") { connection ->
                 connection.createStatement().use { statement ->
-                    statement.executeQuery("select count(*) from application_events where application_id='$application' and event='DOCUMENT_ADDED' and payload->>'documentId'='${before!!.id}'").use { rs -> rs.next(); assertEquals(1, rs.getInt(1)) }
+                    statement.executeQuery(
+                        "select count(*) from application_events where application_id='$application' and event='DOCUMENT_ADDED' and payload->>'documentId'='${before!!.id}'",
+                    ).use { rs ->
+                        rs.next()
+                        assertEquals(1, rs.getInt(1))
+                    }
                 }
             }
         }

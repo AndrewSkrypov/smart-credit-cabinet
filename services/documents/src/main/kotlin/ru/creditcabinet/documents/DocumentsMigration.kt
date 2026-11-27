@@ -217,7 +217,9 @@ class DocumentsMigration(
             org.springframework.jdbc.core.RowCallbackHandler { rs ->
                 val d = mapper.readValue<DocumentRecord>(rs.getString(1))
                 // Expected orphan after Credit rollback/lost reply: never activate it on reverse.
-                val committed = credit.query("select application_id from document_references where document_id=?", { row, _ -> row.getObject(1, UUID::class.java) }, d.id).firstOrNull()
+                val committed = credit.query("select application_id from document_references where document_id=?", { row, _ ->
+                    row.getObject(1, UUID::class.java)
+                }, d.id).firstOrNull()
                 if (committed == null) return@RowCallbackHandler
                 check(committed == d.scope.applicationId)
                 check(credit.queryForObject("select company_id from applications where id=?", UUID::class.java, d.scope.applicationId) == d.scope.companyId)

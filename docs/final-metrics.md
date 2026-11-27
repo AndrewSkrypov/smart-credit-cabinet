@@ -36,9 +36,9 @@
 
 | Набор | Результат | Команда |
 | --- | --- | --- |
-| Бэкенд: юнит и интеграционные тесты всех сервисов, ktlint | **323 теста, 0 падений** (4 пропущено по условию окружения) | `OUTBOX_WORKER_ENABLED=false DB_PORT=55432 ./gradlew build -PalphaAnalytics=true` |
-| Фронтенд: компоненты и страницы, TypeScript, ESLint | **174 теста, 0 падений** | `cd frontend && npx tsc --noEmit && npm run lint && npx vitest run` |
-| E2E в браузере на 1440 и 375 px | **98 прошли, 0 падений** (4 пропущены по условию окружения), 14,6 мин | `cd e2e && npx playwright test` |
+| Бэкенд: юнит и интеграционные тесты всех сервисов и библиотек, ktlint | **432 теста, 0 падений** (10 пропущено по условию окружения) | `OUTBOX_WORKER_ENABLED=false DB_PORT=55432 ASSESSMENT_DB_URL=jdbc:postgresql://127.0.0.1:55432/assessment ./gradlew build -PalphaAnalytics=true` |
+| Фронтенд: компоненты и страницы, TypeScript, ESLint | **195 тестов, 0 падений** | `cd frontend && npx tsc --noEmit && npm run lint && npx vitest run` |
+| E2E в браузере на 1440 и 375 px | **98 прошли, 0 падений** (4 пропущены по условию окружения), 14,6 мин; замер до слияния сервисного контура, повторить на текущей ревизии | `cd e2e && npx playwright test` |
 | Агентский канал и режим обучения в браузере | **13 из 13** | `npx playwright test tests/agent-channel.spec.ts tests/onboarding-tours.spec.ts tests/polish-responsive.spec.ts` |
 
 ## 4. Ранее измеренные показатели, на которые опирается финал

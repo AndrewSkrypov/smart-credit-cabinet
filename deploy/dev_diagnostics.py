@@ -24,7 +24,7 @@ MAX_FILE = 64 * 1024
 MAX_DOCKER_BYTES = 128 * 1024
 MAX_REPORT = 64 * 1024
 MAX_CONTAINERS = 64
-MAX_NETWORKS = 16
+MAX_NETWORKS = 32
 READ_TIMEOUT = 8
 DOCKER_SOCKET = "unix:///var/run/docker.sock"
 DOCKER_ROOT_FORMAT = "{{json .DockerRootDir}}"
@@ -48,16 +48,25 @@ SERVICES = frozenset({
     "prometheus", "grafana", "tempo", "loki", "alloy", "alertmanager",
     "blackbox", "node-exporter", "postgres-exporter", "cadvisor", "gotenberg",
     "goalert",
+    "catalog-grpc", "assessment", "assessment-db", "assessment-kafka", "assessment-migrate",
+    "servicing", "servicing-db", "servicing-migrate", "documents", "documents-db",
+    "documents-cutover", "documents-probe", "documents-s3",
 })
 NETWORKS = frozenset({"cabinet", "edge", "default", "alpha-stream", "alpha-store", "alpha-read",
-                      "prometheus", "monitoring", "grafana_edge", "ollama-private", "ollama-egress"})
+                      "prometheus", "monitoring", "grafana_edge", "ollama-private", "ollama-egress",
+                      "alpha-cache", "catalog-rpc", "catalog-db", "assessment-db", "assessment-stream",
+                      "assessment-cache", "assessment-sources", "servicing-rpc", "servicing-store",
+                      "servicing-identity", "servicing-cache", "documents-rpc", "documents-store",
+                      "documents-source", "documents-scan"})
 IMAGE_COMPONENTS = frozenset({"identity", "credit", "engagement", "external-sim", "frontend",
-                              "postgres", "swagger", "analytics", "kafka", "ssh-bridge", "clamav"})
+                              "postgres", "swagger", "analytics", "kafka", "ssh-bridge", "clamav",
+                              "catalog-grpc", "assessment", "servicing", "documents"})
 STOCK_REFS = frozenset({
     "caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9",
     "nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3",
     "valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11",
     "grafana/grafana:13.2.5@sha256:9f7aa1e1e3246aade5792d35a738049f7f32f89cd51d1956cf426a4e86268a84",
+    "chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9",
 })
 ERROR_CATEGORIES = (
     ("docker_unavailable", ("cannot connect to the docker daemon", "failed to connect to the docker api",
@@ -147,6 +156,13 @@ def state_summary(path):
     if not isinstance(record, dict) or not matches(SHA, record.get("revision")) or not matches(DIGEST, record.get("manifest_sha256")):
         raise ValueError("Повреждено состояние Dev")
     value = {"present": True, "revision": record["revision"], "manifest_sha256": record["manifest_sha256"]}
+    for service in ("catalog", "assessment", "servicing", "documents"):
+        if service in record:
+            runtime = record[service]
+            if (not isinstance(runtime, dict) or not isinstance(runtime.get("mode"), str)
+                    or runtime["mode"] not in {"local", "remote"}):
+                raise ValueError("Повреждено состояние режима сервиса")
+            value[service] = {"mode": runtime["mode"]}
     if "alpha_dev" in record:
         alpha = record["alpha_dev"]
         if (not isinstance(alpha, dict) or not matches(GENERATION, alpha.get("generation"))

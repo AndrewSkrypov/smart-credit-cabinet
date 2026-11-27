@@ -553,5 +553,35 @@ else:
             self.assertEqual(list(remote.iterdir()), [])
 
 
+class RuntimeTopologyTest(unittest.TestCase):
+    def test_report_covers_the_actual_runtime_overlays_and_their_network_count(self):
+        services, networks = set(), set()
+        for name in ("catalog", "assessment", "servicing", "documents", "dev-alpha"):
+            overlay = yaml.safe_load((ROOT / "deploy" / f"compose.{name}.yaml").read_text())
+            services.update(overlay.get("services", {}))
+            networks.update(overlay.get("networks", {}))
+        self.assertLessEqual(services, diagnostics.SERVICES)
+        self.assertLessEqual(networks, diagnostics.NETWORKS)
+        self.assertGreaterEqual(diagnostics.MAX_NETWORKS, len(diagnostics.NETWORKS))
+        self.assertLessEqual({"catalog-grpc", "assessment", "servicing", "documents"}, diagnostics.IMAGE_COMPONENTS)
+
+    def test_state_reports_only_allowlisted_runtime_modes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "current.json"
+            record = {"revision": "a" * 40, "manifest_sha256": "b" * 64}
+            for name in ("catalog", "assessment", "servicing", "documents"):
+                record[name] = {"mode": "remote", "password": SECRET}
+            path.write_text(json.dumps(record))
+            summary = diagnostics.state_summary(path)
+            for name in ("catalog", "assessment", "servicing", "documents"):
+                self.assertEqual(summary[name], {"mode": "remote"})
+            self.assertNotIn(SECRET, json.dumps(summary))
+            for mode in ("disabled", SECRET, None, [], {}, False):
+                record["documents"]["mode"] = mode
+                path.write_text(json.dumps(record))
+                with self.assertRaisesRegex(ValueError, "^Повреждено состояние режима сервиса$"):
+                    diagnostics.state_summary(path)
+
+
 if __name__ == "__main__":
     unittest.main()

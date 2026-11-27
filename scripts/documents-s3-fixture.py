@@ -165,5 +165,6 @@ class S3Fixture:
             except subprocess.TimeoutExpired: self.process.kill(); self.process.wait(timeout=5)
         if getattr(self, "handle", None): self.handle.close()
         if getattr(self, "container", None):
-            with (self.report/'s3-server.log').open('ab') as output: subprocess.run(['docker','logs',self.container],env=self.docker_env,stdout=output,stderr=subprocess.STDOUT)
-            subprocess.run(['docker','rm','-fv',self.container],env=self.docker_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            with (self.report/'s3-server.log').open('ab') as output: subprocess.run(['docker','logs',self.container],env=self.docker_env,stdout=output,stderr=subprocess.STDOUT,timeout=15)
+            return subprocess.run(['docker','rm','-fv',self.container],env=self.docker_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=45).returncode == 0
+        return True

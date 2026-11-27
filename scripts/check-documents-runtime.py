@@ -162,7 +162,7 @@ def main():
         return records
     try:
         if args.storage_backend == 's3':
-            startup_unconfirmed = bool(args.s3_image)
+            startup_unconfirmed = True
             spec=importlib.util.spec_from_file_location('documents_s3_fixture',ROOT/'scripts/documents-s3-fixture.py')
             module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
             s3=module.S3Fixture.__new__(module.S3Fixture)
@@ -584,10 +584,19 @@ insert into financing_scenario_publications(application_id,revision,status,docum
     finally:
         if identity_server: identity_server.shutdown(); identity_server.server_close()
         scanner_stop.set()
-        if s3: s3.close()
+        if s3:
+            try:
+                if not s3.close(): startup_unconfirmed = True
+            except (OSError, subprocess.SubprocessError):
+                startup_unconfirmed = True
         for process in reversed(processes): stop(process)
         for handle in handles: handle.close()
-        if container: subprocess.run(['docker','rm','-fv',container],env=docker_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        if container:
+            try:
+                removed=subprocess.run(['docker','rm','-fv',container],env=docker_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=45)
+                if removed.returncode: startup_unconfirmed = True
+            except (OSError, subprocess.SubprocessError):
+                startup_unconfirmed = True
         elif pg_started and pg_process is not None:
             if pg_process.poll() is None:
                 stopped=subprocess.run([str(pg_bin/'pg_ctl'),'-D',str(scratch/'db'),'-m','fast','-t','20','-w','stop'],env=base_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=25)
@@ -599,9 +608,9 @@ insert into financing_scenario_publications(application_id,revision,status,docum
                 # Keep the directory and ownership ledger for guarded after_script cleanup.
                 raise RuntimeError('Owned PostgreSQL did not stop; fixture directory retained')
         if startup_unconfirmed:
-            # A timed-out Docker client may already have created a live bind consumer.
-            # after_script must verify/remove the job-labeled resource before data removal.
-            (report/'cleanup-retained.json').write_text(json.dumps({'scope':scope,'source':source_sha,'scratch':str(scratch),'reason':'CI container startup unconfirmed; guarded after_script cleanup required'})+'\n')
+            # An interrupted native/CI start or removal may leave a live bind consumer.
+            # Ownership-aware cleanup must resolve it before any fixture data removal.
+            (report/'cleanup-retained.json').write_text(json.dumps({'scope':scope,'source':source_sha,'scratch':str(scratch),'reason':'Fixture startup/removal unconfirmed; guarded cleanup required'})+'\n')
         elif pg_process is None or pg_process.poll() is not None:
             shutil.rmtree(scratch)
 

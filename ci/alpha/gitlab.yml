@@ -9,7 +9,8 @@
         ($CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-analytics-pilot" ||
         $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-dev-provisioning" ||
         $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-kafka-security" ||
-        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-private-valkey") &&
+        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-private-valkey" ||
+        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-services-integration") &&
         $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "feat/final-platform-release"
 
 alpha-pilot-infrastructure:

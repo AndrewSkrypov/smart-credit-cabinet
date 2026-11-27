@@ -109,6 +109,8 @@ python3 deploy/check-schema-rollback.py --pg-bin "$(pg_config --bindir)" --port 
     --source-prefix cabinet_test_ --output ci-artifacts/schema-rollback.json
 python3 deploy/check-migration-restore.py --pg-bin "$(pg_config --bindir)" --java-bin "${JAVA_HOME:?}/bin" \
     --port "$DB_PORT" --user cabinet --output ci-artifacts/migration-restore.json
+python3 scripts/check-documents-rollback.py --pg-bin "$(pg_config --bindir)" \
+    --port "$DB_PORT" --user cabinet --output ci-artifacts/documents-rollback.json
 
 DOCUMENTS_TEST_POSTGRES_IMAGE="$image" python3 scripts/check-documents-runtime.py --pg-bin "$(pg_config --bindir)" --skip-build
 DOCUMENTS_TEST_POSTGRES_IMAGE="$image" \

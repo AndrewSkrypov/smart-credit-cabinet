@@ -64,7 +64,7 @@ function AgentUploadButton({
   variant?: 'outlined' | 'text';
 }) {
   return <BusinessUploadButton
-    scope={businessUploadScope('agent', applicationId, documentType)}
+    scope={() => businessUploadScope('agent', applicationId, documentType)}
     upload={(file, key) => agentApi.uploadDocument(applicationId, documentType, file, key)}
     onUploaded={onUploaded} onError={onError} variant={variant}>{label}</BusinessUploadButton>;
 }

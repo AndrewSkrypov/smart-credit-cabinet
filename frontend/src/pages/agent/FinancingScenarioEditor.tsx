@@ -38,6 +38,8 @@ const invoiceError = 'Впишите сумму и дату вручную. Че
 
 export function FinancingScenarioEditor({ application, amount, baseTerm, savingDraft, saveDraft, onUncommittedChange }: Props) {
   const id = application.id;
+  const latestId = useRef(id);
+  latestId.current = id;
   const fileInput = useRef<HTMLInputElement>(null);
   const [scenario, setScenario] = useState<FinancingScenario | null>(null);
   const [form, setForm] = useState<ScenarioForm>(() => defaultInputs(baseTerm));
@@ -58,14 +60,15 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
 
   useEffect(() => {
     let active = true;
+    const scope = businessUploadScope('invoice', id);
     invoiceUpload.current = null;
     setInvoiceDocumentId(null);
     void financingApi.agent(id).then((previous) => {
-      if (!active || !previous || previous.status === 'CONFIRMED') return;
+      if (!active || businessUploadScope('invoice', id) !== scope || !previous || previous.status === 'CONFIRMED') return;
       setScenario(previous);
       setForm(previous.inputs);
     }).catch((next) => {
-      if (active) setError(next instanceof Error ? next.message : 'Не удалось прочитать примерку');
+      if (active && businessUploadScope('invoice', id) === scope) setError(next instanceof Error ? next.message : 'Не удалось прочитать примерку');
     }).finally(() => {
       if (active) setBusy(null);
     });
@@ -89,6 +92,23 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
     }
   }
 
+  function discardInvoiceUpload() {
+    invoiceUpload.current = null;
+    setInvoiceDocumentId(null);
+    setExtraction(null);
+    setUseSourceAmount(false);
+    setSelectedSourceDate('');
+    setSourceManuallyEdited(true);
+    setInvoiceNotice(null);
+    setError('Выберите файл заново, чтобы продолжить.');
+  }
+
+  function isCurrentInvoiceScope(scope: string) {
+    if (businessUploadScope('invoice', latestId.current) === scope) return true;
+    discardInvoiceUpload();
+    return false;
+  }
+
   const readFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -96,7 +116,8 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
     setBusy('extract');
     setError(null);
     setExtraction(null);
-    invoiceUpload.current = createBusinessUpload(file, businessUploadScope('invoice', id));
+    const operation = createBusinessUpload(file, businessUploadScope('invoice', id));
+    invoiceUpload.current = operation;
     setInvoiceDocumentId(null);
     setSelectedSourceDate('');
     setUseSourceAmount(false);
@@ -104,11 +125,13 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
     setInvoiceNotice(null);
     try {
       const found = await extractInvoice(id, file);
+      if (!isCurrentInvoiceScope(operation.scope) || invoiceUpload.current !== operation) return;
       setExtraction(found);
       setInvoiceNotice(found.amount || found.dates.length
         ? 'Проверьте значения. При сохранении выбранных строк счёт приложится к заявке. Также можно ввести данные вручную.'
         : invoiceError);
     } catch {
+      if (!isCurrentInvoiceScope(operation.scope)) return;
       setInvoiceNotice(invoiceError);
     } finally {
       setBusy(null);
@@ -135,22 +158,27 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
 
   async function calculate() {
     if (!enabled || form.openingBalance == null || form.expectedReceiptAmount == null) return;
+    const scope = businessUploadScope('invoice', id);
+    if (invoiceUpload.current && invoiceUpload.current.scope !== scope) {
+      discardInvoiceUpload();
+      return;
+    }
     setBusy('calculate');
     setError(null);
     try {
       const saved = await saveDraft();
-      if (!saved) return;
+      if (!isCurrentInvoiceScope(scope) || !saved) return;
       const selectedTermMonths = form.selectedTermMonths === form.alternativeTermMonths ? form.selectedTermMonths : saved.termMonths;
       const verified = verifiedSource();
       let source: FinancingInputs['source'] = !extraction && !sourceManuallyEdited ? scenario?.inputs.source : undefined;
       if (verified && invoiceUpload.current) {
-        const scope = businessUploadScope('invoice', id);
-        const sameScope = invoiceUpload.current.scope === scope;
-        if (!sameScope) {
-          invoiceUpload.current = createBusinessUpload(invoiceUpload.current.file, scope);
+        if (invoiceUpload.current.scope !== scope) {
+          discardInvoiceUpload();
+          return;
         }
         const { file, key } = invoiceUpload.current;
-        const documentId = (sameScope ? invoiceDocumentId : null) ?? (await agentApi.uploadDocument(id, 'OTHER', file, key)).id;
+        const documentId = invoiceDocumentId ?? (await agentApi.uploadDocument(id, 'OTHER', file, key)).id;
+        if (!isCurrentInvoiceScope(scope)) return;
         setInvoiceDocumentId(documentId);
         source = { ...verified, documentId };
       }
@@ -161,11 +189,13 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
         selectedTermMonths,
         source
       });
+      if (!isCurrentInvoiceScope(scope)) return;
       setScenario(next);
       setForm(next.inputs);
       savedTerms.current = { amount: saved.amount, baseTerm: saved.termMonths };
       setDirty(false);
     } catch (next) {
+      if (!isCurrentInvoiceScope(scope)) return;
       setError(next instanceof Error ? next.message : 'Не удалось рассчитать варианты');
     } finally {
       setBusy(null);

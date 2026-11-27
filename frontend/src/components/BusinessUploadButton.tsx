@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { BusinessUploadOperation, createBusinessUpload } from '../shared/businessUpload';
 
 interface Props extends Omit<ButtonProps, 'onError'> {
-  scope: string;
+  scope: () => string;
   accept?: string;
   upload: (file: File, key: string) => Promise<unknown>;
   onUploaded: () => void;
@@ -17,17 +17,28 @@ export function BusinessUploadButton({ scope, accept = '.pdf,.jpg,.jpeg,.png,.do
   const [busy, setBusy] = useState(false);
   // Retry retains this File and key; choosing a file explicitly starts a new operation.
   const [failed, setFailed] = useState<BusinessUploadOperation | null>(null);
-  const retry = failed?.scope === scope ? failed : null;
+  const latestScope = useRef(scope);
+  latestScope.current = scope;
+  const retry = failed?.scope === scope() ? failed : null;
+
+  function isCurrent(operation: BusinessUploadOperation) {
+    if (operation.scope === latestScope.current()) return true;
+    setFailed(null);
+    onError('Выберите файл заново, чтобы продолжить.');
+    return false;
+  }
 
   async function send(operation: BusinessUploadOperation) {
-    if (inFlight.current) return;
+    if (inFlight.current || !isCurrent(operation)) return;
     inFlight.current = true;
     setBusy(true);
     try {
       await upload(operation.file, operation.key);
+      if (!isCurrent(operation)) return;
       setFailed(null);
       onUploaded();
     } catch (error) {
+      if (!isCurrent(operation)) return;
       setFailed(operation);
       onError(error instanceof Error ? error.message : 'Не удалось загрузить файл');
     } finally {
@@ -46,7 +57,7 @@ export function BusinessUploadButton({ scope, accept = '.pdf,.jpg,.jpeg,.png,.do
       event.target.value = '';
       if (file && !inFlight.current) {
         setFailed(null);
-        void send(createBusinessUpload(file, scope));
+        void send(createBusinessUpload(file, latestScope.current()));
       }
     }} />
   </>;

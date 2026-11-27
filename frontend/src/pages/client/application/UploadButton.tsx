@@ -14,7 +14,7 @@ interface UploadButtonProps extends Omit<ButtonProps, 'onError'> {
 
 export function UploadButton({ applicationId, documentType, privateToBank, onUploaded, onError, children, ...props }: UploadButtonProps) {
   return <BusinessUploadButton
-    scope={businessUploadScope('client', applicationId, documentType, String(!!privateToBank))}
+    scope={() => businessUploadScope('client', applicationId, documentType, String(!!privateToBank))}
     accept={privateToBank ? '.pdf,application/pdf' : undefined}
     upload={(file, key) => applicationsApi.uploadDocument(applicationId, documentType, file, privateToBank, key)}
     onUploaded={onUploaded} onError={onError} {...props}>{children}</BusinessUploadButton>;

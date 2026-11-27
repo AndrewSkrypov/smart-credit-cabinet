@@ -66,3 +66,15 @@ create trigger documents_business_reference after insert on documents for each r
 
 -- Expected Documents outages do not consume business failure attempts.
 alter table pipeline_jobs add column documents_outages integer not null default 0 check(documents_outages between 0 and 7);
+
+comment on table document_ownership is 'Единственный владелец документов и эпоха переключения LOCAL/FROZEN/REMOTE';
+comment on column document_ownership.owner is 'Административная ограда записи и устаревшего чтения';
+comment on column document_ownership.epoch is 'Монотонная эпоха, проверяемая удалённым портом';
+comment on table document_artifact_inputs is 'Неизменяемые бизнес-снимки Credit и намерения доставки артефактов';
+comment on column document_artifact_inputs.input_hash is 'SHA-256 точного канонического входа рендера';
+comment on column document_artifact_inputs.input_json is 'Зафиксированные условия, график и подписываемый текст с точным масштабом чисел';
+comment on column document_artifact_inputs.delivered_at is 'Неизменяемая квитанция подтверждённой передачи задания';
+comment on table document_references is 'Подтверждённые транзакцией Credit бизнес-связи документов с заявками; без файловых метаданных';
+comment on column document_references.document_id is 'Идентификатор единственного документа в Documents либо историческом LOCAL';
+comment on column document_references.application_id is 'Заявка, имеющая подтверждённую ссылку на документ';
+comment on column pipeline_jobs.documents_outages is 'Счётчик ожидаемых сбоев Documents для ограниченной задержки без расходования бизнес-попыток';

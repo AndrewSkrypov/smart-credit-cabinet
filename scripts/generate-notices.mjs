@@ -41,7 +41,7 @@ for (const [scope, file] of [
     backend.set(key, {
       name: item.moduleName, version: item.moduleVersion,
       licenses: [...new Set([...(existing?.licenses ?? []), ...licenses])].sort(),
-      sources: [...new Set([...(existing?.sources ?? []), ...(item.moduleLicenses ?? []).map((x) => x.moduleLicenseUrl).filter(Boolean), ...(item.moduleUrls ?? []), ...(markers[key] ? [markers[key].source] : [])])].sort(),
+      sources: [...new Set([...(existing?.sources ?? []), ...(item.moduleLicenses ?? []).map((x) => x.moduleLicenseUrl).filter(Boolean), ...(item.moduleUrls ?? []), ...(markers[key] ? [markers[key].source] : []), ...(markers[key]?.metadataSources ?? [])])].sort(),
       scopes: [...new Set([...(existing?.scopes ?? []), scope])].sort(),
     });
   }

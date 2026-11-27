@@ -28,5 +28,71 @@
     "licenses": ["The Apache Software License, Version 2.0"],
     "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.pom",
     "reason": "Отчёт о classpath плагинов не находит лицензию. Она указана в POM артефакта в Maven Central."
+  },
+  "net.swiftzer.semver:semver@1.1.1": {
+    "licenses": ["MIT License"],
+    "source": "https://repo.maven.apache.org/maven2/net/swiftzer/semver/semver/1.1.1/semver-1.1.1.pom",
+    "metadataSources": [
+      "https://github.com/swiftzer/semver",
+      "https://opensource.org/licenses/mit-license.php"
+    ],
+    "pomSha1": "f610dcde4ace9771b6963f7463b8ccf944306aa7",
+    "pomSha256": "320c1150c2c5dc40937423f9e888e10d9e8b2d4e1346c349864816ba2afe39ff",
+    "reason": "Свежий offline-отчёт не разрешает POM. Лицензии и metadataSources прочитаны из POM точного GAV в immutable Gradle cache; SHA-1 совпадает с content-addressed каталогом, первичный источник — Maven Central. Дополнение сохраняет upstream metadata при rich и empty отчёте."
+  },
+  "org.jetbrains.kotlin:kotlin-project-model@1.9.24": {
+    "licenses": ["The Apache License, Version 2.0"],
+    "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-project-model/1.9.24/kotlin-project-model-1.9.24.pom",
+    "metadataSources": [
+      "http://www.apache.org/licenses/LICENSE-2.0.txt",
+      "https://kotlinlang.org/"
+    ],
+    "pomSha1": "76b46d3a36b048e36371453fe9f41d1676449ad8",
+    "pomSha256": "b05e0ee1002c18ededeb6e89af07e3be178507db13da1bad6ece76be60f3edeb",
+    "reason": "Свежий offline-отчёт не разрешает POM. Лицензии и metadataSources прочитаны из POM точного GAV в immutable Gradle cache; SHA-1 совпадает с content-addressed каталогом, первичный источник — Maven Central. Дополнение сохраняет upstream metadata при rich и empty отчёте."
+  },
+  "org.jetbrains.kotlin:kotlin-sam-with-receiver@1.9.24": {
+    "licenses": ["The Apache License, Version 2.0"],
+    "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-sam-with-receiver/1.9.24/kotlin-sam-with-receiver-1.9.24.pom",
+    "metadataSources": [
+      "http://www.apache.org/licenses/LICENSE-2.0.txt",
+      "https://kotlinlang.org/"
+    ],
+    "pomSha1": "7e788626a18628085b271b16cbad3d0f5baa8788",
+    "pomSha256": "7ea6cdd5f7e9bb946d7482b09febc30662cd9970c6d026d8840dcdab0cbe3d8f",
+    "reason": "Свежий offline-отчёт не разрешает POM. Лицензии и metadataSources прочитаны из POM точного GAV в immutable Gradle cache; SHA-1 совпадает с content-addressed каталогом, первичный источник — Maven Central. Дополнение сохраняет upstream metadata при rich и empty отчёте."
+  },
+  "org.jetbrains.kotlin:kotlin-tooling-core@1.9.24": {
+    "licenses": ["The Apache License, Version 2.0"],
+    "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-tooling-core/1.9.24/kotlin-tooling-core-1.9.24.pom",
+    "metadataSources": [
+      "http://www.apache.org/licenses/LICENSE-2.0.txt",
+      "https://kotlinlang.org/"
+    ],
+    "pomSha1": "11b2027c6bdbae80921412e4d925db1f30af692e",
+    "pomSha256": "75bcad13e91680fcf012c8ee1aa1aac719f59b621b394ca3fc32c625ff987256",
+    "reason": "Свежий offline-отчёт не разрешает POM. Лицензии и metadataSources прочитаны из POM точного GAV в immutable Gradle cache; SHA-1 совпадает с content-addressed каталогом, первичный источник — Maven Central. Дополнение сохраняет upstream metadata при rich и empty отчёте."
+  },
+  "org.jetbrains.kotlin:kotlin-util-io@1.9.24": {
+    "licenses": ["The Apache License, Version 2.0"],
+    "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-util-io/1.9.24/kotlin-util-io-1.9.24.pom",
+    "metadataSources": [
+      "http://www.apache.org/licenses/LICENSE-2.0.txt",
+      "https://kotlinlang.org/"
+    ],
+    "pomSha1": "aef498b49987356e1f412778ac7b36aaba820f46",
+    "pomSha256": "f365673779324f332d39390c78077587804d11ece72afe4aeee3253ad6533c51",
+    "reason": "Свежий offline-отчёт не разрешает POM. Лицензии и metadataSources прочитаны из POM точного GAV в immutable Gradle cache; SHA-1 совпадает с content-addressed каталогом, первичный источник — Maven Central. Дополнение сохраняет upstream metadata при rich и empty отчёте."
+  },
+  "org.jetbrains.kotlin:kotlin-util-klib@1.9.24": {
+    "licenses": ["The Apache License, Version 2.0"],
+    "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-util-klib/1.9.24/kotlin-util-klib-1.9.24.pom",
+    "metadataSources": [
+      "http://www.apache.org/licenses/LICENSE-2.0.txt",
+      "https://kotlinlang.org/"
+    ],
+    "pomSha1": "4ae70269519ca011c7d423b60a7ec1b8ed860591",
+    "pomSha256": "92b423afd5e729bb114f71b58a9e03845dfe2bda562454ebbdb83c9d83b23071",
+    "reason": "Свежий offline-отчёт не разрешает POM. Лицензии и metadataSources прочитаны из POM точного GAV в immutable Gradle cache; SHA-1 совпадает с content-addressed каталогом, первичный источник — Maven Central. Дополнение сохраняет upstream metadata при rich и empty отчёте."
   }
 }

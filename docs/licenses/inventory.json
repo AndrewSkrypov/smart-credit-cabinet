@@ -634,6 +634,20 @@
       ]
     },
     {
+      "name": "com.google.protobuf:protobuf-java-util",
+      "version": "4.33.2",
+      "licenses": [
+        "BSD-3-Clause"
+      ],
+      "sources": [
+        "https://developers.google.com/protocol-buffers/",
+        "https://opensource.org/licenses/BSD-3-Clause"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "com.google.protobuf:protoc",
       "version": "4.33.2",
       "licenses": [
@@ -2140,7 +2154,8 @@
       ],
       "sources": [
         "https://github.com/swiftzer/semver",
-        "https://opensource.org/licenses/mit-license.php"
+        "https://opensource.org/licenses/mit-license.php",
+        "https://repo.maven.apache.org/maven2/net/swiftzer/semver/semver/1.1.1/semver-1.1.1.pom"
       ],
       "scopes": [
         "build-logic"
@@ -3589,7 +3604,8 @@
       ],
       "sources": [
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://kotlinlang.org/"
+        "https://kotlinlang.org/",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-project-model/1.9.24/kotlin-project-model-1.9.24.pom"
       ],
       "scopes": [
         "build-logic"
@@ -3646,7 +3662,8 @@
       ],
       "sources": [
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://kotlinlang.org/"
+        "https://kotlinlang.org/",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-sam-with-receiver/1.9.24/kotlin-sam-with-receiver-1.9.24.pom"
       ],
       "scopes": [
         "build-logic"
@@ -3982,7 +3999,8 @@
       ],
       "sources": [
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://kotlinlang.org/"
+        "https://kotlinlang.org/",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-tooling-core/1.9.24/kotlin-tooling-core-1.9.24.pom"
       ],
       "scopes": [
         "build-logic"
@@ -4010,7 +4028,8 @@
       ],
       "sources": [
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://kotlinlang.org/"
+        "https://kotlinlang.org/",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-util-io/1.9.24/kotlin-util-io-1.9.24.pom"
       ],
       "scopes": [
         "build-logic"
@@ -4038,7 +4057,8 @@
       ],
       "sources": [
         "http://www.apache.org/licenses/LICENSE-2.0.txt",
-        "https://kotlinlang.org/"
+        "https://kotlinlang.org/",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-util-klib/1.9.24/kotlin-util-klib-1.9.24.pom"
       ],
       "scopes": [
         "build-logic"

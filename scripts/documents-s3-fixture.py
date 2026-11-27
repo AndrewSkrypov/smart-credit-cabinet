@@ -30,7 +30,7 @@ class S3Fixture:
         self.buckets = {name: f'documents-{name}-{secrets.token_hex(6)}' for name in self.identities}
         self.port = free_port()
         self.endpoint = f'http://127.0.0.1:{self.port}'
-        config = {'identities': [{'name': name, 'credentials': [{'accessKey': key, 'secretKey': secret}], 'actions': [f'{action}:{self.buckets[name]}' + ('/documents/*' if action in ('Read', 'Write') else '') for action in ('Read', 'Write', 'List')]} for name, (key, secret) in self.identities.items()]}
+        config = {'identities': [{'name': name, 'credentials': [{'accessKey': key, 'secretKey': secret}], 'actions': [f'{action}:{self.buckets[name]}' + ('/documents/*' if action == 'Write' else '') for action in ('Read', 'Write', 'List')]} for name, (key, secret) in self.identities.items()]}
         configuration = self.scratch / 'iam.json'
         configuration.write_text(json.dumps(config))
         configuration.chmod(0o600)
@@ -62,6 +62,7 @@ class S3Fixture:
         while True:
             try:
                 self.request('source','HEAD','')
+                self.request('target','HEAD','')
                 break
             except HTTPError as failure:
                 # Persist only a bounded protocol code, never credentials or response messages.
@@ -86,9 +87,26 @@ class S3Fixture:
             if time.monotonic()>deadline: raise RuntimeError('Private S3 readiness deadline exceeded: '+last_failure)
             time.sleep(.3)
 
-    def request(self, identity, method, name, body=b''):
+        # HEAD needs bucket-level Read in this engine. Both credentials still own only
+        # their synthetic bucket; verify anonymous and cross-bucket access remain denied.
+        for identity in self.identities:
+            try:
+                with HTTP.open(Request(self.endpoint+'/'+self.buckets[identity],method='HEAD'),timeout=5):
+                    raise AssertionError('Synthetic S3 bucket allows anonymous access')
+            except HTTPError as failure:
+                if failure.code not in (401,403): raise
+                failure.close()
+            other='target' if identity=='source' else 'source'
+            try:
+                self.request(identity,'HEAD','',bucket_identity=other)
+                raise AssertionError('Synthetic S3 credentials cross bucket ownership')
+            except HTTPError as failure:
+                if failure.code not in (401,403): raise
+                failure.close()
+
+    def request(self, identity, method, name, body=b'', *, bucket_identity=None):
         access,secret = self.identities[identity]
-        uri = '/' + self.buckets[identity] + ('/documents/'+name if name else '')
+        uri = '/' + self.buckets[bucket_identity or identity] + ('/documents/'+name if name else '')
         now = datetime.now(timezone.utc)
         stamp = now.strftime('%Y%m%dT%H%M%SZ'); date = now.strftime('%Y%m%d')
         authority = f'127.0.0.1:{self.port}'

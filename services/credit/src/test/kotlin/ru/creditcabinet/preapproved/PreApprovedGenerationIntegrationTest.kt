@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import ru.creditcabinet.agent.domain.AgentAccessDecision
 import ru.creditcabinet.agent.domain.AgentAccessPort
+import ru.creditcabinet.application.domain.CompanyDirectory
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.assessment.domain.BankInfo
@@ -47,6 +48,8 @@ class PreApprovedGenerationIntegrationTest {
 
     @MockitoBean private lateinit var sources: CompanySources
 
+    @MockitoBean private lateinit var companies: CompanyDirectory
+
     private val companyId = UUID.randomUUID()
     private val agentId = UUID.randomUUID()
     private val managerToken by lazy { token(Roles.MANAGER) }
@@ -57,6 +60,10 @@ class PreApprovedGenerationIntegrationTest {
     @BeforeTest
     fun setUp() {
         whenever(sources.bank(any())).thenReturn(BankInfo(true, null, emptyList()))
+        whenever(companies.find(any())).thenAnswer { inv ->
+            val id = inv.getArgument<UUID>(0)
+            CompanySnapshot(id, "000100000098", "ООО Предодобрение", LegalForm.LEGAL_ENTITY).takeIf { id == companyId }
+        }
         whenever(agentAccess.listCompanyIds(any())).thenAnswer { inv ->
             if (inv.getArgument<UUID>(0) == agentId) listOf(companyId) else emptyList()
         }
@@ -154,6 +161,13 @@ class PreApprovedGenerationIntegrationTest {
             content = """{"companyId":"$companyId","productCode":"WORKING_CAPITAL","annualRevenue":1000000,"bureauWorstOverdueDays":0}"""
         }.andReturn().response
         assertEquals(204, lowRevResp.status)
+
+        val unknownCompany = mockMvc.post("/api/v1/pre-approved-offers/generate") {
+            header("Authorization", "Bearer $managerToken")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"companyId":"${UUID.randomUUID()}","productCode":"WORKING_CAPITAL","annualRevenue":20000000,"bureauWorstOverdueDays":0}"""
+        }.andReturn().response
+        assertEquals(404, unknownCompany.status, unknownCompany.getContentAsString(Charsets.UTF_8))
 
         val invalidResp = mockMvc.post("/api/v1/pre-approved-offers/generate") {
             header("Authorization", "Bearer $managerToken")

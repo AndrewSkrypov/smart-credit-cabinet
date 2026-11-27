@@ -134,6 +134,8 @@ jobs:
           done
           python3 deploy/check-schema-rollback.py --pg-bin "$(pg_config --bindir)" --port 5432 --user cabinet \
             --source-prefix cabinet_test_ --output ci-artifacts/schema-rollback.json
+          python3 deploy/check-business-rollback.py --pg-bin "$(pg_config --bindir)" --port 5432 --user cabinet \
+            --output ci-artifacts/business-rollback.json
       - name: Restore and replay every Flyway version on PostgreSQL 16
         env:
           PGPASSWORD: cabinet
@@ -151,6 +153,7 @@ jobs:
             **/build/test-results/catalogIntegrationTest/
             ci-artifacts/catalog-r1/
             ci-artifacts/schema-rollback.json
+            ci-artifacts/business-rollback.json
             ci-artifacts/migration-restore.json
             ci-artifacts/assessment/
             services/assessment/build/test-results/assessmentKafkaTest/

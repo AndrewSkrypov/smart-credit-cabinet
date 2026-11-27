@@ -1,4 +1,4 @@
-package ru.creditcabinet.assistant
+package ru.creditcabinet.assistant.controller
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.swagger.v3.oas.annotations.Operation
@@ -18,6 +18,12 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import ru.creditcabinet.assistant.application.Answer
+import ru.creditcabinet.assistant.application.AnswerMode
+import ru.creditcabinet.assistant.application.AssistantHint
+import ru.creditcabinet.assistant.application.AssistantNextSteps
+import ru.creditcabinet.assistant.application.AssistantService
+import ru.creditcabinet.assistant.application.Turn
 import ru.creditcabinet.common.exception.ApiException
 import java.io.OutputStream
 import java.util.UUID

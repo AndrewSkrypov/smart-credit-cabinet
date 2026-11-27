@@ -41,8 +41,8 @@ import ru.creditcabinet.common.notifications.PlatformNotification
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.integration.CompanySources
-import ru.creditcabinet.integration.SourceUnavailableException
+import ru.creditcabinet.integration.domain.CompanySources
+import ru.creditcabinet.integration.domain.SourceUnavailableException
 import java.math.BigDecimal
 import java.sql.Timestamp
 import java.time.Instant

@@ -6,6 +6,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
+import ru.creditcabinet.advice.application.AdviceService
 import ru.creditcabinet.advice.domain.AdviceKind
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationRepository

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.product.application.ProductEditor
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.Product
+import ru.creditcabinet.product.domain.ProductImpact
 import ru.creditcabinet.product.domain.ProductLifecycleStatus
 import ru.creditcabinet.product.domain.ProductRevision
 import java.math.BigDecimal
@@ -116,6 +117,10 @@ class ProductEditorController(private val editor: ProductEditor) {
     @Operation(summary = "Карточка продукта и неизменяемая история условий")
     @GetMapping("/{code}")
     fun history(@PathVariable code: String): List<ProductRevision> = editor.history(code)
+
+    @Operation(summary = "Оценка влияния изменений/архивации продукта на действующие заявки и предложения")
+    @GetMapping("/{code}/impact")
+    fun impact(@PathVariable code: String): ProductImpact = editor.impact(code)
 
     @Operation(summary = "Сохранить новую версию или выключить продукт (риск-администратор)")
     @PutMapping("/{code}")

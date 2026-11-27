@@ -1,4 +1,4 @@
-package ru.creditcabinet.integration
+package ru.creditcabinet.integration.infrastructure
 
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException
 import io.github.resilience4j.circuitbreaker.CircuitBreaker
@@ -16,6 +16,14 @@ import ru.creditcabinet.assessment.domain.BureauInfo
 import ru.creditcabinet.assessment.domain.BureauObligation
 import ru.creditcabinet.assessment.domain.RegistryInfo
 import ru.creditcabinet.assessment.domain.TaxInfo
+import ru.creditcabinet.integration.domain.CompanySources
+import ru.creditcabinet.integration.domain.CoreBanking
+import ru.creditcabinet.integration.domain.LoanBooked
+import ru.creditcabinet.integration.domain.LoanRequest
+import ru.creditcabinet.integration.domain.SigningGateway
+import ru.creditcabinet.integration.domain.SigningResult
+import ru.creditcabinet.integration.domain.SigningStarted
+import ru.creditcabinet.integration.domain.SourceUnavailableException
 import ru.creditcabinet.observability.PipelineMetrics
 import java.time.Duration
 import java.time.Instant

@@ -5,6 +5,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import ru.creditcabinet.servicing.domain.ServicingBadRequest as BadRequestException
 import ru.creditcabinet.servicing.domain.ServicingConflict as ConflictException
@@ -41,6 +42,22 @@ data class LoanPayment(
     val paidAt: Instant? = null,
 )
 
+data class LoanClosureCertificate(
+    val certificateNumber: String,
+    val loanAccountId: UUID,
+    val applicationId: UUID,
+    val contractNumber: String,
+    val approvedLimit: Long,
+    val totalDisbursed: Long,
+    val outstandingPrincipal: BigDecimal,
+    val tranchesCount: Int,
+    val paidPaymentsCount: Int,
+    val disbursedAt: Instant,
+    val repaidAt: Instant,
+    val issuedAt: Instant,
+    val statement: String,
+)
+
 data class LoanAccount(
     val id: UUID = UUID.randomUUID(),
     val applicationId: UUID,
@@ -70,7 +87,45 @@ data class LoanAccount(
         revolving &&
             status == LoanAccountStatus.ACTIVE &&
             today.isBefore(maturityDate) &&
+            !hasOverduePayments(today) &&
             payments.any { it.status == LoanPaymentStatus.SCHEDULED && it.dueDate.isAfter(today) }
+
+    fun overduePayments(today: LocalDate): List<LoanPayment> =
+        if (status != LoanAccountStatus.ACTIVE) {
+            emptyList()
+        } else {
+            payments.filter { it.status == LoanPaymentStatus.SCHEDULED && it.dueDate.isBefore(today) }
+                .sortedBy { it.paymentNumber }
+        }
+
+    fun hasOverduePayments(today: LocalDate): Boolean = overduePayments(today).isNotEmpty()
+
+    fun overdueDays(today: LocalDate): Long =
+        overduePayments(today).minOfOrNull { it.dueDate }?.let { ChronoUnit.DAYS.between(it, today).coerceAtLeast(0L) } ?: 0L
+
+    fun overdueAmount(today: LocalDate): BigDecimal =
+        overduePayments(today).fold(ZERO_MONEY) { acc, payment -> acc.add(payment.paymentAmount) }.setScale(2, RoundingMode.HALF_UP)
+
+    fun closureCertificate(issuedAt: Instant): LoanClosureCertificate {
+        if (status != LoanAccountStatus.REPAID || repaidAt == null) {
+            throw ConflictException("Справка о закрытии доступна только после полного погашения кредита")
+        }
+        return LoanClosureCertificate(
+            certificateNumber = "CERT-$contractNumber",
+            loanAccountId = id,
+            applicationId = applicationId,
+            contractNumber = contractNumber,
+            approvedLimit = approvedLimit,
+            totalDisbursed = disbursedAmount,
+            outstandingPrincipal = ZERO_MONEY,
+            tranchesCount = tranches.size,
+            paidPaymentsCount = payments.count { it.status == LoanPaymentStatus.PAID },
+            disbursedAt = disbursedAt,
+            repaidAt = repaidAt,
+            issuedAt = issuedAt,
+            statement = "Обязательства по кредитному договору № $contractNumber исполнены в полном объёме, задолженность отсутствует.",
+        )
+    }
 
     fun drawTranche(amount: Long, purpose: String?, now: Instant, today: LocalDate): LoanAccount {
         if (amount <= 0L) {
@@ -81,6 +136,9 @@ data class LoanAccount(
         }
         if (status != LoanAccountStatus.ACTIVE) {
             throw ConflictException("Кредит уже полностью погашен")
+        }
+        if (hasOverduePayments(today)) {
+            throw ConflictException("Выборка транша недоступна при наличии просроченного платежа")
         }
         if (!canDrawTrancheOn(today)) {
             throw ConflictException("Срок выборки траншей закончился или в графике нет будущих платежей")

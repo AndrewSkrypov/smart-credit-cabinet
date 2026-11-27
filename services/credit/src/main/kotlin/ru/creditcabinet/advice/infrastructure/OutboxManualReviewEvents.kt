@@ -1,4 +1,4 @@
-package ru.creditcabinet.advice
+package ru.creditcabinet.advice.infrastructure
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.beans.factory.ObjectProvider
@@ -8,24 +8,14 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import ru.creditcabinet.advice.application.ManualReviewEventPayload
+import ru.creditcabinet.advice.application.ManualReviewEvents
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.JournalEntry
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.common.outbox.DeliveryHandler
 import ru.creditcabinet.common.outbox.DurableOutbox
 import java.time.Duration
-import java.util.UUID
-
-data class ManualReviewEventPayload(
-    val schemaVersion: Int,
-    val eventId: UUID,
-    val applicationId: UUID,
-)
-
-/** Records a durable outbox event whenever an application enters MANUAL_REVIEW. */
-fun interface ManualReviewEvents {
-    fun onTransition(application: LoanApplication, entry: JournalEntry)
-}
 
 @Component
 class OutboxManualReviewEvents(

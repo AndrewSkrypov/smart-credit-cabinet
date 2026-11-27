@@ -1,4 +1,4 @@
-package ru.creditcabinet.assistant
+package ru.creditcabinet.assistant.controller
 
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.DeserializationFeature
@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import ru.creditcabinet.assistant.domain.ChatMessage
+import ru.creditcabinet.assistant.domain.LanguageModel
 import ru.creditcabinet.common.exception.BadRequestException
 import ru.creditcabinet.common.limits.LimitWindow
 import ru.creditcabinet.common.limits.SharedLimits

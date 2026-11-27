@@ -19,6 +19,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import ru.creditcabinet.assistant.application.ManualReviewSummaries
+import ru.creditcabinet.assistant.domain.LanguageModel
+import ru.creditcabinet.assistant.domain.ManualReviewEvent
+import ru.creditcabinet.assistant.infrastructure.ManualReviewSummaryCache
 import ru.creditcabinet.common.outbox.OutboxWorker
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.tokenFor

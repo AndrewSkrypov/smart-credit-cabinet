@@ -1,5 +1,7 @@
 package ru.creditcabinet.preapproved.application
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -15,8 +17,10 @@ import ru.creditcabinet.application.domain.CompanyDirectory
 import ru.creditcabinet.application.domain.JournalNote
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.toActor
+import ru.creditcabinet.common.exception.BadRequestException
 import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.exception.NotFoundException
+import ru.creditcabinet.common.outbox.DurableOutbox
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.preapproved.domain.PreApprovedOffer
 import ru.creditcabinet.preapproved.domain.PreApprovedOfferStore
@@ -35,12 +39,61 @@ class PreApprovedOfferService(
     private val clock: Clock,
     private val agentAccess: AgentAccessPort,
     private val agentEligibility: AgentClientEligibility,
+    private val outbox: ObjectProvider<DurableOutbox>? = null,
+    private val mapper: ObjectMapper? = null,
 ) {
     fun listForCompany(companyId: UUID): List<PreApprovedOffer> =
         store.listActiveByCompany(companyId, clock.instant())
 
     fun listForCompanies(companyIds: Collection<UUID>): List<PreApprovedOffer> =
         store.listActiveByCompanies(companyIds, clock.instant())
+
+    /**
+     * Generates a pre-approved offer for an existing company from turnover and bureau metrics
+     * and enqueues a proactive notification via durable outbox. Idempotent per (company, product).
+     */
+    @Transactional
+    fun generateForCompany(
+        companyId: UUID,
+        productCode: String,
+        annualRevenue: Long,
+        bureauWorstOverdueDays: Int,
+        existingMonthlyPayments: Long = 0L,
+        validDays: Long = 30L,
+    ): PreApprovedOffer? {
+        CurrentCaller.requireBankStaff()
+        if (annualRevenue < 0L || bureauWorstOverdueDays < 0 || existingMonthlyPayments < 0L || validDays !in 1L..180L) {
+            throw BadRequestException("Некорректные параметры для расчёта предодобренного предложения")
+        }
+        val product = products.find(productCode.trim()) ?: throw NotFoundException("Продукт не найден")
+        val now = clock.instant()
+        store.listActiveByCompany(companyId, now).firstOrNull { it.productCode == product.code }?.let { return it }
+        val offer = PreApprovedOffer.evaluate(
+            companyId = companyId,
+            product = product,
+            annualRevenue = annualRevenue,
+            bureauWorstOverdueDays = bureauWorstOverdueDays,
+            existingMonthlyPayments = existingMonthlyPayments,
+            now = now,
+            validDays = validDays,
+        ) ?: return null
+        store.create(offer)
+        val outboxInstance = outbox?.ifAvailable
+        if (outboxInstance != null && mapper != null) {
+            val payload = mapper.writeValueAsString(
+                mapOf(
+                    "type" to "PRE_APPROVED_OFFER",
+                    "companyId" to offer.companyId.toString(),
+                    "offerId" to offer.id.toString(),
+                    "productCode" to offer.productCode,
+                    "maxAmount" to offer.maxAmount,
+                    "rate" to offer.rate,
+                ),
+            )
+            outboxInstance.enqueue("notification", "preapproved:${offer.id}", payload)
+        }
+        return offer
+    }
 
     @Transactional
     fun applyForClient(offerId: UUID): LoanApplication {

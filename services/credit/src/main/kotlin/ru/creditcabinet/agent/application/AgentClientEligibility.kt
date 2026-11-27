@@ -5,8 +5,8 @@ import org.springframework.stereotype.Component
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.integration.BankDataPort
-import ru.creditcabinet.integration.SourceUnavailableException
+import ru.creditcabinet.integration.domain.BankDataPort
+import ru.creditcabinet.integration.domain.SourceUnavailableException
 
 @Component
 class AgentClientEligibility(private val bankData: BankDataPort) {

@@ -10,10 +10,8 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.auth.application.AuthService
-import ru.creditcabinet.common.exception.NotFoundException
-import ru.creditcabinet.user.domain.UserDataPort
+import ru.creditcabinet.user.application.UserService
 import ru.creditcabinet.user.domain.UserRole
-import ru.creditcabinet.user.domain.UserStatus
 import ru.creditcabinet.user.dto.UserResponse
 import java.util.UUID
 
@@ -34,33 +32,21 @@ class UserController(private val authService: AuthService) {
 @Hidden
 @RestController
 @RequestMapping("/internal/v1/users")
-class InternalUserController(private val users: UserDataPort) {
+class InternalUserController(private val userService: UserService) {
     @GetMapping
     fun list(
         @RequestParam(required = false) ids: List<UUID>?,
         @RequestParam(required = false) companyId: UUID?,
         @RequestParam(required = false) role: UserRole?,
-    ): List<UserResponse> {
-        val found = when {
-            companyId != null -> users.findByCompany(companyId).filter { it.status == UserStatus.ACTIVE }
-            role != null -> users.findByRole(role)
-            else -> users.findByIds(ids.orEmpty().distinct().take(MAX_IDS))
-        }
-        return found.map(UserResponse::of)
-    }
+    ): List<UserResponse> = userService.list(ids, companyId, role).map(UserResponse::of)
 
     @GetMapping("/{id}")
-    fun get(@PathVariable id: UUID): UserResponse = users.findById(id)?.let(UserResponse::of) ?: throw NotFoundException("Пользователь не найден")
+    fun get(@PathVariable id: UUID): UserResponse = UserResponse.of(userService.get(id))
 
     /** For the token check of other services: a token older than this version is revoked. */
     @GetMapping("/{id}/credentials")
     fun credentials(@PathVariable id: UUID): CredentialsResponse =
-        users.findById(id)?.takeIf { it.status == UserStatus.ACTIVE }?.let { CredentialsResponse(it.credentialsVersion) }
-            ?: throw NotFoundException("Пользователь не найден")
+        CredentialsResponse(userService.activeCredentialsVersion(id))
 
     data class CredentialsResponse(val credentialsVersion: Int)
-
-    private companion object {
-        const val MAX_IDS = 500
-    }
 }

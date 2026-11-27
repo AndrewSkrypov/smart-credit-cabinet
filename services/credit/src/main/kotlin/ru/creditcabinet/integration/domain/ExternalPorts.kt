@@ -1,4 +1,4 @@
-package ru.creditcabinet.integration
+package ru.creditcabinet.integration.domain
 
 import ru.creditcabinet.assessment.domain.BankInfo
 import ru.creditcabinet.assessment.domain.BureauInfo

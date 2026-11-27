@@ -13,8 +13,8 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.transaction.support.TransactionTemplate
 import ru.creditcabinet.application.domain.*
 import ru.creditcabinet.application.service.Transitions
-import ru.creditcabinet.integration.CoreBanking
-import ru.creditcabinet.integration.LoanBooked
+import ru.creditcabinet.integration.domain.CoreBanking
+import ru.creditcabinet.integration.domain.LoanBooked
 import ru.creditcabinet.offer.*
 import ru.creditcabinet.offer.application.ContractTextStore
 import ru.creditcabinet.offer.application.ContractTexts

@@ -235,3 +235,39 @@ CI публикует первый отчёт матрицы как `early-final
 Ручная проверка: войти любой демо-учёткой → приглашение «Впервые…» на главной → «Начать
 обучение». На карточке заявки, в карточке оценки банка и в «Продуктах» приглашение
 появляется один раз; повторно тур запускается из меню «?» → «Гид по этой странице».
+
+## Каталог тест-кейсов и трассировка требований
+
+Сводная матрица трассировки требований финала и замечаний жюри на автоматизированные
+тест-кейсы с явным разделением позитивных, негативных, граничных и защитных проверок:
+
+| ID | Требование / замечание жюри | Категория | Автотест / проверка |
+| --- | --- | --- | --- |
+| `TC-01` | Клиентский путь: черновик → скоринг → оффер → ПЭП → выдача | Позитивный | `ApplicationApiIntegrationTest`, `e2e/tests/agent-channel.spec.ts` |
+| `TC-02` | Агентский канал: портфель, мандаты, 2 демо-агента | Позитивный | `AgentClientIntegrationTest`, `AgentMandateTest` |
+| `TC-03` | Единый процесс агент ↔ клиент ↔ банк (`PENDING_CLIENT_CONFIRMATION`, возврат агенту) | Позитивный | `AgentWorkflowIntegrationTest`, `AgentApplicationDomainTest` |
+| `TC-04` | Граничные значения суммы, срока, отрицательной выручки и неизвестного продукта | Граничный | `AgentNegativeAndBoundaryIntegrationTest` |
+| `TC-05` | Подтверждение агентской заявки клиентом без согласия БКИ → `400`/`409` | Негативный | `AgentNegativeAndBoundaryIntegrationTest` |
+| `TC-06` | IDOR по документам и чату агента (чужой агент и отозванный мандат → `404`) | Безопасность | `AgentNegativeAndBoundaryIntegrationTest` |
+| `TC-07` | Сбой сервиса полномочий `identity` → fail-closed `503` | Отказоустойчивость | `AgentNegativeAndBoundaryIntegrationTest`, `AgentWorkflowIntegrationTest` |
+| `TC-08` | Попытка агента подтвердить, подписать или вызвать андеррайтинг → `403` | Безопасность | `AgentNegativeAndBoundaryIntegrationTest`, `security/matrix.py --final-only` |
+| `TC-09` | Предодобренные предложения (жюри 1.1): авто-оффер, проверка границ | Позитивный / Граничный | `PreApprovedOfferTest`, `PipelineScenarioTest` |
+| `TC-10` | Потраншевые выдачи и револьверная линия (жюри 1.2) | Позитивный | `LoanAccountDomainTest`, `LoanServicingIntegrationTest` |
+| `TC-11` | Границы траншей: `0`, отрицательные, превышение лимита, исчерпанный лимит | Граничный | `LoanServicingBoundaryIntegrationTest` |
+| `TC-12` | Жизнь после выдачи (жюри 1.3): график, платежи, досрочное погашение → `REPAID` | Позитивный / Негативный | `LoanServicingIntegrationTest`, `LoanServicingBoundaryIntegrationTest` |
+| `TC-13` | IDOR и RBAC в обслуживании кредита (чужая компания `404`, мутации агента `403`) | Безопасность | `LoanServicingBoundaryIntegrationTest` |
+| `TC-14` | Жизненный цикл продуктов `DRAFT/ACTIVE/ARCHIVED`, окна дат и комиссия (жюри 1.4) | Позитивный / Граничный | `ProductLifecycleIntegrationTest`, `ProductVersionsIntegrationTest` |
+| `TC-15` | Гексагональная архитектура: запрет обратных зависимостей слоёв (жюри 2.1) | Архитектура | `HexagonalArchitectureTest` (`identity`, `credit`, `engagement`) |
+| `TC-16` | Откат миграций и комментарии схемы `U13–U18` (жюри 2.4) | Восстановление | `deploy/check-business-rollback.py`, `deploy/check-schema-rollback.py`, `deploy/check-migration-restore.py` |
+| `TC-17` | Переписка клиента и банка, вложения, идемпотентность, отзыв заявки | Позитивный / Негативный | `ChatIntegrationTest`, `e2e/tests/release-chat.spec.ts` |
+| `TC-18` | Рекомендации экспертной системы и фоновый прогрев ручной проверки (жюри 4.1) | Позитивный / Негативный | `UnderwritingAdviceTest`, `ManualReviewAdviceContractIntegrationTest`, `ManualReviewSummariesTest` |
+| `TC-19` | Проактивные подсказки и напоминания помощника (жюри 4.1–4.2) | Позитивный | `AssistantNextStepsTest`, `AssistantApiTest`, `ProductPickAndSummaryTest` |
+| `TC-20` | Загрузка повреждённых/заражённых файлов и антивирус | Безопасность | `DocumentScanIntegrationTest`, `ClamDocumentScannerTest`, `security/negative.py` |
+| `TC-21` | Ролевая матрица доступа (35 маршрутов × 8 ролей) | Безопасность | `security/matrix.py --final-only`, `security/final_access.py` |
+| `TC-22` | Мобильная адаптивность 375 px (отсутствие горизонтального переполнения) (жюри 5) | UI / Мобильный | `e2e/tests/agent-channel.spec.ts`, `OnboardingTour.test.tsx` |
+| `TC-23` | Отказы внешних источников (БКИ/ФНС/ЕГРЮЛ) и повторы конвейера | Отказоустойчивость | `PipelineScenarioTest`, `load/gateway-fault.py` |
+| `TC-24` | Деградация и восстановление outbox / уведомлений / БД | Восстановление | `DurableOutboxIntegrationTest`, `deploy/test-local.py` |
+| `TC-25` | Просрочка платежа, блокировка траншей при просрочке и после срока, справка о закрытии (жюри 1.2–1.3) | Позитивный / Негативный / Безопасность | `LoanOverdueAndCertificateIntegrationTest` |
+| `TC-26` | Генерация предодобренных предложений по оборотам и БКИ + уведомление в outbox (жюри 1.1) | Позитивный / Граничный / Безопасность | `PreApprovedGenerationIntegrationTest` |
+| `TC-27` | Impact-проверка продукта и сохранение версии действующих заявок при архивации (жюри 1.4) | Позитивный / Негативный / Безопасность | `ProductImpactAndArchivalIntegrationTest` |
+| `TC-28` | Автоподготовка черновика по предодобрению с обязательным подтверждением человеком (жюри 4.2) | Позитивный / Безопасность | `AgentAutoPrepareDraftIntegrationTest` |

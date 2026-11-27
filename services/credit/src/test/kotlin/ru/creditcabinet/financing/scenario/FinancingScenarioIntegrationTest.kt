@@ -40,7 +40,7 @@ import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.document.domain.FileStore
-import ru.creditcabinet.integration.CompanySources
+import ru.creditcabinet.integration.domain.CompanySources
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.LoanMath
 import ru.creditcabinet.product.domain.ProductCatalog

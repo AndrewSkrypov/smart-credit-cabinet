@@ -15,9 +15,9 @@ import ru.creditcabinet.common.exception.BadRequestException
 import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.integration.SigningGateway
-import ru.creditcabinet.integration.SigningResult
-import ru.creditcabinet.integration.SourceUnavailableException
+import ru.creditcabinet.integration.domain.SigningGateway
+import ru.creditcabinet.integration.domain.SigningResult
+import ru.creditcabinet.integration.domain.SourceUnavailableException
 import ru.creditcabinet.offer.domain.Offer
 import ru.creditcabinet.offer.domain.OfferRepository
 import ru.creditcabinet.offer.domain.OfferStatus

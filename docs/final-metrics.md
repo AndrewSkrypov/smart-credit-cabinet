@@ -46,6 +46,7 @@ SHA выполненного прогона. Для текущего объед�
 | Бэкенд: юнит и интеграционные тесты всех сервисов и библиотек, ktlint | **432 теста, 0 падений** (10 пропущено по условию окружения), запись `be662ea` | `OUTBOX_WORKER_ENABLED=false DB_PORT=55432 ASSESSMENT_DB_URL=jdbc:postgresql://127.0.0.1:55432/assessment ./gradlew build -PalphaAnalytics=true` |
 | Фронтенд: компоненты и страницы, TypeScript, ESLint | **195 тестов, 0 падений**, запись `be662ea` | `cd frontend && npx tsc --noEmit && npm run lint && npx vitest run` |
 | E2E в браузере на 1440 и 375 px | **98 прошли, 0 падений** (4 пропущены по условию окружения), 14,7 мин, запись `bce7668` | `CABINET_AGENT_ROUTE_BOUNDARY=1 npx playwright test` в `e2e` |
+| E2E на ревизии `fd9d5ee` | **99 прошли, 1 упал** (4 пропущены): подсветка тура продуктов выходила за край экрана на 375 px; исправлено в `c7c5c63`, тесты тура после исправления **24 из 24** (3 повтора) | `CABINET_AGENT_ROUTE_BOUNDARY=1 npx playwright test`, затем `tests/onboarding-tours.spec.ts --repeat-each=3` |
 | Агентский канал и режим обучения в браузере | **13 из 13** в отдельном раннем прогоне | `npx playwright test tests/agent-channel.spec.ts tests/onboarding-tours.spec.ts tests/polish-responsive.spec.ts` |
 
 ## 4. Ранее измеренные показатели, на которые опирается финал

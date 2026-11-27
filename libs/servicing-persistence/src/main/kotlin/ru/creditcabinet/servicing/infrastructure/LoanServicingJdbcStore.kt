@@ -1,5 +1,7 @@
 package ru.creditcabinet.servicing.infrastructure
 
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 import ru.creditcabinet.servicing.domain.LoanAccount
@@ -17,7 +19,10 @@ import java.util.UUID
 @Repository
 class LoanServicingJdbcStore(
     private val jdbc: JdbcTemplate,
+    private val mapper: ObjectMapper,
 ) : LoanAccountStore {
+    private val snapshots = mapper.readerFor(LoanAccount::class.java).without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+
     override fun existsByApplicationId(applicationId: UUID): Boolean =
         (jdbc.queryForObject("select count(*) from loan_accounts where application_id = ?", Int::class.java, applicationId) ?: 0) > 0
 
@@ -56,18 +61,21 @@ class LoanServicingJdbcStore(
     }
 
     override fun findOperation(loanId: UUID, operationKey: UUID): LoanOperationReceipt? = jdbc.query(
-        "select operation_key, fingerprint from loan_operations where loan_account_id = ? and operation_key = ?",
-        { rs, _ -> LoanOperationReceipt(rs.getObject("operation_key", UUID::class.java), rs.getString("fingerprint")) },
+        "select operation_key, fingerprint, result from loan_operations where loan_account_id = ? and operation_key = ?",
+        { rs, _ ->
+            LoanOperationReceipt(rs.getObject("operation_key", UUID::class.java), rs.getString("fingerprint"), snapshots.readValue(rs.getString("result")))
+        },
         loanId,
         operationKey,
     ).firstOrNull()
 
     override fun recordOperation(loanId: UUID, receipt: LoanOperationReceipt) {
         jdbc.update(
-            "insert into loan_operations (loan_account_id, operation_key, fingerprint) values (?, ?, ?)",
+            "insert into loan_operations (loan_account_id, operation_key, fingerprint, result) values (?, ?, ?, cast(? as jsonb))",
             loanId,
             receipt.operationKey,
             receipt.fingerprint,
+            mapper.writeValueAsString(receipt.result),
         )
     }
 

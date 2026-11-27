@@ -174,7 +174,7 @@ class ServicingEngine(
 
     /**
      * Runs a client operation at most once per key under the account lock. A retry with the same
-     * key and request returns the account as it is now; the same key with another request is a conflict.
+     * key and request returns the first result; the same key with another request is a conflict.
      */
     private fun once(loanId: UUID, actor: ServicingActor, key: UUID?, request: String, change: (LoanAccount) -> LoanAccount): LoanAccount {
         val account = owned(loanId, actor)
@@ -182,9 +182,9 @@ class ServicingEngine(
         val fingerprint = MessageDigest.getInstance("SHA-256").digest(request.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
         accounts.findOperation(loanId, key)?.let { receipt ->
             if (receipt.fingerprint != fingerprint) throw ServicingConflict("Этот ключ уже использован для другой операции по кредиту")
-            return account
+            return receipt.result
         }
-        return change(account).also { accounts.recordOperation(loanId, LoanOperationReceipt(key, fingerprint)) }
+        return change(account).also { accounts.recordOperation(loanId, LoanOperationReceipt(key, fingerprint, it)) }
     }
 
     private fun owned(id: UUID, actor: ServicingActor): LoanAccount =

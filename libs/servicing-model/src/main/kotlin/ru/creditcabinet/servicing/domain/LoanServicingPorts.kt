@@ -4,8 +4,8 @@ package ru.creditcabinet.servicing.domain
 
 import java.util.UUID
 
-/** A client operation already applied to the account, identified by its key and request fingerprint. */
-data class LoanOperationReceipt(val operationKey: UUID, val fingerprint: String)
+/** A client operation already applied to the account: its key, request fingerprint and first result. */
+data class LoanOperationReceipt(val operationKey: UUID, val fingerprint: String, val result: LoanAccount)
 
 interface LoanAccountStore {
     fun existsByApplicationId(applicationId: UUID): Boolean

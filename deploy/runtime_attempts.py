@@ -29,11 +29,13 @@ def enrollment(state):
     return entry
 
 
-def prepared_enrollment(state, previous, target, original_env, target_env):
+def prepared_enrollment(state, previous, target, original_env, target_env, *, fresh_backup=False):
     directory = ensure_private(state / "runtime-attempts")
     identifier = uuid4().hex
     entry = {"attempt": identifier, "previous": previous, "target": target,
              "original_env_sha256": sha256(original_env).hexdigest(), "target_env_sha256": sha256(target_env).hexdigest()}
+    if fresh_backup:
+        require_fresh_backup(state, entry)
     if original_env != target_env:
         write_private(directory / (identifier + "-enrollment.env"), target_env.decode("utf-8"), exclusive=True)
     write_record(directory / (identifier + "-enrollment.json"), entry, immutable=True)
@@ -64,6 +66,12 @@ def enrollment_backup(state, entry):
     previous, target = (entry[key] for key in ("previous", "target"))
     return (state / "backups" / entry["attempt"] / "backup"
             if previous and previous["revision"] != target["revision"] else None)
+
+
+def require_fresh_backup(state, entry):
+    backup = enrollment_backup(state, entry)
+    if backup is None or not absent(backup.parent):
+        raise RuntimeError("Путь новой согласованной копии уже занят или не подтверждён")
 
 
 def absent(path):
@@ -169,19 +177,22 @@ def replacement_record(state, audit, context, target=None):
     allowed = {identifier + suffix for suffix in ("-enrollment.json", "-enrollment.env")}
     if any(path.name.startswith(identifier) and path.name not in allowed for path in directory.iterdir()):
         raise RuntimeError("Новая регистрация содержит квитанции начатой попытки")
+    require_fresh_backup(state, stored)
     return stored
 
 
 def prebackup_replacement_env(state, entry, current, revision, checksum, original_env):
-    """Before bootstrap RNG, replay an already sealed handoff with its exact ENV."""
+    """Check every normal request against a sealed abort before bootstrap or cleanup."""
     private_directory(state / "runtime-attempts")
     audit = read_record(state / "runtime-attempts" / (attempt_id(entry) + "-prebackup-abort.json"))
     if audit is None:
+        if entry["target"].get("revision") == revision and entry["target"].get("manifest_sha256") == checksum:
+            return enrolled_env(state, entry, original_env)
         return original_env
-    context = prebackup_context(state, entry, current, original_env)
     if (audit.get("new_target", {}).get("revision") != revision
             or audit.get("new_target", {}).get("manifest_sha256") != checksum):
         raise RuntimeError("Повтор восстановления требует тот же новый manifest")
+    context = prebackup_context(state, entry, current, original_env)
     stored = replacement_record(state, audit, context)
     return prebackup_enrolled_env(state, stored, original_env)
 
@@ -193,7 +204,7 @@ def recover_prebackup(state, entry, current, target, original_env, target_env):
     Every old file remains available for audit; only the active pointer is replaced.
     """
     context = prebackup_context(state, entry, current, original_env)
-    if (target.get("revision") == entry["target"].get("revision")
+    if (target.get("revision") in (entry["target"].get("revision"), current.get("revision"))
             or not re.fullmatch(r"[a-f0-9]{40}", target.get("revision", ""))
             or not re.fullmatch(r"[a-f0-9]{64}", target.get("manifest_sha256", ""))):
         raise RuntimeError("Закрытие частичного резерва требует другой проверенный выпуск")
@@ -201,7 +212,7 @@ def recover_prebackup(state, entry, current, target, original_env, target_env):
     audit_path = directory / (entry["attempt"] + "-prebackup-abort.json")
     audit = read_record(audit_path)
     if audit is None:
-        stored = prepared_enrollment(state, current, target, original_env, target_env)
+        stored = prepared_enrollment(state, current, target, original_env, target_env, fresh_backup=True)
         _, stamp = stamped_record(directory / (stored["attempt"] + "-enrollment.json"))
         audit = {**context, "new_target": target, "replacement_attempt": stored["attempt"],
                  "replacement_enrollment_sha256": stamp, "replacement_env_sha256": stored["target_env_sha256"]}

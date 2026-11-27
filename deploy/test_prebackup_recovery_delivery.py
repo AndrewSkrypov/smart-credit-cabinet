@@ -56,7 +56,8 @@ class PrebackupRecoveryDeliveryTest(unittest.TestCase):
 
     def snapshot(self):
         return {str(p.relative_to(self.state)): ("link", str(p.readlink())) if p.is_symlink()
-                else ("file", p.read_bytes()) for p in self.state.rglob("*") if p.is_symlink() or p.is_file()}
+                else ("directory", p.stat().st_mode) if p.is_dir()
+                else ("file", p.stat().st_mode, p.read_bytes()) for p in self.state.rglob("*")}
 
     def recover(self, target=None, environment=None):
         return attempts.recover_prebackup(self.state, self.entry, self.before,
@@ -373,6 +374,127 @@ class PrebackupRecoveryDeliveryTest(unittest.TestCase):
         self.assertEqual(replacement["target"], target)
         self.assertEqual(attempts.enrolled_env(self.state, replacement, self.original), self.new_env)
         self.assertEqual(read_record(self.backup / "manifest.json"), self.manifest)
+
+    def test_sealed_abort_blocks_old_target_even_if_partial_copy_disappears(self):
+        for copy_present in (True, False):
+            with self.subTest(copy_present=copy_present):
+                self.scenario("aborted-old-" + str(copy_present))
+                self.sealed_handoff()
+                if not copy_present:
+                    self.backup.rename(self.backup.with_name("preserved-partial-copy"))
+                release = SimpleNamespace(revision=self.old_target["revision"], checksum=self.old_target["manifest_sha256"],
+                                          path=self.state / "release.json", catalog={"dev_mode": "local"},
+                                          alpha_dev={}, has_all_runtimes=True)
+                alpha_state = self.before["alpha_dev"]
+                alpha = SimpleNamespace(state=lambda: alpha_state, generation=alpha_state["generation"], read_enabled=False)
+                deployment = SimpleNamespace(values={"CABINET_ALPHA_DEV_ENABLED": "true"}, alpha_dev=alpha,
+                                             catalog_enabled=True, catalog_mode="local", catalog_state=self.state / "catalog",
+                                             runtime_modes={"documents": "local"})
+                before = self.snapshot()
+                with (patch.object(dev_release, "Deployment", return_value=deployment) as constructor,
+                      patch.object(dev_release, "capture_previous", side_effect=AssertionError("aborted target reserved a new copy")),
+                      patch.object(attempts, "begin", side_effect=AssertionError("aborted target began rollout")),
+                      patch.object(dev_release, "append_secrets", side_effect=AssertionError("aborted target regenerated ENV")),
+                      self.assertRaises(RuntimeError)):
+                    dev_release.deploy(SimpleNamespace(verify_only=False), self.state, release)
+                constructor.assert_not_called()
+                self.assertEqual(self.snapshot(), before)
+                self.assertEqual(attempts.enrollment(self.state), self.entry)
+
+    def test_current_revision_cannot_be_a_replacement_target(self):
+        for index, target in enumerate((self.before, {**self.new_target, "revision": self.before["revision"]})):
+            with self.subTest(target=target):
+                self.scenario("direct-current-" + str(index))
+                before = self.snapshot()
+                with self.assertRaises(RuntimeError):
+                    self.recover(target=target)
+                self.assertEqual(self.snapshot(), before)
+                self.assertEqual(attempts.enrollment(self.state), self.entry)
+
+    def test_controller_cannot_close_failed_backup_by_selecting_current_full_release(self):
+        self.before = {**self.before, **{name: {"mode": "local"}
+                                     for name in ("catalog", "assessment", "servicing", "documents")}}
+        self.original += b"".join(key.encode("ascii") + b"=configured\r\n" for key in dev_release.CATALOG_SECRET_KEYS)
+        self.old_env = self.original + b"UNACTIVATED_OLD=true\r\n"
+        self.new_env = self.original + b"UNACTIVATED_NEW=true\r\n"
+        self.scenario("current-full-release")
+        release = SimpleNamespace(revision=self.before["revision"], checksum=self.before["manifest_sha256"],
+                                  path=self.state / "release.json", catalog={"dev_mode": "local"},
+                                  alpha_dev={}, has_all_runtimes=True)
+        alpha_state = self.before["alpha_dev"]
+        alpha = SimpleNamespace(state=lambda: alpha_state, generation=alpha_state["generation"], read_enabled=False)
+        deployment = SimpleNamespace(values={"CABINET_ALPHA_DEV_ENABLED": "true"}, alpha_dev=alpha,
+                                     catalog_enabled=True, catalog_mode="local", catalog_state=self.state / "catalog",
+                                     runtime_modes={name: "local" for name in ("assessment", "servicing", "documents")})
+        before = self.snapshot()
+        with (patch.object(dev_release, "Deployment", return_value=deployment),
+              patch.object(dev_release, "read_credentials", side_effect=AssertionError("current target bypassed capture and begin")),
+              patch.object(dev_release, "capture_previous", side_effect=AssertionError("current target attempted capture")),
+              self.assertRaises(RuntimeError)):
+            dev_release.deploy(SimpleNamespace(verify_only=False), self.state, release)
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(attempts.enrollment(self.state), self.entry)
+
+    def test_occupied_replacement_backup_is_rejected_before_swap_and_audit_writes(self):
+        for occupied in ("parent", "backup", "dangling-parent", "dangling-backup"):
+            with self.subTest(occupied=occupied):
+                self.scenario("occupied-" + occupied)
+                audit = self.sealed_handoff()
+                parent = self.state / "backups" / audit["replacement_attempt"]
+                if occupied == "dangling-parent":
+                    parent.symlink_to(self.state / "missing", target_is_directory=True)
+                else:
+                    parent.mkdir(mode=0o700)
+                    if occupied == "backup":
+                        (parent / "backup").mkdir(mode=0o700)
+                    elif occupied == "dangling-backup":
+                        (parent / "backup").symlink_to(self.state / "missing", target_is_directory=True)
+                before = self.snapshot()
+                with self.assertRaises(RuntimeError):
+                    self.recover()
+                self.assertEqual(self.snapshot(), before)
+                self.assertEqual(attempts.enrollment(self.state), self.entry)
+
+    def test_reserved_backup_collision_does_not_prepare_inactive_enrollment_or_audit(self):
+        identifier = "f" * 32
+        (self.state / "backups" / identifier).mkdir(mode=0o700)
+        before = self.snapshot()
+        with (patch.object(attempts, "uuid4", return_value=SimpleNamespace(hex=identifier)),
+              self.assertRaises(RuntimeError)):
+            self.recover()
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(attempts.enrollment(self.state), self.entry)
+
+    def test_backup_path_created_during_audit_fsync_cannot_cross_atomic_swap(self):
+        audit = self.sealed_handoff()
+        parent = self.state / "backups" / audit["replacement_attempt"]
+        real_sync = attempts.fsync_dir
+        changed = []
+
+        def occupy_then_sync(path):
+            if path == self.audit_dir and not changed:
+                parent.mkdir(mode=0o700)
+                (parent / "backup").symlink_to(self.backup, target_is_directory=True)
+                changed.append(self.snapshot())
+            real_sync(path)
+
+        with patch.object(attempts, "fsync_dir", side_effect=occupy_then_sync), self.assertRaises(RuntimeError):
+            self.recover()
+        self.assertEqual(self.snapshot(), changed[0])
+        self.assertEqual(attempts.enrollment(self.state), self.entry)
+
+    def test_sealed_abort_is_checked_before_completed_enrollment_cleanup(self):
+        self.sealed_handoff()
+        write_record(self.state / "current.json", self.old_target)
+        release = SimpleNamespace(revision=self.old_target["revision"], checksum=self.old_target["manifest_sha256"],
+                                  path=self.state / "release.json", catalog={"dev_mode": "local"},
+                                  alpha_dev={}, has_all_runtimes=True)
+        before = self.snapshot()
+        with (patch.object(attempts, "close_enrollment", side_effect=AssertionError("sealed old enrollment was closed")),
+              self.assertRaises(RuntimeError)):
+            dev_release.deploy(SimpleNamespace(verify_only=False), self.state, release)
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(attempts.enrollment(self.state), self.entry)
 
 
 if __name__ == "__main__":

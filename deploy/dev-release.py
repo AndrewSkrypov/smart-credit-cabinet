@@ -131,6 +131,10 @@ def deploy(args, state_dir, release):
     status = json.loads(current_file.read_text()) if current_file.exists() else {}
     pending = json.loads(pending_file.read_text()) if pending_file.exists() else {}
     enrollment = runtime_attempts.enrollment(state_dir)
+    if enrollment and not args.verify_only:
+        env_contents = runtime_attempts.prebackup_replacement_env(
+            state_dir, enrollment, status, release.revision, release.checksum, original_env,
+        )
     if enrollment and enrollment["target"] == status and not args.verify_only:
         if pending and pending != status:
             raise RuntimeError("Запись завершённого выпуска не совпадает с pending")
@@ -144,13 +148,8 @@ def deploy(args, state_dir, release):
         enrollment["target"].get("revision") != release.revision
         or enrollment["target"].get("manifest_sha256") != release.checksum
     )
-    if enrollment:
-        if replacement and not args.verify_only:
-            env_contents = runtime_attempts.prebackup_replacement_env(
-                state_dir, enrollment, status, release.revision, release.checksum, original_env,
-            )
-        else:
-            env_contents = runtime_attempts.enrolled_env(state_dir, enrollment, original_env)
+    if enrollment and args.verify_only:
+        env_contents = runtime_attempts.enrolled_env(state_dir, enrollment, original_env)
     names = {line.split(b"=", 1)[0].decode("utf-8") for line in env_contents.splitlines() if b"=" in line}
     if not args.verify_only and release.alpha_dev is not None and not any(name.startswith("CABINET_ALPHA_DEV_") for name in names):
         if status.get("alpha_dev") or pending.get("alpha_dev"):

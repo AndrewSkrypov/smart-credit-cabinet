@@ -42,16 +42,23 @@ def literal(value):
     return "'" + value.replace("'", "''") + "'"
 
 
-def query_snapshot():
+def query_snapshot(operations_exist=True):
     fields = []
     for table, keys in TABLES.items():
+        if table == "loan_operations" and not operations_exist:
+            fields.append("'loan_operations','[]'::jsonb")
+            continue
         row = "to_jsonb(t) || jsonb_build_object('result',t.result::text)" if table == "loan_operations" else "to_jsonb(t)"
         fields.append(f"'{table}',coalesce((select jsonb_agg({row} order by {','.join(keys)}) from {table} t),'[]'::jsonb)")
     return "select jsonb_build_object(" + ",".join(fields) + ");"
 
 
 def snapshot(service):
-    return json.loads(sql(service, "begin isolation level repeatable read read only; set local timezone='UTC';\n" + query_snapshot() + "\ncommit;"))
+    # A previous V26/V1 release must still be backed up before B migrations run.
+    # No operation could exist before its table was introduced. Import/activation
+    # still require all current tables and their fences/grants to exist.
+    operations_exist = sql(service, "select to_regclass('public.loan_operations') is not null;") == "t"
+    return json.loads(sql(service, "begin isolation level repeatable read read only; set local timezone='UTC';\n" + query_snapshot(operations_exist) + "\ncommit;"))
 
 
 def checksum(data):

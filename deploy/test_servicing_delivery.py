@@ -2,6 +2,7 @@ from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import replace
 from importlib.util import module_from_spec, spec_from_file_location
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from tempfile import TemporaryDirectory
@@ -95,6 +96,15 @@ class TransferFixture:
 
 
 class ServicingDeliveryTest(unittest.TestCase):
+    def test_previous_v26_v1_release_can_be_snapshotted_before_operation_migrations(self):
+        data = {table: [] for table in TRANSFER.TABLES}
+        with patch.object(TRANSFER, "sql", side_effect=["f", json.dumps(data)]) as sql:
+            self.assertEqual(TRANSFER.snapshot("credit"), data)
+        statement = sql.call_args.args[1]
+        self.assertIn("'loan_operations','[]'::jsonb", statement)
+        self.assertNotIn("from loan_operations", statement)
+        self.assertIn("read only", statement)
+
     def test_operation_receipts_are_in_snapshot_checksum_import_and_retired_grants(self):
         receipt = {"loan_account_id": "loan", "operation_key": "operation", "fingerprint": "a" * 64,
                    "result": '{"disbursedAmount":510000.00,"rate":20.00,"precision":12345678901234567890.123456789}'}

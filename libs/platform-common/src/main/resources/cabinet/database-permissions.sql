@@ -62,4 +62,18 @@ begin
     end if;
   end loop;
 end $$;
+-- Documents retires both SQL writers and SQL readers together. A generic regrant
+-- must never reactivate a legacy Credit replica after the authoritative cutover.
+do $$
+begin
+ if to_regclass('public.document_ownership') is not null
+    and to_regclass('public.documents') is not null
+    and to_regclass('public.generated_artifacts') is not null then
+  if (select owner from public.document_ownership where singleton) = 'LOCAL' then
+   grant select,insert,update,delete on public.documents,public.generated_artifacts to __APP__;
+  else
+   revoke all on public.documents,public.generated_artifacts from __APP__;
+  end if;
+ end if;
+end $$;
 commit;

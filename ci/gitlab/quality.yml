@@ -449,6 +449,7 @@ helm-chart:
 servicing-integration:
   stage: quality
   extends: .quality
+  resource_group: cabinet-ci-servicing-acceptance
   timeout: 30 minutes
   script:
     - bash ci/gitlab/quality/servicing.sh

@@ -241,11 +241,15 @@ function OnboardingDialog({ config, targetRootRef, finishTour }: {
         return;
       }
       const pad = 6;
+      // A full-width block must not push the frame past the screen edge (horizontal scroll on phones).
+      const left = Math.max(4, rect.left - pad);
+      const right = Math.min((document.documentElement.clientWidth || window.innerWidth) - 4, rect.right + pad);
+      const top = Math.max(4, rect.top - pad);
       const next = {
-        top: Math.max(4, rect.top - pad),
-        left: Math.max(4, rect.left - pad),
-        width: rect.width + pad * 2,
-        height: rect.height + pad * 2
+        top,
+        left,
+        width: Math.max(0, right - left),
+        height: Math.max(0, rect.bottom + pad - top)
       };
       setMeasurement(previous => previous?.element === target && previous.rect.top === next.top &&
         previous.rect.left === next.left && previous.rect.width === next.width && previous.rect.height === next.height

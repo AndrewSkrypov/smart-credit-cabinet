@@ -18,11 +18,11 @@ import socket
 import signal
 import re
 import subprocess
-import tempfile
 import threading
 import time
 import uuid
 import xml.etree.ElementTree as ET
+from documents_runtime_context import RuntimeContext
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,9 +48,9 @@ def main():
         parser.error('Startup cancellation probe requires the private native LOCAL fixture')
     report = (ROOT / args.report_dir).resolve()
     report.mkdir(parents=True, exist_ok=True)
-    temporary_root=Path(tempfile.gettempdir()).resolve()
-    if not (temporary_root.is_relative_to('/tmp') or temporary_root.is_relative_to('/var/tmp')): temporary_root=Path('/tmp')
-    scratch = Path(tempfile.mkdtemp(prefix='alpha-documents-runtime-',dir=temporary_root))
+    source_sha=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()
+    context = RuntimeContext(ROOT, source_sha)
+    scratch = context.create_scratch()
     processes = []
     identity_server = None
     handles = []
@@ -74,7 +74,6 @@ def main():
     # migration flags, tokens and application secrets cannot reach a synthetic JAR.
     base_env = {name:os.environ[name] for name in ('PATH','HOME','JAVA_HOME','GRADLE_USER_HOME','GRADLE_RO_DEP_CACHE','TMPDIR','LD_LIBRARY_PATH','LANG','LC_ALL') if name in os.environ}
     base_env['GRADLE_OPTS']='-Xmx256m'
-    source_sha=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()
     job_id=os.environ.get('CI_JOB_ID','')
     project_id=os.environ.get('CI_PROJECT_ID','')
     profile=args.storage_backend

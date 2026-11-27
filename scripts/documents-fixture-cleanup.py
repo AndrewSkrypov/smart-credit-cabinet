@@ -7,6 +7,9 @@ from pathlib import Path
 import signal
 import shutil
 import time
+from documents_runtime_context import RuntimeContext
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def identity(pid):
@@ -26,8 +29,9 @@ def cleanup(path, expected=None):
         raise ValueError('Fixture cleanup scope mismatch')
     scope=receipt['scope']
     scratch=Path(receipt.get('scratch',''))
-    resolved=scratch.resolve()
-    valid_scratch=(resolved.is_relative_to('/tmp') or resolved.is_relative_to('/var/tmp')) and resolved==scratch.absolute() and not scratch.is_symlink() and scratch.name.startswith('alpha-documents-runtime-')
+    valid_scratch=RuntimeContext(ROOT,receipt['source']).permits(scratch,scope)
+    if not valid_scratch:
+        raise ValueError('Fixture directory is outside the current runtime context')
     marker=scratch/'fixture-scope.json'
     if scratch.exists() and (not valid_scratch or not marker.is_file() or json.loads(marker.read_text())!={'scope':scope,'source':receipt['source']}):
         raise ValueError('Fixture directory ownership mismatch')

@@ -50,13 +50,13 @@ npm — из lock-файлов, дополненных license-checker для п
 | com.google.errorprone:error_prone_annotations | 2.27.0 | Apache 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://errorprone.info/error_prone_annotations |
 | com.google.errorprone:error_prone_annotations | 2.41.0 | Apache 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://errorprone.info/error_prone_annotations |
 | com.google.errorprone:error_prone_annotations | 2.50.0 | Apache 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://errorprone.info/error_prone_annotations |
-| com.google.gradle:osdetector-gradle-plugin | 1.7.3 | Apache License 2.0 | https://repo.maven.apache.org/maven2/com/google/gradle/osdetector-gradle-plugin/1.7.3/osdetector-gradle-plugin-1.7.3.pom |
+| com.google.gradle:osdetector-gradle-plugin | 1.7.3 | Apache License 2.0 | http://opensource.org/licenses/Apache-2.0 ; https://github.com/google/osdetector-gradle-plugin ; https://repo.maven.apache.org/maven2/com/google/gradle/osdetector-gradle-plugin/1.7.3/osdetector-gradle-plugin-1.7.3.pom |
 | com.google.guava:failureaccess | 1.0.3 | Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/google/guava/ |
 | com.google.guava:guava | 33.6.0-android | Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/google/guava ; https://github.com/google/guava/ |
 | com.google.guava:listenablefuture | 9999.0-empty-to-avoid-conflict-with-guava | The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt |
 | com.google.j2objc:j2objc-annotations | 3.1 | Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://github.com/google/j2objc/ |
 | com.google.protobuf:com.google.protobuf.gradle.plugin | 0.9.5 | BSD-3-Clause | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-gradle-plugin/0.9.5/protobuf-gradle-plugin-0.9.5.pom |
-| com.google.protobuf:protobuf-gradle-plugin | 0.9.5 | BSD 3-Clause | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-gradle-plugin/0.9.5/protobuf-gradle-plugin-0.9.5.pom |
+| com.google.protobuf:protobuf-gradle-plugin | 0.9.5 | BSD 3-Clause | http://opensource.org/licenses/BSD-3-Clause ; https://github.com/google/protobuf-gradle-plugin ; https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-gradle-plugin/0.9.5/protobuf-gradle-plugin-0.9.5.pom |
 | com.google.protobuf:protobuf-java | 4.33.2 | BSD-3-Clause | https://developers.google.com/protocol-buffers/ ; https://opensource.org/licenses/BSD-3-Clause |
 | com.google.protobuf:protobuf-java-util | 4.33.2 | BSD-3-Clause | https://developers.google.com/protocol-buffers/ ; https://opensource.org/licenses/BSD-3-Clause |
 | com.google.protobuf:protoc | 4.33.2 | BSD-3-Clause; The Apache Software License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://developers.google.com/protocol-buffers/ ; https://opensource.org/licenses/BSD-3-Clause |
@@ -295,7 +295,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.jetbrains.kotlin:kotlin-util-klib | 2.1.21 | The Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://kotlinlang.org/ |
 | org.jetbrains.kotlin:kotlin-util-klib-metadata | 2.1.21 | The Apache License, Version 2.0 | http://www.apache.org/licenses/LICENSE-2.0.txt ; https://kotlinlang.org/ |
 | org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.5.0 | The Apache Software License, Version 2.0 | https://github.com/Kotlin/kotlinx.coroutines ; https://www.apache.org/licenses/LICENSE-2.0.txt |
-| org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.6.4 | The Apache Software License, Version 2.0 | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.pom |
+| org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.6.4 | The Apache Software License, Version 2.0 | https://github.com/Kotlin/kotlinx.coroutines ; https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.pom ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.8.0 | The Apache Software License, Version 2.0 | https://github.com/Kotlin/kotlinx.coroutines ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.8.1 | The Apache Software License, Version 2.0 | https://github.com/Kotlin/kotlinx.coroutines ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.jetbrains.kotlinx:kotlinx-serialization-bom | 1.6.3 | The Apache Software License, Version 2.0 | https://github.com/Kotlin/kotlinx.serialization ; https://www.apache.org/licenses/LICENSE-2.0.txt |
@@ -362,6 +362,8 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.springframework.boot:spring-boot-test-autoconfigure | 3.5.16 | Apache License, Version 2.0 | https://spring.io/projects/spring-boot ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework.data:spring-data-commons | 3.5.13 | Apache License, Version 2.0 | https://spring.io/projects/spring-data ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework.data:spring-data-jpa | 3.5.13 | Apache License, Version 2.0 | https://projects.spring.io/spring-data-jpa ; https://www.apache.org/licenses/LICENSE-2.0 |
+| org.springframework.kafka:spring-kafka | 3.3.16 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-kafka ; https://www.apache.org/licenses/LICENSE-2.0.txt |
+| org.springframework.retry:spring-retry | 2.0.13 | Apache 2.0; Apache License, Version 2.0 | https://github.com/spring-projects/spring-retry ; https://www.apache.org/licenses/LICENSE-2.0 ; https://www.apache.org/licenses/LICENSE-2.0.txt |
 | org.springframework.security:spring-security-config | 6.5.11 | Apache License, Version 2.0 | https://spring.io/projects/spring-security ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework.security:spring-security-core | 6.5.11 | Apache License, Version 2.0 | https://spring.io/projects/spring-security ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework.security:spring-security-crypto | 6.5.11 | Apache License, Version 2.0 | https://spring.io/projects/spring-security ; https://www.apache.org/licenses/LICENSE-2.0 |
@@ -376,6 +378,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | org.springframework:spring-expression | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework:spring-jcl | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework:spring-jdbc | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
+| org.springframework:spring-messaging | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework:spring-orm | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework:spring-test | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |
 | org.springframework:spring-tx | 6.2.19 | Apache License, Version 2.0 | https://github.com/spring-projects/spring-framework ; https://www.apache.org/licenses/LICENSE-2.0 |

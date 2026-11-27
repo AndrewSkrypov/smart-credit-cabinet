@@ -66,6 +66,10 @@ data class LoanAccount(
             0L
         }
 
+    fun canDrawTrancheOn(today: LocalDate): Boolean =
+        revolving && status == LoanAccountStatus.ACTIVE && today.isBefore(maturityDate) &&
+            payments.any { it.status == LoanPaymentStatus.SCHEDULED && it.dueDate.isAfter(today) }
+
     fun drawTranche(amount: Long, purpose: String?, now: Instant, today: LocalDate): LoanAccount {
         if (amount <= 0L) {
             throw BadRequestException("Сумма транша должна быть больше нуля")
@@ -76,8 +80,8 @@ data class LoanAccount(
         if (status != LoanAccountStatus.ACTIVE) {
             throw ConflictException("Кредит уже полностью погашен")
         }
-        if (!today.isBefore(maturityDate)) {
-            throw ConflictException("Срок выборки траншей закончился")
+        if (!canDrawTrancheOn(today)) {
+            throw ConflictException("Срок выборки траншей закончился или в графике нет будущих платежей")
         }
         val remainingLimit = approvedLimit - disbursedAmount
         if (amount > remainingLimit) {
@@ -100,7 +104,6 @@ data class LoanAccount(
         val (preserved, future) = payments.sortedBy { it.paymentNumber }.partition {
             it.status == LoanPaymentStatus.PAID || !it.dueDate.isAfter(today)
         }
-        if (future.isEmpty()) throw ConflictException("В графике нет будущих платежей для нового транша")
         val duePrincipal = preserved.filter { it.status == LoanPaymentStatus.SCHEDULED }.sumOf { it.principalAmount }
         val recalculated = buildSchedule(
             loanAccountId = id,

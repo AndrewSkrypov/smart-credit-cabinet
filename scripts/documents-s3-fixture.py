@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import secrets
 import socket
+import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -31,20 +32,31 @@ class S3Fixture:
         self.port = free_port()
         self.endpoint = f'http://127.0.0.1:{self.port}'
         config = {'identities': [{'name': name, 'credentials': [{'accessKey': key, 'secretKey': secret}], 'actions': [f'{action}:{self.buckets[name]}' + ('/documents/*' if action == 'Write' else '') for action in ('Read', 'Write', 'List')]} for name, (key, secret) in self.identities.items()]}
+        self.identities['bootstrap']=(secrets.token_hex(16),secrets.token_hex(24))
+        bootstrap_key,bootstrap_secret=self.identities['bootstrap']
+        config['identities'].append({'name':'bootstrap','credentials':[{'accessKey':bootstrap_key,'secretKey':bootstrap_secret}],'actions':['Admin']})
         configuration = self.scratch / 'iam.json'
         configuration.write_text(json.dumps(config))
         configuration.chmod(0o600)
         data = self.scratch / 'data'; data.mkdir()
         # A native process must not discover a host/user filer.toml with external storage.
-        (self.scratch/'filer.toml').write_text('[leveldb2]\nenabled = true\ndir = '+json.dumps(str(data/'filerldb2'))+'\n')
-        common = ['mini', '-ip=127.0.0.1', '-admin.ui=false', '-webdav=false', '-s3.iam=false', '-s3.port.iceberg=0', '-s3.port.lance=0', '-s3.autoCreateBucket=false', '-s3.allowDeleteBucketNotEmpty=false', '-s3.concurrentUploadLimitMB=16', '-s3.readerCacheSizeMB=16', '-master.telemetry=false', '-master.volumeSizeLimitMB=64', '-volume.max=4', '-bucket=' + ','.join(self.buckets.values())]
+        store_dir='/data/filerldb2' if image else str(data/'filerldb2')
+        (self.scratch/'filer.toml').write_text('[leveldb2]\nenabled = true\ndir = '+json.dumps(store_dir)+'\n')
+        # Mini 4.55 hardcodes a 1% filesystem reserve. On a shared 100GiB filesystem
+        # that exceeds this isolated fixture's complete disk budget; server mode exposes
+        # an absolute guard while retaining one owned process and the same S3 engine.
+        (self.scratch/'master.toml').write_text('[master.volume_growth]\ncopy_1 = 1\ncopy_2 = 1\ncopy_3 = 1\ncopy_other = 1\n')
+        self.disk_budget={'freeBytesAtStart':shutil.disk_usage(data).free,'reserveBytes':128*1024*1024,'maximumVolumeBytes':4*64*1024*1024,'postgresAllowanceBytes':256*1024*1024}
+        if self.disk_budget['freeBytesAtStart'] < sum(self.disk_budget[key] for key in ('reserveBytes','maximumVolumeBytes','postgresAllowanceBytes')):
+            raise RuntimeError('Insufficient free space for isolated S3 fixture disk budget')
+        common = ['server','-filer=true','-s3=true','-ip=127.0.0.1','-s3.iam=false','-s3.port.iceberg=0','-s3.port.lance=0','-s3.autoCreateBucket=false','-s3.allowDeleteBucketNotEmpty=false','-s3.concurrentUploadLimitMB=16','-s3.readerCacheSizeMB=16','-master.telemetry=false','-master.volumeSizeLimitMB=64','-master.volumePreallocate=false','-volume.max=4','-volume.minFreeSpace=128MiB','-volume.preStopSeconds=1']
         if image:
             if image != PINNED_IMAGE or docker_env is None or scope is None or labels is None:
                 raise ValueError('Docker S3 fixture is limited to the labeled cabinet-ci runner and pinned image')
-            self.container = subprocess.check_output(['docker','run','-d','--rm',*[part for key,value in (labels|{'cabinet.resource':'s3'}).items() for part in ('--label',f'{key}={value}')],'--name',f'{scope}-s3','--memory','384m','-p','127.0.0.1::8333','--mount',f'type=bind,source={configuration},target=/fixture/iam.json,readonly','--mount',f'type=bind,source={data},target=/data','-e','GOMEMLIMIT=256MiB','--entrypoint','weed',image,*common,'-ip.bind=0.0.0.0','-dir=/data','-s3.config=/fixture/iam.json'],env=docker_env).decode().strip()
+            self.container = subprocess.check_output(['docker','run','-d','--rm',*[part for key,value in (labels|{'cabinet.resource':'s3'}).items() for part in ('--label',f'{key}={value}')],'--name',f'{scope}-s3','--workdir','/fixture','--memory','384m','-p','127.0.0.1::8333','--mount',f'type=bind,source={configuration},target=/fixture/iam.json,readonly','--mount',f'type=bind,source={data},target=/data','--mount',f'type=bind,source={self.scratch / "filer.toml"},target=/fixture/filer.toml,readonly','--mount',f'type=bind,source={self.scratch / "master.toml"},target=/fixture/master.toml,readonly','-e','GOMEMLIMIT=256MiB','--entrypoint','weed',image,*common,'-ip.bind=0.0.0.0','-dir=/data','-s3.config=/fixture/iam.json'],env=docker_env).decode().strip()
             address = subprocess.check_output(['docker','port',self.container,'8333/tcp'],env=docker_env).decode().strip()
             self.port = int(address.rsplit(':',1)[1]); self.endpoint = f'http://127.0.0.1:{self.port}'
-            self.provenance = {'image':image}
+            self.provenance = {'image':image,'mode':'server','diskBudget':self.disk_budget}
         else:
             if not binary or not binary_sha256 or not re.fullmatch('[a-f0-9]{64}',binary_sha256):
                 raise ValueError('S3 gate requires native 4.55 binary with explicit SHA-256 or the pinned CI image; it never skips')
@@ -53,14 +65,19 @@ class S3Fixture:
             if actual != binary_sha256: raise ValueError('Native S3 binary checksum mismatch')
             version = subprocess.check_output([str(binary),'version'],env=self.environment).decode()
             if not re.search(r'\b4\.55\b',version): raise ValueError('Native S3 fixture must be SeaweedFS 4.55')
-            self.provenance = {'binarySha256':actual,'version':version.strip()}
+            self.provenance = {'binarySha256':actual,'version':version.strip(),'mode':'server','diskBudget':self.disk_budget}
             self.handle = (report/'s3-server.log').open('ab')
-            self.process = subprocess.Popen([str(binary),*common,'-ip.bind=127.0.0.1',f'-dir={data}',f'-s3.config={configuration}',f'-s3.port={self.port}',f'-master.port={free_port()}',f'-master.port.grpc={free_port()}',f'-volume.port={free_port()}',f'-volume.port.grpc={free_port()}',f'-filer.port={free_port()}',f'-filer.port.grpc={free_port()}',f'-grpc.localSocketDir={self.scratch}'],cwd=self.scratch,env=self.environment|{'GOMEMLIMIT':'256MiB'},stdout=self.handle,stderr=subprocess.STDOUT)
+            self.process = subprocess.Popen([str(binary),*common,'-ip.bind=127.0.0.1',f'-dir={data}',f'-s3.config={configuration}',f'-s3.port={self.port}',f'-s3.port.grpc={free_port()}',f'-master.port={free_port()}',f'-master.port.grpc={free_port()}',f'-volume.port={free_port()}',f'-volume.port.grpc={free_port()}',f'-filer.port={free_port()}',f'-filer.port.grpc={free_port()}',f'-grpc.localSocketDir={self.scratch}'],cwd=self.scratch,env=self.environment|{'GOMEMLIMIT':'256MiB'},stdout=self.handle,stderr=subprocess.STDOUT)
         if self.process and register: register(self.process,f"-dir={data}")
         deadline = time.monotonic()+readiness_timeout
         last_failure='not-listening'
         while True:
             try:
+                for name in self.buckets:
+                    try: self.request('bootstrap','PUT','',bucket_identity=name)
+                    except HTTPError as existing:
+                        if existing.code!=409: raise
+                        existing.close()
                 self.request('source','HEAD','')
                 self.request('target','HEAD','')
                 break
@@ -89,7 +106,7 @@ class S3Fixture:
 
         # HEAD needs bucket-level Read in this engine. Both credentials still own only
         # their synthetic bucket; verify anonymous and cross-bucket access remain denied.
-        for identity in self.identities:
+        for identity in self.buckets:
             try:
                 with HTTP.open(Request(self.endpoint+'/'+self.buckets[identity],method='HEAD'),timeout=5):
                     raise AssertionError('Synthetic S3 bucket allows anonymous access')
@@ -103,6 +120,14 @@ class S3Fixture:
             except HTTPError as failure:
                 if failure.code not in (401,403): raise
                 failure.close()
+
+        for identity in self.buckets:
+            smoke_name='fixture-storage-smoke.bin'
+            smoke_bytes=b'Alpha isolated S3 fixture PUT HEAD GET proof'
+            self.request(identity,'PUT',smoke_name,smoke_bytes)
+            self.verify(identity,smoke_name,len(smoke_bytes),hashlib.sha256(smoke_bytes).hexdigest())
+            self.request('bootstrap','DELETE',smoke_name,bucket_identity=identity)
+        self.provenance['strictChecks']=['HEAD-own-buckets','deny-anonymous','deny-cross-bucket','PUT-HEAD-GET-size-sha256-both-buckets']
 
     def request(self, identity, method, name, body=b'', *, bucket_identity=None):
         access,secret = self.identities[identity]

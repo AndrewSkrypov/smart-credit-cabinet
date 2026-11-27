@@ -2,6 +2,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   IconButton,
   ListItemIcon,
   ListItemText,
@@ -20,15 +21,17 @@ import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, ReactNode, RefObject, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { roleHome, useAuth } from '../../auth/AuthProvider';
 import { tokens } from '../../theme/theme';
+import { Role } from '../../types';
 import {
   findPageTour,
   OnboardingState,
   pageTourIds,
   readOnboardingState,
+  RoleTourConfig,
   roleTours,
   TourStep,
   writeOnboardingState
@@ -41,8 +44,22 @@ interface SpotlightRect {
   height: number;
 }
 
+interface TourRequest {
+  userId: string;
+  role: Role;
+  routeKey: string;
+  config: RoleTourConfig;
+  tourId?: string;
+  trigger?: HTMLElement;
+  destination?: string;
+}
+
+interface TourTarget {
+  step: TourStep;
+  element: HTMLElement;
+}
+
 interface OnboardingContextValue {
-  open: boolean;
   bannerVisible: boolean;
   welcomeTitle: string;
   welcomeSubtitle: string;
@@ -59,8 +76,8 @@ const MOBILE_HEADER_OFFSET = 88;
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
-function findVisibleTarget(selector: string): HTMLElement | null {
-  const candidates = document.querySelectorAll<HTMLElement>(selector);
+function findVisibleTarget(root: HTMLElement, selector: string): HTMLElement | null {
+  const candidates = root.querySelectorAll<HTMLElement>(selector);
   for (const el of candidates) {
     const style = window.getComputedStyle(el);
     if (style.display === 'none' || style.visibility === 'hidden') continue;
@@ -70,13 +87,17 @@ function findVisibleTarget(selector: string): HTMLElement | null {
   return null;
 }
 
-export function OnboardingProvider({ children }: { children: ReactNode }) {
+function readTargets(root: HTMLElement, steps: TourStep[]) {
+  return steps.flatMap((step) => {
+    const element = findVisibleTarget(root, step.selector);
+    return element ? [{ step, element }] : [];
+  });
+}
+
+export function OnboardingProvider({ children, targetRootRef }: { children: ReactNode; targetRootRef: RefObject<HTMLElement> }) {
   const { session } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
   const userId = session?.user.id ?? '';
   const role = session?.user.role ?? 'CLIENT';
@@ -92,74 +113,65 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<OnboardingState>(() =>
     userId && screenConfig ? readOnboardingState(userId, role, screenTourId) : 'dismissed'
   );
-  const [open, setOpen] = useState(false);
-  const [activeSteps, setActiveSteps] = useState<TourStep[]>([]);
-  const [stepIndex, setStepIndex] = useState(0);
-  const [targetRect, setTargetRect] = useState<SpotlightRect | null>(null);
-  const pendingCabinetStartRef = useRef(false);
-  const runningTourIdRef = useRef<string | undefined>(undefined);
-  const returnFocusRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setOpen(false);
-    setStepIndex(0);
-    setActiveSteps([]);
-    setTargetRect(null);
-    pendingCabinetStartRef.current = false;
-  }, [userId, role]);
+  const [request, setRequest] = useState<TourRequest | null>(null);
+  const focusFrame = useRef<number | null>(null);
+  const sameAccount = request?.userId === userId && request.role === role;
+  const runningTour = sameAccount && request.routeKey === location.key && !request.destination ? request : null;
 
   useEffect(() => {
     setStatus(userId && screenConfig ? readOnboardingState(userId, role, screenTourId) : 'dismissed');
   }, [role, screenConfig, screenTourId, userId]);
 
-  const launch = useCallback((steps: TourStep[], tourId: string | undefined) => {
-    const resolved = steps.filter((step) => findVisibleTarget(step.selector) !== null);
-    runningTourIdRef.current = tourId;
-    setActiveSteps(resolved.length > 0 ? resolved : steps);
-    setStepIndex(0);
-    setOpen(true);
+  useEffect(() => {
+    if (!request) return;
+    if (!sameAccount) {
+      setRequest(null);
+    } else if (request.routeKey !== location.key) {
+      setRequest(request.destination === pathname ? { ...request, routeKey: location.key, destination: undefined } : null);
+    }
+  }, [location.key, pathname, request, sameAccount]);
+
+  const cancelFocusRestore = useCallback(() => {
+    if (focusFrame.current === null) return;
+    window.cancelAnimationFrame(focusFrame.current);
+    focusFrame.current = null;
   }, []);
 
+  useEffect(() => cancelFocusRestore, [cancelFocusRestore, location.key, role, userId]);
+
   const startCabinetTour = useCallback((trigger?: HTMLElement) => {
-    returnFocusRef.current = trigger ?? null;
-    if (!onHome) {
-      pendingCabinetStartRef.current = true;
-      navigate(homePath);
-      return;
-    }
-    launch(homeConfig.steps, undefined);
-  }, [homeConfig.steps, homePath, launch, navigate, onHome]);
+    cancelFocusRestore();
+    setRequest({
+      userId, role, routeKey: location.key, config: homeConfig, trigger,
+      destination: onHome ? undefined : homePath
+    });
+    if (!onHome) navigate(homePath);
+  }, [cancelFocusRestore, homeConfig, homePath, location.key, navigate, onHome, role, userId]);
 
   const startTour = useCallback((trigger?: HTMLElement) => {
     if (!pageTour) {
       startCabinetTour(trigger);
       return;
     }
-    returnFocusRef.current = trigger ?? null;
-    launch(pageTour.steps, pageTour.id);
-  }, [launch, pageTour, startCabinetTour]);
-
-  useEffect(() => {
-    if (!pendingCabinetStartRef.current || !onHome) return;
-    pendingCabinetStartRef.current = false;
-    const timer = window.setTimeout(() => launch(homeConfig.steps, undefined), 120);
-    return () => window.clearTimeout(timer);
-  }, [homeConfig.steps, launch, onHome]);
+    cancelFocusRestore();
+    setRequest({ userId, role, routeKey: location.key, config: pageTour, tourId: pageTour.id, trigger });
+  }, [cancelFocusRestore, location.key, pageTour, role, startCabinetTour, userId]);
 
   const finishTour = useCallback((nextState: 'completed' | 'dismissed') => {
-    setOpen(false);
-    setTargetRect(null);
+    if (!runningTour) return;
+    setRequest(null);
     if (userId) {
-      const tourId = runningTourIdRef.current;
-      writeOnboardingState(userId, role, nextState, tourId);
-      if (tourId === screenTourId) setStatus(nextState);
+      writeOnboardingState(userId, role, nextState, runningTour.tourId);
+      if (runningTour.tourId === screenTourId) setStatus(nextState);
     }
-    const trigger = returnFocusRef.current;
-    window.requestAnimationFrame(() => {
-      const target = trigger?.isConnected ? trigger : document.querySelector<HTMLElement>('[data-tour="training-trigger"]');
+    cancelFocusRestore();
+    const trigger = runningTour.trigger;
+    focusFrame.current = window.requestAnimationFrame(() => {
+      focusFrame.current = null;
+      const target = trigger?.isConnected ? trigger : targetRootRef.current?.querySelector<HTMLElement>('[data-tour="training-trigger"]');
       target?.focus();
     });
-  }, [role, screenTourId, userId]);
+  }, [cancelFocusRestore, role, runningTour, screenTourId, targetRootRef, userId]);
 
   const dismissBanner = useCallback(() => {
     if (userId) {
@@ -176,70 +188,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     }
   }, [role, screenConfig, userId]);
 
-  const currentStep = activeSteps[stepIndex] ?? null;
-
-  const measureCurrentTarget = useCallback(() => {
-    if (!open || !currentStep) {
-      setTargetRect(null);
-      return;
-    }
-    const target = findVisibleTarget(currentStep.selector);
-    if (!target) {
-      setTargetRect(null);
-      return;
-    }
-    const rect = target.getBoundingClientRect();
-    const pad = 6;
-    setTargetRect({
-      top: Math.max(4, rect.top - pad),
-      left: Math.max(4, rect.left - pad),
-      width: Math.max(0, rect.width + pad * 2),
-      height: Math.max(0, rect.height + pad * 2)
-    });
-  }, [currentStep, open]);
-
-  useEffect(() => {
-    if (!open || !currentStep) return;
-    const target = findVisibleTarget(currentStep.selector);
-    const behavior = reduceMotion ? 'instant' : 'smooth';
-    if (target && isMobile) {
-      // On a phone the step card covers the lower part of the screen: put the block right under the header.
-      const top = target.getBoundingClientRect().top + window.scrollY - MOBILE_HEADER_OFFSET;
-      if (typeof window.scrollTo === 'function') window.scrollTo({ top: Math.max(0, top), behavior });
-    } else if (target && typeof target.scrollIntoView === 'function') {
-      target.scrollIntoView({ behavior, block: 'center', inline: 'nearest' });
-    }
-    measureCurrentTarget();
-    const timer = window.setTimeout(measureCurrentTarget, 220);
-    window.addEventListener('resize', measureCurrentTarget);
-    window.addEventListener('scroll', measureCurrentTarget, true);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener('resize', measureCurrentTarget);
-      window.removeEventListener('scroll', measureCurrentTarget, true);
-    };
-  }, [currentStep, isMobile, measureCurrentTarget, open, reduceMotion]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        if (stepIndex < activeSteps.length - 1) setStepIndex((i) => i + 1);
-        else finishTour('completed');
-      } else if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        if (stepIndex > 0) setStepIndex((i) => i - 1);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeSteps.length, finishTour, open, stepIndex]);
-
-  const bannerVisible = Boolean(userId) && Boolean(screenConfig) && status === null && !open;
+  const bannerVisible = Boolean(userId) && Boolean(screenConfig) && status === null && !runningTour;
 
   const value = useMemo<OnboardingContextValue>(() => ({
-    open,
     bannerVisible,
     welcomeTitle: screenConfig?.welcomeTitle ?? homeConfig.welcomeTitle,
     welcomeSubtitle: screenConfig?.welcomeSubtitle ?? homeConfig.welcomeSubtitle,
@@ -248,7 +199,119 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     startCabinetTour,
     dismissBanner,
     resetTour
-  }), [bannerVisible, dismissBanner, homeConfig, open, pageTour, resetTour, screenConfig, startCabinetTour, startTour]);
+  }), [bannerVisible, dismissBanner, homeConfig, pageTour, resetTour, screenConfig, startCabinetTour, startTour]);
+
+  return (
+    <OnboardingContext.Provider value={value}>
+      {children}
+      {runningTour && <OnboardingDialog config={runningTour.config} targetRootRef={targetRootRef} finishTour={finishTour} />}
+    </OnboardingContext.Provider>
+  );
+}
+
+function OnboardingDialog({ config, targetRootRef, finishTour }: {
+  config: RoleTourConfig;
+  targetRootRef: RefObject<HTMLElement>;
+  finishTour: (state: 'completed' | 'dismissed') => void;
+}) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const [targets, setTargets] = useState<TourTarget[]>([]);
+  const [selectedStep, setSelectedStep] = useState<TourStep | null>(null);
+  const [measurement, setMeasurement] = useState<{ element: HTMLElement; rect: SpotlightRect } | null>(null);
+
+  const stepIndex = Math.max(0, targets.findIndex(({ step }) => step === selectedStep));
+  const currentStep = targets[stepIndex]?.step;
+  const target = targets[stepIndex]?.element;
+  const targetRect = measurement && measurement.element === target ? measurement.rect : null;
+
+  useEffect(() => {
+    const root = targetRootRef.current;
+    if (!root) return;
+
+    const measure = () => {
+      if (!target || !target.isConnected) {
+        setMeasurement(null);
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        setMeasurement(null);
+        return;
+      }
+      const pad = 6;
+      const next = {
+        top: Math.max(4, rect.top - pad),
+        left: Math.max(4, rect.left - pad),
+        width: rect.width + pad * 2,
+        height: rect.height + pad * 2
+      };
+      setMeasurement(previous => previous?.element === target && previous.rect.top === next.top &&
+        previous.rect.left === next.left && previous.rect.width === next.width && previous.rect.height === next.height
+        ? previous : { element: target, rect: next });
+    };
+
+    const refresh = () => {
+      const visible = readTargets(root, config.steps);
+      // Shared header and edit controls may render before the page's data-backed content.
+      const next = visible.some(({ step }) => step.id === config.readyStepId) ? visible : [];
+      setTargets(previous => previous.length === next.length && previous.every(({ step, element }, index) =>
+        step === next[index].step && element === next[index].element
+      ) ? previous : next);
+      if (next.some(({ element }) => element === target)) measure();
+      else setMeasurement(null);
+    };
+
+    if (target) {
+      const behavior = reduceMotion ? 'instant' : 'smooth';
+      if (isMobile) {
+        // On a phone the step card covers the lower part of the screen: put the block right under the header.
+        const top = target.getBoundingClientRect().top + window.scrollY - MOBILE_HEADER_OFFSET;
+        window.scrollTo({ top: Math.max(0, top), behavior });
+      } else {
+        target.scrollIntoView?.({ behavior, block: 'center', inline: 'nearest' });
+      }
+    }
+
+    // Data-bound steps can appear together after loading or in stages as sections render.
+    const mutations = new MutationObserver(refresh);
+    mutations.observe(root, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['class', 'style', 'hidden', 'data-tour']
+    });
+    const dimensions = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(refresh);
+    dimensions?.observe(root);
+    if (target) dimensions?.observe(target);
+    window.addEventListener('resize', refresh);
+    window.addEventListener('scroll', measure, true);
+    refresh();
+    return () => {
+      mutations.disconnect();
+      dimensions?.disconnect();
+      window.removeEventListener('resize', refresh);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [config, isMobile, reduceMotion, target, targetRootRef]);
+
+  useEffect(() => {
+    if (!currentStep) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        if (stepIndex < targets.length - 1) setSelectedStep(targets[stepIndex + 1].step);
+        else finishTour('completed');
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        if (stepIndex > 0) setSelectedStep(targets[stepIndex - 1].step);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [currentStep, finishTour, stepIndex, targets]);
 
   const popoverPosition = useMemo(() => {
     if (isMobile || !targetRect || typeof window === 'undefined') return null;
@@ -265,122 +328,126 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   }, [isMobile, targetRect]);
 
   return (
-    <OnboardingContext.Provider value={value}>
-      {children}
-      {open && currentStep && (
-        <Modal open hideBackdrop disableScrollLock disableRestoreFocus onClose={() => finishTour('dismissed')}>
-        <Box role="dialog" aria-modal="true" tabIndex={-1} sx={{ position: 'fixed', inset: 0, outline: 'none' }}
-          aria-label={`Шаг ${stepIndex + 1} из ${activeSteps.length}: ${currentStep.title}`}>
+    <Modal open hideBackdrop disableScrollLock disableRestoreFocus onClose={() => finishTour('dismissed')}>
+      <Box role="dialog" aria-modal="true" tabIndex={-1} sx={{ position: 'fixed', inset: 0, outline: 'none' }}
+        aria-label={currentStep ? `Шаг ${stepIndex + 1} из ${targets.length}: ${currentStep.title}` : 'Обучение'}
+        aria-busy={!currentStep}>
+        <Box
+          data-testid="onboarding-backdrop"
+          onClick={() => finishTour('dismissed')}
+          sx={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1390,
+            bgcolor: targetRect ? 'transparent' : 'rgba(15, 17, 21, 0.62)'
+          }}
+        />
+        {targetRect && (
           <Box
-            data-testid="onboarding-backdrop"
-            onClick={() => finishTour('dismissed')}
+            data-testid="onboarding-spotlight"
             sx={{
               position: 'fixed',
-              inset: 0,
-              zIndex: 1390,
-              bgcolor: targetRect ? 'transparent' : 'rgba(15, 17, 21, 0.62)'
+              top: targetRect.top,
+              left: targetRect.left,
+              width: targetRect.width,
+              height: targetRect.height,
+              borderRadius: 2.5,
+              border: `2px solid ${tokens.red}`,
+              boxShadow: '0 0 0 9999px rgba(15, 17, 21, 0.62), 0 0 0 4px rgba(239, 49, 36, 0.22)',
+              pointerEvents: 'none',
+              zIndex: 1395,
+              transition: reduceMotion ? 'none' : 'all 180ms ease'
             }}
           />
-          {targetRect && (
-            <Box
-              data-testid="onboarding-spotlight"
-              sx={{
-                position: 'fixed',
-                top: targetRect.top,
-                left: targetRect.left,
-                width: targetRect.width,
-                height: targetRect.height,
-                borderRadius: 2.5,
-                border: `2px solid ${tokens.red}`,
-                boxShadow: '0 0 0 9999px rgba(15, 17, 21, 0.62), 0 0 0 4px rgba(239, 49, 36, 0.22)',
-                pointerEvents: 'none',
-                zIndex: 1395,
-                transition: reduceMotion ? 'none' : 'all 180ms ease'
-              }}
-            />
-          )}
-          <Paper
-            elevation={10}
-            sx={{
-              position: 'fixed',
-              zIndex: 1400,
-              p: 2.5,
-              borderRadius: 3,
-              border: '1px solid',
-              borderColor: 'divider',
-              ...(popoverPosition
-                ? { top: popoverPosition.top, left: popoverPosition.left, width: popoverPosition.width }
-                : { left: 12, right: 12, bottom: 12, maxWidth: 480, mx: 'auto' })
-            }}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+        )}
+        <Paper
+          elevation={10}
+          sx={{
+            position: 'fixed',
+            zIndex: 1400,
+            p: 2.5,
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            ...(popoverPosition
+              ? { top: popoverPosition.top, left: popoverPosition.left, width: popoverPosition.width }
+              : { left: 12, right: 12, bottom: 12, maxWidth: 480, mx: 'auto' })
+          }}
+        >
+          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+            {currentStep && (
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                 <Chip size="small" color="error" variant="outlined" label={currentStep.badge} />
                 <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                  Шаг {stepIndex + 1} из {activeSteps.length}
+                  Шаг {stepIndex + 1} из {targets.length}
                 </Typography>
               </Stack>
-              <IconButton autoFocus size="small" aria-label="Закрыть обучение" onClick={() => finishTour('dismissed')}>
-                <CloseRoundedIcon fontSize="small" />
-              </IconButton>
-            </Stack>
+            )}
+            <IconButton autoFocus sx={{ ml: 'auto' }} size="small" aria-label="Закрыть обучение" onClick={() => finishTour('dismissed')}>
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+          </Stack>
 
-            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.75, overflowWrap: 'anywhere' }}>
-              {currentStep.title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.55, overflowWrap: 'anywhere' }}>
-              {currentStep.description}
-            </Typography>
+          {currentStep ? (
+            <>
+              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.75, overflowWrap: 'anywhere' }}>
+                {currentStep.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.55, overflowWrap: 'anywhere' }}>
+                {currentStep.description}
+              </Typography>
 
-            <Stack direction="row" spacing={0.75} sx={{ mb: 2 }} role="group" aria-label="Шаги обучения">
-              {activeSteps.map((step, index) => (
-                <Box
-                  key={step.id}
-                  component="button"
-                  type="button"
-                  aria-label={`Перейти к шагу ${index + 1}`}
-                  aria-current={index === stepIndex ? 'step' : undefined}
-                  onClick={() => setStepIndex(index)}
-                  sx={{
-                    p: 0,
-                    border: 0,
-                    cursor: 'pointer',
-                    height: 6,
-                    width: index === stepIndex ? 24 : 8,
-                    borderRadius: 99,
-                    bgcolor: index === stepIndex ? tokens.red : 'action.disabledBackground',
-                    transition: reduceMotion ? 'none' : 'width 160ms ease, background-color 160ms ease'
-                  }}
-                />
-              ))}
-            </Stack>
-
-            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
-              <Button size="small" color="inherit" onClick={() => finishTour('dismissed')}>
-                Пропустить
-              </Button>
-              <Stack direction="row" spacing={1}>
-                {stepIndex > 0 && (
-                  <Button size="small" variant="outlined" onClick={() => setStepIndex((i) => i - 1)}>
-                    Назад
-                  </Button>
-                )}
-                {stepIndex < activeSteps.length - 1 ? (
-                  <Button size="small" variant="contained" onClick={() => setStepIndex((i) => i + 1)}>
-                    Далее
-                  </Button>
-                ) : (
-                  <Button size="small" variant="contained" onClick={() => finishTour('completed')}>
-                    Готово
-                  </Button>
-                )}
+              <Stack direction="row" spacing={0.75} sx={{ mb: 2 }} role="group" aria-label="Шаги обучения">
+                {targets.map(({ step }, index) => (
+                  <Box
+                    key={step.id}
+                    component="button"
+                    type="button"
+                    aria-label={`Перейти к шагу ${index + 1}`}
+                    aria-current={index === stepIndex ? 'step' : undefined}
+                    onClick={() => setSelectedStep(step)}
+                    sx={{
+                      p: 0,
+                      border: 0,
+                      cursor: 'pointer',
+                      height: 6,
+                      width: index === stepIndex ? 24 : 8,
+                      borderRadius: 99,
+                      bgcolor: index === stepIndex ? tokens.red : 'action.disabledBackground',
+                      transition: reduceMotion ? 'none' : 'width 160ms ease, background-color 160ms ease'
+                    }}
+                  />
+                ))}
               </Stack>
-            </Stack>
-          </Paper>
-        </Box>
-        </Modal>
-      )}
-    </OnboardingContext.Provider>
+
+              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+                <Button size="small" color="inherit" onClick={() => finishTour('dismissed')}>
+                  Пропустить
+                </Button>
+                <Stack direction="row" spacing={1}>
+                  {stepIndex > 0 && (
+                    <Button size="small" variant="outlined" onClick={() => setSelectedStep(targets[stepIndex - 1].step)}>
+                      Назад
+                    </Button>
+                  )}
+                  {stepIndex < targets.length - 1 ? (
+                    <Button size="small" variant="contained" onClick={() => setSelectedStep(targets[stepIndex + 1].step)}>
+                      Далее
+                    </Button>
+                  ) : (
+                    <Button size="small" variant="contained" onClick={() => finishTour('completed')}>
+                      Готово
+                    </Button>
+                  )}
+                </Stack>
+              </Stack>
+            </>
+          ) : (
+            <CircularProgress size={24} aria-label="Загрузка" />
+          )}
+        </Paper>
+      </Box>
+    </Modal>
   );
 }
 

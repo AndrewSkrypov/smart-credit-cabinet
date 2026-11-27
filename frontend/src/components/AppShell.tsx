@@ -1,5 +1,6 @@
 import { Box, Button, Container, IconButton, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
+import { useRef } from 'react';
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import { roleHome, useAuth } from '../auth/AuthProvider';
 import { bankRoles, roleLabels } from '../shared/labels';
@@ -43,6 +44,7 @@ const darkTabs = {
 export function AppShell() {
   const { session, signOut } = useAuth();
   const location = useLocation();
+  const tourRootRef = useRef<HTMLDivElement>(null);
   if (!session) return null;
   const { user } = session;
   const bank = bankRoles.includes(user.role);
@@ -55,8 +57,8 @@ export function AppShell() {
     </Tabs>
   );
   return (
-    <OnboardingProvider>
-    <DocumentSurface kind="workspace"><Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: nightGlow, overflowX: 'clip' }}>
+    <OnboardingProvider targetRootRef={tourRootRef}>
+    <DocumentSurface kind="workspace"><Box ref={tourRootRef} sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: nightGlow, overflowX: 'clip' }}>
       <Box component="header" sx={{ position: 'sticky', top: 0, zIndex: 10, pt: { xs: 1, md: 2 } }}>
         <Container maxWidth="lg">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1, md: 1.25 }, minHeight: { xs: 56, md: 64 }, pl: { xs: 1.5, md: 2.5 }, pr: { xs: 0.75, md: 1.5 },

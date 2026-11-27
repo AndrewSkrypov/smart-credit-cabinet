@@ -2,13 +2,17 @@ import { Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogConten
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useParams, useLocation } from 'react-router-dom';
-import { applicationsApi } from '../../../api/client';
+import { ApiError, applicationsApi } from '../../../api/client';
+import { financingApi } from '../../../api/financing';
+import { FinancingScenarioView } from '../../../components/FinancingScenarioView';
+import { useApi } from '../../../hooks/useApi';
 import { ErrorState } from '../../../components/ErrorState';
 import { LoadingBlock } from '../../../components/LoadingBlock';
 import { PageHeader } from '../../../components/PageHeader';
 import { MessagesBlock } from '../../../components/MessagesBlock';
 import { explainStatus, SYSTEM_STATUSES, statusTitle, statusTone } from '../../../shared/applicationText';
 import { formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
+import { transparentOutlineButtonSx } from '../../../theme/theme';
 import { Application } from '../../../types';
 import { DocumentsBlock } from './DocumentsBlock';
 import { DraftForm } from './DraftForm';
@@ -84,12 +88,19 @@ function ApplicationCard({ id }: { id: string }) {
     return () => { mounted.current = false; };
   }, [load]);
 
+  const scenario = useApi(
+    () => application?.agentId ? financingApi.client(id) : Promise.resolve(null),
+    [id, application?.agentId, application?.status, application?.version]
+  );
+  const scenarioRevision = scenario.data?.revision;
+  useEffect(() => setConfirmConsent(false), [scenarioRevision]);
+
   const status = application?.status;
   useEffect(() => {
-    if (!status || status === 'DRAFT') return;
+    if (!status || (status === 'DRAFT' && !application?.agentId)) return;
     const timer = window.setInterval(() => void load(), SYSTEM_STATUSES.includes(status) ? FAST_REFRESH_MS : SLOW_REFRESH_MS);
     return () => window.clearInterval(timer);
-  }, [status, load]);
+  }, [status, application?.agentId, load]);
 
   if (error && !application) return <ErrorState message={error} onRetry={load} />;
   if (!application) return <LoadingBlock />;
@@ -97,6 +108,7 @@ function ApplicationCard({ id }: { id: string }) {
   const explanation = explainStatus(application);
   const tone = statusTone(application.status);
   const outcome = application.process.outcome;
+  const canResume = application.canResumeIndependently === true;
   const canWithdraw = application.allowedActions.includes('WITHDRAW');
 
   return (
@@ -126,14 +138,19 @@ function ApplicationCard({ id }: { id: string }) {
 
             {error && <Alert severity="warning">{error}</Alert>}
 
-            {application.status === 'DRAFT' && application.editable && (
+            {application.status === 'DRAFT' && application.editable && !canResume && (
               <DraftForm application={application} onSaved={apply} onSubmitted={apply} />
             )}
-            {application.status === 'PENDING_CLIENT_CONFIRMATION' && (
+            {scenario.data && !scenario.error && <FinancingScenarioView applicationId={id} scenario={scenario.data} />}
+            {application.agentId && scenario.error && (
+              <Alert severity="warning" action={<Button onClick={() => void scenario.reload()}>Повторить</Button>}>{scenario.error}</Alert>
+            )}
+            {(application.status === 'PENDING_CLIENT_CONFIRMATION' || canResume) && (
               <Paper data-tour="app-confirm" variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main' }}>
                 <Typography variant="h6" component="h2" gutterBottom>Подтверждение агентской заявки</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2 }}>
-                  {application.agentName
+                  {canResume ? 'Доступ агента завершён. Проверьте последний переданный пакет и продолжите по этой заявке.'
+                    : application.agentName
                     ? `Агент ${application.agentName} подготовил заявку для вашей компании. Проверьте условия и приложенные документы перед отправкой в банк.`
                     : 'Агент подготовил заявку для вашей компании. Проверьте условия и приложенные документы перед отправкой в банк.'}
                 </Typography>
@@ -178,15 +195,23 @@ function ApplicationCard({ id }: { id: string }) {
                     <Button
                       variant="contained"
                       size="large"
-                      disabled={!confirmConsent || confirmBusy}
+                      disabled={!confirmConsent || confirmBusy || scenario.loading || !!scenario.error}
                       onClick={async () => {
                         setConfirmBusy(true);
                         setError(null);
                         try {
-                          apply(await applicationsApi.confirm(application.id, true, (application.currentProduct ?? application.product).version));
+                          const productVersion = (application.currentProduct ?? application.product).version;
+                          const result = scenario.data
+                            ? await applicationsApi.confirm(application.id, true, productVersion, scenario.data.revision)
+                            : await applicationsApi.confirm(application.id, true, productVersion);
+                          apply(result);
                         } catch (nextError) {
                           if (!mounted.current) return;
                           setError(nextError instanceof Error ? nextError.message : 'Не удалось подтвердить заявку');
+                          if (nextError instanceof ApiError && nextError.status === 409) {
+                            setConfirmConsent(false);
+                            void scenario.reload();
+                          }
                         } finally {
                           if (mounted.current) setConfirmBusy(false);
                         }
@@ -255,7 +280,9 @@ function ApplicationCard({ id }: { id: string }) {
               <Fact label={application.submittedAt ? 'Отправлена' : 'Создана'} value={formatDateTime(application.submittedAt ?? application.createdAt)} />
             </Stack>
             {canWithdraw && (
-              <Button color="error" onClick={() => setWithdrawing(true)} sx={{ mt: 2, ml: -1 }}>Отозвать заявку</Button>
+              <Button variant="outlined" size="small" onClick={() => setWithdrawing(true)} sx={{ ...transparentOutlineButtonSx, mt: 2 }}>
+                Отозвать заявку
+              </Button>
             )}
           </Paper>
         </Grid>
@@ -306,12 +333,17 @@ function ApplicationCard({ id }: { id: string }) {
       <Dialog open={withdrawing} onClose={() => setWithdrawing(false)} fullWidth maxWidth="sm">
         <DialogTitle>Отозвать заявку?</DialogTitle>
         <DialogContent>
-          <Typography gutterBottom>Банк прекратит рассмотрение. Позже можно подать новую заявку.</Typography>
+          <Typography gutterBottom>
+            {application.submittedAt
+              ? 'Банк прекратит рассмотрение. Позже можно подать новую заявку.'
+              : 'Заявка ещё не отправлена в банк. После отзыва её нельзя будет отправить. Позже можно создать новую заявку.'}
+          </Typography>
           <TextField label="Причина (необязательно)" fullWidth multiline minRows={2} value={withdrawComment} onChange={(event) => setWithdrawComment(event.target.value)} inputProps={{ maxLength: 2000 }} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setWithdrawing(false)}>Не отзывать</Button>
+          <Button variant="outlined" onClick={() => setWithdrawing(false)} sx={transparentOutlineButtonSx}>Не отзывать</Button>
           <Button
+            variant="contained"
             color="error"
             onClick={async () => {
               try {

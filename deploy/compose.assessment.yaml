@@ -1,0 +1,138 @@
+# The protected Dev rollout includes this overlay with a verified Assessment descriptor.
+x-assessment-image: &assessment-image
+  image: ${CABINET_IMAGE_ASSESSMENT:?Нужен digest образа Assessment}
+  pull_policy: never
+  init: true
+  mem_limit: 384m
+  entrypoint: [bash, /run/assessment/launch.sh]
+  volumes:
+    - type: bind
+      source: ./helm/cabinet/files/assessment/launch.sh
+      target: /run/assessment/launch.sh
+      read_only: true
+      bind: {create_host_path: false}
+
+x-assessment-db: &assessment-db
+  ASSESSMENT_DB_URL: jdbc:postgresql://assessment-db:5432/assessment
+  JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
+
+services:
+  credit:
+    networks: [assessment-stream]
+    environment:
+      CABINET_ASSESSMENT_KAFKA_ENABLED: ${ASSESSMENT_CREDIT_KAFKA_ENABLED:-false}
+      CABINET_ASSESSMENT_KAFKA_BOOTSTRAP_SERVERS: assessment-kafka:9092
+      CABINET_ASSESSMENT_KAFKA_ENVIRONMENT: dev
+      CABINET_ASSESSMENT_KAFKA_GENERATION: ${ASSESSMENT_GENERATION:?Нужно поколение Assessment}
+
+  valkey:
+    networks: [assessment-cache]
+
+  external-sim:
+    networks: [assessment-sources]
+
+  assessment-db:
+    image: ${CABINET_IMAGE_POSTGRES:?Нужен digest образа PostgreSQL}
+    pull_policy: never
+    networks: [assessment-db]
+    mem_limit: 288m
+    restart: unless-stopped
+    command: [postgres, -c, shared_buffers=48MB, -c, max_connections=32]
+    environment:
+      POSTGRES_USER: assessment_admin
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_PASSWORD: ${ASSESSMENT_ADMIN_PASSWORD:?Нужен операторский пароль Assessment}
+      ASSESSMENT_MIGRATION_PASSWORD: ${ASSESSMENT_MIGRATION_PASSWORD:?Нужен пароль владельца Assessment}
+      ASSESSMENT_DB_PASSWORD: ${ASSESSMENT_DB_PASSWORD:?Нужен пароль runtime Assessment}
+      ASSESSMENT_GENERATION: ${ASSESSMENT_GENERATION:?Нужно поколение Assessment}
+    volumes: [assessment-db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD, pg_isready, -h, 127.0.0.1, -U, assessment_admin, -d, postgres]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  assessment-kafka:
+    image: ${CABINET_IMAGE_ASSESSMENT_KAFKA:?Нужен digest patched Kafka}
+    pull_policy: never
+    platform: linux/amd64
+    networks: [assessment-stream]
+    mem_limit: 768m
+    restart: unless-stopped
+    environment:
+      CLUSTER_ID: ${ASSESSMENT_CLUSTER_ID:?Нужен cluster ID Assessment}
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@127.0.0.1:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://127.0.0.1:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://assessment-kafka:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_LOG_RETENTION_MS: "-1"
+      KAFKA_LOG_RETENTION_BYTES: "-1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_OFFSETS_RETENTION_MINUTES: "2147483647"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_HEAP_OPTS: -Xms128m -Xmx384m
+    volumes: [assessment-kafka-data:/var/lib/kafka/data]
+    healthcheck:
+      test: [CMD, /opt/kafka/bin/kafka-topics.sh, --bootstrap-server, "assessment-kafka:9092", --list]
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 15s
+
+  assessment-migrate:
+    <<: *assessment-image
+    profiles: [assessment-bootstrap]
+    networks: [assessment-db]
+    command: [migrate]
+    environment:
+      <<: *assessment-db
+      ASSESSMENT_DB_USER: assessment_owner
+      ASSESSMENT_DB_PASSWORD: ${ASSESSMENT_MIGRATION_PASSWORD:?Нужен пароль владельца Assessment}
+      SPRING_FLYWAY_ENABLED: "true"
+      CABINET_ASSESSMENT_KAFKA_ENABLED: "false"
+
+  assessment:
+    <<: *assessment-image
+    networks: [assessment-db, assessment-stream, assessment-cache, assessment-sources]
+    command: [runtime]
+    restart: unless-stopped
+    stop_grace_period: 60s
+    environment:
+      <<: *assessment-db
+      ASSESSMENT_DB_USER: assessment_app
+      ASSESSMENT_DB_PASSWORD: ${ASSESSMENT_DB_PASSWORD:?Нужен пароль runtime Assessment}
+      SPRING_FLYWAY_ENABLED: "false"
+      CABINET_VALKEY_ENABLED: "true"
+      CABINET_VALKEY_HOST: valkey
+      CABINET_VALKEY_PASSWORD: ${VALKEY_PASSWORD:?Нужен ключ Valkey}
+      CABINET_ASSESSMENT_SOURCES_URL: http://external-sim:8080
+      CABINET_ASSESSMENT_SOURCES_API_KEY: ${SIM_API_KEY:?Нужен ключ ExternalSim}
+      CABINET_ASSESSMENT_KAFKA_ENABLED: "true"
+      CABINET_ASSESSMENT_KAFKA_BOOTSTRAP_SERVERS: assessment-kafka:9092
+      CABINET_ASSESSMENT_KAFKA_ENVIRONMENT: dev
+      CABINET_ASSESSMENT_KAFKA_GENERATION: ${ASSESSMENT_GENERATION:?Нужно поколение Assessment}
+    healthcheck:
+      test: [CMD, bash, /run/assessment/launch.sh, health]
+      interval: 5s
+      timeout: 4s
+      retries: 24
+      start_period: 10s
+
+networks:
+  assessment-db: {internal: true}
+  assessment-stream: {internal: true}
+  assessment-cache: {internal: true}
+  assessment-sources: {internal: true}
+
+volumes:
+  assessment-db-data:
+  assessment-kafka-data:

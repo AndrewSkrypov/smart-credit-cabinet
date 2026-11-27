@@ -30,6 +30,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    fakeTimers: {
+      // Virtualize UI timers without changing the runner's monotonic clock.
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'requestAnimationFrame', 'cancelAnimationFrame']
+    },
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],

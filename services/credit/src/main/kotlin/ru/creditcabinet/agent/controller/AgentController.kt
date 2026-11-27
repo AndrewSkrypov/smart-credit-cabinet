@@ -23,13 +23,16 @@ import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 import ru.creditcabinet.agent.application.AgentApplicationService
+import ru.creditcabinet.agent.domain.ActionOwner
 import ru.creditcabinet.application.controller.ApplicationController
 import ru.creditcabinet.application.controller.ApplicationRequest
 import ru.creditcabinet.application.controller.ApplicationResponse
 import ru.creditcabinet.application.controller.ApplicationSummary
 import ru.creditcabinet.application.controller.DocumentView
+import ru.creditcabinet.application.controller.JournalEntryView
 import ru.creditcabinet.application.controller.ProvideInfoRequest
 import ru.creditcabinet.application.domain.ApplicationStatus
+import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.chat.application.ChatService
 import ru.creditcabinet.chat.controller.ChatView
 import ru.creditcabinet.chat.controller.MessageRequest
@@ -39,6 +42,7 @@ import ru.creditcabinet.chat.domain.ChatFile
 import ru.creditcabinet.chat.domain.ChatState
 import ru.creditcabinet.chat.domain.ChatUpload
 import ru.creditcabinet.common.exception.BadRequestException
+import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.document.domain.DocumentType
@@ -84,46 +88,70 @@ class AgentController(
     @PostMapping("/pre-approved-offers/{id}/apply")
     @ResponseStatus(HttpStatus.CREATED)
     fun applyPreApprovedOffer(@PathVariable id: UUID): ApplicationResponse =
-        applicationController.detailView(service.applyPreApprovedOffer(id))
+        detail(service.applyPreApprovedOffer(id))
 
     @Operation(summary = "Заявки агента по закреплённым компаниям")
     @GetMapping("/applications")
     fun listApplications(@RequestParam(required = false) status: Set<ApplicationStatus>?): List<ApplicationSummary> {
         val apps = service.listApplications(status)
         val unread = chat.unread(apps)
-        return apps.map { applicationController.summaryView(it).copy(unreadChatCount = unread[it.id] ?: 0) }
+        return apps.map { application ->
+            val action = service.action(application)
+            applicationController.summaryView(application).copy(
+                unreadChatCount = unread[application.id] ?: 0,
+                actionOwner = action?.owner,
+                actionDeadline = action?.deadline,
+                actionLabel = action?.label,
+            )
+        }.sortedWith(
+            compareBy<ApplicationSummary> { it.actionDeadline == null }
+                .thenBy { it.actionDeadline }
+                .thenBy { it.actionOwner != ActionOwner.AGENT },
+        )
     }
 
     @Operation(summary = "Создать черновик заявки от имени агента для закреплённой компании")
     @PostMapping("/applications")
     @ResponseStatus(HttpStatus.CREATED)
     fun createApplication(@Valid @RequestBody request: AgentCreateApplicationRequest): ApplicationResponse =
-        applicationController.detailView(service.create(request.companyId, request.toTerms()))
+        detail(service.create(request.companyId, request.toTerms()))
 
     @Operation(summary = "Карточка агентской заявки")
     @GetMapping("/applications/{id}")
     fun getApplication(@PathVariable id: UUID): ApplicationResponse =
-        applicationController.detailView(service.get(id))
+        detail(service.get(id))
+
+    @Operation(summary = "История своей агентской заявки")
+    @GetMapping("/applications/{id}/events")
+    fun events(@PathVariable id: UUID): List<JournalEntryView> =
+        service.events(id).map { JournalEntryView.of(it, forStaff = false).copy(actorId = null, payload = emptyMap()) }
+
+    @Operation(summary = "Проверить текущий доступ агента к уведомлению по своей заявке")
+    @GetMapping("/applications/{id}/notification-access")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun notificationAccess(@PathVariable id: UUID) {
+        service.get(id)
+    }
 
     @Operation(summary = "Изменить черновик агентской заявки")
     @PutMapping("/applications/{id}")
     fun updateApplication(@PathVariable id: UUID, @Valid @RequestBody request: ApplicationRequest): ApplicationResponse =
-        applicationController.detailView(service.updateDraft(id, request.toTerms()))
+        detail(service.updateDraft(id, request.toTerms()))
 
     @Operation(summary = "Отправить черновик клиенту на подтверждение и согласие БКИ (T22)")
     @PostMapping("/applications/{id}/request-confirmation")
     fun requestConfirmation(@PathVariable id: UUID): ApplicationResponse =
-        applicationController.detailView(service.requestClientConfirmation(id))
+        detail(service.requestClientConfirmation(id))
 
     @Operation(summary = "Отменить агентскую заявку до отправки в банк (T25)")
     @PostMapping("/applications/{id}/cancel")
     fun cancelApplication(@PathVariable id: UUID): ApplicationResponse =
-        applicationController.detailView(service.cancel(id))
+        detail(service.cancel(id))
 
     @Operation(summary = "Ответить на запрос банка от имени агента (T5)")
     @PostMapping("/applications/{id}/info-provided")
     fun provideInfo(@PathVariable id: UUID, @Valid @RequestBody(required = false) request: ProvideInfoRequest?): ApplicationResponse =
-        applicationController.detailView(service.provideInfo(id, request?.answer?.trim()?.takeIf { it.isNotEmpty() }))
+        detail(service.provideInfo(id, request?.answer?.trim()?.takeIf { it.isNotEmpty() }))
 
     @Operation(summary = "Список документов агентской заявки")
     @GetMapping("/applications/{id}/documents")
@@ -136,8 +164,13 @@ class AgentController(
     fun uploadDocument(
         @PathVariable id: UUID,
         @RequestParam type: DocumentType,
+        @RequestParam(defaultValue = "false") privateToBank: Boolean,
         @RequestPart file: MultipartFile,
-    ): DocumentView = DocumentView.of(service.uploadDocument(id, type, file))
+        @RequestHeader("Idempotency-Key", required = false) operationKey: String?,
+    ): DocumentView {
+        if (privateToBank) throw ForbiddenException("Приватную выписку банку может загрузить клиент")
+        return DocumentView.of(service.uploadDocument(id, type, file, operationKey))
+    }
 
     @Operation(summary = "Скачать документ агентской заявки")
     @GetMapping("/applications/{id}/documents/{documentId}")
@@ -197,6 +230,15 @@ class AgentController(
     ): ChatFile {
         CurrentCaller.requireRole(Roles.AGENT)
         return chat.upload(id, parseKey(key), ChatUpload(file.originalFilename ?: "document", file.bytes))
+    }
+
+    private fun detail(application: LoanApplication): ApplicationResponse {
+        val action = service.action(application)
+        return applicationController.detailView(application).copy(
+            actionOwner = action?.owner,
+            actionDeadline = action?.deadline,
+            actionLabel = action?.label,
+        )
     }
 
     private fun parseKey(value: String): UUID = try {

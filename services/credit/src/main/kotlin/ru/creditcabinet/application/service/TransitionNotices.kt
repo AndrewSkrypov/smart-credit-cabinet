@@ -31,7 +31,7 @@ object TransitionNotices {
                 dedupKey = "${entry.id}:client",
             )
         fun agent(type: String, title: String, body: String) =
-            application.agentId?.let { agentId ->
+            application.activeAgentId?.let { agentId ->
                 PlatformNotification(
                     recipientId = agentId,
                     type = type,

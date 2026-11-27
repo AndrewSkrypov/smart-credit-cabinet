@@ -25,7 +25,7 @@ fun TokenClaims.toActor(): Actor? =
 fun TokenClaims.canSee(application: LoanApplication): Boolean =
     when {
         isClient -> companyId != null && application.company.id == companyId && application.visibleToClient
-        isAgent -> application.agentId == userId
+        isAgent -> application.activeAgentId == userId
         isBankStaff -> application.visibleToBank
         else -> false
     }

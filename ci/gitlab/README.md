@@ -70,7 +70,9 @@ File values are indicated explicitly.
   `CABINET_PROD_JURY_CREDENTIALS` (file).
 
 Use separate deploy job credentials. Apply [prod-rbac.yaml](prod-rbac.yaml) once from the confirmed cluster operator
-context. Issue a short-lived TokenRequest for `cabinet-prod-release` or use a
+context. Apply the updated role before the first Catalog gateway reopening.
+The release identity uses its gateway-specific scale permissions to close traffic if acceptance fails.
+Issue a short-lived TokenRequest for `cabinet-prod-release` or use a
 scoped GitLab Agent identity with equivalent access. Pin the cluster CA and
 private API in the runner's kubeconfig. The Prod Helm release stores its state
 in ConfigMaps and requires no direct Secret API access. The Kubernetes Secret and namespace pull

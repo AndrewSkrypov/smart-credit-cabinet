@@ -15,7 +15,7 @@ const readJson = async (name) => JSON.parse(await readFile(path.join(root, name)
 const sort = (rows) => rows.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : a.version < b.version ? -1 : a.version > b.version ? 1 : 0);
 
 if (!args.has('--skip-gradle')) {
-  for (const extra of [[], ['-p', 'build-logic']]) {
+  for (const extra of [['-PalphaAnalytics=true'], ['-p', 'build-logic']]) {
     const command = process.platform === 'win32' ? 'cmd.exe' : './gradlew';
     const prefix = process.platform === 'win32' ? ['/d', '/c', 'gradlew.bat'] : [];
     const result = spawnSync(command, [...prefix, ...extra, 'generateLicenseReport', '--no-daemon', '--no-parallel'], {
@@ -37,15 +37,17 @@ for (const [scope, file] of [
     const key = `${item.moduleName}@${item.moduleVersion}`;
     const reported = item.moduleLicenses?.map((x) => x.moduleLicense).filter(Boolean) ?? [];
     const licenses = reported.length ? reported : markers[key]?.licenses ?? [];
-    if (!licenses.length) throw new Error(`Нет лицензии Gradle: ${key}`);
     const existing = backend.get(key);
     backend.set(key, {
       name: item.moduleName, version: item.moduleVersion,
       licenses: [...new Set([...(existing?.licenses ?? []), ...licenses])].sort(),
-      sources: [...new Set([...(existing?.sources ?? []), ...(item.moduleLicenses ?? []).map((x) => x.moduleLicenseUrl).filter(Boolean), ...(item.moduleUrls ?? []), ...(markers[key] ? [markers[key].source] : [])])].sort(),
+      sources: [...new Set([...(existing?.sources ?? []), ...(item.moduleLicenses ?? []).map((x) => x.moduleLicenseUrl).filter(Boolean), ...(item.moduleUrls ?? []), ...(markers[key] ? [markers[key].source] : []), ...(markers[key]?.metadataSources ?? [])])].sort(),
       scopes: [...new Set([...(existing?.scopes ?? []), scope])].sort(),
     });
   }
+}
+for (const [key, item] of backend) {
+  if (!item.licenses.length) throw new Error(`Нет лицензии Gradle: ${key}`);
 }
 
 const npm = [];
@@ -80,12 +82,12 @@ const lines = [
   '# Сторонние компоненты', '',
   'Состав формируется командой `node scripts/generate-notices.mjs`. Версии берутся из',
   'разрешённых Gradle-конфигураций и npm lock-файлов. Включены транзитивные зависимости,',
-  'тесты и инструменты сборки. Лицензии Gradle — из POM/артефактов через Gradle License Report;',
+  'тесты, опциональный Analytics и инструменты сборки. Лицензии Gradle — из POM/артефактов через Gradle License Report;',
   'npm — из lock-файлов, дополненных license-checker для пакетов без поля license.',
   'Знак * у npm означает распознавание лицензии по тексту. Перечень сохраняет upstream-названия',
   'и варианты лицензий; несколько названий не переинтерпретируются как выбранная лицензия.',
-  'Два маркера Gradle без license в POM дополнены по исходникам реализации:',
-  '`scripts/license-tools/gradle-markers.json` хранит точные версии и основания.',
+  'Пропуски в метаданных Gradle дополнены по POM и исходникам реализации.',
+  '`scripts/license-tools/gradle-markers.json` хранит точные версии и источники.',
   'Машиночитаемая версия: `docs/licenses/inventory.json`. Оригинальные LICENSE/NOTICE находятся',
   'в пакетах и по ссылкам ниже; при распространении сохраняйте применимые уведомления.', '',
   '## Бэкенд и сборка Gradle', '', '| Компонент | Версия | Лицензии из метаданных | Источники |',

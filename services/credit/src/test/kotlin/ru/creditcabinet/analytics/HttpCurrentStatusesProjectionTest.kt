@@ -12,6 +12,7 @@ import ru.creditcabinet.analytics.infrastructure.HttpCurrentStatusesProjection
 import java.net.InetSocketAddress
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
@@ -59,6 +60,26 @@ class HttpCurrentStatusesProjectionTest {
             projection(StubOutbox(true), peer.url) { reader, metrics ->
                 assertNull(reader.readWhenReady())
                 assertEquals(1.0, metrics.get(READ_METRIC).tags("source", "sql", "reason", "invalid_projection").counter().count())
+            }
+        }
+    }
+
+    @Test
+    fun `falls back before or after the remote response when status alone cannot represent visibility`() {
+        val calls = AtomicInteger()
+        server {
+            calls.incrementAndGet()
+            it.reply(200, """{"generation":"$topic","currentStatuses":{"WITHDRAWN":3}}""")
+        }.use { peer ->
+            projection(StubOutbox(true, visible = listOf(false)), peer.url) { reader, metrics ->
+                assertNull(reader.readWhenReady())
+                assertEquals(0, calls.get())
+                assertEquals(1.0, metrics.get(READ_METRIC).tags("source", "sql", "reason", "submission_visibility").counter().count())
+            }
+            projection(StubOutbox(true, true, visible = listOf(true, false)), peer.url) { reader, metrics ->
+                assertNull(reader.readWhenReady())
+                assertEquals(1, calls.get())
+                assertEquals(1.0, metrics.get(READ_METRIC).tags("source", "sql", "reason", "submission_visibility").counter().count())
             }
         }
     }
@@ -113,11 +134,16 @@ class HttpCurrentStatusesProjectionTest {
         }
     }
 
-    private class StubOutbox(vararg drained: Boolean) : NamedParameterJdbcTemplate(Mockito.mock(JdbcOperations::class.java)) {
+    private class StubOutbox(vararg drained: Boolean, visible: List<Boolean>? = null) : NamedParameterJdbcTemplate(Mockito.mock(JdbcOperations::class.java)) {
         private val states = drained.iterator()
+        private val visibility = visible?.iterator()
 
         @Suppress("UNCHECKED_CAST")
         override fun <T : Any?> queryForObject(sql: String, paramMap: Map<String, *>, requiredType: Class<T>): T? {
+            if ("submitted_at" in sql) {
+                assertEquals(emptyMap<String, Any>(), paramMap)
+                return (visibility?.next() ?: true) as T
+            }
             assertEquals(mapOf("generation" to "test-projection-generation"), paramMap)
             return states.next() as T
         }

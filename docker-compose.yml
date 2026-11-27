@@ -343,6 +343,7 @@ services:
       DB_NAME: credit
       DB_USER: credit_app
       DB_PASSWORD: ${CREDIT_DB_PASSWORD:-dev-credit-runtime-password}
+      DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-true}
       STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
       DOCUMENT_UPLOADS_ENABLED: ${DOCUMENT_UPLOADS_ENABLED:-true}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://seaweedfs:8333}

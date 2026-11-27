@@ -3,6 +3,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Grid,
   Paper,
@@ -15,13 +19,31 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { agentApi, loanServicingApi } from '../api/client';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { agentApi, ApiError, loanServicingApi } from '../api/client';
 import { formatDate, formatDateTime, months, percent, rub, rubExact } from '../shared/format';
 import { LoanAccount } from '../types';
 import { ErrorState } from './ErrorState';
 import { LoadingBlock } from './LoadingBlock';
+import { AgentPaymentReserveBlock, PaymentReserveBlock } from './PaymentReserveBlock';
 import { TableScrollRegion } from './TableScrollRegion';
+
+type LoanOperation =
+  | { kind: 'tranche'; amount: number; purpose?: string }
+  | { kind: 'pay'; amount: number; paymentId: string; dueDate: string; paymentNumber: number };
+
+type PendingOperation = { loanId: string; key: string; operation: LoanOperation };
+
+function readPending(storageKey: string): PendingOperation | null {
+  try {
+    const saved = sessionStorage.getItem(storageKey);
+    return saved ? JSON.parse(saved) as PendingOperation : null;
+  } catch {
+    return null;
+  }
+}
+
+const moscowDate = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow', dateStyle: 'short' });
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
@@ -49,15 +71,27 @@ export function LoanServicingBlock({
   const [busyAction, setBusyAction] = useState<'tranche' | 'pay' | 'repay' | null>(null);
   const [trancheAmount, setTrancheAmount] = useState('');
   const [tranchePurpose, setTranchePurpose] = useState('');
+  const [confirmation, setConfirmation] = useState<LoanOperation | null>(null);
+  const storageKey = `cabinet.loan-operation:${applicationId}`;
+  const [pending, setPending] = useState<PendingOperation | null>(() => readOnly ? null : readPending(storageKey));
+  const inFlight = useRef(false);
+
+  const rememberOperation = (operation: PendingOperation | null) => {
+    setPending(operation);
+    try {
+      if (operation) sessionStorage.setItem(storageKey, JSON.stringify(operation));
+      else sessionStorage.removeItem(storageKey);
+    } catch { /* The in-memory receipt remains available while this page is open. */ }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
-    setLoadError(null);
     try {
       const data = agentScope
         ? await agentApi.getLoan(applicationId)
         : await loanServicingApi.getByApplication(applicationId);
       setLoan(data);
+      setLoadError(null);
     } catch (nextError) {
       setLoadError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить данные по обслуживанию кредита');
     } finally {
@@ -75,47 +109,61 @@ export function LoanServicingBlock({
 
   const isActive = loan.status === 'ACTIVE';
   const canMutate = !readOnly && isActive;
-  const remainingLimit = Math.max(0, loan.approvedLimit - loan.disbursedAmount);
+  const currentPending = !readOnly && pending?.loanId === loan.id ? pending : null;
+  const locked = busyAction !== null || currentPending !== null || loading || loadError !== null;
+  const nextPayment = loan.payments.find(payment => payment.status === 'SCHEDULED');
+  const today = moscowDate.format(new Date());
+  const drawPeriodOpen = today < loan.maturityDate && loan.payments.some(payment => payment.status === 'SCHEDULED' && payment.dueDate > today);
+  const remainingLimit = drawPeriodOpen ? loan.availableLimit : 0;
   const canDrawTranche = canMutate && loan.revolving && remainingLimit > 0;
 
-  const handleDrawTranche = async (event: FormEvent) => {
+  const handleDrawTranche = (event: FormEvent) => {
     event.preventDefault();
+    if (locked) return;
     const numericAmount = Number(trancheAmount);
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setActionError('Укажите сумму транша больше нуля.');
+    if (!Number.isSafeInteger(numericAmount) || numericAmount <= 0) {
+      setActionError('Укажите сумму транша в целых рублях.');
       return;
     }
     if (numericAmount > remainingLimit) {
       setActionError(`Сумма транша не может превышать доступный лимит (${rub(remainingLimit)}).`);
       return;
     }
-    setBusyAction('tranche');
     setActionError(null);
-    setNotice(null);
-    try {
-      const updated = await loanServicingApi.drawTranche(loan.id, numericAmount, tranchePurpose.trim() || undefined);
-      setLoan(updated);
-      setTrancheAmount('');
-      setTranchePurpose('');
-      setNotice(`Транш на ${rub(numericAmount)} успешно выдан. График платежей пересчитан.`);
-    } catch (nextError) {
-      setActionError(nextError instanceof Error ? nextError.message : 'Не удалось выдать транш');
-    } finally {
-      setBusyAction(null);
-    }
+    setConfirmation({ kind: 'tranche', amount: numericAmount, purpose: tranchePurpose.trim() || undefined });
   };
 
-  const handlePayNext = async () => {
-    setBusyAction('pay');
+  const applyOperation = async (attempt: PendingOperation, retry = false) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    const { operation, key, loanId } = attempt;
+    setConfirmation(null);
+    rememberOperation(attempt);
+    setBusyAction(operation.kind);
     setActionError(null);
     setNotice(null);
     try {
-      const updated = await loanServicingApi.payNext(loan.id);
-      setLoan(updated);
-      setNotice(updated.status === 'REPAID' ? 'Последний платёж проведён — кредит полностью погашен.' : 'Очередной платёж проведён.');
+      const updated = operation.kind === 'pay'
+        ? await loanServicingApi.payNext(loanId, operation.paymentId, key)
+        : await loanServicingApi.drawTranche(loanId, operation.amount, operation.purpose, key);
+      if (!retry) setLoan(updated);
+      rememberOperation(null);
+      if (operation.kind === 'tranche') {
+        setTrancheAmount('');
+        setTranchePurpose('');
+        setNotice(`Транш на ${rub(operation.amount)} выдан. График платежей пересчитан.`);
+      } else {
+        setNotice(updated.status === 'REPAID' ? 'Последний платёж проведён — кредит полностью погашен.' : `Платёж № ${operation.paymentNumber} на ${rubExact(operation.amount)} проведён.`);
+      }
+      if (retry) await load();
     } catch (nextError) {
-      setActionError(nextError instanceof Error ? nextError.message : 'Не удалось провести платёж');
+      setActionError(nextError instanceof Error ? nextError.message : 'Не удалось получить результат операции');
+      if (nextError instanceof ApiError && nextError.status < 500 && nextError.status !== 429) {
+        rememberOperation(null);
+        if (nextError.status === 409) await load();
+      }
     } finally {
+      inFlight.current = false;
       setBusyAction(null);
     }
   };
@@ -160,6 +208,23 @@ export function LoanServicingBlock({
 
         {notice && <Alert severity="success" onClose={() => setNotice(null)}>{notice}</Alert>}
         {actionError && <Alert severity="error" onClose={() => setActionError(null)}>{actionError}</Alert>}
+        {loadError && (
+          <Alert
+            severity="warning"
+            action={
+              <Button variant="outlined" size="small" disabled={loading || busyAction !== null} onClick={() => void load()}>
+                Обновить график
+              </Button>
+            }
+          >
+            Не удалось обновить график платежей.
+          </Alert>
+        )}
+        {currentPending && (
+          <Alert severity="info" action={<Button disabled={busyAction !== null} onClick={() => void applyOperation(currentPending, true)}>Повторить</Button>}>
+            {busyAction ? 'Получаем результат операции.' : 'Результат операции пока неизвестен. Повторите запрос с теми же данными.'}
+          </Alert>
+        )}
 
         <Grid container spacing={2}>
           <Grid item xs={6} sm={4}>
@@ -170,7 +235,7 @@ export function LoanServicingBlock({
           </Grid>
           {loan.revolving && (
             <Grid item xs={6} sm={4}>
-              <Metric label="Доступный лимит" value={rub(loan.availableLimit)} />
+              <Metric label="Доступный лимит" value={rub(remainingLimit)} />
             </Grid>
           )}
           <Grid item xs={6} sm={4}>
@@ -184,6 +249,9 @@ export function LoanServicingBlock({
           </Grid>
         </Grid>
 
+        {loan.revolving && (agentScope
+          ? <AgentPaymentReserveBlock applicationId={applicationId} />
+          : !readOnly && <PaymentReserveBlock key={loan.id} loanId={loan.id} active={isActive} onDrawn={load} />)}
         <Divider />
 
         <Box>
@@ -227,7 +295,7 @@ export function LoanServicingBlock({
                   value={trancheAmount}
                   onChange={(event) => setTrancheAmount(event.target.value)}
                   inputProps={{ min: 1, max: remainingLimit, step: 1, inputMode: 'numeric' }}
-                  disabled={busyAction !== null}
+                  disabled={locked}
                   sx={{ flex: 1 }}
                 />
                 <TextField
@@ -236,13 +304,13 @@ export function LoanServicingBlock({
                   value={tranchePurpose}
                   onChange={(event) => setTranchePurpose(event.target.value)}
                   inputProps={{ maxLength: 255 }}
-                  disabled={busyAction !== null}
+                  disabled={locked}
                   sx={{ flex: 1.5 }}
                 />
                 <Button
                   type="submit"
                   variant="contained"
-                  disabled={busyAction !== null}
+                  disabled={locked}
                   sx={{ whiteSpace: 'nowrap', minHeight: 40 }}
                 >
                   {busyAction === 'tranche' ? 'Выдаём…' : 'Запросить транш'}
@@ -264,8 +332,14 @@ export function LoanServicingBlock({
                 <Button
                   variant="contained"
                   size="small"
-                  disabled={busyAction !== null}
-                  onClick={() => void handlePayNext()}
+                  disabled={locked || !nextPayment}
+                  onClick={() => nextPayment && setConfirmation({
+                    kind: 'pay',
+                    amount: nextPayment.paymentAmount,
+                    paymentId: nextPayment.id,
+                    dueDate: nextPayment.dueDate,
+                    paymentNumber: nextPayment.paymentNumber,
+                  })}
                 >
                   {busyAction === 'pay' ? 'Проводим…' : 'Внести очередной платёж'}
                 </Button>
@@ -273,7 +347,7 @@ export function LoanServicingBlock({
                   variant="outlined"
                   color="warning"
                   size="small"
-                  disabled={busyAction !== null}
+                  disabled={locked}
                   onClick={() => void handleRepayEarly()}
                 >
                   {busyAction === 'repay' ? 'Погашаем…' : 'Досрочно погасить'}
@@ -319,6 +393,26 @@ export function LoanServicingBlock({
           </TableScrollRegion>
         </Box>
       </Stack>
+      <Dialog open={confirmation !== null} onClose={() => setConfirmation(null)} fullWidth maxWidth="xs"
+        aria-labelledby="loan-operation-title">
+        <DialogTitle id="loan-operation-title">
+          {confirmation?.kind === 'pay' ? 'Подтвердить платёж?' : 'Подтвердить выдачу транша?'}
+        </DialogTitle>
+        {confirmation && (
+          <DialogContent>
+            <Typography fontWeight={600}>{rubExact(confirmation.amount)}</Typography>
+            {confirmation.kind === 'pay'
+              ? <Typography color="text.secondary">Платёж № {confirmation.paymentNumber} от {formatDate(confirmation.dueDate)}</Typography>
+              : confirmation.purpose && <Typography color="text.secondary">{confirmation.purpose}</Typography>}
+          </DialogContent>
+        )}
+        <DialogActions>
+          <Button onClick={() => setConfirmation(null)}>Назад</Button>
+          <Button variant="contained" onClick={() => confirmation && void applyOperation({
+            loanId: loan.id, key: crypto.randomUUID(), operation: confirmation,
+          })}>Подтвердить</Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }

@@ -15,6 +15,8 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
+import ru.creditcabinet.agent.domain.AgentAccessDecision
+import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CommissionStatus
@@ -23,6 +25,7 @@ import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.assessment.domain.Assessment
+import ru.creditcabinet.assessment.domain.BankInfo
 import ru.creditcabinet.assessment.domain.CreditPolicy
 import ru.creditcabinet.assessment.domain.IndustryRisk
 import ru.creditcabinet.assessment.domain.PolicyDecision
@@ -34,11 +37,13 @@ import ru.creditcabinet.assessment.domain.StopFactor
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.TokenClaims
+import ru.creditcabinet.integration.CompanySources
 import ru.creditcabinet.preapproved.application.PreApprovedOfferService
 import ru.creditcabinet.preapproved.domain.PreApprovedOffer
 import ru.creditcabinet.preapproved.domain.PreApprovedOfferStatus
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.Product
+import ru.creditcabinet.product.domain.ProductCatalog
 import java.math.BigDecimal
 import java.sql.Timestamp
 import java.time.Instant
@@ -77,8 +82,17 @@ class PreApprovedOfferTest {
     @Autowired
     private lateinit var preApprovedService: PreApprovedOfferService
 
+    @Autowired
+    private lateinit var products: ProductCatalog
+
     @MockitoBean
     private lateinit var companies: CompanyDirectory
+
+    @MockitoBean
+    private lateinit var agentAccess: AgentAccessPort
+
+    @MockitoBean
+    private lateinit var sources: CompanySources
 
     private val companyId = UUID.randomUUID()
     private val otherCompanyId = UUID.randomUUID()
@@ -91,6 +105,8 @@ class PreApprovedOfferTest {
         whenever(companies.find(any())).thenAnswer {
             CompanySnapshot(it.getArgument(0), "000100000004", "ИП Тест", LegalForm.ENTREPRENEUR)
         }
+        whenever(agentAccess.checkAccess(any(), any())).thenReturn(AgentAccessDecision(true))
+        whenever(sources.bank(any())).thenReturn(BankInfo(true, null, emptyList()))
     }
 
     @AfterTest
@@ -216,6 +232,32 @@ class PreApprovedOfferTest {
             header("Authorization", "Bearer $client")
         }.andReturn().response
         assertEquals(409, secondApply.status)
+    }
+
+    @Test
+    fun `apply caps draft terms at current product limits and leaves incompatible offers unused`() {
+        val product = products.find("WORKING_CAPITAL")!!
+        val incompatible = insertOffer(maxAmount = product.minAmount - 1)
+        val failure = mockMvc.post("/api/v1/pre-approved-offers/$incompatible/apply") {
+            header("Authorization", "Bearer $client")
+        }.andReturn().response
+        assertEquals(409, failure.status)
+        assertEquals("ACTIVE", jdbc.queryForObject("select status from pre_approved_offers where id = ?", String::class.java, incompatible))
+        assertNull(jdbc.queryForObject("select application_id from pre_approved_offers where id = ?", UUID::class.java, incompatible))
+
+        val overlapping = insertOffer(
+            maxAmount = product.maxAmount + 1,
+            minTermMonths = product.minTermMonths,
+            maxTermMonths = product.maxTermMonths + 1,
+        )
+        val response = mockMvc.post("/api/v1/pre-approved-offers/$overlapping/apply") {
+            header("Authorization", "Bearer $client")
+        }.andReturn().response
+        assertEquals(201, response.status, response.getContentAsString(Charsets.UTF_8))
+        val draft = assertNotNull(applications.find(UUID.fromString(json(response)["id"].asText())))
+        assertEquals(product.maxAmount, draft.terms.amount)
+        assertEquals(product.maxTermMonths, draft.terms.termMonths)
+        assertEquals(overlapping, draft.preApprovedOfferId)
     }
 
     @Test

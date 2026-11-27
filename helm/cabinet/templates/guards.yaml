@@ -4,3 +4,12 @@
 {{- if and (eq .Release.Namespace "cabinet-prod") .Values.app.demoAccounts -}}
 {{- fail "app.demoAccounts must be false in the production namespace" -}}
 {{- end -}}
+{{- if not (has .Values.catalog.creditMode (list "local" "remote")) -}}
+{{- fail "catalog.creditMode must be local or remote" -}}
+{{- end -}}
+{{- if and (eq .Values.catalog.creditMode "remote") (not .Values.catalog.enabled) -}}
+{{- fail "remote Credit requires catalog.enabled=true" -}}
+{{- end -}}
+{{- if or (not (kindIs "bool" .Values.catalog.enabled)) (not (kindIs "bool" .Values.catalog.maintenance)) -}}
+{{- fail "catalog.enabled and catalog.maintenance must be booleans" -}}
+{{- end -}}

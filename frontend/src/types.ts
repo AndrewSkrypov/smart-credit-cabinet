@@ -240,6 +240,7 @@ export interface InfoItem {
   title: string;
   reason: string | null;
   question: string | null;
+  satisfied?: boolean;
 }
 
 export interface InfoRequest {
@@ -395,6 +396,10 @@ export interface Application {
   agentCommissionRateBps?: number | null;
   agentCommissionAmount?: number | null;
   agentCommissionStatus?: CommissionStatus;
+  canResumeIndependently?: boolean;
+  actionOwner?: 'AGENT' | 'CLIENT' | 'BANK' | 'SYSTEM' | null;
+  actionDeadline?: string | null;
+  actionLabel?: string | null;
 }
 
 export interface ApplicationSummary {
@@ -411,6 +416,9 @@ export interface ApplicationSummary {
   submittedAt: string | null;
   statusChangedAt: string;
   unreadChatCount?: number;
+  actionOwner?: 'AGENT' | 'CLIENT' | 'BANK' | 'SYSTEM' | null;
+  actionDeadline?: string | null;
+  actionLabel?: string | null;
   agentId?: string | null;
   agentName?: string | null;
   agentCommissionAmount?: number | null;

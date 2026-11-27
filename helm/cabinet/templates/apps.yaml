@@ -12,9 +12,15 @@
 {{- $name := ternary "swagger-ui" $image (eq $image "swagger") }}
 {{- $backend := has $name (list "identity" "credit" "engagement" "external-sim") }}
 {{- $db := and $backend (ne $name "external-sim") }}
+{{- $documents := and (eq $name "credit") (($root.Values.documents | default dict).enabled) }}
+{{- $catalog := and (eq $name "credit") $root.Values.catalog.enabled }}
+{{- $assessment := and (eq $name "credit") (($root.Values.assessment | default dict).enabled) }}
 {{- $replicas := int $workload.replicas }}
 {{- if or (lt $replicas 1) (and (eq $name "external-sim") (ne $replicas 1)) }}
 {{- fail (printf "invalid replicas for %s; external-sim must stay singleton" $name) }}
+{{- end }}
+{{- if and (eq $name "gateway") $root.Values.catalog.maintenance }}
+{{- $replicas = 0 }}
 {{- end }}
 {{- $port := ternary 80 8080 (eq $name "gateway") }}
 {{- $probe := "/actuator/health" }}
@@ -139,6 +145,10 @@ spec:
             runAsNonRoot: true
             runAsUser: 10001
             capabilities: {drop: [ALL]}
+          {{- if $assessment }}
+          envFrom:
+            - configMapRef: {name: assessment-credit-transport}
+          {{- end }}
           env:
             - {name: SPRING_PROFILES_ACTIVE, value: prod}
             - {name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"}
@@ -173,6 +183,18 @@ spec:
             - {name: ENGAGEMENT_URL, value: "http://engagement:8080"}
             {{- include "cabinet.secret" (list $root "IDENTITY_LINK_KEY" "IDENTITY_LINK_KEY") | nindent 12 }}
             {{- else if eq $name "credit" }}
+            {{- if $documents }}
+            {{- include "cabinet.documents.creditEnv" $root | nindent 12 }}
+            {{- end }}
+            {{- if $catalog }}
+            - {name: CABINET_CATALOG_MODE, value: {{ $root.Values.catalog.creditMode | quote }}}
+            - {name: CABINET_CATALOG_GRPC_CLIENT_HOST, value: catalog-grpc}
+            - {name: CABINET_CATALOG_GRPC_CLIENT_PORT, value: "9094"}
+            - {name: CABINET_CATALOG_GRPC_CLIENT_CERTIFICATE, value: /run/catalog-tls/tls.crt}
+            - {name: CABINET_CATALOG_GRPC_CLIENT_KEY, value: /run/catalog-tls/tls.key}
+            - {name: CABINET_CATALOG_GRPC_CLIENT_SERVER_CA, value: /run/catalog-tls/ca.crt}
+            {{- end }}
+            - {name: DEMO_ACCOUNTS, value: {{ $root.Values.app.demoAccounts | quote }}}
             - {name: STORAGE_BACKEND, value: s3}
             {{- $s3Endpoint := $root.Values.s3.endpoint }}
             {{- $s3Secret := $root.Values.secrets.existingSecret }}
@@ -212,6 +234,25 @@ spec:
             - {name: BASE_URL, value: /swagger}
             - name: URLS
               value: '[{"url":"/v3/api-docs/identity","name":"identity"},{"url":"/v3/api-docs/credit","name":"credit"},{"url":"/v3/api-docs/engagement","name":"engagement"},{"url":"/v3/api-docs/external-sim","name":"external-sim"}]'
+          {{- end }}
+          {{- if or $catalog $documents }}
+          volumeMounts:
+            {{- if $catalog }}
+            - {name: catalog-credit-tls, mountPath: /run/catalog-tls, readOnly: true}
+            {{- end }}
+            {{- if $documents }}
+            {{- include "cabinet.documents.creditMounts" $root | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- if $catalog }}
+        - name: catalog-credit-tls
+          secret:
+            secretName: {{ required "catalog.creditTLSSecret is required" $root.Values.catalog.creditTLSSecret | quote }}
+            defaultMode: 0444
+        {{- end }}
+        {{- if $documents }}
+        {{- include "cabinet.documents.creditVolumes" $root | nindent 8 }}
+        {{- end }}
           {{- end }}
           {{- if eq $name "gateway" }}
           volumeMounts:

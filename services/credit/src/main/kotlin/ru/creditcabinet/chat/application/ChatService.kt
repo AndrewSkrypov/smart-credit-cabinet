@@ -69,7 +69,7 @@ class ChatService(
         }
         ChatRules.requireWritable(status)
         limits.acquire(caller.userId)
-        val attachments = documents.map { files.find(id, it, caller.userId) }
+        val attachments = documents.map { files.find(application, it, caller) }
         val now = clock.instant()
         val message = ChatMessage(
             applicationId = id, seq = seq + 1, authorId = caller.userId,
@@ -131,10 +131,10 @@ class ChatService(
         val hash = ChatRules.uploadHash(upload)
         data.previousUpload(id, caller.userId, key)?.let { previous ->
             if (previous.hash != hash) throw ConflictException("Этот ключ уже использован для другого файла")
-            return files.find(id, previous.documentId, caller.userId)
+            return files.find(application, previous.documentId, caller)
         }
         ChatRules.requireWritable(status)
-        val stored = files.upload(application, caller, upload)
+        val stored = files.upload(application, caller, upload.copy(operationKey = key.toString()))
         val now = clock.instant()
         data.recordUpload(id, caller.userId, key, UploadReceipt(hash, stored.id), now)
         data.audit(
@@ -161,6 +161,7 @@ class ChatService(
     }
 
     private fun notifyOtherParty(application: LoanApplication, message: ChatMessage) {
+        if (message.side == ChatSide.COMPANY && !application.visibleToBank) return
         val title = "Новое сообщение по заявке № ${application.number}"
         val body = "Откройте переписку в кабинете, чтобы прочитать сообщение."
         val key = "chat:${message.id}"
@@ -185,7 +186,7 @@ class ChatService(
                     link = "/client/applications/${application.id}",
                     dedupKey = "$key:company",
                 ),
-                application.agentId?.let { agentId ->
+                application.activeAgentId?.let { agentId ->
                     PlatformNotification(
                         recipientId = agentId,
                         type = "APPLICATION_MESSAGE",

@@ -18,15 +18,29 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
-data class InfoItemView(val documentType: DocumentType?, val title: String, val reason: String?, val question: String?) {
+data class InfoItemView(val documentType: DocumentType?, val title: String, val reason: String?, val question: String?, val satisfied: Boolean) {
     companion object {
-        fun of(item: InfoItem) = InfoItemView(item.documentType, item.documentType?.title ?: item.question!!, item.reason, item.question)
+        fun of(item: InfoItem, satisfiedDocuments: Set<DocumentType>) =
+            InfoItemView(
+                item.documentType,
+                item.documentType?.title ?: item.question!!,
+                item.reason,
+                item.question,
+                item.documentType?.let(satisfiedDocuments::contains) == true,
+            )
     }
 }
 
 data class InfoRequestView(val id: UUID, val items: List<InfoItemView>, val comment: String?, val deadline: Instant, val requestedAt: Instant) {
     companion object {
-        fun of(request: InfoRequest) = InfoRequestView(request.id, request.items.map(InfoItemView::of), request.comment, request.deadline, request.createdAt)
+        fun of(request: InfoRequest, satisfiedDocuments: Set<DocumentType>) =
+            InfoRequestView(
+                request.id,
+                request.items.map { InfoItemView.of(it, satisfiedDocuments) },
+                request.comment,
+                request.deadline,
+                request.createdAt,
+            )
     }
 }
 

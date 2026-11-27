@@ -2,7 +2,13 @@
   "com.google.gradle:osdetector-gradle-plugin@1.7.3": {
     "licenses": ["Apache License 2.0"],
     "source": "https://repo.maven.apache.org/maven2/com/google/gradle/osdetector-gradle-plugin/1.7.3/osdetector-gradle-plugin-1.7.3.pom",
-    "reason": "Отчёт о classpath плагинов не находит лицензию. Она указана в POM артефакта в Maven Central."
+    "reason": "Offline-отчёт может не разрешить POM. Лицензия и metadataSources подтверждены POM точного GAV (SHA-1 content-addressed cache, SHA-256) и свежим CI report job 1790 (pipeline 96, source 4a18446e9dff81e0a1e95bf75ba079e0521e244c); upstream license и URL сохраняются при rich и empty metadata.",
+    "metadataSources": [
+      "http://opensource.org/licenses/Apache-2.0",
+      "https://github.com/google/osdetector-gradle-plugin"
+    ],
+    "pomSha1": "6cc8296fbe51550ce66640da56f2eede027bba96",
+    "pomSha256": "8460c950127ca3598766161e38b4ff8d63b4d69fb8310a16e00b351350010c11"
   },
   "com.google.protobuf:com.google.protobuf.gradle.plugin@0.9.5": {
     "licenses": ["BSD-3-Clause"],
@@ -12,7 +18,13 @@
   "com.google.protobuf:protobuf-gradle-plugin@0.9.5": {
     "licenses": ["BSD 3-Clause"],
     "source": "https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-gradle-plugin/0.9.5/protobuf-gradle-plugin-0.9.5.pom",
-    "reason": "Отчёт о classpath плагинов не находит лицензию. Она указана в POM артефакта в Maven Central."
+    "reason": "Offline-отчёт может не разрешить POM. Лицензия и metadataSources подтверждены POM точного GAV (SHA-1 content-addressed cache, SHA-256) и свежим CI report job 1790 (pipeline 96, source 4a18446e9dff81e0a1e95bf75ba079e0521e244c); upstream license и URL сохраняются при rich и empty metadata.",
+    "metadataSources": [
+      "http://opensource.org/licenses/BSD-3-Clause",
+      "https://github.com/google/protobuf-gradle-plugin"
+    ],
+    "pomSha1": "c0ef17f753231c787d55073b0c676e1445e6ca95",
+    "pomSha256": "6467be17ce0b7d87a2d252e93fdbc1ee1513fda53f063a85631fbdbed50e2ae6"
   },
   "com.github.jk1.dependency-license-report:com.github.jk1.dependency-license-report.gradle.plugin@3.1.4": {
     "licenses": ["Apache-2.0"],
@@ -27,7 +39,13 @@
   "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm@1.6.4": {
     "licenses": ["The Apache Software License, Version 2.0"],
     "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.pom",
-    "reason": "Отчёт о classpath плагинов не находит лицензию. Она указана в POM артефакта в Maven Central."
+    "reason": "Offline-отчёт может не разрешить POM. Лицензия и metadataSources подтверждены POM точного GAV (SHA-1 content-addressed cache, SHA-256) и свежим CI report job 1790 (pipeline 96, source 4a18446e9dff81e0a1e95bf75ba079e0521e244c); upstream license и URL сохраняются при rich и empty metadata.",
+    "metadataSources": [
+      "https://github.com/Kotlin/kotlinx.coroutines",
+      "https://www.apache.org/licenses/LICENSE-2.0.txt"
+    ],
+    "pomSha1": "b7c09a7e50e8d075a6f93bd0ef876cee77f5b158",
+    "pomSha256": "09d960f85922903c2e52e126b17e9fa5020b425c469ec61944b3c01835547224"
   },
   "net.swiftzer.semver:semver@1.1.1": {
     "licenses": ["MIT License"],

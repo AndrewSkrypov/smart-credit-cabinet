@@ -531,6 +531,8 @@
         "Apache License 2.0"
       ],
       "sources": [
+        "http://opensource.org/licenses/Apache-2.0",
+        "https://github.com/google/osdetector-gradle-plugin",
         "https://repo.maven.apache.org/maven2/com/google/gradle/osdetector-gradle-plugin/1.7.3/osdetector-gradle-plugin-1.7.3.pom"
       ],
       "scopes": [
@@ -613,6 +615,8 @@
         "BSD 3-Clause"
       ],
       "sources": [
+        "http://opensource.org/licenses/BSD-3-Clause",
+        "https://github.com/google/protobuf-gradle-plugin",
         "https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-gradle-plugin/0.9.5/protobuf-gradle-plugin-0.9.5.pom"
       ],
       "scopes": [
@@ -4113,7 +4117,9 @@
         "The Apache Software License, Version 2.0"
       ],
       "sources": [
-        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.pom"
+        "https://github.com/Kotlin/kotlinx.coroutines",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.pom",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
       ],
       "scopes": [
         "backend"
@@ -5082,6 +5088,36 @@
       ]
     },
     {
+      "name": "org.springframework.kafka:spring-kafka",
+      "version": "3.3.16",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/spring-projects/spring-kafka",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.springframework.retry:spring-retry",
+      "version": "2.0.13",
+      "licenses": [
+        "Apache 2.0",
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/spring-projects/spring-retry",
+        "https://www.apache.org/licenses/LICENSE-2.0",
+        "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
       "name": "org.springframework.security:spring-security-config",
       "version": "6.5.11",
       "licenses": [
@@ -5267,6 +5303,20 @@
     },
     {
       "name": "org.springframework:spring-jdbc",
+      "version": "6.2.19",
+      "licenses": [
+        "Apache License, Version 2.0"
+      ],
+      "sources": [
+        "https://github.com/spring-projects/spring-framework",
+        "https://www.apache.org/licenses/LICENSE-2.0"
+      ],
+      "scopes": [
+        "backend"
+      ]
+    },
+    {
+      "name": "org.springframework:spring-messaging",
       "version": "6.2.19",
       "licenses": [
         "Apache License, Version 2.0"

@@ -21,8 +21,10 @@ import {
 } from '@mui/material';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { agentApi, ApiError, loanServicingApi } from '../api/client';
+import { useAuth } from '../auth/AuthProvider';
+import { readSession } from '../auth/session';
 import { formatDate, formatDateTime, months, percent, rub, rubExact } from '../shared/format';
-import { LoanAccount } from '../types';
+import { LoanAccount, User } from '../types';
 import { ErrorState } from './ErrorState';
 import { LoadingBlock } from './LoadingBlock';
 import { AgentPaymentReserveBlock, PaymentReserveBlock } from './PaymentReserveBlock';
@@ -33,6 +35,11 @@ type LoanOperation =
   | { kind: 'pay'; amount: number; paymentId: string; dueDate: string; paymentNumber: number };
 
 type PendingOperation = { loanId: string; key: string; operation: LoanOperation };
+
+function operationStorageKey(user: User | undefined, applicationId: string): string | null {
+  if (user?.role !== 'CLIENT' || !user.id || !user.companyId) return null;
+  return `cabinet.loan-operation:v2:${JSON.stringify([user.id, user.companyId, applicationId])}`;
+}
 
 function readPending(storageKey: string): PendingOperation | null {
   try {
@@ -54,15 +61,31 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function LoanServicingBlock({
-  applicationId,
-  readOnly = false,
-  agentScope = false
-}: {
+interface LoanServicingProps {
   applicationId: string;
   readOnly?: boolean;
   agentScope?: boolean;
-}) {
+}
+
+export function LoanServicingBlock({ applicationId, readOnly = false, agentScope = false }: LoanServicingProps) {
+  const { session } = useAuth();
+  if (!session) return null;
+  const { user } = session;
+  const storageKey = readOnly || agentScope ? null : operationStorageKey(user, applicationId);
+  return (
+    <ScopedLoanServicingBlock
+      key={JSON.stringify([user.id, user.companyId, user.role, applicationId, readOnly, agentScope])}
+      applicationId={applicationId}
+      readOnly={readOnly}
+      agentScope={agentScope}
+      storageKey={storageKey}
+    />
+  );
+}
+
+function ScopedLoanServicingBlock({
+  applicationId, readOnly, agentScope, storageKey
+}: Required<LoanServicingProps> & { storageKey: string | null }) {
   const [loan, setLoan] = useState<LoanAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -72,17 +95,10 @@ export function LoanServicingBlock({
   const [trancheAmount, setTrancheAmount] = useState('');
   const [tranchePurpose, setTranchePurpose] = useState('');
   const [confirmation, setConfirmation] = useState<LoanOperation | null>(null);
-  const storageKey = `cabinet.loan-operation:${applicationId}`;
-  const [pending, setPending] = useState<PendingOperation | null>(() => readOnly ? null : readPending(storageKey));
+  const [pending, setPending] = useState(() => storageKey ? readPending(storageKey) : null);
   const inFlight = useRef(false);
 
-  const rememberOperation = (operation: PendingOperation | null) => {
-    setPending(operation);
-    try {
-      if (operation) sessionStorage.setItem(storageKey, JSON.stringify(operation));
-      else sessionStorage.removeItem(storageKey);
-    } catch { /* The in-memory receipt remains available while this page is open. */ }
-  };
+  const ownsCurrentSession = () => storageKey !== null && operationStorageKey(readSession()?.user, applicationId) === storageKey;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -108,8 +124,8 @@ export function LoanServicingBlock({
   if (!loan) return null;
 
   const isActive = loan.status === 'ACTIVE';
-  const canMutate = !readOnly && isActive;
-  const currentPending = !readOnly && pending?.loanId === loan.id ? pending : null;
+  const canMutate = storageKey !== null && isActive;
+  const currentPending = pending?.loanId === loan.id ? pending : null;
   const locked = busyAction !== null || currentPending !== null || loading || loadError !== null;
   const nextPayment = loan.payments.find(payment => payment.status === 'SCHEDULED');
   const today = moscowDate.format(new Date());
@@ -134,11 +150,22 @@ export function LoanServicingBlock({
   };
 
   const applyOperation = async (attempt: PendingOperation, retry = false) => {
-    if (inFlight.current) return;
+    if (inFlight.current || !storageKey || !ownsCurrentSession()) return;
     inFlight.current = true;
     const { operation, key, loanId } = attempt;
+    const clearOperation = () => {
+      setPending(current => current?.key === key ? null : current);
+      if (readPending(storageKey)?.key !== key) return;
+      try {
+        sessionStorage.removeItem(storageKey);
+      } catch { /* Storage may be unavailable. */ }
+    };
+
     setConfirmation(null);
-    rememberOperation(attempt);
+    setPending(attempt);
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(attempt));
+    } catch { /* The in-memory receipt remains available while this page is open. */ }
     setBusyAction(operation.kind);
     setActionError(null);
     setNotice(null);
@@ -147,7 +174,7 @@ export function LoanServicingBlock({
         ? await loanServicingApi.payNext(loanId, operation.paymentId, key)
         : await loanServicingApi.drawTranche(loanId, operation.amount, operation.purpose, key);
       if (!retry) setLoan(updated);
-      rememberOperation(null);
+      clearOperation();
       if (operation.kind === 'tranche') {
         setTrancheAmount('');
         setTranchePurpose('');
@@ -155,12 +182,12 @@ export function LoanServicingBlock({
       } else {
         setNotice(updated.status === 'REPAID' ? 'Последний платёж проведён — кредит полностью погашен.' : `Платёж № ${operation.paymentNumber} на ${rubExact(operation.amount)} проведён.`);
       }
-      if (retry) await load();
+      if (retry && ownsCurrentSession()) await load();
     } catch (nextError) {
       setActionError(nextError instanceof Error ? nextError.message : 'Не удалось получить результат операции');
       if (nextError instanceof ApiError && nextError.status < 500 && nextError.status !== 429) {
-        rememberOperation(null);
-        if (nextError.status === 409) await load();
+        clearOperation();
+        if (nextError.status === 409 && ownsCurrentSession()) await load();
       }
     } finally {
       inFlight.current = false;
@@ -169,6 +196,7 @@ export function LoanServicingBlock({
   };
 
   const handleRepayEarly = async () => {
+    if (!ownsCurrentSession()) return;
     setBusyAction('repay');
     setActionError(null);
     setNotice(null);

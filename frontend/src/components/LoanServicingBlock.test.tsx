@@ -1,9 +1,12 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loanServicingApi } from '../api/client';
+import { AuthProvider, useAuth } from '../auth/AuthProvider';
+import { clearSession, readSession, writeSession } from '../auth/session';
 import { rubExact } from '../shared/format';
-import { LoanAccount } from '../types';
+import { LoanAccount, UserSession } from '../types';
 import { LoanServicingBlock } from './LoanServicingBlock';
 
 vi.mock('../api/client', async (importOriginal) => ({
@@ -15,6 +18,47 @@ vi.mock('../api/client', async (importOriginal) => ({
     repayEarly: vi.fn()
   }
 }));
+
+vi.mock('./PaymentReserveBlock', () => ({
+  AgentPaymentReserveBlock: () => null,
+  PaymentReserveBlock: () => null
+}));
+
+const employeeA: UserSession = {
+  token: 'token-a',
+  user: {
+    id: 'employee-a', companyId: 'company-1', role: 'CLIENT', status: 'ACTIVE',
+    fullName: 'Клиент А', email: 'a@example.test', canSign: true
+  }
+};
+const employeeB: UserSession = {
+  token: 'token-b',
+  user: { ...employeeA.user, id: 'employee-b', fullName: 'Клиент Б', email: 'b@example.test' }
+};
+const otherCompany: UserSession = {
+  token: 'token-other-company',
+  user: { ...employeeA.user, companyId: 'company-2' }
+};
+const applicationId = 'app-1';
+const pendingKeyA = 'cabinet.loan-operation:v2:["employee-a","company-1","app-1"]';
+const pendingKeyB = 'cabinet.loan-operation:v2:["employee-b","company-1","app-1"]';
+
+function renderLoan(view = <LoanServicingBlock applicationId={applicationId} />) {
+  return render(<MemoryRouter><AuthProvider>{view}</AuthProvider></MemoryRouter>);
+}
+
+function LoanWithSessionControls() {
+  const { acceptSession, session, signOut } = useAuth();
+  return (
+    <>
+      <button onClick={signOut}>Выйти</button>
+      <button onClick={() => acceptSession(employeeA)}>Войти как А</button>
+      <button onClick={() => acceptSession(employeeB)}>Войти как Б</button>
+      <button onClick={() => acceptSession(otherCompany)}>Войти в другую компанию</button>
+      {session && <LoanServicingBlock applicationId={applicationId} />}
+    </>
+  );
+}
 
 const activeRevolvingLoan: LoanAccount = {
   id: 'loan-1',
@@ -71,6 +115,12 @@ describe('LoanServicingBlock', () => {
     vi.resetAllMocks();
     vi.setSystemTime(new Date('2026-11-20T12:00:00Z'));
     sessionStorage.clear();
+    writeSession(employeeA);
+  });
+
+  afterEach(() => {
+    clearSession();
+    vi.useRealTimers();
   });
 
   it('displays loan summary, tranches, schedule and lets CLIENT draw a tranche on a revolving loan', async () => {
@@ -93,7 +143,7 @@ describe('LoanServicingBlock', () => {
     vi.mocked(loanServicingApi.getByApplication).mockResolvedValue(activeRevolvingLoan);
     vi.mocked(loanServicingApi.drawTranche).mockResolvedValue(afterTranche);
 
-    render(<LoanServicingBlock applicationId="app-1" />);
+    renderLoan();
 
     expect(await screen.findByText(/КД-2026-0001/)).toBeInTheDocument();
     expect(screen.getByText('Активен')).toBeInTheDocument();
@@ -136,7 +186,7 @@ describe('LoanServicingBlock', () => {
     vi.mocked(loanServicingApi.payNext).mockResolvedValue(afterPayNext);
     vi.mocked(loanServicingApi.repayEarly).mockResolvedValue(afterRepayEarly);
 
-    render(<LoanServicingBlock applicationId="app-1" />);
+    renderLoan();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Внести очередной платёж' }));
     expect(loanServicingApi.payNext).not.toHaveBeenCalled();
@@ -158,16 +208,111 @@ describe('LoanServicingBlock', () => {
     };
     vi.mocked(loanServicingApi.getByApplication).mockResolvedValueOnce(activeRevolvingLoan).mockResolvedValue(afterPayment);
     vi.mocked(loanServicingApi.payNext).mockRejectedValueOnce(new Error('Нет ответа')).mockResolvedValueOnce(afterPayment);
-    const firstVisit = render(<LoanServicingBlock applicationId="app-1" />);
+    const firstVisit = renderLoan();
     await userEvent.click(await screen.findByRole('button', { name: 'Внести очередной платёж' }));
     await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
     expect(await screen.findByText('Нет ответа')).toBeInTheDocument();
     firstVisit.unmount();
 
-    render(<LoanServicingBlock applicationId="app-1" />);
+    renderLoan();
     await userEvent.click(await screen.findByRole('button', { name: 'Повторить' }));
     expect(await screen.findByText(/Платёж № 1 .* проведён/)).toBeInTheDocument();
     expect(vi.mocked(loanServicingApi.payNext).mock.calls[1]).toEqual(vi.mocked(loanServicingApi.payNext).mock.calls[0]);
+  });
+
+  it('restores a pending payment only for its owner after logout and login on the same application', async () => {
+    const payNext = vi.mocked(loanServicingApi.payNext);
+    payNext.mockRejectedValueOnce(new Error('Нет ответа')).mockResolvedValueOnce(activeRevolvingLoan);
+    vi.mocked(loanServicingApi.getByApplication).mockResolvedValue(activeRevolvingLoan);
+    renderLoan(<LoanWithSessionControls />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Внести очередной платёж' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
+    expect(await screen.findByText('Нет ответа')).toBeInTheDocument();
+    const originalRequest = payNext.mock.calls[0];
+    expect(originalRequest).toEqual(['loan-1', 'pay-1', expect.any(String)]);
+
+    const legacyKey = 'cabinet.loan-operation:app-1';
+    const [, paymentId, operationKey] = originalRequest;
+    const payment = activeRevolvingLoan.payments[0];
+    sessionStorage.setItem(legacyKey, JSON.stringify({
+      loanId: 'loan-1', key: operationKey,
+      operation: { kind: 'pay', paymentId, amount: payment.paymentAmount, dueDate: payment.dueDate, paymentNumber: payment.paymentNumber }
+    }));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Выйти' }));
+    expect(readSession()).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Обслуживание кредита и транши' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Войти как Б' }));
+    expect(readSession()).toEqual(employeeB);
+    const payButton = await screen.findByRole('button', { name: 'Внести очередной платёж' });
+    expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
+    expect(payButton).toBeEnabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Войти в другую компанию' }));
+    expect(readSession()).toEqual(otherCompany);
+    expect(await screen.findByRole('button', { name: 'Внести очередной платёж' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
+    expect(payNext).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Войти как А' }));
+    expect(readSession()).toEqual(employeeA);
+    await userEvent.click(await screen.findByRole('button', { name: 'Повторить' }));
+    expect(await screen.findByText(/Платёж № 1 .* проведён/)).toBeInTheDocument();
+    expect(payNext).toHaveBeenCalledTimes(2);
+    expect(payNext).toHaveBeenLastCalledWith(...originalRequest);
+    expect(sessionStorage.getItem(pendingKeyA)).toBeNull();
+  });
+
+  it('keeps a second employee’s pending tranche when the first employee’s retry finishes after switching accounts', async () => {
+    const loadLoan = vi.mocked(loanServicingApi.getByApplication).mockResolvedValue(activeRevolvingLoan);
+    const drawTranche = vi.mocked(loanServicingApi.drawTranche);
+    let finishRetry!: (loan: LoanAccount) => void;
+    drawTranche
+      .mockRejectedValueOnce(new Error('Нет ответа для А'))
+      .mockImplementationOnce(() => new Promise(resolve => { finishRetry = resolve; }))
+      .mockRejectedValueOnce(new Error('Нет ответа для Б'))
+      .mockResolvedValueOnce(activeRevolvingLoan);
+    const view = renderLoan(<LoanWithSessionControls />);
+
+    await userEvent.type(await screen.findByLabelText(/Сумма транша/i), '500000');
+    await userEvent.click(screen.getByRole('button', { name: 'Запросить транш' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
+    expect(await screen.findByText('Нет ответа для А')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Повторить' }));
+    const [requestA, retryA] = drawTranche.mock.calls;
+    expect(retryA).toEqual(requestA);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Войти как Б' }));
+    expect(readSession()).toEqual(employeeB);
+    await screen.findByRole('heading', { name: 'Обслуживание кредита и транши' });
+    expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Запросить транш' })).toBeEnabled();
+    expect(JSON.parse(sessionStorage.getItem(pendingKeyA)!).key).toBe(requestA[3]);
+    await userEvent.type(screen.getByLabelText(/Сумма транша/i), '350000');
+    await userEvent.click(screen.getByRole('button', { name: 'Запросить транш' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
+    expect(await screen.findByText('Нет ответа для Б')).toBeInTheDocument();
+    const requestB = drawTranche.mock.calls[2];
+    expect(requestB).toEqual(['loan-1', 350_000, undefined, expect.any(String)]);
+    expect(requestB[3]).not.toBe(requestA[3]);
+    const pendingB = sessionStorage.getItem(pendingKeyB);
+    expect(JSON.parse(pendingB!).key).toBe(requestB[3]);
+
+    await act(async () => finishRetry(activeRevolvingLoan));
+    expect(loadLoan).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('button', { name: 'Повторить' })).toBeEnabled();
+    expect(screen.queryByText(/График платежей пересчитан/)).not.toBeInTheDocument();
+    expect(sessionStorage.getItem(pendingKeyA)).toBeNull();
+    expect(sessionStorage.getItem(pendingKeyB)).toEqual(pendingB);
+
+    view.unmount();
+    renderLoan();
+    await userEvent.click(await screen.findByRole('button', { name: 'Повторить' }));
+    expect(await screen.findByText(/График платежей пересчитан/)).toBeInTheDocument();
+    expect(drawTranche).toHaveBeenCalledTimes(4);
+    expect(drawTranche).toHaveBeenLastCalledWith(...requestB);
+    expect(sessionStorage.getItem(pendingKeyB)).toBeNull();
   });
 
   it.each(['ACTIVE', 'REPAID'] as const)('keeps the current %s loan when a replay succeeds but refreshing fails', async (status) => {
@@ -187,7 +332,7 @@ describe('LoanServicingBlock', () => {
       outstandingPrincipal: status === 'REPAID' ? 0 : 1_450_000,
     };
     const key = 'a1da0b52-e765-4ba4-b17b-a42e4a55c50b';
-    sessionStorage.setItem('cabinet.loan-operation:app-1', JSON.stringify({
+    sessionStorage.setItem(pendingKeyA, JSON.stringify({
       loanId: current.id,
       key,
       operation: {
@@ -204,7 +349,7 @@ describe('LoanServicingBlock', () => {
       .mockResolvedValueOnce(refreshed);
     vi.mocked(loanServicingApi.payNext).mockResolvedValueOnce(receipt);
 
-    render(<LoanServicingBlock applicationId="app-1" />);
+    renderLoan();
     await userEvent.click(await screen.findByRole('button', { name: 'Повторить' }));
 
     const refreshButton = await screen.findByRole('button', { name: 'Обновить график' });
@@ -224,7 +369,7 @@ describe('LoanServicingBlock', () => {
 
     expect(loanServicingApi.getByApplication).toHaveBeenCalledTimes(3);
     expect(loanServicingApi.payNext).toHaveBeenCalledExactlyOnceWith(current.id, firstPayment.id, key);
-    expect(sessionStorage.getItem('cabinet.loan-operation:app-1')).toBeNull();
+    expect(sessionStorage.getItem(pendingKeyA)).toBeNull();
     expect(balance?.textContent).toContain(rubExact(refreshed.outstandingPrincipal));
     expect(screen.queryByRole('button', { name: 'Обновить график' })).not.toBeInTheDocument();
     if (status === 'ACTIVE') {
@@ -234,8 +379,9 @@ describe('LoanServicingBlock', () => {
 
   it('hides all mutation buttons in readOnly mode for AGENT', async () => {
     vi.mocked(loanServicingApi.getByApplication).mockResolvedValue(activeRevolvingLoan);
+    writeSession({ ...employeeA, user: { ...employeeA.user, role: 'AGENT', companyId: null } });
 
-    render(<LoanServicingBlock applicationId="app-1" readOnly />);
+    renderLoan(<LoanServicingBlock applicationId={applicationId} readOnly />);
 
     expect(await screen.findByText(/КД-2026-0001/)).toBeInTheDocument();
     expect(screen.getByText('Первая выборка')).toBeInTheDocument();
@@ -253,7 +399,7 @@ describe('LoanServicingBlock', () => {
     };
     vi.mocked(loanServicingApi.getByApplication).mockResolvedValue(termLoan);
 
-    render(<LoanServicingBlock applicationId="app-1" />);
+    renderLoan();
 
     expect(await screen.findByText(/КД-2026-0001/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Запросить транш' })).not.toBeInTheDocument();

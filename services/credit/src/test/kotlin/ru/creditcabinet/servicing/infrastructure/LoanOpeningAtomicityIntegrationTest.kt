@@ -424,7 +424,9 @@ class LoanOpeningAtomicityIntegrationTest {
             ru.creditcabinet.integration.domain.SigningStarted(UUID.randomUUID(), "654321", clock.instant().plusSeconds(300))
         }
         val signature = UUID.randomUUID()
-        whenever(gateway.confirm(initial.externalSessionId, "123456")).thenReturn(ru.creditcabinet.integration.domain.SigningResult.Signed(signature, clock.instant()))
+        whenever(
+            gateway.confirm(initial.externalSessionId, "123456"),
+        ).thenReturn(ru.creditcabinet.integration.domain.SigningResult.Signed(signature, clock.instant()))
         val service =
             OfferService(
                 context.getBean(

@@ -6,10 +6,10 @@ import org.springframework.stereotype.Repository
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.financing.scenario.application.FinancingScenarioStore
 import ru.creditcabinet.financing.scenario.application.ScenarioRevision
-import ru.creditcabinet.financing.scenario.contract.FinancingScenarioSnapshot
-import ru.creditcabinet.financing.scenario.contract.toContract
-import ru.creditcabinet.financing.scenario.contract.toDomain
 import ru.creditcabinet.financing.scenario.domain.FinancingScenarioStatus
+import ru.creditcabinet.financing.scenario.dto.FinancingScenarioSnapshot
+import ru.creditcabinet.financing.scenario.dto.toContract
+import ru.creditcabinet.financing.scenario.dto.toDomain
 import java.util.UUID
 
 @Repository

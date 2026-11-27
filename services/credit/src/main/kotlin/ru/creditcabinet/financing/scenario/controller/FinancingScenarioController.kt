@@ -13,11 +13,11 @@ import ru.creditcabinet.agent.application.AgentApplicationService
 import ru.creditcabinet.application.application.ApplicationAccess
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.financing.scenario.application.FinancingScenarios
-import ru.creditcabinet.financing.scenario.contract.FinancingScenarioInputs
-import ru.creditcabinet.financing.scenario.contract.FinancingScenarioSnapshot
-import ru.creditcabinet.financing.scenario.contract.toContract
-import ru.creditcabinet.financing.scenario.contract.toDomain
 import ru.creditcabinet.financing.scenario.domain.ScenarioSnapshot
+import ru.creditcabinet.financing.scenario.dto.FinancingScenarioInputs
+import ru.creditcabinet.financing.scenario.dto.FinancingScenarioSnapshot
+import ru.creditcabinet.financing.scenario.dto.toContract
+import ru.creditcabinet.financing.scenario.dto.toDomain
 import java.util.UUID
 
 @Tag(name = "Сценарий финансирования")

@@ -1,6 +1,5 @@
 package ru.creditcabinet.financing.invoice.application
 
-import org.springframework.stereotype.Service
 import ru.creditcabinet.financing.invoice.domain.InvoiceDateLabel
 import ru.creditcabinet.financing.invoice.domain.InvoiceEvidence
 import ru.creditcabinet.financing.invoice.domain.InvoiceFact
@@ -22,7 +21,6 @@ internal fun interface InvoiceModel {
     fun select(amountQuotes: List<String>, dateQuotes: List<String>, authorization: String): InvoiceModelChoice?
 }
 
-@Service
 internal class InvoiceExtraction(private val model: InvoiceModel, private val reader: InvoiceTextReader) {
 
     fun extract(bytes: ByteArray, authorization: String): InvoiceExtractionResult {

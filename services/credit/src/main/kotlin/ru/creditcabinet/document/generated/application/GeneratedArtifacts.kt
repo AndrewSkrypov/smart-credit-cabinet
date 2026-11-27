@@ -30,26 +30,6 @@ import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
-enum class ArtifactStatus { PENDING, READY, ERROR }
-
-data class ArtifactView(
-    val id: UUID,
-    val kind: ArtifactKind,
-    val phase: ArtifactPhase,
-    val title: String,
-    val fileName: String,
-    val contentType: String,
-    val status: ArtifactStatus,
-    val sizeBytes: Long?,
-    val checksum: String?,
-    val createdAt: Instant,
-    val readyAt: Instant?,
-    val errorMessage: String?,
-    val downloadUrl: String?,
-)
-
-data class ArtifactDownload(val metadata: ArtifactView, val bytes: ByteArray)
-
 @Service
 class GeneratedArtifacts(
     private val records: GeneratedArtifactStore,

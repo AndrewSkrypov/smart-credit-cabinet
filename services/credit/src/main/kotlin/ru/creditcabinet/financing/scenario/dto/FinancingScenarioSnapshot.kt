@@ -1,4 +1,4 @@
-package ru.creditcabinet.financing.scenario.contract
+package ru.creditcabinet.financing.scenario.dto
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import ru.creditcabinet.financing.scenario.domain.FinancingScenarioOption

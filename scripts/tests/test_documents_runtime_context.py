@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -64,6 +65,71 @@ class RuntimeContextTest(unittest.TestCase):
             self.assertTrue(scratch.is_relative_to('/tmp') or scratch.is_relative_to('/var/tmp'))
         finally:
             shutil.rmtree(scratch)
+
+    def test_missing_journal_without_current_scratch_is_noop_and_does_not_scan_other_job(self):
+        foreign = self.root / 'ci-artifacts/.job/documents-77-999/alpha-documents-runtime-foreign'
+        foreign.mkdir(parents=True)
+        with patch.object(cleanup, 'ROOT', self.root), patch.dict(os.environ, self.env, clear=True), patch.object(cleanup.os, 'kill') as kill:
+            cleanup.cleanup(self.root / 'absent.json', {'source': self.source, 'scope': 'cabinet-documents-77-12345-s3'})
+            kill.assert_not_called()
+        self.assertTrue(foreign.exists())
+
+    def test_missing_journal_with_current_scratch_retains_data_and_fails(self):
+        scratch = RuntimeContext(self.root, self.source, self.env).create_scratch()
+        (scratch / 'synthetic-data').write_text('retain')
+        with patch.object(cleanup, 'ROOT', self.root), patch.dict(os.environ, self.env, clear=True), patch.object(cleanup.os, 'kill') as kill:
+            with self.assertRaisesRegex(RuntimeError, 'state uncertain, data retained'):
+                cleanup.cleanup(self.root / 'absent.json', {'source': self.source, 'scope': 'cabinet-documents-77-12345-s3'})
+            kill.assert_not_called()
+        self.assertEqual((scratch / 'synthetic-data').read_text(), 'retain')
+
+    def test_initial_journal_precedes_s3_constructor_and_survives_hard_kill(self):
+        source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+        env = self.env | {'CI_PROJECT_DIR': str(ROOT), 'CI_JOB_ID': str(uuid.uuid4().int)[:12],
+                          'CI_COMMIT_SHA': source, 'JAVA_HOME': '/unused-no-java-started'}
+        report = self.root / 'early-journal'
+        script = r'''
+import importlib.abc, importlib.util, json, os, runpy, signal, sys
+from pathlib import Path
+runtime, report = sys.argv[1:]
+sys.path.insert(0, str(Path(runtime).parent))
+original = importlib.util.spec_from_file_location
+class EarlyS3:
+    def __init__(self, scratch, report, *args, **kwargs):
+        ledger = json.loads((report / 'native-processes.json').read_text())
+        assert ledger['scratch'] == str(scratch) and ledger['processes'] == []
+        assert json.loads((scratch / 'fixture-scope.json').read_text()) == {'scope':ledger['scope'], 'source':ledger['source']}
+        (report / 'constructor-checkpoint.json').write_text(json.dumps(ledger))
+        os.kill(os.getpid(), signal.SIGKILL)
+class Loader(importlib.abc.Loader):
+    def create_module(self, spec): return None
+    def exec_module(self, module): module.S3Fixture = EarlyS3
+def spec(name, path, *args, **kwargs):
+    if Path(path).name == 'documents-s3-fixture.py': return importlib.util.spec_from_loader(name, Loader())
+    return original(name, path, *args, **kwargs)
+importlib.util.spec_from_file_location = spec
+sys.argv = [runtime, '--skip-build', '--storage-backend', 's3', '--report-dir', report]
+runpy.run_path(runtime, run_name='__main__')
+'''
+        result = subprocess.run([sys.executable, '-B', '-c', script, str(ROOT / 'scripts/check-documents-runtime.py'), str(report)],
+                                env=env, capture_output=True, text=True, timeout=15)
+        context = RuntimeContext(ROOT, source, env)
+        scratch = None
+        try:
+            self.assertEqual(result.returncode, -signal.SIGKILL, result.stderr)
+            checkpoint = json.loads((report / 'constructor-checkpoint.json').read_text())
+            scratch = Path(checkpoint['scratch'])
+            self.assertTrue(scratch.exists())
+            cleaned = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/documents-fixture-cleanup.py'),
+                                      str(report / 'native-processes.json'), '--scope', checkpoint['scope'], '--source', source],
+                                     env=env, capture_output=True, text=True, timeout=15)
+            self.assertEqual(cleaned.returncode, 0, cleaned.stderr)
+            self.assertFalse(scratch.exists())
+        finally:
+            if scratch and scratch.exists(): shutil.rmtree(scratch)
+            if context.parent.exists():
+                # Only this synthetic test job; also remove a failed pre-journal candidate.
+                shutil.rmtree(context.parent)
 
     def test_fresh_cleanup_shell_stops_only_owned_identity_in_current_job(self):
         # Use the real checkout because a fresh helper independently derives ROOT.

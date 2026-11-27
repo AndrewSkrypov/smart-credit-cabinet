@@ -14,6 +14,7 @@ ORIGIN = "https://vault.pump.internal:8200"
 ROLES = {
     "pump-ci-dev-canary": ("dev", 2, "verify"),
     "pump-ci-dev": ("dev", 2, "start"),
+    "pump-ci-prod-canary": ("production", 4, "verify"),
     "pump-ci-prod": ("production", 4, "start"),
 }
 

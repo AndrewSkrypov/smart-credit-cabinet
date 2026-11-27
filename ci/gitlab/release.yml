@@ -53,17 +53,37 @@ dev-vault-canary:
     - python3 ci/gitlab/vault/with-deploy-secrets.py dev-canary
 
 prod-deploy:
-  extends: .release
+  extends: [.release, .pump-vault-job-identity]
   stage: prod
   tags: [cabinet-deploy-prod]
   resource_group: cabinet-prod
   environment:
     name: production
+    action: start
     url: $CABINET_PROD_URL
   dependencies: [release-images, dev-deploy]
   script:
     - sha256sum -c dev-release.sha256
-    - bash ci/gitlab/deploy-prod.sh
+    - python3 ci/gitlab/vault/with-deploy-secrets.py production-release -- bash ci/gitlab/deploy-prod.sh
+
+prod-vault-canary:
+  extends: .pump-vault-job-identity
+  stage: prod
+  tags: [cabinet-deploy-prod]
+  resource_group: cabinet-prod
+  timeout: 5m
+  environment:
+    name: production
+    action: verify
+  dependencies: [release-images, dev-deploy]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "feat/final-platform-release" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE =~ /^(push|api|web)$/'
+      when: manual
+      allow_failure: true
+  script:
+    - sha256sum -c dev-release.sha256
+    - python3 ci/gitlab/release-manifest.py release.json "$CI_COMMIT_SHA" "$CI_REGISTRY_IMAGE"
+    - python3 ci/gitlab/vault/with-deploy-secrets.py production-canary
 
 dev-diagnostics:
   stage: dev

@@ -78,7 +78,7 @@ class HandoffTests(unittest.TestCase):
             with (patch.dict(os.environ, env, clear=True), self.trust(),
                   patch.object(handoff, "vault_request", side_effect=self.fake_vault) as request,
                   patch.object(handoff.subprocess, "run") as child, contextlib.redirect_stdout(io.StringIO()) as output):
-                self.assertEqual(handoff.check_dev_parity(), 0)
+                self.assertEqual(handoff.check_parity("dev"), 0)
                 self.assertEqual(request.call_args_list[0].kwargs["body"]["role"], "pump-ci-dev-canary")
                 self.assertEqual(request.call_args_list[-1].args[2], "auth/token/revoke-self")
                 self.assertIn("2/2", output.getvalue())
@@ -93,8 +93,8 @@ class HandoffTests(unittest.TestCase):
             env[handoff.JWT_VAR] = token(environment_action="verify")
             with (patch.dict(os.environ, env, clear=True), self.trust(),
                   patch.object(handoff, "vault_request", side_effect=self.fake_vault) as request,
-                  self.assertRaisesRegex(handoff.HandoffError, "^Vault and legacy Dev file variables differ$")):
-                handoff.check_dev_parity()
+                  self.assertRaisesRegex(handoff.HandoffError, "^Vault and legacy file variables differ$")):
+                handoff.check_parity("dev")
             self.assertEqual(request.call_args_list[-1].args[2], "auth/token/revoke-self")
 
     def test_deploy_child_sees_only_replacement_paths_after_revoke_and_files_are_cleaned(self):
@@ -153,7 +153,7 @@ class HandoffTests(unittest.TestCase):
               patch.dict(os.environ, self.env | {"PUMP_VAULT_DEV_ENABLED": "1"}, clear=True),
               patch.object(handoff, "deploy") as deploy,
               patch.object(handoff.subprocess, "run", return_value=handoff.subprocess.CompletedProcess([], 0)) as run):
-            self.assertEqual(handoff.dev_release(["fixture-command"]), 0)
+            self.assertEqual(handoff.release("dev", ["fixture-command"]), 0)
             self.assertNotIn(handoff.JWT_VAR, run.call_args.kwargs["env"])
             deploy.assert_not_called()
 
@@ -167,14 +167,63 @@ class HandoffTests(unittest.TestCase):
                   patch.dict(os.environ, self.env | {"PUMP_VAULT_DEV_ENABLED": "0"}, clear=True),
                   patch.object(handoff, "deploy", return_value=17) as deploy,
                   patch.object(handoff.subprocess, "run") as run):
-                self.assertEqual(handoff.dev_release(["fixture-command"]), 17)
+                self.assertEqual(handoff.release("dev", ["fixture-command"]), 17)
                 trust.assert_any_call(config, stat.S_ISDIR)
                 trust.assert_any_call(marker, stat.S_ISREG)
                 deploy.assert_called_once_with("dev", ["fixture-command"])
                 marker.write_text("b" * 40)
                 with self.assertRaisesRegex(handoff.HandoffError, "activation does not match"):
-                    handoff.dev_release(["fixture-command"])
+                    handoff.release("dev", ["fixture-command"])
                 run.assert_not_called()
+
+    def test_prod_canary_reads_only_its_record_and_revokes_without_running_a_child(self):
+        requests = []
+
+        def fake_request(_opener, _endpoint, path, *, body=None, token=None):
+            requests.append(path)
+            if path == "auth/pump-gitlab/login":
+                self.assertEqual(body["role"], "pump-ci-prod-canary")
+                return {"auth": {"client_token": "fixture-prod-session", "policies": ["pump-ci-prod"]}}
+            self.assertEqual(token, "fixture-prod-session")
+            if path == "pump/data/prod/ci-deploy":
+                return {"data": {"data": {"CABINET_PROD_VALUES": "fixture-values\n"}}}
+            self.assertEqual(path, "auth/token/revoke-self")
+            return {}
+
+        with tempfile.TemporaryDirectory() as directory:
+            previous = Path(directory) / "legacy-values"
+            previous.write_text("fixture-values\n")
+            env = self.env | {
+                handoff.JWT_VAR: token(environment="production", environment_action="verify", runner_id=4),
+                "CABINET_PROD_VALUES": str(previous),
+            }
+            with (patch.dict(os.environ, env, clear=True), self.trust(),
+                  patch.object(handoff, "vault_request", side_effect=fake_request),
+                  patch.object(handoff.subprocess, "run") as child, contextlib.redirect_stdout(io.StringIO()) as output):
+                self.assertEqual(handoff.check_parity("production"), 0)
+                self.assertIn("1/1", output.getvalue())
+                self.assertNotIn("fixture", output.getvalue())
+                child.assert_not_called()
+        self.assertEqual(requests, ["auth/pump-gitlab/login", "pump/data/prod/ci-deploy", "auth/token/revoke-self"])
+
+    def test_prod_cannot_use_dev_marker_runner_or_start_token_for_canary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory)
+            (config / "dev-active-sha").write_text(SHA)
+            with (patch.object(handoff, "CONFIG_DIR", config),
+                  patch.object(handoff, "verify_trust_path", side_effect=lambda path, _: path.stat()),
+                  patch.dict(os.environ, self.env, clear=True),
+                  patch.object(handoff, "deploy") as deploy,
+                  patch.object(handoff.subprocess, "run", return_value=handoff.subprocess.CompletedProcess([], 0))):
+                self.assertEqual(handoff.release("production", ["fixture-command"]), 0)
+                deploy.assert_not_called()
+        for claims in (
+            {"environment": "production", "runner_id": 2, "environment_action": "verify"},
+            {"environment": "production", "runner_id": 4, "environment_action": "start"},
+            {"environment": "dev", "runner_id": 4, "environment_action": "verify"},
+        ):
+            with self.subTest(claims=claims), self.assertRaises(handoff.HandoffError):
+                handoff.validate_claims(token(**claims), handoff.VAULT_ORIGIN, "production", 4, JOB, SHA, "verify")
 
 if __name__ == "__main__":
     unittest.main()

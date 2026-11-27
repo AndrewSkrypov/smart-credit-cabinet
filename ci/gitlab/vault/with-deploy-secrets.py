@@ -29,6 +29,7 @@ PROFILES = {
     ),
     "production": ("pump-ci-prod", "pump/data/prod/ci-deploy", 4, ("CABINET_PROD_VALUES",)),
 }
+ACTIVATION_MARKERS = {"dev": "dev-active-sha", "production": "prod-active-sha"}
 
 
 class HandoffError(Exception):
@@ -133,7 +134,7 @@ def read_values(profile, *, canary=False):
     role, path, runner, keys = PROFILES[profile]
     action = "verify" if canary else "start"
     if canary:
-        role = "pump-ci-dev-canary"
+        role += "-canary"
     endpoint, opener = load_trust()
     validate_claims(jwt, endpoint, profile, runner, job_id, sha, action)
     auth = vault_request(opener, endpoint, "auth/pump-gitlab/login", body={"role": role, "jwt": jwt})["auth"]
@@ -151,16 +152,17 @@ def read_values(profile, *, canary=False):
     return {key: values[key].encode() for key in keys}
 
 
-def check_dev_parity():
-    values = read_values("dev", canary=True)
+def check_parity(profile):
+    values = read_values(profile, canary=True)
     for key, expected in values.items():
         descriptor = os.open(os.environ[key], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         with os.fdopen(descriptor, "rb") as file:
             if not stat.S_ISREG(os.fstat(file.fileno()).st_mode):
-                raise HandoffError("Legacy Dev file variable is not a regular file")
+                raise HandoffError("Legacy file variable is not a regular file")
             if not hmac.compare_digest(file.read(MAX_RESPONSE + 1), expected):
-                raise HandoffError("Vault and legacy Dev file variables differ")
-    print("Vault Dev canary: 2/2 file variables match, scoped session revoked")
+                raise HandoffError("Vault and legacy file variables differ")
+    count = len(values)
+    print(f"Vault {profile} canary: {count}/{count} file variables match, scoped session revoked")
     return 0
 
 
@@ -178,8 +180,8 @@ def deploy(profile, command):
         return subprocess.run(command, env=environment, check=False).returncode
 
 
-def dev_release(command):
-    marker = CONFIG_DIR / "dev-active-sha"
+def release(profile, command):
+    marker = CONFIG_DIR / ACTIVATION_MARKERS[profile]
     try:
         verify_trust_path(CONFIG_DIR, stat.S_ISDIR)
         verify_trust_path(marker, stat.S_ISREG)
@@ -190,26 +192,26 @@ def dev_release(command):
     with marker.open(encoding="ascii") as active:
         activated_sha = active.read(42).rstrip("\n")
     if len(activated_sha) != 40 or activated_sha != os.environ.get("CI_COMMIT_SHA"):
-        raise HandoffError("The runner Vault activation does not match this Dev release")
-    return deploy("dev", command)
+        raise HandoffError("The runner Vault activation does not match this release")
+    return deploy(profile, command)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run a protected PUMP deployment with file secrets from Vault.")
-    parser.add_argument("profile", choices=(*PROFILES, "dev-canary", "dev-release"))
+    modes = tuple(f"{profile}-{mode}" for profile in PROFILES for mode in ("canary", "release"))
+    parser.add_argument("profile", choices=modes)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
-    if args.profile == "dev-canary" and command:
+    profile, mode = args.profile.rsplit("-", 1)
+    if mode == "canary" and command:
         parser.error("the read-only canary does not accept a command")
-    if args.profile != "dev-canary" and not command:
+    if mode != "canary" and not command:
         parser.error("a deployment command is required")
     try:
-        if args.profile == "dev-canary":
-            return check_dev_parity()
-        if args.profile == "dev-release":
-            return dev_release(command)
-        return deploy(args.profile, command)
+        if mode == "canary":
+            return check_parity(profile)
+        return release(profile, command)
     except HandoffError as error:
         print(str(error), file=sys.stderr)
     except (KeyError, TypeError, ValueError, OSError, AttributeError):

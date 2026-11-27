@@ -373,6 +373,32 @@ class Leak(
         for symbol in ("OutboxWorker", "SchedulingEndpoint", "WorkerRegistration"):
             self.assertTrue(any(f"domain depends on ru.creditcabinet.common.outbox.{symbol}" in error for error in report["errors"]), report)
 
+    def test_shared_types_do_not_inherit_dependencies_from_adjacent_top_level_members(self):
+        source = self.root / "libs/platform-common" / boundaries.COMMON_DOMAIN_PATH
+        source.mkdir(parents=True)
+        (source / "Consumer.kt").write_text("""package ru.creditcabinet.common.domain
+import ru.creditcabinet.common.outbox.FirstNeutral
+import ru.creditcabinet.common.outbox.Neutral
+import ru.creditcabinet.common.outbox.OutboxSettings
+import ru.creditcabinet.common.outbox.OutboxWorker
+class Consumer(val first: FirstNeutral, val second: Neutral, val worker: OutboxWorker, val settings: OutboxSettings)
+""")
+        outbox = source.parent / "outbox/OutboxWorker.kt"
+        original = outbox.read_text()
+        members = (
+            "private fun lookup(jdbc: org.springframework.jdbc.core.JdbcTemplate) = jdbc",
+            "private val connection: java.sql.Connection? = null",
+        )
+        for member in members:
+            for before in (True, False):
+                with self.subTest(member=member, before=before):
+                    neutral = "data class Neutral(val id: String)"
+                    declarations = (member, neutral) if before else (neutral, member)
+                    outbox.write_text(original + "\ndata class FirstNeutral(val id: String)\n\n"
+                                      + "\n\n".join(declarations) + "\n")
+                    errors = boundaries.check(self.root)["errors"]
+                    self.assertEqual(["OutboxSettings", "OutboxWorker"], sorted(error.rsplit(".", 1)[-1] for error in errors))
+
     def test_shared_bytecode_dependencies_propagate_from_framework_to_consumers(self):
         catalog = boundaries.BoundaryCatalog(self.root)
         consumer = """

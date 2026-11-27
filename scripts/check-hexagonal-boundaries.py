@@ -70,6 +70,7 @@ DECLARATION = re.compile(r"(?m)(?:^|(?<=[{;]))[^\S\n]*"
                          r"inner|actual|expect|companion|inline|external|non-sealed|strictfp)\s+)*"
                          r"(class|interface|object|record|enum|typealias)\s+(\w+)")
 TYPE_NAME = re.compile(r"\s*((?:[a-zA-Z_]\w*\.)*[a-zA-Z_]\w*)")
+TYPE_ANNOTATION = re.compile(r"(?<![\w@])@[\w.]+(?![\w.:])")
 BRACE = re.compile(r"[{}]")
 STRING = re.compile(r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
 ALIAS = re.compile(r"(?m)^typealias\s+(\w+)\s*=\s*([\w.]+)[^\S\n]*$")
@@ -255,18 +256,32 @@ def source_types(text, java):
             if body is not None and kind != "typealias":
                 type_bodies[body] = name
             end = skip_group(text, body, "{", "}") if body is not None else header_end
-            yield kind, ".".join([*enclosing, name]), parents, declaration.end(), end
+            yield kind, ".".join([*enclosing, name]), parents, declaration.start(), declaration.end(), end
+
+
+def trailing_annotations(text):
+    """Keep only annotations that reach the next declaration without intervening code."""
+    start, end = None, 0
+    while annotation := TYPE_ANNOTATION.search(text, end):
+        if start is None or text[end:annotation.start()].strip():
+            start = annotation.start()
+        end = annotation.end()
+        argument = len(text) - len(text[end:].lstrip())
+        if text[argument:argument + 1] == "(":
+            end = skip_group(text, argument, "(", ")")
+    return text[start:] if start is not None and not text[end:].strip() else ""
 
 
 def shared_source_edges(package, syntax, declarations, imports, star_imports, declared):
     """Track dependencies of each shared type, including imports used in its annotations or body."""
     cursor = 0
-    for kind, name, _, _, end in declarations:
+    for kind, name, _, start, _, end in declarations:
         if "." in name:
             continue
         # A mixed source file can declare both a clean contract and its framework adapter.
-        # A type owns its header/body and any preceding annotations, not the whole input file.
-        fragment = IMPORT.sub("", PACKAGE.sub("", syntax[cursor:end]))
+        # A type owns its header/body and attached annotations. Top-level members in the
+        # gap belong to the file facade and cannot make an adjacent type an adapter.
+        fragment = trailing_annotations(syntax[cursor:start]) + syntax[start:end]
         cursor = end
         if kind == "typealias":
             continue
@@ -300,7 +315,7 @@ class BoundaryCatalog:
             imports = IMPORT.findall(code)
             syntax = STRING.sub('""', code)
             declarations = list(source_types(syntax, source.suffix == ".java"))
-            symbols = {package + "." + name for _, name, _, _, _ in declarations}
+            symbols = {package + "." + name for _, name, _, _, _, _ in declarations}
             declared.update(symbols)
             if group == "libs" and module in ADAPTER_LIBRARIES:
                 # The renderer shares a package with pure document models. Classify its
@@ -320,7 +335,7 @@ class BoundaryCatalog:
         for module, package, imported, syntax, declarations in local_sources:
             imports = {alias or name.rsplit(".", 1)[-1]: name for name, alias in imported if not name.endswith("*")}
             star_imports = [name[:-1] for name, _ in imported if name.endswith("*")]
-            for kind, name, parents, tail, _ in declarations:
+            for kind, name, parents, _, tail, _ in declarations:
                 qualified = package + "." + name
                 owner = qualified.rsplit(".", 1)[0]
                 if kind == "typealias":

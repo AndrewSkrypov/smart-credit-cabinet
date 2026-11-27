@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Нет связи</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #1f2a44; color: #fff; font: 17px -apple-system, system-ui, sans-serif; }
+    main { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; text-align: center; gap: 16px; }
+    button { font: inherit; padding: 12px 24px; border-radius: 12px; border: 0; background: #ef3124; color: #fff; }
+    p { margin: 0; opacity: .8; max-width: 320px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 style="margin:0;font-size:22px">Нет связи с кабинетом</h1>
+    <p>Проверьте интернет и попробуйте снова. Данные заявок хранятся на сервере банка и не потеряются.</p>
+    <button type="button" onclick="location.href = window.CABINET_URL || '/'">Повторить</button>
+  </main>
+</body>
+</html>

@@ -1,4 +1,4 @@
-package ru.creditcabinet.documents
+package ru.creditcabinet.documents.infrastructure
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
@@ -16,6 +16,11 @@ import ru.creditcabinet.document.generated.ArtifactKind
 import ru.creditcabinet.document.generated.ArtifactRenderer
 import ru.creditcabinet.document.infrastructure.LocalFileStore
 import ru.creditcabinet.document.infrastructure.S3FileStore
+import ru.creditcabinet.documents.ArtifactRecord
+import ru.creditcabinet.documents.DocumentRecord
+import ru.creditcabinet.documents.DocumentScope
+import ru.creditcabinet.documents.MAX_DOCUMENT_BYTES
+import ru.creditcabinet.documents.sha256
 import java.sql.ResultSet
 import java.sql.Timestamp
 import java.time.Instant

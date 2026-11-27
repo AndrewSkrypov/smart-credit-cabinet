@@ -1,4 +1,4 @@
-package ru.creditcabinet.documents
+package ru.creditcabinet.documents.infrastructure
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
@@ -10,7 +10,7 @@ import ru.creditcabinet.document.infrastructure.LocalFileStore
 import ru.creditcabinet.document.infrastructure.RoutingFileStore
 import ru.creditcabinet.document.infrastructure.S3FileStore
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = ["ru.creditcabinet.documents"])
 @EnableScheduling
 @Import(ArtifactRenderer::class, ClamDocumentScanner::class, LocalFileStore::class, S3FileStore::class, RoutingFileStore::class)
 class DocumentsApplication

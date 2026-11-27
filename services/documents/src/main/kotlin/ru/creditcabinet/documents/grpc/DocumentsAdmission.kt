@@ -1,4 +1,4 @@
-package ru.creditcabinet.documents
+package ru.creditcabinet.documents.grpc
 
 import io.grpc.ForwardingServerCall
 import io.grpc.ForwardingServerCallListener

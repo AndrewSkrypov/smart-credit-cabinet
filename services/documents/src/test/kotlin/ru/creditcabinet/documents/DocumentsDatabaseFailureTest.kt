@@ -9,6 +9,8 @@ import org.mockito.kotlin.whenever
 import org.springframework.jdbc.CannotGetJdbcConnectionException
 import ru.creditcabinet.contracts.documents.v1.Records
 import ru.creditcabinet.contracts.documents.v1.Scope
+import ru.creditcabinet.documents.application.DocumentsStore
+import ru.creditcabinet.documents.grpc.DocumentsRpc
 import java.sql.SQLException
 import java.sql.SQLTransientConnectionException
 import kotlin.test.Test

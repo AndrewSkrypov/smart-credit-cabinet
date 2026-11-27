@@ -8,6 +8,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
+import ru.creditcabinet.documents.grpc.DocumentsAdmission
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

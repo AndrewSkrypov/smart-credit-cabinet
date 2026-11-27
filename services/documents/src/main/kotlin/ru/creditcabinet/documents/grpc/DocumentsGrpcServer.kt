@@ -1,4 +1,4 @@
-package ru.creditcabinet.documents
+package ru.creditcabinet.documents.grpc
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ByteString
@@ -24,6 +24,13 @@ import ru.creditcabinet.contracts.documents.v1.PutRequest
 import ru.creditcabinet.contracts.documents.v1.Record
 import ru.creditcabinet.contracts.documents.v1.Records
 import ru.creditcabinet.contracts.documents.v1.Scope
+import ru.creditcabinet.documents.ArtifactRecord
+import ru.creditcabinet.documents.DocumentConflict
+import ru.creditcabinet.documents.DocumentRecord
+import ru.creditcabinet.documents.DocumentScope
+import ru.creditcabinet.documents.MAX_DOCUMENT_BYTES
+import ru.creditcabinet.documents.application.DocumentsStore
+import ru.creditcabinet.documents.sha256
 import java.io.File
 import java.security.cert.X509Certificate
 import java.time.Instant

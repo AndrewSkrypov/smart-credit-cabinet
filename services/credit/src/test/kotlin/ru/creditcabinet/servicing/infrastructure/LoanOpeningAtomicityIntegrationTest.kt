@@ -84,7 +84,7 @@ class LoanOpeningAtomicityIntegrationTest {
                 expiresAt = clock.instant().plusSeconds(600),
                 signatureId = UUID.randomUUID(), signedAt = clock.instant(), createdAt = clock.instant(), contractSnapshotId = snapshot.id,
             )
-        val sessions = mock<SigningSessions> { on { latest(app.id) } doReturn signed }
+        val sessions = mock<SigningSessions> { on { signedFor(app.id, cycle) } doReturn signed }
         val loan =
             Loan(
                 app.id,
@@ -163,7 +163,7 @@ class LoanOpeningAtomicityIntegrationTest {
         val fixture = fixture()
         val jobId = UUID.randomUUID()
         jdbc.update(
-            "insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at) values(?,?,'DISBURSEMENT','RUNNING',1,now(),now(),now())",
+            "insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at,locked_until) values(?,?,'DISBURSEMENT','RUNNING',1,now(),now(),now(),now()+interval '5 minutes')",
             jobId,
             fixture.app.id,
         )
@@ -182,7 +182,7 @@ class LoanOpeningAtomicityIntegrationTest {
             status = OfferStatus.ACCEPTED, createdAt = clock.instant(),
         )
         val offerStore = mock<OfferRepository> { on { current(fixture.app.id) } doReturn offer }
-        val sessions = mock<SigningSessions> { on { latest(fixture.app.id) } doReturn fixture.signed }
+        val sessions = mock<SigningSessions> { on { signedFor(fixture.app.id, fixture.cycle) } doReturn fixture.signed }
         val core = mock<ru.creditcabinet.integration.CoreBanking> {
             on { disburse(any()) } doReturn ru.creditcabinet.integration.LoanBooked(
                 fixture.loan.contractNumber,
@@ -199,28 +199,212 @@ class LoanOpeningAtomicityIntegrationTest {
         val steps = disbursementPipeline(context, fixture.outbox, core, offerStore, sessions, pinned)
         val id = UUID.randomUUID()
         jdbc.update(
-            "insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at) values(?,?,'DISBURSEMENT','RUNNING',1,now(),now(),now())",
+            "insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at,locked_until) values(?,?,'DISBURSEMENT','RUNNING',1,now(),now(),now(),now()+interval '5 minutes')",
             id,
             fixture.app.id,
         )
         val job = PipelineJob(id, fixture.app.id, PipelineStep.DISBURSEMENT, 1)
-        steps.run(job)
+        steps.run(
+            job.copy(
+                leaseUntil = jdbc.queryForObject("select locked_until from pipeline_jobs where id=?", java.sql.Timestamp::class.java, job.id)!!.toInstant(),
+            ),
+        )
         assertEquals(ApplicationStatus.DISBURSING, applications.find(fixture.app.id)!!.status)
         assertNull(loans.find(fixture.app.id))
         assertNull(operations.byApplication(fixture.app.id))
-        jdbc.update("update pipeline_jobs set status='RUNNING',attempts=1 where id=?", id)
-        steps.run(job) // pending receipt survives another job execution without another core call
+        jdbc.update("update pipeline_jobs set status='RUNNING',attempts=1,locked_until=now()+interval '5 minutes' where id=?", id)
+        steps.run(
+            job.copy(
+                leaseUntil = jdbc.queryForObject("select locked_until from pipeline_jobs where id=?", java.sql.Timestamp::class.java, job.id)!!.toInstant(),
+            ),
+        ) // pending receipt survives another job execution without another core call
         verify(core, times(1)).disburse(any())
         verify(pinned, times(1)).version("OVERDRAFT", 1)
         assertEquals(0, jdbc.queryForObject("select attempts from pipeline_jobs where id=?", Int::class.java, id))
         assertTrue(fixture.outbox.deliverOne())
-        jdbc.update("update pipeline_jobs set status='RUNNING',attempts=1 where id=?", id)
-        steps.run(job)
+        jdbc.update("update pipeline_jobs set status='RUNNING',attempts=1,locked_until=now()+interval '5 minutes' where id=?", id)
+        steps.run(
+            job.copy(
+                leaseUntil = jdbc.queryForObject("select locked_until from pipeline_jobs where id=?", java.sql.Timestamp::class.java, job.id)!!.toInstant(),
+            ),
+        )
         assertEquals(ApplicationStatus.DISBURSED, applications.find(fixture.app.id)!!.status)
         assertNotNull(loans.find(fixture.app.id))
         assertEquals("DONE", jdbc.queryForObject("select status from pipeline_jobs where id=?", String::class.java, id))
         assertEquals(1, operations.byApplication(fixture.app.id)!!.tranches.size)
         verify(core, times(1)).disburse(any())
         verify(pinned, times(1)).version("OVERDRAFT", 1)
+    }
+
+    @Test fun `expired core worker cannot invalidate a newer booked opening and receipt`() {
+        val fixture = fixture()
+        val offer = Offer(
+            id = fixture.cycle, applicationId = fixture.app.id, decisionId = UUID.randomUUID(), kind = OfferKind.APPROVED,
+            productCode = "OVERDRAFT", amount = fixture.loan.amount, termMonths = 12, rate = fixture.loan.rate,
+            monthlyPayment = BigDecimal("100000.00"), totalPayment = BigDecimal("1200000.00"), validUntil = clock.instant().plusSeconds(600),
+            status = OfferStatus.ACCEPTED, createdAt = clock.instant(),
+        )
+        val offerStore = mock<OfferRepository> { on { current(fixture.app.id) } doReturn offer }
+        val sessions = mock<SigningSessions> { on { signedFor(fixture.app.id, fixture.cycle) } doReturn fixture.signed }
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val calls = java.util.concurrent.atomic.AtomicInteger()
+        val core = mock<ru.creditcabinet.integration.CoreBanking>()
+        whenever(core.disburse(any())).thenAnswer {
+            if (calls.incrementAndGet() == 1) {
+                entered.countDown()
+                check(release.await(20, java.util.concurrent.TimeUnit.SECONDS))
+                throw ru.creditcabinet.integration.SourceUnavailableException("CORE", "Late response from expired lease")
+            }
+            ru.creditcabinet.integration.LoanBooked(
+                fixture.loan.contractNumber,
+                fixture.loan.loanAccount,
+                fixture.loan.settlementAccount,
+                fixture.loan.disbursedAt,
+                fixture.loan.maturityDate,
+            )
+        }
+        val steps = disbursementPipeline(context, fixture.outbox, core, offerStore, sessions, products)
+        val id = UUID.randomUUID()
+        val lease = clock.instant().plusSeconds(300).truncatedTo(java.time.temporal.ChronoUnit.MICROS)
+        jdbc.update(
+            "insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at,locked_until) values(?,?,'DISBURSEMENT','RUNNING',1,now(),now(),now(),?)",
+            id,
+            fixture.app.id,
+            java.sql.Timestamp.from(lease),
+        )
+        val oldJob = PipelineJob(id, fixture.app.id, PipelineStep.DISBURSEMENT, 1, lease)
+        val pool = java.util.concurrent.Executors.newSingleThreadExecutor()
+        try {
+            val late = pool.submit { steps.run(oldJob) }
+            assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS))
+            jdbc.update("update pipeline_jobs set locked_until=? where id=?", java.sql.Timestamp.from(clock.instant().minusSeconds(1)), id)
+            val next = jobs.claim(clock.instant(), clock.instant().plusSeconds(600), 1000).single { it.id == id }
+            steps.run(next)
+            val command = command(fixture.app.id)
+            release.countDown()
+            late.get(20, java.util.concurrent.TimeUnit.SECONDS)
+            assertEquals(fixture.app.version, applications.find(fixture.app.id)!!.version)
+            assertEquals(ApplicationStatus.DISBURSING, applications.find(fixture.app.id)!!.status)
+            assertEquals("PENDING", jdbc.queryForObject("select state from servicing_open_outbox where application_id=?", String::class.java, fixture.app.id))
+            assertTrue(fixture.outbox.deliverOne())
+            val receipt = operations.open(command)
+            tx.executeWithoutResult { fixture.outbox.acknowledge(command, receipt) }
+            jdbc.update("update pipeline_jobs set run_at=? where id=?", java.sql.Timestamp.from(clock.instant()), id)
+            val finalJob = jobs.claim(clock.instant(), clock.instant().plusSeconds(600), 1000).single { it.id == id }
+            steps.run(finalJob)
+            steps.run(oldJob)
+            assertEquals(ApplicationStatus.DISBURSED, applications.find(fixture.app.id)!!.status)
+            assertNotNull(loans.find(fixture.app.id))
+            assertEquals(2, calls.get()) // one expired request, one successful booking; receipt retries never call core
+            assertEquals(1, operations.byApplication(fixture.app.id)!!.tranches.size)
+        } finally {
+            release.countDown()
+            pool.shutdownNow()
+        }
+    }
+
+    @Test fun `late signing code cannot replace the signature bound to the booked cycle`() {
+        val fixture = fixture()
+        jdbc.update("update applications set status='SIGNING' where id=?", fixture.app.id)
+        val application = applications.find(fixture.app.id)!!
+        val decision = UUID.randomUUID()
+        jdbc.update(
+            "insert into decisions(id,application_id,rule_set_version,decided_by_type,outcome,inputs,created_at) values(?,?,1,'SYSTEM','APPROVE','{}'::jsonb,now())",
+            decision,
+            application.id,
+        )
+        val offer =
+            Offer(
+                id = fixture.cycle, applicationId = application.id, decisionId = decision, kind = OfferKind.APPROVED,
+                productCode = "OVERDRAFT", amount = 1_000_000, termMonths = 12,
+                rate = BigDecimal(
+                    "20.00",
+                ),
+                monthlyPayment = BigDecimal(
+                    "100000.00",
+                ),
+                totalPayment = BigDecimal(
+                    "1200000.00",
+                ),
+                validUntil = clock.instant().plusSeconds(600), status = OfferStatus.ACCEPTED, createdAt = clock.instant(),
+            )
+        val offerStore = context.getBean(OfferRepository::class.java)
+        offerStore.save(offer)
+        val contractTexts = context.getBean(ContractTexts::class.java)
+        val snapshot = contractTexts.freeze(application, offer, products.version("OVERDRAFT", 1)!!)
+        val records = context.getBean(SigningSessions::class.java)
+        val initial =
+            SigningSessionRecord(
+                applicationId = application.id,
+                offerId = offer.id,
+                externalSessionId = UUID.randomUUID(),
+                code = "123456",
+                expiresAt = clock.instant().plusSeconds(300),
+                createdAt = clock.instant(),
+                contractSnapshotId = snapshot.id,
+            )
+        records.save(initial)
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val gateway = mock<ru.creditcabinet.integration.SigningGateway>()
+        whenever(gateway.start(any(), any(), any(), any())).thenAnswer {
+            entered.countDown()
+            check(release.await(20, java.util.concurrent.TimeUnit.SECONDS))
+            ru.creditcabinet.integration.SigningStarted(UUID.randomUUID(), "654321", clock.instant().plusSeconds(300))
+        }
+        val signature = UUID.randomUUID()
+        whenever(gateway.confirm(initial.externalSessionId, "123456")).thenReturn(ru.creditcabinet.integration.SigningResult.Signed(signature, clock.instant()))
+        val service =
+            OfferService(
+                context.getBean(
+                    ru.creditcabinet.application.service.ApplicationService::class.java,
+                ),
+                transitions, offerStore, records, gateway, jobs, products, contractTexts, tx, clock,
+            )
+        val caller = ru.creditcabinet.common.security.TokenClaims(
+            application.createdBy,
+            ru.creditcabinet.common.security.Roles.CLIENT,
+            null,
+            null,
+            application.company.id,
+            true,
+        )
+        fun authenticate() {
+            org.springframework.security.core.context.SecurityContextHolder.getContext().authentication =
+                org.springframework.security.authentication.UsernamePasswordAuthenticationToken(caller, null, emptyList())
+        }
+        val pool = java.util.concurrent.Executors.newSingleThreadExecutor()
+        try {
+            val late = pool.submit<Boolean> {
+                authenticate()
+                try {
+                    service.requestCode(application.id)
+                    false
+                } catch (
+                    _: ru.creditcabinet.common.exception.ConflictException,
+                ) {
+                    true
+                } finally {
+                    org.springframework.security.core.context.SecurityContextHolder.clearContext()
+                }
+            }
+            assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS))
+            authenticate()
+            assertEquals(ApplicationStatus.DISBURSING, service.sign(application.id, "123456").status)
+            release.countDown()
+            assertTrue(late.get(20, java.util.concurrent.TimeUnit.SECONDS))
+            assertEquals(initial.id, records.latest(application.id)!!.id)
+            assertEquals(signature, records.signedFor(application.id, offer.id)!!.signatureId)
+            // A legacy unbound unsigned row also cannot shadow the cycle's actual signature.
+            records.save(initial.copy(id = UUID.randomUUID(), externalSessionId = UUID.randomUUID(), createdAt = clock.instant().plusSeconds(1)))
+            assertNull(records.latest(application.id)!!.signatureId)
+            assertEquals(signature, records.signedFor(application.id, offer.id)!!.signatureId)
+            assertEquals(ApplicationStatus.DISBURSING, service.sign(application.id, "123456").status)
+        } finally {
+            release.countDown()
+            pool.shutdownNow()
+            org.springframework.security.core.context.SecurityContextHolder.clearContext()
+        }
     }
 }

@@ -365,8 +365,17 @@ class JdbcSigningSessions(private val jdbc: NamedParameterJdbcTemplate) : Signin
         )
     }
 
-    override fun latest(applicationId: UUID): SigningSessionRecord? =
-        jdbc.query("select * from signing_sessions where application_id = :a order by created_at desc, sequence_no desc limit 1", mapOf("a" to applicationId)) {
+    override fun latest(applicationId: UUID): SigningSessionRecord? = session(
+        "select * from signing_sessions where application_id=:a order by created_at desc,sequence_no desc limit 1",
+        mapOf("a" to applicationId),
+    )
+    override fun signedFor(applicationId: UUID, offerId: UUID): SigningSessionRecord? = session(
+        "select * from signing_sessions where application_id=:a and offer_id=:offer and signature_id is not null order by signed_at desc,sequence_no desc limit 1",
+        mapOf("a" to applicationId, "offer" to offerId),
+    )
+
+    private fun session(query: String, parameters: Map<String, Any>): SigningSessionRecord? =
+        jdbc.query(query, parameters) {
                 rs,
                 _,
             ->

@@ -90,7 +90,7 @@ class CreditServicingLiveDeliveryTest {
                     expiresAt = clock.instant().plusSeconds(600),
                     signatureId = UUID.randomUUID(), signedAt = clock.instant(), createdAt = clock.instant(), contractSnapshotId = snapshot.id,
                 )
-            val sessions = mock<SigningSessions> { on { latest(app.id) } doReturn signed }
+            val sessions = mock<SigningSessions> { on { signedFor(app.id, cycle) } doReturn signed }
             val opening = LoanOpeningOutbox(jdbc, mapper, snapshots, sessions, operations, localOpening, tx, clock, "remote")
             val offer =
                 Offer(
@@ -124,12 +124,16 @@ class CreditServicingLiveDeliveryTest {
             val steps = disbursementPipeline(context, opening, core, offers, sessions, pinned)
             val jobId = UUID.randomUUID()
             jdbc.update(
-                "insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at) values(?,?,'DISBURSEMENT','RUNNING',1,now(),now(),now())",
+                "insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at,locked_until) values(?,?,'DISBURSEMENT','RUNNING',1,now(),now(),now(),now()+interval '5 minutes')",
                 jobId,
                 app.id,
             )
             val job = PipelineJob(jobId, app.id, PipelineStep.DISBURSEMENT, 1)
-            steps.run(job)
+            steps.run(
+                job.copy(
+                    leaseUntil = jdbc.queryForObject("select locked_until from pipeline_jobs where id=?", java.sql.Timestamp::class.java, job.id)!!.toInstant(),
+                ),
+            )
             assertEquals(ApplicationStatus.DISBURSING, applications.find(app.id)!!.status)
             assertNull(loans.find(app.id))
             val command = mapper.readValue(
@@ -147,8 +151,12 @@ class CreditServicingLiveDeliveryTest {
             assertTrue(opening.deliverOne())
             assertEquals(receipt, operations.open(command))
             assertEquals("CONFIRMED", jdbc.queryForObject("select state from servicing_open_outbox where application_id=?", String::class.java, app.id))
-            jdbc.update("update pipeline_jobs set status='RUNNING',attempts=1 where id=?", jobId)
-            steps.run(job)
+            jdbc.update("update pipeline_jobs set status='RUNNING',attempts=1,locked_until=now()+interval '5 minutes' where id=?", jobId)
+            steps.run(
+                job.copy(
+                    leaseUntil = jdbc.queryForObject("select locked_until from pipeline_jobs where id=?", java.sql.Timestamp::class.java, job.id)!!.toInstant(),
+                ),
+            )
             assertEquals(ApplicationStatus.DISBURSED, applications.find(app.id)!!.status)
             assertNotNull(loans.find(app.id))
             verify(core, times(1)).disburse(any())

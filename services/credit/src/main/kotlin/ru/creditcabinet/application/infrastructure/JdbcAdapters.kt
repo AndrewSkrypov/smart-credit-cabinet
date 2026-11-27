@@ -103,7 +103,7 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
                 limit :limit
                 for update skip locked
             )
-            returning id, application_id, step, attempts
+            returning id, application_id, step, attempts, locked_until
             """.trimIndent(),
             mapOf("now" to Timestamp.from(now), "leaseUntil" to Timestamp.from(leaseUntil), "limit" to limit),
         ) { rs, _ ->
@@ -112,6 +112,7 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
                 applicationId = rs.getObject("application_id", UUID::class.java),
                 step = PipelineStep.valueOf(rs.getString("step")),
                 attempts = rs.getInt("attempts"),
+                leaseUntil = rs.getTimestamp("locked_until").toInstant(),
             )
         }
 

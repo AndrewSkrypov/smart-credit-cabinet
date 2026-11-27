@@ -6,6 +6,8 @@ import java.time.Instant
 import java.util.UUID
 
 interface LoanOpening {
+    /** Transactional application/job lock; a superseded lease cannot publish any result. */
+    fun lockExecution(job: ru.creditcabinet.application.domain.PipelineJob): Boolean
     fun bookedLoan(applicationId: UUID): Loan?
     fun requireSignedSnapshot(applicationId: UUID, cycleId: UUID)
 

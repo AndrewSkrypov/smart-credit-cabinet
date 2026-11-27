@@ -370,8 +370,8 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         replica=start([*own.args,f'--cabinet.documents.grpc.port={replica_port}'],'documents-replica-after-outage',own_env); wait_port(replica_port,replica)
         test_env = base_env | {'DOCUMENTS_TEST_STORAGE_BACKEND':args.storage_backend.upper(),'DOCUMENTS_TEST_CERTS':str(certs),'DOCUMENTS_TEST_GRPC_PORT':str(grpc_port),'DOCUMENTS_TEST_APPLICATION':application,'DOCUMENTS_TEST_COMPANY':company,'DOCUMENTS_TEST_HIDDEN':hidden,'DOCUMENTS_TEST_VISIBLE':visible,'DOCUMENTS_TEST_PRIVATE':private,'DOCUMENTS_TEST_REVOKED_AGENT':revoked_agent,
             'DOCUMENTS_TEST_CREDIT_URL':f'http://127.0.0.1:{http_port}','DOCUMENTS_TEST_JWT_SECRET':jwt,'DOCUMENTS_TEST_DATABASE_BASE':f'jdbc:postgresql://127.0.0.1:{pg_port}','DOCUMENTS_TEST_ADMIN_USER':admin,'DOCUMENTS_TEST_ADMIN_PASSWORD':admin_password,'DOCUMENTS_TEST_CREDIT_APP_PASSWORD':credit_app_password,'DOCUMENTS_TEST_DOCUMENTS_APP_PASSWORD':own_app_password}
-        run([gradle,'--no-daemon','--max-workers=1','-Pkotlin.compiler.execution.strategy=in-process','-Dorg.gradle.jvmargs=-Xmx512m -XX:MaxMetaspaceSize=384m',':services:documents:documentsRuntimeTest','--rerun-tasks'], 'tests', env=test_env)
-        xml_paths = sorted((ROOT/'services/documents/build/test-results/documentsRuntimeTest').glob('TEST-*.xml'))
+        run([gradle,'--no-daemon','--max-workers=1','-Pkotlin.compiler.execution.strategy=in-process','-Dorg.gradle.jvmargs=-Xmx512m -XX:MaxMetaspaceSize=384m',':services:documents:documentsRuntimeTest',':services:credit:documentsClaimFenceRuntimeTest','--rerun-tasks'], 'tests', env=test_env)
+        xml_paths = sorted((ROOT/'services/documents/build/test-results/documentsRuntimeTest').glob('TEST-*.xml')) + sorted((ROOT/'services/credit/build/test-results/documentsClaimFenceRuntimeTest').glob('TEST-*.xml'))
         assert xml_paths
         totals = {key: sum(int(ET.parse(path).getroot().get(key,0)) for path in xml_paths) for key in ('tests','failures','errors','skipped')}
         assert totals['tests'] >= 3 and all(totals[key] == 0 for key in ('failures','errors','skipped')), totals

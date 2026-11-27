@@ -72,10 +72,10 @@ class PipelineWorker(
     private fun unexpectedFailure(job: PipelineJob, exception: Exception) {
         log.error("Pipeline step {} of application {} failed (attempt {})", job.step, job.applicationId, job.attempts, exception)
         if (job.attempts >= settings.maxAttempts) {
-            jobs.fail(job.id, exception.message)
+            jobs.failClaim(job, clock.instant(), exception.message)
         } else {
             val pause = Duration.ofSeconds(10).multipliedBy(1L shl (job.attempts - 1).coerceIn(0, 5))
-            jobs.retry(job.id, clock.instant().plus(pause), exception.message)
+            jobs.retryClaim(job, clock.instant(), clock.instant().plus(pause), exception.message)
         }
     }
 

@@ -133,6 +133,41 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
         )
     }
 
+    override fun retryClaim(job: PipelineJob, now: Instant, runAt: Instant, error: String?) {
+        if (job.leaseUntil == null) return
+        jdbc.update(
+            """
+            update pipeline_jobs set status='PENDING', run_at=:runAt, locked_until=null, last_error=:error, updated_at=:now
+            where id=:id and status='RUNNING' and attempts=:attempt and locked_until=:lease and locked_until>:now
+            """.trimIndent(),
+            mapOf(
+                "id" to job.id,
+                "attempt" to job.attempts,
+                "lease" to Timestamp.from(job.leaseUntil),
+                "now" to Timestamp.from(now),
+                "runAt" to Timestamp.from(runAt),
+                "error" to error?.take(2000),
+            ),
+        )
+    }
+
+    override fun failClaim(job: PipelineJob, now: Instant, error: String?) {
+        if (job.leaseUntil == null) return
+        jdbc.update(
+            """
+            update pipeline_jobs set status='FAILED', locked_until=null, last_error=:error, updated_at=:now
+            where id=:id and status='RUNNING' and attempts=:attempt and locked_until=:lease and locked_until>:now
+            """.trimIndent(),
+            mapOf(
+                "id" to job.id,
+                "attempt" to job.attempts,
+                "lease" to Timestamp.from(job.leaseUntil),
+                "now" to Timestamp.from(now),
+                "error" to error?.take(2000),
+            ),
+        )
+    }
+
     override fun retryDocumentsUnavailable(job: PipelineJob, now: Instant) {
         require(job.step == PipelineStep.DATA_CHECK && job.leaseUntil != null)
         jdbc.update(

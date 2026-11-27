@@ -47,6 +47,8 @@ interface PipelineJobs {
 
     /** A port outage keeps business attempts and uses durable, capped transport backoff. */
     fun retryDocumentsUnavailable(job: PipelineJob, now: Instant)
+    fun retryClaim(job: PipelineJob, now: Instant, runAt: Instant, error: String?)
+    fun failClaim(job: PipelineJob, now: Instant, error: String?)
 }
 
 interface IdempotencyKeys {

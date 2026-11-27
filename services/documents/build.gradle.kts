@@ -13,6 +13,9 @@ dependencies {
 
 val documentsRuntimeTest by tasks.registering(Test::class) {
     description = "Independent Documents own-DB/mTLS/Credit HTTP runtime gate"
+    // Custom fixture owns its database; the default report depends on an unrelated full test suite.
+    setFinalizedBy(emptyList<String>())
+    outputs.upToDateWhen { false }
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     include("**/DocumentsRuntimeTest.class")

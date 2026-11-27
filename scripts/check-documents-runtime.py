@@ -366,6 +366,8 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         sql('credit',f"update pipeline_jobs set run_at=now() where id='{outage_job}' and status='PENDING';",user='credit_owner',password=credit_password,name='outage-clock')
         deadline=time.monotonic()+15
         while scalar('credit',f"select status from pipeline_jobs where id='{outage_job}'")!='DONE':
+            # Advance the synthetic scheduler through reconnect backoff, as in the outage phase.
+            sql('credit',f"update pipeline_jobs set run_at=now() where id='{outage_job}' and status='PENDING';",user='credit_owner',password=credit_password,name='outage-recovery-clock')
             if time.monotonic()>deadline: raise AssertionError('DATA_CHECK did not recover')
             time.sleep(.2)
         assert scalar('credit',f"select status from applications where id='{application}'")=='ENRICHMENT'

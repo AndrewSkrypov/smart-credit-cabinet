@@ -98,8 +98,12 @@ def main():
     try:
         sql("postgres", f'create database "{database}"')
         try:
+            # Later versions depend on these tables (reserves, servicing fence, receipts) and are
+            # rolled back by snapshot restore, so the rehearsal builds the schema up to V18 only.
+            last_version = max(version for version, _, _ in scripts)
             for migration in all_forward:
-                apply(database, migration)
+                if version_key(migration) <= last_version:
+                    apply(database, migration)
             schema_before = json.loads(sql(database, SCHEMA_QUERY))
             for _, _, reverse in reversed(scripts):
                 apply(database, reverse)

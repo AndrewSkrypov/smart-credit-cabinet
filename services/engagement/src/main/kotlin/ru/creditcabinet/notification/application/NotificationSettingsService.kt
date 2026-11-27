@@ -13,14 +13,20 @@ interface NotificationPreferences {
     fun save(userId: UUID, preference: NotificationPreference): NotificationPreference
 }
 
+interface NotificationSettingsOperations {
+    fun get(userId: UUID): NotificationSettings
+
+    fun save(userId: UUID, preference: NotificationPreference): NotificationSettings
+}
+
 @Service
-class NotificationSettingsService(private val preferences: NotificationPreferences, private val mail: MailCapabilities) {
-    fun get(userId: UUID): NotificationSettings {
+class NotificationSettingsService(private val preferences: NotificationPreferences, private val mail: MailCapabilities) : NotificationSettingsOperations {
+    override fun get(userId: UUID): NotificationSettings {
         val value = preferences.get(userId)
         return NotificationSettings(mail.enabled(), value.emailEnabled, value.version)
     }
 
-    fun save(userId: UUID, preference: NotificationPreference): NotificationSettings {
+    override fun save(userId: UUID, preference: NotificationPreference): NotificationSettings {
         val available = mail.enabled()
         if (preference.emailEnabled && !available) throw ConflictException("Почтовый канал на этом стенде выключен")
         val value = preferences.save(userId, preference)

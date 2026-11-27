@@ -17,6 +17,8 @@ import ru.creditcabinet.integration.CoreBanking
 import ru.creditcabinet.integration.LoanBooked
 import ru.creditcabinet.offer.*
 import ru.creditcabinet.offer.application.ContractTextStore
+import ru.creditcabinet.offer.application.ContractTexts
+import ru.creditcabinet.offer.domain.ContractTextSnapshot
 import ru.creditcabinet.pipeline.PipelineFakesConfig
 import ru.creditcabinet.product.domain.*
 import ru.creditcabinet.servicing.application.LoanServicingService

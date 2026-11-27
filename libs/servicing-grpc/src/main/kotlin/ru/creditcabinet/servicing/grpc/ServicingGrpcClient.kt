@@ -78,8 +78,12 @@ class ServicingGrpcClient(
             LoanAccount::class.java,
         )
     }
-    override fun payNext(loanId: UUID, actor: ServicingActor): LoanAccount = call {
-        wire.decode(stub().payNext(actor(loanId, actor)), LoanAccount::class.java)
+    override fun payNext(loanId: UUID, command: PayNextCommand): LoanAccount = call {
+        val request = actor(loanId, command.actor).toBuilder().apply {
+            command.operationKey?.let { setOperationKey(it.toString()) }
+            command.paymentId?.let { setPaymentId(it.toString()) }
+        }.build()
+        wire.decode(stub().payNext(request), LoanAccount::class.java)
     }
     override fun repayEarly(loanId: UUID, actor: ServicingActor): LoanAccount = call {
         wire.decode(stub().repayEarly(actor(loanId, actor)), LoanAccount::class.java)

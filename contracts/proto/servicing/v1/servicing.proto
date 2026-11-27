@@ -50,9 +50,10 @@ message LoanAccount {
  repeated LoanTranche tranches = 15; repeated LoanPayment payments = 16; int64 available_limit = 17;
 }
 message AccountResponse { optional LoanAccount account = 1; }
-message DrawCommand { ServicingActor actor = 1; int64 amount = 2; optional string purpose = 3; }
+message DrawCommand { ServicingActor actor = 1; int64 amount = 2; optional string purpose = 3; optional string operation_key = 4; }
 message DrawRequest { string loan_id = 1; DrawCommand command = 2; }
-message ActorRequest { string loan_id = 1; ServicingActor actor = 2; }
+// operation_key and payment_id are used by PayNext only.
+message ActorRequest { string loan_id = 1; ServicingActor actor = 2; optional string operation_key = 3; optional string payment_id = 4; }
 message PaymentReserveInputs {
  int64 opening_balance = 1; int64 expected_receipt_amount = 2; int64 payable_amount = 3;
  int64 target_buffer = 4; string control_date = 5; string payment_date = 6;

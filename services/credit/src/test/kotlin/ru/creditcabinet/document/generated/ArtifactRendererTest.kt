@@ -5,7 +5,7 @@ import org.apache.pdfbox.text.PDFTextStripper
 import org.apache.pdfbox.text.TextPosition
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
-import ru.creditcabinet.offer.ContractTexts
+import ru.creditcabinet.offer.application.ContractTexts
 import ru.creditcabinet.product.domain.LoanMath
 import java.math.BigDecimal
 import java.nio.file.Files

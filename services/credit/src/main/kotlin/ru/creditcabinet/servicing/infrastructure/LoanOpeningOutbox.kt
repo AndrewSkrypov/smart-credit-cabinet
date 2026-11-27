@@ -64,7 +64,7 @@ class LoanOpeningOutbox(
             session.offerId != cycleId ||
             session.signatureId == null ||
             session.contractSnapshotId != snapshot.id ||
-            ru.creditcabinet.offer.ContractTexts.sha256(snapshot.text) != snapshot.sha256
+            ru.creditcabinet.offer.application.ContractTexts.sha256(snapshot.text) != snapshot.sha256
         ) {
             throw ServicingConflict("Подпись и неизменяемый снимок не относятся к циклу заявки")
         }

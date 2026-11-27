@@ -87,7 +87,7 @@ export function ClientHomePage() {
       <PageHeader
         title={company.data.name ?? `ИНН ${company.data.inn}`}
         subtitle={`${legalFormLabels[company.data.legalForm]} · ИНН ${company.data.inn}`}
-        actions={<Button component={RouterLink} to="/client/new" variant="contained" size="large" startIcon={<AddRoundedIcon />}>Подобрать финансирование</Button>}
+        actions={<Button data-tour="client-new-btn" component={RouterLink} to="/client/new" variant={waitingForClient.length ? 'outlined' : 'contained'} size="large" startIcon={<AddRoundedIcon />}>Подобрать финансирование</Button>}
       />
       {company.error && (
         <Alert severity="warning" sx={{ mb: 3 }} action={<Button onClick={() => {
@@ -105,7 +105,7 @@ export function ClientHomePage() {
                 <Typography variant="h6" component="h2">Нужно ваше действие · {page?.actionRequiredCount}</Typography>
                 <Stack spacing={0.5} sx={{ mt: 1 }}>
                   {waitingForClient.map((item) => (
-                    <Typography key={item.id} component={RouterLink} onClick={rememberPosition} to={`/client/applications/${item.id}`} state={{ listUrl: location.pathname + location.search }} sx={{ color: 'inherit' }}>
+                    <Typography key={item.id} component={RouterLink} onClick={rememberPosition} to={`/client/applications/${item.id}`} state={{ listUrl: location.pathname + location.search }} sx={{ color: 'text.primary', py: 0.5, fontWeight: 600 }}>
                       № {item.number} — {item.status === 'PENDING_CLIENT_CONFIRMATION' ? 'агент подготовил заявку — проверьте и подтвердите' : statusTitle(item.status).toLowerCase()}
                     </Typography>
                   ))}
@@ -115,7 +115,7 @@ export function ClientHomePage() {
             )}
 
             {activeOffers.length > 0 && (
-              <Box>
+              <Box data-tour="client-preapproved">
                 <Typography variant="h6" component="h2" sx={{ mb: 1.5 }}>Персональные предодобренные предложения</Typography>
                 {offerError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setOfferError(null)}>{offerError}</Alert>}
                 <Grid container spacing={2}>
@@ -149,7 +149,7 @@ export function ClientHomePage() {
               </Box>
             )}
 
-            <Box>
+            <Box data-tour="client-applications">
               <ApplicationPageFilters state={applications} status={false} />
               <ApplicationPageStatus states={[applications, finished]} />
               <Stack spacing={3}>

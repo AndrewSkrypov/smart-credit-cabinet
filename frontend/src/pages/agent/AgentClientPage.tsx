@@ -139,7 +139,7 @@ export function AgentClientPage() {
       {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
       {companyOffers.length > 0 && (
-        <Box>
+        <Box data-tour="agent-client-offers">
           <Typography variant="h6" component="h2" sx={{ mb: 1.5 }}>Предодобренные предложения</Typography>
           <Grid container spacing={2}>
             {companyOffers.map((offer) => (
@@ -172,7 +172,7 @@ export function AgentClientPage() {
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={7}>
-          <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+          <Paper data-tour="agent-client-new" variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
             <Typography variant="h6" component="h2" gutterBottom>Создать новую заявку</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Черновик создаётся от вашего имени. После заполнения и загрузки документов отправьте его клиенту на подтверждение и согласие БКИ.
@@ -277,7 +277,7 @@ export function AgentClientPage() {
         </Grid>
 
         <Grid item xs={12} md={5}>
-          <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+          <Paper data-tour="agent-client-applications" variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
             <Typography variant="h6" component="h2" sx={{ mb: 1.5 }}>Заявки компании</Typography>
             {companyApps.length === 0 ? (
               <EmptyState title="Заявок пока нет" description="Создайте черновик слева или оформите предодобренное предложение." />

@@ -1,0 +1,32 @@
+route:
+  receiver: discard
+  group_by: [environment, alertname, service]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    - receiver: telegram-dev
+      matchers: ['environment="dev"', 'alertname="CabinetTelegramSmoke"', 'severity="info"', 'service="monitoring"']
+      group_wait: 5s
+      group_interval: 30s
+    - receiver: telegram-dev
+      matchers:
+        - 'environment="dev"'
+        - 'severity=~"critical|warning"'
+        - 'alertname=~"CabinetHTTPSUnavailable|CabinetHTTPHighErrorRate|CabinetHTTPHighLatency|CabinetPVCLowSpace|CabinetNodeDiskLowSpace|CabinetAssistantFallbackElevated|CabinetAssistantAnswerErrors|CabinetNotificationDeliveryFailed|CabinetNotificationDeliveryDelayed|CabinetServiceDown|CabinetFailedJobs|CabinetQueueDelayed|CabinetMetricsStale|CabinetSourceCircuitOpen"'
+receivers:
+  - name: discard
+  - name: telegram-dev
+    telegram_configs:
+      - api_url: https://api.telegram.org
+        bot_token_file: /etc/alertmanager/secrets/cabinet-paging/telegram-token
+        chat_id_file: /etc/alertmanager/secrets/cabinet-paging/telegram-chat-id
+        parse_mode: ""
+        send_resolved: true
+        http_config:
+          proxy_url: http://@RELAY_ADDRESS@
+          proxy_connect_header:
+            Proxy-Authorization: ['@RELAY_AUTHORIZATION@']
+        message: >-
+          {{ if eq .GroupLabels.alertname "CabinetTelegramSmoke" }}[PUMP TEST]{{ end }}[{{ .Status | toUpper }}][dev][{{ .CommonLabels.severity }}]
+          {{ .GroupLabels.alertname }} {{ if match "^(credit|identity|engagement|external-sim|monitoring|gateway)$" .CommonLabels.service }}{{ .CommonLabels.service }}{{ else }}monitoring{{ end }}

@@ -6,7 +6,6 @@ import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.InfoRequest
 import ru.creditcabinet.application.domain.InfoRequests
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.assessment.domain.Decision
 import ru.creditcabinet.assessment.domain.DecisionRepository
 import ru.creditcabinet.common.exception.NotFoundException
@@ -19,6 +18,8 @@ import ru.creditcabinet.offer.SigningSessionRecord
 import ru.creditcabinet.offer.SigningSessions
 import ru.creditcabinet.product.domain.Calculation
 import ru.creditcabinet.product.domain.LoanMath
+import ru.creditcabinet.product.domain.ProductCatalog
+import ru.creditcabinet.product.domain.forApplication
 
 data class ApplicationOffer(val offer: Offer, val productName: String, val changes: List<String>)
 
@@ -38,7 +39,7 @@ interface ApplicationProcesses {
 
 @Service
 class ReadApplicationProcess(
-    private val applications: ApplicationService,
+    private val products: ProductCatalog,
     private val offers: OfferRepository,
     private val infoRequests: InfoRequests,
     private val decisions: DecisionRepository,
@@ -48,7 +49,7 @@ class ReadApplicationProcess(
     override fun schedule(authorizedApplication: LoanApplication): Calculation {
         val loan = loans.find(authorizedApplication.id)
         val offer = offers.current(authorizedApplication.id) ?: throw NotFoundException("Графика пока нет: банк ещё не сделал предложение")
-        val product = applications.product(authorizedApplication, offer.productCode)
+        val product = products.forApplication(authorizedApplication, offer.productCode)
         return LoanMath.calculate(loan?.amount ?: offer.amount, loan?.rate ?: offer.rate, loan?.termMonths ?: offer.termMonths, product.revolving)
     }
 
@@ -64,7 +65,7 @@ class ReadApplicationProcess(
                 offerDecision.decidedByType == ActorType.SYSTEM -> offerDecision.recommendation?.notes.orEmpty()
                 else -> listOfNotNull(offerDecision.comment)
             }
-            ApplicationOffer(it, applications.product(authorizedApplication, it.productCode).name, changes)
+            ApplicationOffer(it, products.forApplication(authorizedApplication, it.productCode).name, changes)
         }
         return ApplicationProcess(
             infoRequests.open(id),

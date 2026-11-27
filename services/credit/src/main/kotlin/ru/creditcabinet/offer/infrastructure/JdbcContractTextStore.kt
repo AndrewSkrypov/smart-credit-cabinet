@@ -2,8 +2,8 @@ package ru.creditcabinet.offer.infrastructure
 
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
-import ru.creditcabinet.offer.ContractTextSnapshot
 import ru.creditcabinet.offer.application.ContractTextStore
+import ru.creditcabinet.offer.domain.ContractTextSnapshot
 import java.sql.Timestamp
 import java.util.UUID
 

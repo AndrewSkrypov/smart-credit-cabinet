@@ -13,6 +13,9 @@ import org.springframework.transaction.support.TransactionTemplate
 import ru.creditcabinet.application.domain.*
 import ru.creditcabinet.offer.*
 import ru.creditcabinet.offer.application.ContractTextStore
+import ru.creditcabinet.offer.application.ContractTexts
+import ru.creditcabinet.offer.application.OfferService
+import ru.creditcabinet.offer.domain.ContractTextSnapshot
 import ru.creditcabinet.pipeline.PipelineFakesConfig
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.servicing.application.LoanServicingService
@@ -427,7 +430,8 @@ class LoanOpeningAtomicityIntegrationTest {
                 context.getBean(
                     ru.creditcabinet.application.service.ApplicationService::class.java,
                 ),
-                transitions, offerStore, records, gateway, jobs, products, contractTexts, tx, clock,
+                transitions, offerStore, records, gateway, jobs, products, contractTexts,
+                context.getBean(ru.creditcabinet.application.application.CreditTransactions::class.java), clock,
             )
         val caller = ru.creditcabinet.common.security.TokenClaims(
             application.createdBy,

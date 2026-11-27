@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.agent.application.AgentClientEligibility
 import ru.creditcabinet.agent.domain.AgentAccessPort
+import ru.creditcabinet.application.application.ApplicationOperations
+import ru.creditcabinet.application.application.CommitTransition
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
@@ -28,7 +30,6 @@ import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.SubmissionProductCatalog
 import ru.creditcabinet.product.domain.SubmissionProductSnapshot
-import ru.creditcabinet.product.domain.forApplication
 import java.time.Clock
 import java.util.UUID
 
@@ -42,17 +43,17 @@ class ApplicationService(
     private val products: ProductCatalog,
     private val submissionCatalog: SubmissionProductCatalog,
     private val clock: Clock,
-    private val transitions: Transitions,
+    private val transitions: CommitTransition,
     private val infoRequests: ru.creditcabinet.application.domain.InfoRequests,
     private val documents: ru.creditcabinet.document.domain.DocumentRepository,
     private val preApprovedOffers: PreApprovedOfferService,
     private val agentAccess: AgentAccessPort,
     private val agentEligibility: AgentClientEligibility,
     private val scenarios: FinancingScenarios,
-) {
+) : ApplicationOperations {
     /** T1: a draft for the caller's company. One application in progress per company and product. */
     @Transactional
-    fun create(terms: ApplicationTerms): LoanApplication {
+    override fun create(terms: ApplicationTerms): LoanApplication {
         val (claims, companyId) = CurrentCaller.requireClient()
         val product = product(terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
@@ -70,7 +71,7 @@ class ApplicationService(
     }
 
     @Transactional
-    fun updateDraft(id: UUID, terms: ApplicationTerms): LoanApplication {
+    override fun updateDraft(id: UUID, terms: ApplicationTerms): LoanApplication {
         val (_, application) = own(id)
         if (application.status == ApplicationStatus.DRAFT && application.activeAgentId != null) throw notFound()
         if (application.agentId != null) {
@@ -87,7 +88,7 @@ class ApplicationService(
      * returns the application as it is instead of a second attempt and its 409.
      */
     @Transactional
-    fun submit(id: UUID, idempotencyKey: String?, acceptedProductVersion: Long? = null): LoanApplication {
+    override fun submit(id: UUID, idempotencyKey: String?, acceptedProductVersion: Long?): LoanApplication {
         val (claims, application) = own(id)
         if (application.agentId != null) {
             throw ConflictException("Агентскую заявку нельзя отправить напрямую — сначала требуется подтверждение клиента")
@@ -109,11 +110,11 @@ class ApplicationService(
 
     /** T23: client reviews an agent-prepared application, grants bureau consent, and submits to the bank. */
     @Transactional
-    fun confirmByClient(
+    override fun confirmByClient(
         id: UUID,
         bureauConsent: Boolean,
-        acceptedProductVersion: Long? = null,
-        acceptedScenarioRevision: Long? = null,
+        acceptedProductVersion: Long?,
+        acceptedScenarioRevision: Long?,
     ): LoanApplication {
         val (claims, current) = own(id, forUpdate = true)
         val application = if (current.status == ApplicationStatus.DRAFT) {
@@ -148,7 +149,7 @@ class ApplicationService(
 
     /** T24: client returns an agent-prepared application to the agent for corrections. */
     @Transactional
-    fun returnToAgentByClient(id: UUID, comment: String?): LoanApplication {
+    override fun returnToAgentByClient(id: UUID, comment: String?): LoanApplication {
         val (claims, application) = own(id, forUpdate = true)
         return commit(
             application.returnToAgent(
@@ -161,7 +162,7 @@ class ApplicationService(
 
     /** T21: the client stops the application; pending pipeline steps are cancelled with it. */
     @Transactional
-    fun withdraw(id: UUID, comment: String?): LoanApplication {
+    override fun withdraw(id: UUID, comment: String?): LoanApplication {
         val (claims, application) = own(id, forUpdate = true)
         if (application.status == ApplicationStatus.DRAFT && application.activeAgentId != null) throw notFound()
         val saved = commit(application.move(ApplicationEvent.WITHDRAW, actorOf(claims), clock.instant(), comment = comment?.take(MAX_COMMENT)))
@@ -177,7 +178,7 @@ class ApplicationService(
      * after the request, and questions need an answer; then the completeness check runs again.
      */
     @Transactional
-    fun provideInfo(id: UUID, answer: String?): LoanApplication {
+    override fun provideInfo(id: UUID, answer: String?): LoanApplication {
         val (claims, application) = own(id, forUpdate = true)
         val request = infoRequests.open(application.id) ?: throw ConflictException("Банк сейчас ничего не запрашивал")
         val fresh = documents.list(application.id).filter { !it.uploadedAt.isBefore(request.createdAt) }.map { it.type }.toSet()
@@ -191,7 +192,7 @@ class ApplicationService(
         return saved
     }
 
-    fun get(id: UUID): LoanApplication {
+    override fun get(id: UUID): LoanApplication {
         val claims = CurrentCaller.claims()
         val application = applications.find(id)?.takeIf { claims.canSee(it) } ?: throw notFound()
         if (claims.isAgent) {
@@ -203,7 +204,7 @@ class ApplicationService(
     }
 
     /** A client sees their company's applications; bank staff the queue without drafts. */
-    fun list(statuses: Set<ApplicationStatus>?): List<LoanApplication> {
+    override fun list(statuses: Set<ApplicationStatus>?): List<LoanApplication> {
         val claims = CurrentCaller.claims()
         return when {
             claims.isClient -> {
@@ -218,7 +219,7 @@ class ApplicationService(
     }
 
     @Transactional(readOnly = true)
-    fun journal(id: UUID): List<JournalEntry> {
+    override fun journal(id: UUID): List<JournalEntry> {
         val application = get(id)
         val entries = journal.list(id)
         if (application.agentId == null || CurrentCaller.claims().isAgent || !scenarios.hasHandedPacket(id)) return entries
@@ -231,26 +232,22 @@ class ApplicationService(
 
     fun product(code: String): Product = products.forDraft(code) ?: throw NotFoundException("Продукт не найден")
 
-    fun product(application: LoanApplication, code: String = application.terms.productCode): Product = products.forApplication(application, code)
-
-    fun currentProduct(code: String): Product? = products.latest(code)
-
     /** The application of the caller's company, for changing it: clients only (hiding private agent drafts). */
-    fun own(id: UUID, forUpdate: Boolean = false): Pair<TokenClaims, LoanApplication> {
+    override fun own(id: UUID, forUpdate: Boolean): Pair<TokenClaims, LoanApplication> {
         val (claims, companyId) = CurrentCaller.requireClient()
         val current = if (forUpdate) applications.findForUpdate(id) else applications.find(id)
         val application = current?.takeIf { it.company.id == companyId && it.visibleToClient } ?: throw notFound()
         return claims to application
     }
 
-    fun canResumeIndependently(application: LoanApplication): Boolean {
+    override fun canResumeIndependently(application: LoanApplication): Boolean {
         val agentId = application.activeAgentId ?: return false
         return application.status == ApplicationStatus.DRAFT &&
             application.clientHandoffAt != null &&
             !agentAccess.checkAccess(agentId, application.company.id).allowed
     }
 
-    fun clientReadView(application: LoanApplication): LoanApplication =
+    override fun clientReadView(application: LoanApplication): LoanApplication =
         if (application.status == ApplicationStatus.DRAFT && application.clientHandoffAt != null) {
             scenarios.restoreHandoff(application)
         } else {

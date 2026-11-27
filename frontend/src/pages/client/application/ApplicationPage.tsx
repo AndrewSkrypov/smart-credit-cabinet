@@ -12,6 +12,7 @@ import { PageHeader } from '../../../components/PageHeader';
 import { MessagesBlock } from '../../../components/MessagesBlock';
 import { explainStatus, SYSTEM_STATUSES, statusTitle, statusTone } from '../../../shared/applicationText';
 import { formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
+import { transparentOutlineButtonSx } from '../../../theme/theme';
 import { Application } from '../../../types';
 import { DocumentsBlock } from './DocumentsBlock';
 import { DraftForm } from './DraftForm';
@@ -121,7 +122,7 @@ function ApplicationCard({ id }: { id: string }) {
       <Grid container spacing={3} sx={{ pb: 6 }}>
         <Grid item xs={12} md={8}>
           <Stack spacing={3}>
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+            <Paper data-tour="app-status" variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
               <StageStepper status={application.status} />
               <Box sx={{ mt: 2 }} aria-live="polite">
                 <Typography fontWeight={600}>Что сейчас происходит</Typography>
@@ -145,7 +146,7 @@ function ApplicationCard({ id }: { id: string }) {
               <Alert severity="warning" action={<Button onClick={() => void scenario.reload()}>Повторить</Button>}>{scenario.error}</Alert>
             )}
             {(application.status === 'PENDING_CLIENT_CONFIRMATION' || canResume) && (
-              <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main' }}>
+              <Paper data-tour="app-confirm" variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main' }}>
                 <Typography variant="h6" component="h2" gutterBottom>Подтверждение агентской заявки</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2 }}>
                   {canResume ? 'Доступ агента завершён. Проверьте последний переданный пакет и продолжите по этой заявке.'
@@ -234,14 +235,14 @@ function ApplicationCard({ id }: { id: string }) {
               </Paper>
             )}
             {application.status === 'INFO_REQUESTED' && application.process.infoRequest && (
-              <InfoRequestBlock application={application} onChanged={load} onSent={apply} />
+              <Box data-tour="app-info"><InfoRequestBlock application={application} onChanged={load} onSent={apply} /></Box>
             )}
             {application.process.offer && ['OFFER_ISSUED', 'SIGNING', 'DISBURSING'].includes(application.status) && (
-              <OfferBlock application={application} onChanged={apply} />
+              <Box data-tour="app-offer"><OfferBlock application={application} onChanged={apply} /></Box>
             )}
-            {application.status === 'SIGNING' && <SigningBlock application={application} onChanged={apply} />}
+            {application.status === 'SIGNING' && <Box data-tour="app-signing"><SigningBlock application={application} onChanged={apply} /></Box>}
             {application.status === 'DISBURSED' && application.process.loan && <LoanBlock application={application} />}
-            {application.status === 'DISBURSED' && <LoanServicingBlock applicationId={application.id} />}
+            {application.status === 'DISBURSED' && <Box data-tour="app-loan"><LoanServicingBlock applicationId={application.id} /></Box>}
             {application.status === 'DISBURSED' && application.process.loan && <GeneratedFilesBlock applicationId={application.id} final />}
             {application.status === 'DISBURSED' && application.process.offer && <Box component="details"><Typography component="summary" sx={{ cursor: 'pointer', py: 1 }}>Согласованные условия</Typography><OfferBlock historical application={application} onChanged={apply} /></Box>}
             {outcome && (
@@ -255,9 +256,9 @@ function ApplicationCard({ id }: { id: string }) {
             )}
 
             {application.process.offer && ['OFFER_ISSUED', 'SIGNING', 'DISBURSING'].includes(application.status) && <GeneratedFilesBlock key={`${application.id}-${!!application.process.loan}`} applicationId={application.id} final={!!application.process.loan} />}
-            <DocumentsBlock application={application} onChanged={load} />
-            <MessagesBlock key={application.id} applicationId={application.id} status={application.status} />
-            <HistoryBlock applicationId={application.id} version={`${application.status}-${application.documents.length}`} />
+            <Box data-tour="app-documents"><DocumentsBlock application={application} onChanged={load} /></Box>
+            <Box data-tour="app-messages"><MessagesBlock key={application.id} applicationId={application.id} status={application.status} /></Box>
+            <Box data-tour="app-history"><HistoryBlock applicationId={application.id} version={`${application.status}-${application.documents.length}`} /></Box>
           </Stack>
         </Grid>
 
@@ -279,7 +280,9 @@ function ApplicationCard({ id }: { id: string }) {
               <Fact label={application.submittedAt ? 'Отправлена' : 'Создана'} value={formatDateTime(application.submittedAt ?? application.createdAt)} />
             </Stack>
             {canWithdraw && (
-              <Button color="error" onClick={() => setWithdrawing(true)} sx={{ mt: 2, ml: -1 }}>Отозвать заявку</Button>
+              <Button variant="outlined" size="small" onClick={() => setWithdrawing(true)} sx={{ ...transparentOutlineButtonSx, mt: 2 }}>
+                Отозвать заявку
+              </Button>
             )}
           </Paper>
         </Grid>
@@ -330,12 +333,17 @@ function ApplicationCard({ id }: { id: string }) {
       <Dialog open={withdrawing} onClose={() => setWithdrawing(false)} fullWidth maxWidth="sm">
         <DialogTitle>Отозвать заявку?</DialogTitle>
         <DialogContent>
-          <Typography gutterBottom>Банк прекратит рассмотрение. Позже можно подать новую заявку.</Typography>
+          <Typography gutterBottom>
+            {application.submittedAt
+              ? 'Банк прекратит рассмотрение. Позже можно подать новую заявку.'
+              : 'Заявка ещё не отправлена в банк. После отзыва её нельзя будет отправить. Позже можно создать новую заявку.'}
+          </Typography>
           <TextField label="Причина (необязательно)" fullWidth multiline minRows={2} value={withdrawComment} onChange={(event) => setWithdrawComment(event.target.value)} inputProps={{ maxLength: 2000 }} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setWithdrawing(false)}>Не отзывать</Button>
+          <Button variant="outlined" onClick={() => setWithdrawing(false)} sx={transparentOutlineButtonSx}>Не отзывать</Button>
           <Button
+            variant="contained"
             color="error"
             onClick={async () => {
               try {

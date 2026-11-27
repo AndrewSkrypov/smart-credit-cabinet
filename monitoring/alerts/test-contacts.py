@@ -101,7 +101,7 @@ def main():
         "SMTP.Username": "",
         "SMTP.Password": "",
     }
-    current = {item["id"]: item["value"] for item in query("{ config(all: false) { id value } }")["config"]}
+    current = {item["id"]: item["value"] for item in query("{ config(all: true) { id value } }")["config"]}
     if current.get("SMTP.Enable") == "true" and current.get("SMTP.Address") != smtp["SMTP.Address"]:
         parser.error("This GoAlert has a different active SMTP relay. Use the isolated test release.")
     query(

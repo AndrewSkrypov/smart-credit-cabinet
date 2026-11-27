@@ -72,14 +72,19 @@ flowchart LR
     ClientHttp["ApplicationController"]
     BankHttp["UnderwritingController"]
     Worker["PipelineWorker"]
+    ArtifactIn["ArtifactController и ArtifactWorker"]
   end
   subgraph Use["Операции приложения"]
     AgentUse["AgentApplicationService"]
     AppUse["ApplicationService"]
-    AppRead["ApplicationProcesses и ApplicationPages"]
+    AppRead["ApplicationDetails, ApplicationProcesses<br/>и ApplicationPages"]
+    DocUse["DocumentService"]
+    ArtifactUse["GeneratedArtifacts"]
     BankUse["UnderwritingService"]
     BankRead["UnderwritingAssessment"]
     Steps["PipelineSteps"]
+    OfferUse["OfferIssuance и OfferActions"]
+    Commit["CommitTransition"]
   end
   subgraph Domain["Домен"]
     State["LoanApplication и автомат статусов"]
@@ -89,30 +94,42 @@ flowchart LR
   subgraph Port["Выходные порты"]
     Store["ApplicationRepository, ApplicationJournal, PipelineJobs"]
     Mandate["AgentAccessPort"]
-    Doc["DocumentRepository, FileStore"]
+    Doc["DocumentRepository, DocumentsBoundary"]
     Offers["OfferRepository, Loans, ContractTextStore"]
+    Accounts["LoanOpening"]
+    Tx["CreditTransactions"]
     Source["Внешние источники, ПЭП и АБС"]
     Notices["PlatformNotifications"]
   end
   AgentHttp --> AgentUse
-  ClientHttp --> AppUse & AppRead
+  ClientHttp --> AppUse & AppRead & OfferUse
+  ClientHttp -->|DocumentUpload| DocUse
   BankHttp --> BankUse & BankRead
   Worker --> Steps
-  AgentUse --> State & Mandate & Doc
-  AppUse --> State & Product & Store & Notices
-  AppRead --> Store & Offers
-  BankUse --> State & Risk & Offers
-  BankRead --> Store & Risk
-  Steps --> State & Risk & Store & Source
+  ArtifactIn --> ArtifactUse
+  AgentUse --> State & Mandate
+  AgentUse -->|Адаптер документов| DocUse
+  DocUse -->|ApplicationAccess| AppUse
+  DocUse --> Doc
+  AppUse --> State & Commit
+  AppRead --> Product & Offers
+  BankUse --> OfferUse & Commit
+  BankRead --> Risk
+  Steps --> Risk & Source & OfferUse & Commit & Tx & Accounts
+  OfferUse --> Offers & Commit & Tx
+  ArtifactUse --> Doc & Notices & Tx
+  Commit --> Store & Notices
   Store --> Postgres[(PostgreSQL)]
   Mandate --> Identity["identity, внутренний HTTP"]
-  Doc --> Files["JDBC, S3 или локальное хранилище"]
+  Doc --> Files["Сервис documents по gRPC<br/>или локальное хранилище"]
   Offers --> Postgres
+  Accounts -->|outbox открытия счёта| Servicing["Сервис servicing"]
+  Tx --> Postgres
   Source --> Sim["external-sim"]
   Notices --> Outbox[(delivery_outbox)]
 ```
 
-Запись перехода, журнала, следующей задачи и уведомления выполняется в БД credit. Вызовы к источникам идут вне транзакции. Обработка задач использует аренду и повтор. Идемпотентность операции АБС привязана к заявке.
+Конвейер и андеррайтинг используют один порт выпуска оффера. Переход, журнал, следующая задача и событие уведомления сохраняются одной транзакцией в БД credit. Вызовы к источникам и АБС идут вне этой транзакции. После подтверждения выдачи команда открытия счёта записывается в outbox в транзакции выдачи, а сервис servicing подтверждает её квитанцией. Обработка задач использует аренду и повтор. Идемпотентность операции АБС привязана к заявке.
 
 ## C4. Целевая эволюция credit
 

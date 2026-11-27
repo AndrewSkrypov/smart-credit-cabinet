@@ -49,7 +49,12 @@ data class LoanOpenedReceipt(
 )
 
 data class ServicingActor(val userId: UUID, val companyId: UUID)
-data class DrawCommand(val actor: ServicingActor, val amount: Long, val purpose: String? = null)
+
+/** [operationKey] makes a retried request return the first result instead of drawing twice. */
+data class DrawCommand(val actor: ServicingActor, val amount: Long, val purpose: String? = null, val operationKey: UUID? = null)
+
+/** The client pays the exact payment it saw; [operationKey] makes a retry safe. */
+data class PayNextCommand(val actor: ServicingActor, val paymentId: UUID? = null, val operationKey: UUID? = null)
 data class ReserveCommand(val actor: ServicingActor, val inputs: PaymentReserveInputs)
 data class ReceiptCommand(val actor: ServicingActor, val event: ReceiptEvent)
 data class ConfirmReserveCommand(val actor: ServicingActor, val expectedVersion: Long)
@@ -60,7 +65,7 @@ interface ServicingOperations {
     fun byApplication(applicationId: UUID): LoanAccount?
     fun byId(loanId: UUID): LoanAccount?
     fun draw(loanId: UUID, command: DrawCommand): LoanAccount
-    fun payNext(loanId: UUID, actor: ServicingActor): LoanAccount
+    fun payNext(loanId: UUID, command: PayNextCommand): LoanAccount
     fun repayEarly(loanId: UUID, actor: ServicingActor): LoanAccount
     fun agentSummary(applicationId: UUID): ru.creditcabinet.servicing.paymentreserve.domain.AgentPaymentReserveSummary?
     fun reserve(loanId: UUID): PaymentReserveQuote?

@@ -125,7 +125,7 @@ class ServicingLiveGrpcTest {
                 unavailable.shutdownNow()
             }
             assertEquals(beforeOutage, client.byApplication(command.applicationId))
-            val paid = client.payNext(account.id, actor)
+            val paid = client.payNext(account.id, PayNextCommand(actor))
             assertTrue(paid.outstandingPrincipal < BigDecimal("630000.00"))
             mapper.writeValue(directory.resolve("latest-payment-account.json").toFile(), client.byApplication(command.applicationId))
             val legacy = mapper.readValue(directory.resolve("legacy-account.json").toFile(), LoanAccount::class.java)

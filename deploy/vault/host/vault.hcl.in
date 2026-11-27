@@ -1,0 +1,19 @@
+api_addr      = "https://@PRIVATE_DNS@:8200"
+cluster_addr  = "https://127.0.0.1:8201"
+disable_mlock = true
+ui            = false
+log_format    = "json"
+
+storage "raft" {
+  path    = "/var/lib/pump-vault/raft"
+  node_id = "pump-vault-01"
+}
+
+listener "tcp" {
+  address         = "@PRIVATE_IPV4@:8200"
+  cluster_address = "127.0.0.1:8201"
+  tls_cert_file   = "/run/credentials/pump-vault.service/tls-fullchain.pem"
+  tls_key_file    = "/run/credentials/pump-vault.service/tls-key.pem"
+  tls_min_version = "tls12"
+  tls_disable_client_certs = true
+}

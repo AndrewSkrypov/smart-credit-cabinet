@@ -15,7 +15,7 @@ const readJson = async (name) => JSON.parse(await readFile(path.join(root, name)
 const sort = (rows) => rows.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : a.version < b.version ? -1 : a.version > b.version ? 1 : 0);
 
 if (!args.has('--skip-gradle')) {
-  for (const extra of [[], ['-p', 'build-logic']]) {
+  for (const extra of [['-PalphaAnalytics=true'], ['-p', 'build-logic']]) {
     const command = process.platform === 'win32' ? 'cmd.exe' : './gradlew';
     const prefix = process.platform === 'win32' ? ['/d', '/c', 'gradlew.bat'] : [];
     const result = spawnSync(command, [...prefix, ...extra, 'generateLicenseReport', '--no-daemon', '--no-parallel'], {
@@ -82,7 +82,7 @@ const lines = [
   '# Сторонние компоненты', '',
   'Состав формируется командой `node scripts/generate-notices.mjs`. Версии берутся из',
   'разрешённых Gradle-конфигураций и npm lock-файлов. Включены транзитивные зависимости,',
-  'тесты и инструменты сборки. Лицензии Gradle — из POM/артефактов через Gradle License Report;',
+  'тесты, опциональный Analytics и инструменты сборки. Лицензии Gradle — из POM/артефактов через Gradle License Report;',
   'npm — из lock-файлов, дополненных license-checker для пакетов без поля license.',
   'Знак * у npm означает распознавание лицензии по тексту. Перечень сохраняет upstream-названия',
   'и варианты лицензий; несколько названий не переинтерпретируются как выбранная лицензия.',

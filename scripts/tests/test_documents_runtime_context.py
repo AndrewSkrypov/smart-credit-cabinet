@@ -16,6 +16,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from documents_runtime_context import RuntimeContext
+from documents_runtime_context import start_ci_container
 
 
 def load(name, filename):
@@ -221,8 +222,6 @@ runpy.run_path(runtime, run_name='__main__')
         seen = []
         objects = {}
         def docker(command, **kwargs):
-            if command[1] == 'port':
-                return b'127.0.0.1:12345'
             for index, argument in enumerate(command):
                 if argument == '--mount':
                     mount = command[index + 1]
@@ -230,7 +229,7 @@ runpy.run_path(runtime, run_name='__main__')
                     self.assertTrue(source.exists())
                     self.assertTrue(source.is_relative_to(scratch))
                     seen.append(source)
-            return b'a' * 64
+            return subprocess.CompletedProcess(command, 0, 'a' * 64, '')
         def request(instance, identity, method, name, body=b'', *, bucket_identity=None):
             if identity != 'bootstrap' and bucket_identity and bucket_identity != identity:
                 raise HTTPError('http://fixture', 403, 'denied', {}, None)
@@ -241,9 +240,11 @@ runpy.run_path(runtime, run_name='__main__')
                 value = b'corrupt'
             return {'content-length': str(len(value))}, value
         denied = HTTPError('http://fixture', 403, 'denied', {}, None)
-        with patch.object(s3.subprocess, 'check_output', docker), patch.object(s3.S3Fixture, 'request', request), patch.object(s3.HTTP, 'open', side_effect=denied):
+        labels = {'cabinet.fixture':'documents-r3', 'cabinet.ci.job':'12345', 'cabinet.ci.project':'77',
+                  'cabinet.source':self.source, 'cabinet.profile':'s3'}
+        with patch.object(s3.subprocess, 'run', docker), patch.object(s3.S3Fixture, 'request', request), patch.object(s3.HTTP, 'open', side_effect=denied):
             fixture = s3.S3Fixture(scratch, self.root, lambda: 12345, image=s3.PINNED_IMAGE,
-                                   docker_env={}, scope='cabinet-documents-77-12345-s3', labels={})
+                                   docker_env={}, scope='cabinet-documents-77-12345-s3', labels=labels)
         self.assertEqual(len(seen), 4)
         self.assertIn('PUT-HEAD-GET-size-sha256-both-buckets', fixture.provenance['strictChecks'])
         self.assertEqual(len(objects), 2)
@@ -254,6 +255,86 @@ runpy.run_path(runtime, run_name='__main__')
     def test_shared_scratch_does_not_weaken_readiness_checksum(self):
         with self.assertRaisesRegex(AssertionError, 'checksum or size mismatch'):
             self.check_s3_readiness(corrupt=True)
+
+
+class ContainerStartTest(unittest.TestCase):
+    def setUp(self):
+        self.labels = {'cabinet.fixture':'documents-r3', 'cabinet.ci.job':'12345', 'cabinet.ci.project':'77',
+                       'cabinet.source':'a'*40, 'cabinet.profile':'local', 'cabinet.resource':'postgres'}
+        self.name = 'cabinet-documents-77-12345-local-postgres'
+        self.image = 'cabinet-ci-12345-postgres:test'
+        self.command = ['docker','run','-d','--name',self.name,'-p','127.0.0.1::5432',
+                        '--mount','type=bind,source=/shared/fixture,target=/fixture,readonly', self.image]
+        self.calls = []
+        self.ports = []
+        self.metadata = {'id':'a'*64, 'name':'/'+self.name, 'image':self.image, 'running':False, 'labels':self.labels}
+
+    def docker(self, command, **kwargs):
+        self.calls.append(command)
+        if command[1] == 'run':
+            publication = command[command.index('-p')+1]
+            self.assertRegex(publication, r'^127\.0\.0\.1:[0-9]+:5432$')
+            self.ports.append(int(publication.split(':')[1]))
+            self.assertIn('type=bind,source=/shared/fixture,target=/fixture,readonly', command)
+            if len(self.ports) > 1:
+                return subprocess.CompletedProcess(command, 0, 'b'*64, '')
+            return self.collision(command)
+        if command[1] == 'inspect':
+            self.assertEqual(command[-1], self.name)
+            return subprocess.CompletedProcess(command, 0, json.dumps(self.metadata), '')
+        self.assertEqual(command, ['docker','rm','a'*64])
+        return subprocess.CompletedProcess(command, 0, '', '')
+
+    def collision(self, command):
+        return subprocess.CompletedProcess(command, 125, '', f'rootlesskit: listen tcp4 127.0.0.1:{self.ports[-1]}: bind: address already in use')
+
+    def start(self):
+        return start_ci_container(self.command, {'POSTGRES_PASSWORD':'synthetic-test-secret'},
+                                  name=self.name,image=self.image,labels=self.labels,container_port=5432)
+
+    def test_collision_removes_only_verified_stopped_id_then_retries_new_host_port(self):
+        with patch.object(subprocess, 'run', self.docker):
+            identity, port = self.start()
+        self.assertEqual(identity, 'b'*64)
+        self.assertEqual(len(set(self.ports)), 2)
+        self.assertEqual(port, self.ports[-1])
+        self.assertEqual([call[1] for call in self.calls], ['run','inspect','rm','run'])
+
+    def test_foreign_running_wrong_image_or_name_never_removed_or_retried(self):
+        for delta in ({'labels':self.labels|{'cabinet.ci.job':'999'}}, {'running':True}, {'image':'foreign'}, {'name':'/foreign'}):
+            with self.subTest(delta=delta):
+                self.metadata.update(delta)
+                self.calls.clear(); self.ports.clear()
+                with patch.object(subprocess, 'run', self.docker), self.assertRaisesRegex(RuntimeError, 'ownership/state mismatch'):
+                    self.start()
+                self.assertEqual([call[1] for call in self.calls], ['run','inspect'])
+                self.setUp()
+
+    def test_non_port_error_is_not_retried_and_stderr_is_not_exposed(self):
+        def failure(command, **kwargs):
+            self.calls.append(command)
+            return subprocess.CompletedProcess(command, 125, '', 'permission denied: synthetic-test-secret')
+        with patch.object(subprocess, 'run', failure), self.assertRaises(RuntimeError) as rejected:
+            self.start()
+        self.assertNotIn('synthetic-test-secret', str(rejected.exception))
+        self.assertEqual(len(self.calls), 1)
+
+    def test_three_collision_limit_retains_last_failed_container(self):
+        original = self.docker
+        def collide(command, **kwargs):
+            result = original(command, **kwargs)
+            return self.collision(command) if command[1] == 'run' else result
+        with patch.object(subprocess, 'run', collide), self.assertRaisesRegex(RuntimeError, 'port collision'):
+            self.start()
+        self.assertEqual(len(set(self.ports)), 3)
+        self.assertEqual([call[1] for call in self.calls].count('rm'), 2)
+
+    def test_operation_timeout_does_not_expose_command_or_retry(self):
+        with patch.object(subprocess, 'run', side_effect=subprocess.TimeoutExpired('synthetic-test-secret', 45)) as run:
+            with self.assertRaises(RuntimeError) as rejected:
+                self.start()
+        self.assertNotIn('synthetic-test-secret', str(rejected.exception))
+        self.assertEqual(run.call_count, 1)
 
 
 if __name__ == '__main__':

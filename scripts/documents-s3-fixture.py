@@ -13,6 +13,7 @@ import time
 from datetime import datetime, timezone
 from urllib.error import HTTPError
 from urllib.request import Request, build_opener, ProxyHandler
+from documents_runtime_context import start_ci_container
 
 PINNED_IMAGE = 'chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9'
 HTTP = build_opener(ProxyHandler({}))
@@ -53,9 +54,8 @@ class S3Fixture:
         if image:
             if image != PINNED_IMAGE or docker_env is None or scope is None or labels is None:
                 raise ValueError('Docker S3 fixture is limited to the labeled cabinet-ci runner and pinned image')
-            self.container = subprocess.check_output(['docker','run','-d','--rm',*[part for key,value in (labels|{'cabinet.resource':'s3'}).items() for part in ('--label',f'{key}={value}')],'--name',f'{scope}-s3','--workdir','/fixture','--memory','384m','-p','127.0.0.1::8333','--mount',f'type=bind,source={configuration},target=/fixture/iam.json,readonly','--mount',f'type=bind,source={data},target=/data','--mount',f'type=bind,source={self.scratch / "filer.toml"},target=/fixture/filer.toml,readonly','--mount',f'type=bind,source={self.scratch / "master.toml"},target=/fixture/master.toml,readonly','-e','GOMEMLIMIT=256MiB','--entrypoint','weed',image,*common,'-ip.bind=0.0.0.0','-dir=/data','-s3.config=/fixture/iam.json'],env=docker_env).decode().strip()
-            address = subprocess.check_output(['docker','port',self.container,'8333/tcp'],env=docker_env).decode().strip()
-            self.port = int(address.rsplit(':',1)[1]); self.endpoint = f'http://127.0.0.1:{self.port}'
+            self.container, self.port = start_ci_container(['docker','run','-d',*[part for key,value in (labels|{'cabinet.resource':'s3'}).items() for part in ('--label',f'{key}={value}')],'--name',f'{scope}-s3','--workdir','/fixture','--memory','384m','-p','127.0.0.1::8333','--mount',f'type=bind,source={configuration},target=/fixture/iam.json,readonly','--mount',f'type=bind,source={data},target=/data','--mount',f'type=bind,source={self.scratch / "filer.toml"},target=/fixture/filer.toml,readonly','--mount',f'type=bind,source={self.scratch / "master.toml"},target=/fixture/master.toml,readonly','-e','GOMEMLIMIT=256MiB','--entrypoint','weed',image,*common,'-ip.bind=0.0.0.0','-dir=/data','-s3.config=/fixture/iam.json'],docker_env,name=f'{scope}-s3',image=image,labels=labels|{'cabinet.resource':'s3'},container_port=8333)
+            self.endpoint = f'http://127.0.0.1:{self.port}'
             self.provenance = {'image':image,'mode':'server','diskBudget':self.disk_budget}
         else:
             if not binary or not binary_sha256 or not re.fullmatch('[a-f0-9]{64}',binary_sha256):

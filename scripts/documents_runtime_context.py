@@ -4,6 +4,68 @@ import json
 from pathlib import Path
 import re
 import tempfile
+import socket
+import subprocess
+
+
+def start_ci_container(command, environment, *, name, image, labels, container_port):
+    """Retry only a verified owned stopped fixture after host publication collision."""
+    required = ('cabinet.ci.job', 'cabinet.ci.project', 'cabinet.source', 'cabinet.profile', 'cabinet.resource')
+    if (any(key not in labels for key in required) or labels.get('cabinet.fixture') != 'documents-r3'
+            or not labels['cabinet.ci.job'].isdigit() or not labels['cabinet.ci.project'].isdigit()
+            or not re.fullmatch('[a-f0-9]{40}', labels['cabinet.source'])
+            or labels['cabinet.profile'] not in ('local', 's3') or labels['cabinet.resource'] not in ('postgres', 's3')
+            or name != f"cabinet-documents-{labels['cabinet.ci.project']}-{labels['cabinet.ci.job']}-{labels['cabinet.profile']}-{labels['cabinet.resource']}"):
+        raise ValueError('Container retry requires exact Documents CI identity')
+    publication = f'127.0.0.1::{container_port}'
+    if command[:2] != ['docker', 'run'] or command.count(publication) != 1:
+        raise ValueError('Expected one loopback fixture publication')
+    def docker(arguments):
+        try:
+            return subprocess.run(arguments, env=environment, capture_output=True, text=True, timeout=45)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError('Fixture Docker operation timed out; retained') from None
+    used_ports = set()
+    for attempt in range(3):
+        for _ in range(10):
+            with socket.socket() as endpoint:
+                endpoint.bind(('127.0.0.1', 0))
+                host_port = endpoint.getsockname()[1]
+            if host_port not in used_ports: break
+        else:
+            raise RuntimeError('Cannot select a fresh fixture host port')
+        used_ports.add(host_port)
+        # Keep a failed start inspectable until its identity has been verified.
+        current = [f'127.0.0.1:{host_port}:{container_port}' if value == publication else value
+                   for value in command if value != '--rm']
+        started = docker(current)
+        if started.returncode == 0:
+            identity = started.stdout.strip()
+            if not re.fullmatch('[a-f0-9]{64}', identity):
+                raise RuntimeError('Fixture returned an invalid container identity; retained')
+            return identity, host_port
+        failure = started.stderr.lower()
+        collision = (f'127.0.0.1:{host_port}' in failure and 'bind' in failure
+                     and ('address already in use' in failure or 'port is already allocated' in failure))
+        if not collision or attempt == 2:
+            raise RuntimeError('Fixture container start failed; retained (port collision)' if collision
+                               else 'Fixture container start failed; retained (non-publication error)')
+        template = '{"id":{{json .Id}},"name":{{json .Name}},"image":{{json .Config.Image}},"running":{{json .State.Running}},"labels":{{json .Config.Labels}}}'
+        inspected = docker(['docker', 'inspect', '--format', template, name])
+        if inspected.returncode:
+            raise RuntimeError('Cannot verify failed fixture identity; retained')
+        try:
+            metadata = json.loads(inspected.stdout)
+            owned = (re.fullmatch('[a-f0-9]{64}', metadata['id']) and metadata['name'] == '/' + name
+                     and metadata['image'] == image and metadata['running'] is False
+                     and all(metadata['labels'].get(key) == value for key, value in labels.items()))
+        except (ValueError, KeyError, TypeError, AttributeError):
+            owned = False
+        if not owned:
+            raise RuntimeError('Failed fixture ownership/state mismatch; retained')
+        removed = docker(['docker', 'rm', metadata['id']])
+        if removed.returncode:
+            raise RuntimeError('Failed fixture cleanup could not be confirmed; retained')
 
 
 class RuntimeContext:

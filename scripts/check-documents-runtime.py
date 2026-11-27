@@ -22,7 +22,7 @@ import threading
 import time
 import uuid
 import xml.etree.ElementTree as ET
-from documents_runtime_context import RuntimeContext
+from documents_runtime_context import RuntimeContext, start_ci_container
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -168,9 +168,8 @@ def main():
         if not args.skip_build:
             run([gradle, '--no-daemon', '--max-workers=1', ':services:documents:bootJar', ':services:credit:bootJar', ':services:documents:testClasses'], 'build')
         if args.postgres_image:
-            container = subprocess.check_output(['docker', 'run', '-d', '--rm', '--name', f'{scope}-postgres', *[part for key,value in (labels|{'cabinet.resource':'postgres'}).items() for part in ('--label',f'{key}={value}')], '-p', '127.0.0.1::5432', '-e', 'POSTGRES_PASSWORD', '-e', f'POSTGRES_USER={admin}', '-e', 'POSTGRES_DB=postgres', args.postgres_image], env=docker_env | {'POSTGRES_PASSWORD': admin_password}).decode().strip()
-            address = subprocess.check_output(['docker', 'port', container, '5432/tcp'],env=docker_env).decode().strip()
-            pg_port = int(address.rsplit(':', 1)[1])
+            pg_labels=labels|{'cabinet.resource':'postgres'}
+            container, pg_port = start_ci_container(['docker', 'run', '-d', '--name', f'{scope}-postgres', *[part for key,value in pg_labels.items() for part in ('--label',f'{key}={value}')], '-p', '127.0.0.1::5432', '-e', 'POSTGRES_PASSWORD', '-e', f'POSTGRES_USER={admin}', '-e', 'POSTGRES_DB=postgres', args.postgres_image], docker_env | {'POSTGRES_PASSWORD': admin_password}, name=f'{scope}-postgres',image=args.postgres_image,labels=pg_labels,container_port=5432)
             wait_port(pg_port)
             # Use host psql for the isolated, verified image.
         else:

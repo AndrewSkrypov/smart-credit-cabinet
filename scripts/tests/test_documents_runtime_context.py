@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -83,7 +84,7 @@ class RuntimeContextTest(unittest.TestCase):
             kill.assert_not_called()
         self.assertEqual((scratch / 'synthetic-data').read_text(), 'retain')
 
-    def test_initial_journal_precedes_s3_constructor_and_survives_hard_kill(self):
+    def test_initial_native_plan_precedes_s3_constructor_and_hard_kill_retains_uncertain_data(self):
         source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
         env = self.env | {'CI_PROJECT_DIR': str(ROOT), 'CI_JOB_ID': str(uuid.uuid4().int)[:12],
                           'CI_COMMIT_SHA': source, 'JAVA_HOME': '/unused-no-java-started'}
@@ -98,6 +99,7 @@ class EarlyS3:
     def __init__(self, scratch, report, *args, **kwargs):
         ledger = json.loads((report / 'native-processes.json').read_text())
         assert ledger['scratch'] == str(scratch) and ledger['processes'] == []
+        assert ledger['nativeS3']['marker'] == f'-dir={scratch}/s3/data'
         assert json.loads((scratch / 'fixture-scope.json').read_text()) == {'scope':ledger['scope'], 'source':ledger['source']}
         (report / 'constructor-checkpoint.json').write_text(json.dumps(ledger))
         os.kill(os.getpid(), signal.SIGKILL)
@@ -123,13 +125,63 @@ runpy.run_path(runtime, run_name='__main__')
             cleaned = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/documents-fixture-cleanup.py'),
                                       str(report / 'native-processes.json'), '--scope', checkpoint['scope'], '--source', source],
                                      env=env, capture_output=True, text=True, timeout=15)
-            self.assertEqual(cleaned.returncode, 0, cleaned.stderr)
-            self.assertFalse(scratch.exists())
+            self.assertNotEqual(cleaned.returncode, 0)
+            self.assertIn('Native S3 startup identity unresolved', cleaned.stderr)
+            self.assertTrue(scratch.exists())
         finally:
             if scratch and scratch.exists(): shutil.rmtree(scratch)
             if context.parent.exists():
                 # Only this synthetic test job; also remove a failed pre-journal candidate.
                 shutil.rmtree(context.parent)
+
+    def test_native_s3_popen_before_register_retains_live_child_until_identity_is_recorded(self):
+        source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+        env = self.env | {'CI_PROJECT_DIR': str(ROOT), 'CI_JOB_ID': str(uuid.uuid4().int)[:12], 'CI_COMMIT_SHA': source}
+        context = RuntimeContext(ROOT, source, env)
+        scratch = context.create_scratch()
+        report = self.root / 'native-popen'; report.mkdir()
+        scope = f"cabinet-documents-77-{env['CI_JOB_ID']}-s3"
+        ledger = context.initialize_ledger(scratch, report, scope, native_s3=True)
+        binary = self.root / 'synthetic-binary'; binary.write_bytes(b'not an engine')
+        children = []
+        original_popen = subprocess.Popen
+        def popen(command, **kwargs):
+            # This is a real own PID, created where S3Fixture calls Popen.
+            marker = next(item for item in command if item.startswith('-dir='))
+            child = original_popen([sys.executable, '-c', 'import time; time.sleep(60)', marker])
+            children.append(child)
+            return child
+        def interrupted_registration(*args):
+            raise InterruptedError('Synthetic parent interruption before PID journal write')
+        fixture = s3.S3Fixture.__new__(s3.S3Fixture)
+        try:
+            with patch.object(s3.subprocess, 'Popen', popen), patch.object(s3.subprocess, 'check_output', return_value=b'version 4.55'):
+                with self.assertRaises(InterruptedError):
+                    fixture.__init__(scratch, report, lambda: 12345, binary=binary,
+                                     binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(), register=interrupted_registration)
+            child = children[0]
+            self.assertEqual(json.loads((report / 'native-processes.json').read_text())['processes'], [])
+            command = [sys.executable, '-B', str(ROOT / 'scripts/documents-fixture-cleanup.py'),
+                       str(report / 'native-processes.json'), '--scope', scope, '--source', source]
+            uncertain = subprocess.run(command, env=env, capture_output=True, text=True, timeout=15)
+            self.assertNotEqual(uncertain.returncode, 0)
+            self.assertIn('Native S3 startup identity unresolved', uncertain.stderr)
+            self.assertTrue(scratch.exists())
+            self.assertIsNone(child.poll())
+            # A published exact identity restores the ordinary guarded stop path.
+            ledger['processes'].append({'pid':child.pid, 'start':cleanup.identity(child.pid), 'marker':ledger['nativeS3']['marker']})
+            (report / 'native-processes.json').write_text(json.dumps(ledger))
+            cleaned = subprocess.run(command, env=env, capture_output=True, text=True, timeout=15)
+            self.assertEqual(cleaned.returncode, 0, cleaned.stderr)
+            child.wait(timeout=5)
+            self.assertFalse(scratch.exists())
+        finally:
+            for child in children:
+                if child.poll() is None:
+                    child.terminate(); child.wait(timeout=5)
+            if fixture.handle: fixture.handle.close()
+            if scratch.exists(): shutil.rmtree(scratch)
+            context.parent.rmdir()
 
     def test_fresh_cleanup_shell_stops_only_owned_identity_in_current_job(self):
         # Use the real checkout because a fresh helper independently derives ROOT.

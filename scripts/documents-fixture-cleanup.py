@@ -45,6 +45,13 @@ def cleanup(path, expected=None):
     if scratch.exists() and (not valid_scratch or not marker.is_file() or json.loads(marker.read_text())!={'scope':scope,'source':receipt['source']}):
         raise ValueError('Fixture directory ownership mismatch')
     processes=list(receipt['processes'])
+    native_s3=receipt.get('nativeS3')
+    if native_s3:
+        s3_marker=f'-dir={scratch}/s3/data'
+        if native_s3.get('marker') != s3_marker:
+            raise ValueError('Native S3 planned marker mismatch')
+        if not any(item['marker']==s3_marker for item in processes):
+            raise RuntimeError('Native S3 startup identity unresolved; owned data retained')
     native=receipt.get('nativePg')
     if native and scratch.exists():
         directory=scratch/'db'

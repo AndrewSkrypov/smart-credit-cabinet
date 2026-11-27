@@ -21,6 +21,10 @@ class HexagonalBoundariesTest(unittest.TestCase):
             target = self.root / "libs" / name
             shutil.copytree(original / "src/main/kotlin", target / "src/main/kotlin")
             shutil.copyfile(original / "build.gradle.kts", target / "build.gradle.kts")
+        for name in (boundaries.TRANSPORT_LIBRARIES | boundaries.ADAPTER_LIBRARIES | {"platform-common"}):
+            directory = Path("libs") / name / "src/main/kotlin"
+            shutil.copytree(boundaries.ROOT / directory, self.root / directory)
+        shutil.copytree(boundaries.ROOT / "contracts/proto", self.root / "contracts/proto")
         for name in boundaries.LEGACY_SERVICES:
             self.write_legacy(name, "ru.creditcabinet.fixture.application", "class Example")
 
@@ -94,6 +98,99 @@ class HexagonalBoundariesTest(unittest.TestCase):
         errors = boundaries.check(self.root)["errors"]
         self.assertEqual(1, len(errors), errors)
         self.assertIn("org.springframework.context.ApplicationContext", errors[0])
+
+    def test_credit_application_rejects_http_error_subclasses_and_aliases(self):
+        self.write_legacy("credit", "ru.creditcabinet.fixture.application",
+                          "import ru.creditcabinet.common.exception.NotFoundException\n"
+                          "import ru.creditcabinet.common.limits.SharedLimitExceeded\n"
+                          "import ru.creditcabinet.compat.ImportedFailure\n"
+                          "class ReadApplication(val failure: ImportedFailure?) {\n"
+                          "    fun load(): Nothing = throw NotFoundException(\"Нет заявки\")\n"
+                          "    fun limit(): Nothing = throw SharedLimitExceeded(\"Лимит\", 5)\n"
+                          "}")
+        self.write_legacy("credit", "ru.creditcabinet.compat", "typealias ImportedFailure = ru.creditcabinet.fixture.domain.RemoteFailure")
+        self.write_legacy("credit", "ru.creditcabinet.fixture.domain",
+                          "import ru.creditcabinet.common.exception.ApiException as GatewayError\n"
+                          "open class RemoteMissing(message: String = \"Не найдено (удалённо)\") : GatewayError(org.springframework.http.HttpStatus.NOT_FOUND, message)\n"
+                          "class RemoteFailure : RemoteMissing()")
+        catalog = boundaries.BoundaryCatalog(self.root)
+        self.assertIn("ru.creditcabinet.fixture.domain.RemoteFailure", catalog.http_errors)
+        self.assertIn("ru.creditcabinet.common.limits.SharedLimitExceeded", catalog.http_errors)
+        errors = boundaries.check(self.root)["errors"]
+        for name in ("NotFoundException", "SharedLimitExceeded", "ImportedFailure"):
+            self.assertTrue(any("application depends" in error and name in error for error in errors), errors)
+        bytecode = "\n".join(
+            f"   ru.creditcabinet.fixture.application.ReadApplication -> {name} not found"
+            for name in ("ru.creditcabinet.common.exception.NotFoundException", "ru.creditcabinet.common.limits.SharedLimitExceeded")
+        )
+        self.assertEqual(2, len(boundaries.bytecode_errors(bytecode, catalog)))
+
+    def test_actual_documents_client_and_generated_dtos_are_transport(self):
+        self.write_legacy("documents", "ru.creditcabinet.documents.domain",
+                          "import ru.creditcabinet.documentsgrpc.DocumentsGrpcClient\n"
+                          "import ru.creditcabinet.contracts.documents.v1.PutRequest\n"
+                          "class ArtifactPolicy(private val client: DocumentsGrpcClient, private val request: PutRequest)")
+        catalog = boundaries.BoundaryCatalog(self.root)
+        errors = boundaries.check(self.root)["errors"]
+        for name in ("ru.creditcabinet.documentsgrpc.DocumentsGrpcClient", "ru.creditcabinet.contracts.documents.v1.PutRequest"):
+            self.assertTrue(any("domain depends" in error and name in error for error in errors), errors)
+        output = """
+   ru.creditcabinet.documents.domain.ArtifactPolicy -> ru.creditcabinet.documentsgrpc.DocumentsGrpcClient not found
+   ru.creditcabinet.documents.domain.ArtifactPolicy -> ru.creditcabinet.contracts.documents.v1.PutRequest not found
+   ru.creditcabinet.documents.application.Artifacts -> ru.creditcabinet.documents.ArtifactRecord not found
+"""
+        self.assertEqual(2, len(boundaries.bytecode_errors(output, catalog)))
+
+    def test_documents_runtime_requires_a_production_layer(self):
+        self.write_legacy("documents", "ru.creditcabinet.documents.storage", "class UnclassifiedWriter")
+        self.write_legacy("documents", "ru.creditcabinet.documents.application",
+                          "import ru.creditcabinet.documents.ArtifactRecord\nclass Artifacts(val record: ArtifactRecord)")
+        errors = boundaries.check(self.root)["errors"]
+        self.assertEqual(1, len(errors), errors)
+        self.assertIn("unclassified production package ru.creditcabinet.documents.storage", errors[0])
+
+    def test_pure_documents_use_cases_can_share_ports_but_domain_cannot_import_them(self):
+        source = self.root / "libs/documents-model/src/main/kotlin/ru/creditcabinet/documents"
+        application = source / "application"
+        application.mkdir(exist_ok=True)
+        (application / "ArtifactOperations.kt").write_text(
+            "package ru.creditcabinet.documents.application\ninterface ArtifactOperations\n"
+        )
+        operations = application / "GenerateArtifact.kt"
+        operations.write_text("package ru.creditcabinet.documents.application\n"
+                              "class GenerateArtifact(val operations: ru.creditcabinet.documents.application.ArtifactOperations)\n")
+        self.assertEqual([], boundaries.check(self.root)["errors"])
+        domain = source / "domain"
+        domain.mkdir(exist_ok=True)
+        (domain / "ArtifactRule.kt").write_text(
+            "package ru.creditcabinet.documents.domain\n"
+            "import ru.creditcabinet.documents.application.ArtifactOperations\n"
+            "import ru.creditcabinet.document.generated.ArtifactRenderer\n"
+            "class ArtifactRule(val operations: ArtifactOperations, val renderer: ArtifactRenderer)\n"
+        )
+        errors = boundaries.check(self.root)["errors"]
+        self.assertTrue(any("ArtifactOperations" in error for error in errors), errors)
+        self.assertTrue(any("ArtifactRenderer" in error for error in errors), errors)
+
+    def test_financing_controller_cannot_start_the_locking_transaction(self):
+        target = Path("services/credit/src/main/kotlin/ru/creditcabinet/financing/scenario/controller/FinancingScenarioController.kt")
+        controller = (boundaries.ROOT / target).read_text()
+        write_call = "agents.saveFinancingScenario(id, inputs.toDomain()).toContract()"
+        self.assertIn(write_call, controller)
+        self.assertNotIn("import org.springframework.transaction", controller)
+        prior = controller.replace("import org.springframework.http.ResponseEntity\n",
+                                   "import org.springframework.http.ResponseEntity\n"
+                                   "import org.springframework.transaction.annotation.Transactional\n")
+        prior = prior.replace("    fun agentPut(", "    @Transactional\n    fun agentPut(")
+        prior = prior.replace(write_call, "scenarios.saveDraft(agents.ownAgentApplication(id, forUpdate = true).second, inputs.toDomain()).toContract()")
+        destination = self.root / target
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(prior)
+        errors = boundaries.check(self.root)["errors"]
+        self.assertTrue(any("transport depends on org.springframework.transaction.annotation.Transactional" in error for error in errors), errors)
+        self.assertTrue(any("transport acquires a business write lock" in error for error in errors), errors)
+        destination.write_text(controller)
+        self.assertEqual([], boundaries.check(self.root)["errors"])
 
     def test_compiled_check_rejects_jdbc_controller_and_same_context_adapter(self):
         output = """

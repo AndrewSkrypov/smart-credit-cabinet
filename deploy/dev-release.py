@@ -140,8 +140,17 @@ def deploy(args, state_dir, release):
         enrollment, pending = None, {}
     if status.get("revision") == release.revision and status.get("manifest_sha256") != release.checksum:
         raise ValueError("Manifest для уже применённой ревизии изменился")
+    replacement = enrollment is not None and (
+        enrollment["target"].get("revision") != release.revision
+        or enrollment["target"].get("manifest_sha256") != release.checksum
+    )
     if enrollment:
-        env_contents = runtime_attempts.enrolled_env(state_dir, enrollment, original_env)
+        if replacement and not args.verify_only:
+            env_contents = runtime_attempts.prebackup_replacement_env(
+                state_dir, enrollment, status, release.revision, release.checksum, original_env,
+            )
+        else:
+            env_contents = runtime_attempts.enrolled_env(state_dir, enrollment, original_env)
     names = {line.split(b"=", 1)[0].decode("utf-8") for line in env_contents.splitlines() if b"=" in line}
     if not args.verify_only and release.alpha_dev is not None and not any(name.startswith("CABINET_ALPHA_DEV_") for name in names):
         if status.get("alpha_dev") or pending.get("alpha_dev"):
@@ -155,7 +164,7 @@ def deploy(args, state_dir, release):
     deployment = Deployment(PROJECT, env_file, release_manifest=release.path, env_contents=env_contents, open_hooks=False)
     desired, history_file, history = rollout_metadata(deployment, state_dir, release, status, pending)
     need_attempt = bool(deployment.runtime_modes or deployment.alpha_dev) and release.has_all_runtimes
-    if enrollment and (not need_attempt or enrollment["target"] != desired or enrollment["previous"] != status):
+    if enrollment and (not need_attempt or enrollment["previous"] != status):
         raise RuntimeError("Регистрация общего выпуска требует исходный текущий выпуск и тот же целевой manifest")
     if release.has_all_runtimes and "alpha_dev" in status and desired.get("alpha_dev") != status["alpha_dev"]:
         raise RuntimeError("Общий выпуск сохраняет текущее поколение и режим чтения Alpha")
@@ -171,6 +180,13 @@ def deploy(args, state_dir, release):
     if (desired.get("documents", {}).get("mode") == "remote" and
             "documents" not in status and "documents" not in pending):
         raise RuntimeError("Для первого включения Documents нужен защищённый выпуск с режимом local")
+    # The ordinary target/Alpha/mode guards above run before any recovery pointer change.
+    if enrollment and enrollment["target"] != desired:
+        if args.verify_only or not replacement:
+            raise RuntimeError("Регистрация общего выпуска требует тот же целевой manifest")
+        enrollment = runtime_attempts.recover_prebackup(
+            state_dir, enrollment, status, desired, original_env, env_contents,
+        )
 
     if not args.verify_only and (desired != status or pending):
         if need_attempt:

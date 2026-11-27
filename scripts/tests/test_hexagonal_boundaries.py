@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import shutil
+import struct
 import tempfile
 import unittest
 
@@ -25,7 +26,7 @@ class HexagonalBoundariesTest(unittest.TestCase):
             directory = Path("libs") / name / "src/main/kotlin"
             shutil.copytree(boundaries.ROOT / directory, self.root / directory)
         shutil.copytree(boundaries.ROOT / "contracts/proto", self.root / "contracts/proto")
-        for name in boundaries.LEGACY_SERVICES:
+        for name in boundaries.SERVICES:
             self.write_legacy(name, "ru.creditcabinet.fixture.application", "class Example")
 
     def write_legacy(self, service, package, text):
@@ -208,3 +209,120 @@ main -> not found
         self.assertTrue(any("UseCase$1" in error and "HttpReader" in error for error in errors))
         self.assertTrue(any("scenario.domain.Rules" in error and "scenario.application.Read" in error for error in errors))
         self.assertTrue(any("Controller" in error and "EntityManager" in error for error in errors))
+
+    def test_domain_and_application_in_the_other_services_are_checked(self):
+        examples = (
+            ("analytics", "analytics/domain/ApplicationStatus.kt", "org.springframework.jdbc.core.JdbcTemplate", "domain"),
+            ("assessment", "assessmentservice/application/AssessmentExecution.kt",
+             "ru.creditcabinet.contracts.catalog.v1.CatalogServiceGrpc.CatalogServiceBlockingStub", "application"),
+            ("catalog-grpc", "catalog/application/CatalogUseCases.kt", "ru.creditcabinet.catalog.infrastructure.JdbcCatalogReader", "application"),
+        )
+        for service, relative, dependency, source_layer in examples:
+            path = Path("services") / service / "src/main/kotlin/ru/creditcabinet" / relative
+            destination = self.root / path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text((boundaries.ROOT / path).read_text() + f"\nprivate val leak: {dependency}? = null\n")
+        errors = boundaries.check(self.root)["errors"]
+        for service, relative, dependency, source_layer in examples:
+            with self.subTest(service=service):
+                self.assertTrue(any(error.startswith(f"services/{service}/") and
+                                    f"/{relative}: {source_layer} depends on {dependency}" in error for error in errors), errors)
+        output = """
+   ru.creditcabinet.analytics.domain.ApplicationStatus -> org.springframework.jdbc.core.JdbcTemplate not found
+   ru.creditcabinet.assessmentservice.application.AssessmentExecution -> ru.creditcabinet.contracts.catalog.v1.CatalogServiceGrpc$CatalogServiceBlockingStub not found
+   ru.creditcabinet.catalog.application.CatalogUseCases -> ru.creditcabinet.catalog.infrastructure.JdbcCatalogReader main
+"""
+        self.assertEqual(3, len(boundaries.bytecode_errors(output, boundaries.BoundaryCatalog(self.root))))
+
+    def test_platform_common_domain_has_its_own_scope(self):
+        domain = self.root / "libs/platform-common" / boundaries.COMMON_DOMAIN_PATH
+        domain.mkdir(exist_ok=True, parents=True)
+        (domain / "Failure.kt").write_text("package ru.creditcabinet.common.domain\n"
+                                           "class DomainFailure(val status: org.springframework.http.HttpStatus)\n")
+        report = boundaries.check(self.root)
+        self.assertEqual(1, report["modules"]["platform-common"])
+        self.assertEqual(1, len(report["errors"]), report)
+        self.assertIn("domain depends on org.springframework.http.HttpStatus", report["errors"][0])
+        output = """
+   ru.creditcabinet.common.domain.DomainFailure -> org.springframework.http.HttpStatus not found
+   ru.creditcabinet.common.exception.ApiException -> org.springframework.http.HttpStatus not found
+"""
+        errors = boundaries.bytecode_errors(output, boundaries.BoundaryCatalog(self.root), common_domain_only=True)
+        self.assertEqual(1, len(errors), errors)
+        self.assertIn("common.domain.DomainFailure", errors[0])
+
+    def test_concrete_runtime_adapters_are_classified_with_no_fallback_for_new_files(self):
+        for service in ("analytics", "assessment", "catalog-grpc", "external-sim", "servicing"):
+            directory = Path("services") / service / "src/main/kotlin"
+            shutil.copytree(boundaries.ROOT / directory, self.root / directory, dirs_exist_ok=True)
+        self.assertEqual([], boundaries.check(self.root)["errors"])
+        catalog = boundaries.BoundaryCatalog(self.root)
+        self.assertEqual("transport", catalog.class_layer("ru.creditcabinet.cataloggrpc.CatalogGrpcService$WhenMappings"))
+        self.assertEqual("composition", catalog.class_layer("ru.creditcabinet.cataloggrpc.CatalogGrpcConfigurationKt"))
+        self.assertEqual("composition", catalog.class_layer("ru.creditcabinet.servicing.runtime.ServicingPeer"))
+        self.assertEqual("transport", catalog.class_layer("ru.creditcabinet.sim.fns.FnsController"))
+        self.write_legacy("catalog-grpc", "ru.creditcabinet.cataloggrpc", "class HiddenUseCase")
+        self.write_legacy("new-service", "ru.creditcabinet.newservice.domain", "class Candidate")
+        errors = boundaries.check(self.root)["errors"]
+        self.assertEqual(2, len(errors), errors)
+        self.assertTrue(any("unclassified production package ru.creditcabinet.cataloggrpc" in error for error in errors), errors)
+        self.assertIn("services/new-service: production service has no configured layers", errors)
+
+    def test_nested_kotlin_and_java_http_subtypes_cannot_cross_into_use_cases(self):
+        platform = self.root / "libs/platform-common/src/main"
+        kotlin = platform / "kotlin/ru/creditcabinet/common/limits/SharedFailure.kt"
+        kotlin.write_text("""package ru.creditcabinet.common.limits
+import ru.creditcabinet.common.exception.ApiException
+object SharedFailure {
+    class Throttled(message: String) : ApiException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, message)
+}
+""")
+        java = platform / "java/ru/creditcabinet/common/limits/RetryLater.java"
+        java.parent.mkdir(parents=True)
+        java.write_text("""package ru.creditcabinet.common.limits;
+import ru.creditcabinet.common.exception.ApiException;
+public class RetryLater extends ApiException {
+    public RetryLater() {
+        super(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "try later");
+    }
+}
+""")
+        self.write_legacy("credit", "ru.creditcabinet.fixture.application",
+                          "import ru.creditcabinet.common.limits.SharedFailure.Throttled\n"
+                          "import ru.creditcabinet.common.limits.RetryLater\n"
+                          "class Process(val limits: Throttled, val retry: RetryLater)")
+        errors = boundaries.check(self.root)["errors"]
+        self.assertEqual(2, len(errors), errors)
+        self.assertTrue(any("application depends on ru.creditcabinet.common.limits.SharedFailure.Throttled" in error for error in errors))
+        self.assertTrue(any("application depends on ru.creditcabinet.common.limits.RetryLater" in error for error in errors))
+
+    def test_compiled_superclass_graph_finds_subtypes_without_kotlin_source(self):
+        platform = self.root / "libs/platform-common/build/classes"
+        parent = "ru/creditcabinet/common/exception/ApiException"
+        java = "ru/creditcabinet/common/limits/RetryLater"
+        nested = "ru/creditcabinet/common/limits/SharedFailure$Throttled"
+
+        def write_class(language, name, superclass):
+            def utf8(value):
+                encoded = value.encode("ascii")
+                return struct.pack(">BH", 1, len(encoded)) + encoded
+            data = (b"\xca\xfe\xba\xbe" + struct.pack(">HHH", 0, 65, 5)
+                    + utf8(name) + struct.pack(">BH", 7, 1)
+                    + utf8(superclass) + struct.pack(">BH", 7, 3)
+                    + struct.pack(">HHHHHHH", 0x21, 2, 4, 0, 0, 0, 0))
+            entry = platform / language / "main" / (name + ".class")
+            entry.parent.mkdir(parents=True, exist_ok=True)
+            entry.write_bytes(data)
+
+        write_class("java", java, parent)
+        write_class("kotlin", nested, java)
+        catalog = boundaries.BoundaryCatalog(self.root)
+        ancestry, errors = boundaries.compiled_ancestry(self.root)
+        self.assertEqual([], errors)
+        output = f"""
+   ru.creditcabinet.fixture.application.Process -> {java.replace('/', '.')} not found
+   ru.creditcabinet.fixture.application.Process -> {nested.replace('/', '.')} not found
+"""
+        self.assertEqual([], boundaries.bytecode_errors(output, catalog))
+        catalog.add_http_descendants(ancestry)
+        self.assertEqual(2, len(boundaries.bytecode_errors(output, catalog)))

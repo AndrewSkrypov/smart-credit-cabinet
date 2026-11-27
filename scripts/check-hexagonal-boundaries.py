@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import struct
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,12 +12,36 @@ MODULES = (
     "assessment-contracts", "assessment-engine", "catalog-model", "documents-model",
     "loan-math", "servicing-model", "servicing-core",
 )
-LEGACY_SERVICES = ("credit", "documents", "engagement", "identity")
+SERVICES = ("analytics", "assessment", "catalog-grpc", "credit", "documents", "engagement", "external-sim", "identity", "servicing")
 ENTRYPOINTS = {
+    "analytics": "ru.creditcabinet.AnalyticsServiceApplication",
+    "assessment": "ru.creditcabinet.assessmentservice.AssessmentApplication",
+    "catalog-grpc": "ru.creditcabinet.cataloggrpc.CatalogGrpcApplication",
     "credit": "ru.creditcabinet.CreditServiceApplication",
     "engagement": "ru.creditcabinet.EngagementServiceApplication",
+    "external-sim": "ru.creditcabinet.ExternalSimApplication",
     "identity": "ru.creditcabinet.IdentityServiceApplication",
+    "servicing": "ru.creditcabinet.servicing.runtime.ServicingApplication",
 }
+OUTER_FILES = {
+    "catalog-grpc": {
+        "ru.creditcabinet.cataloggrpc.CatalogGrpcConfiguration": "composition",
+        "ru.creditcabinet.cataloggrpc.CatalogGrpcService": "transport",
+    },
+    "servicing": {
+        "ru.creditcabinet.servicing.runtime.ServicingGrpcConfiguration": "composition",
+        "ru.creditcabinet.servicing.runtime.ServicingGrpcService": "transport",
+    },
+}
+SIMULATOR_PACKAGES = {
+    "ru.creditcabinet.sim.dataset": "adapter",
+    **{f"ru.creditcabinet.sim.{name}": "transport" for name in ("bank", "bureau", "control", "core", "fns", "registry", "signing")},
+}
+COMMON_DOMAIN = "ru.creditcabinet.common.domain"
+COMMON_DOMAIN_PATH = Path("src/main/kotlin/ru/creditcabinet/common/domain")
+GUARDED_MODULES = (
+    *(("libs", name) for name in MODULES), ("libs", "platform-common"), *(("services", name) for name in SERVICES),
+)
 TRANSPORT_LIBRARIES = {"catalog-client", "documents-client", "servicing-grpc"}
 ADAPTER_LIBRARIES = {"assessment-messaging", "catalog-jdbc", "documents-renderer", "documents-storage", "servicing-persistence"}
 ADAPTERS = {"adapter", "adapters", "config", "dto", "infrastructure", "observability", "persistence"}
@@ -43,11 +68,13 @@ SHARED_ADAPTERS = (
     "ru.creditcabinet.common.mail.MailCapabilities",
 )
 HTTP_ERRORS = "ru.creditcabinet.common.exception"
-PACKAGE = re.compile(r"(?m)^\s*package\s+([\w.]+)\s*$")
-IMPORT = re.compile(r"(?m)^\s*import\s+([\w.]+\*?)(?:\s+as\s+(\w+))?[^\S\n]*$")
-DECLARATION = re.compile(r"(?m)^(?:(?:public|private|internal|open|abstract|sealed|data|value|enum|annotation|fun)\s+)*"
-                         r"(class|interface|object|typealias)\s+(\w+)")
+PACKAGE = re.compile(r"(?m)^[^\S\n]*package\s+([\w.]+)[^\S\n]*;?[^\S\n]*$")
+IMPORT = re.compile(r"(?m)^[^\S\n]*import\s+(?:static\s+)?([\w.]+\*?)(?:\s+as\s+(\w+))?[^\S\n]*;?[^\S\n]*$")
+DECLARATION = re.compile(r"(?m)(?:^|(?<=[{;]))[^\S\n]*"
+                         r"(?:(?:public|private|protected|internal|open|abstract|sealed|data|value|enum|annotation|fun|static|final)\s+)*"
+                         r"(class|interface|object|record|enum|typealias)\s+(\w+)")
 TYPE_NAME = re.compile(r"\s*((?:[a-zA-Z_]\w*\.)*[a-zA-Z_]\w*)")
+BRACE = re.compile(r"[{}]")
 STRING = re.compile(r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
 ALIAS = re.compile(r"(?m)^typealias\s+(\w+)\s*=\s*([\w.]+)[^\S\n]*$")
 PROTO_PACKAGE = re.compile(r'(?m)^\s*option\s+java_package\s*=\s*"([\w.]+)"\s*;')
@@ -86,12 +113,10 @@ def forbidden_reference(source_layer, reference, boundaries):
         if any(symbol.rsplit(".", 1)[0] == namespace and
                forbidden_reference(source_layer, symbol, boundaries) for symbol in possible_imports):
             return True
-    reference = boundaries.resolve_alias(reference)
+    reference = boundaries.resolve_alias(reference.replace("$", "."))
     target_layer = layer(reference.rsplit(".", 1)[0])
     http_error = matches_prefix(reference, boundaries.http_errors)
-    external = (matches_prefix(reference, boundaries.transport_packages)
-                or matches_prefix(reference, boundaries.adapter_symbols)
-                or matches_prefix(reference, ENTRYPOINTS.values()))
+    external = matches_prefix(reference, boundaries.transport_packages) or matches_prefix(reference, boundaries.adapter_symbols)
     if source_layer in {"pure", "pure-application", "domain"}:
         outer_application = target_layer == "application" and (
             source_layer != "pure-application" or not matches_prefix(reference, boundaries.pure_application_packages)
@@ -170,8 +195,8 @@ def without_comments(text):
     return "".join(out)
 
 
-def kotlin_files(directory):
-    return sorted(directory.rglob("src/main/kotlin/**/*.kt"))
+def production_sources(directory):
+    return sorted([*directory.rglob("src/main/kotlin/**/*.kt"), *directory.rglob("src/main/java/**/*.java")])
 
 
 def skip_group(text, start, opening, closing):
@@ -186,38 +211,64 @@ def skip_group(text, start, opening, closing):
     return len(text)
 
 
-def class_parents(text, start):
-    """Read the explicit Kotlin supertype list, skipping generic and constructor arguments."""
+def type_header(text, start, java):
+    """Return explicit supertypes and the opening brace of a declared type's body."""
     header = text[start:].lstrip()
     if header.startswith("<"):
         header = header[skip_group(header, 0, "<", ">"):].lstrip()
     header = re.sub(r"^(?:(?:private|protected|internal|public)\s+)?constructor\s*", "", header)
     if header.startswith("("):
         header = header[skip_group(header, 0, "(", ")"):].lstrip()
-    if not header.startswith(":"):
-        return []
     parents = []
-    while match := TYPE_NAME.match(header, 1):
+    delimiter = re.match(r"extends\b" if java else ":", header)
+    while delimiter and (match := TYPE_NAME.match(header, delimiter.end())):
         parents.append(match[1])
         header = header[match.end():].lstrip()
         if header.startswith("<"):
             header = header[skip_group(header, 0, "<", ">"):].lstrip()
         if header.startswith("("):
             header = header[skip_group(header, 0, "(", ")"):].lstrip()
-        if not header.startswith(","):
-            break
-    return parents
+        delimiter = re.match(",", header)
+    if java:
+        implements = re.match(r"implements\b[^\{;]*", header)
+        if implements:
+            header = header[implements.end():]
+    return parents, len(text) - len(header) if header.startswith("{") else None
+
+
+def source_types(text, java):
+    """Preserve the declaring type of nested exceptions instead of flattening them into the package."""
+    events = []
+    for kind in BRACE.finditer(text):
+        events.append((kind.start(), kind[0], None))
+    for declaration in DECLARATION.finditer(text):
+        events.append((declaration.start(), "type", declaration))
+    owners, type_bodies = [], {}
+    for position, event, declaration in sorted(events, key=lambda event: event[0]):
+        if event == "{":
+            owners.append(type_bodies.get(position))
+        elif event == "}":
+            if owners:
+                owners.pop()
+        else:
+            kind, name = declaration.groups()
+            enclosing = [owner for owner in owners if owner]
+            parents, body = type_header(text, declaration.end(), java)
+            if body is not None and kind != "typealias":
+                type_bodies[body] = name
+            yield kind, ".".join([*enclosing, name]), parents, declaration.end()
 
 
 class BoundaryCatalog:
     def __init__(self, root):
         self.sources, self.transport_packages = {}, set()
         self.adapter_symbols = set()
+        self.explicit_class_layers = {}
         self.pure_application_packages = set()
         self.errors = []
         self.aliases, ancestry = {}, {}
         declared, local_sources = set(), []
-        for source in kotlin_files(root / "libs") + kotlin_files(root / "services"):
+        for source in production_sources(root / "libs") + production_sources(root / "services"):
             code = without_comments(source.read_text()).replace("`", "")
             package_match = PACKAGE.search(code)
             package = package_match[1] if package_match else ""
@@ -229,30 +280,38 @@ class BoundaryCatalog:
                 continue
             imports = IMPORT.findall(code)
             syntax = STRING.sub('""', code)
-            declarations = list(DECLARATION.finditer(syntax))
-            symbols = {package + "." + item[2] for item in declarations}
+            declarations = list(source_types(syntax, source.suffix == ".java"))
+            symbols = {package + "." + name for _, name, _, _ in declarations}
             declared.update(symbols)
             if group == "libs" and module in ADAPTER_LIBRARIES:
                 # The renderer shares a package with pure document models. Classify its
                 # actual exports without blocking the model package.
                 self.adapter_symbols.update(symbols)
                 self.adapter_symbols.add(f"{package}.{source.stem}Kt")
+            if group == "services" and module in SERVICES and layer(package) is None:
+                outer = explicit_service_layer(module, source, package, self.sources[source][1])
+                if outer:
+                    emitted = symbols | {f"{package}.{source.stem}Kt"}
+                    self.explicit_class_layers.update(dict.fromkeys(emitted, outer))
+                    if outer != "aliases":
+                        self.adapter_symbols.update(emitted)
             if group == "libs" and module in MODULES and layer(package) == "application":
                 self.pure_application_packages.add(package)
             local_sources.append((package, imports, syntax, declarations))
         for package, imported, syntax, declarations in local_sources:
             imports = {alias or name.rsplit(".", 1)[-1]: name for name, alias in imported if not name.endswith("*")}
             star_imports = [name[:-1] for name, _ in imported if name.endswith("*")]
-            for item in declarations:
-                qualified = package + "." + item[2]
-                if item[1] == "typealias":
-                    alias = re.match(r"\s*=\s*([\w.]+)", syntax[item.end():])
+            for kind, name, parents, tail in declarations:
+                qualified = package + "." + name
+                owner = qualified.rsplit(".", 1)[0]
+                if kind == "typealias":
+                    alias = re.match(r"\s*=\s*([\w.]+)", syntax[tail:])
                     if alias:
-                        self.aliases[qualified] = self.resolve_name(alias[1], package, imports, star_imports, declared)
-                elif item[1] == "class":
+                        self.aliases[qualified] = self.resolve_name(alias[1], package, owner, imports, star_imports, declared)
+                elif kind == "class":
                     ancestry[qualified] = [
-                        self.resolve_name(parent, package, imports, star_imports, declared)
-                        for parent in class_parents(syntax, item.end())
+                        self.resolve_name(parent, package, owner, imports, star_imports, declared)
+                        for parent in parents
                     ]
         for schema in sorted((root / "contracts/proto").rglob("*.proto")):
             package = PROTO_PACKAGE.search(without_comments(schema.read_text()))
@@ -265,7 +324,13 @@ class BoundaryCatalog:
                 self.errors.append(f"{module}: transport library has no production package")
         if not any((root / "contracts/proto").rglob("*.proto")):
             self.errors.append("contracts/proto: no production wire packages")
+        for module in (root / "services").glob("*"):
+            if module.name not in SERVICES and ((module / "build.gradle.kts").is_file() or (module / "src/main").is_dir()):
+                self.errors.append(f"services/{module.name}: production service has no configured layers")
         self.http_errors = {HTTP_ERRORS}
+        self.add_http_descendants(ancestry)
+
+    def add_http_descendants(self, ancestry):
         # A foreign subtype remains a transport type even when declared in another package.
         pending = set(ancestry)
         while inherited := {child for child in pending if any(
@@ -273,16 +338,21 @@ class BoundaryCatalog:
             self.http_errors.update(inherited)
             pending.difference_update(inherited)
 
+    def class_layer(self, class_name):
+        return layer(class_name.rsplit(".", 1)[0]) or self.explicit_class_layers.get(class_name.split("$", 1)[0])
+
     @staticmethod
-    def resolve_name(name, package, imports, star_imports, declared):
+    def resolve_name(name, package, owner, imports, star_imports, declared):
         first, dot, rest = name.partition(".")
         if first in imports:
             return imports[first] + dot + rest
         if dot and first[0].islower():
             return name
         local = package + "." + name
-        if package + "." + first in declared:
-            return local
+        while owner.startswith(package):
+            if owner + "." + first in declared:
+                return owner + "." + name
+            owner = owner.rsplit(".", 1)[0]
         return next((namespace + name for namespace in star_imports if namespace + first in declared), local)
 
     def resolve_alias(self, reference):
@@ -298,10 +368,14 @@ class BoundaryCatalog:
             reference = self.aliases[prefix] + suffix
 
 
-def composition_or_type_aliases(service, source, package, code):
+def explicit_service_layer(service, source, package, code):
     qualified = f"{package}.{source.stem}"
-    if qualified == ENTRYPOINTS.get(service) and "@SpringBootApplication" in code:
+    if qualified == ENTRYPOINTS.get(service) and ("@SpringBootApplication" in code or "@SpringBootConfiguration" in code):
         return "composition"
+    if qualified in OUTER_FILES.get(service, {}):
+        return OUTER_FILES[service][qualified]
+    if service == "external-sim" and package in SIMULATOR_PACKAGES:
+        return SIMULATOR_PACKAGES[package]
     # Compatibility packages may contain type aliases only. Aliases used by core are resolved
     # to the target type before checking its layer. A new declaration here requires a layer.
     if ALIAS.search(code) and not ALIAS.sub("", code).strip():
@@ -312,18 +386,24 @@ def composition_or_type_aliases(service, source, package, code):
 def check(root=ROOT):
     boundaries = BoundaryCatalog(root)
     errors, modules = sorted(boundaries.errors), {}
-    folders = [("libs", name) for name in MODULES] + [("services", name) for name in LEGACY_SERVICES]
-    for group, name in folders:
-        sources = sorted((root / group / name / "src/main/kotlin").rglob("*.kt"))
+    for group, name in GUARDED_MODULES:
+        module = root / group / name
+        sources = sorted(source for source in boundaries.sources if module in source.parents)
         if not sources:
-            errors.append(f"{name}: boundary check has no Kotlin sources")
+            errors.append(f"{name}: boundary check has no production sources")
+        if name == "platform-common":
+            sources = [source for source in sources if
+                       matches_prefix(boundaries.sources[source][0], (COMMON_DOMAIN,))
+                       or (module / COMMON_DOMAIN_PATH) in source.parents]
         for source in sources:
             package, kotlin = boundaries.sources[source]
             source_layer = layer(package)
-            if group == "libs":
+            if name in MODULES:
                 source_layer = "pure-application" if source_layer == "application" else "pure"
-            if source_layer is None and group == "services":
-                source_layer = composition_or_type_aliases(name, source, package, kotlin)
+            elif name == "platform-common":
+                source_layer = "domain" if matches_prefix(package, (COMMON_DOMAIN,)) else None
+            elif source_layer is None:
+                source_layer = explicit_service_layer(name, source, package, kotlin)
             if source_layer is None:
                 errors.append(f"{source.relative_to(root)}: unclassified production package {package or '<missing>'}")
                 continue
@@ -339,14 +419,16 @@ def check(root=ROOT):
     return {"modules": modules, "errors": errors, "scope": "production source; Gradle separately checks pure-core classpaths"}
 
 
-def bytecode_errors(output, boundaries=None, pure_module=False):
+def bytecode_errors(output, boundaries=None, pure_module=False, common_domain_only=False):
     boundaries = boundaries or BoundaryCatalog(ROOT)
     errors = set()
     for line in output.splitlines():
         edge = JDEPS_EDGE.match(line)
         if edge:
             source, reference = edge.groups()
-            source_layer = layer(source.rsplit(".", 1)[0])
+            if common_domain_only and not matches_prefix(source, (COMMON_DOMAIN,)):
+                continue
+            source_layer = "domain" if common_domain_only else boundaries.class_layer(source)
             if pure_module:
                 source_layer = "pure-application" if source_layer == "application" else "pure"
             if forbidden_reference(source_layer, reference, boundaries):
@@ -354,11 +436,57 @@ def bytecode_errors(output, boundaries=None, pure_module=False):
     return sorted(errors)
 
 
+def class_supertype(classfile):
+    """Read this_class and super_class from the JVM class header, resolving constant-pool names."""
+    data = classfile.read_bytes()
+    if data[:4] != b"\xca\xfe\xba\xbe":
+        raise ValueError("invalid classfile magic")
+    count = struct.unpack_from(">H", data, 8)[0]
+    utf8, classes = {}, {}
+    offset, index = 10, 1
+    widths = {3: 4, 4: 4, 5: 8, 6: 8, 8: 2, 9: 4, 10: 4, 11: 4, 12: 4, 15: 3, 16: 2, 17: 4, 18: 4, 19: 2, 20: 2}
+    while index < count:
+        tag = data[offset]
+        offset += 1
+        if tag == 1:
+            length = struct.unpack_from(">H", data, offset)[0]
+            offset += 2
+            utf8[index] = data[offset:offset + length].decode("utf-8", errors="replace")
+            offset += length
+        elif tag == 7:
+            classes[index] = struct.unpack_from(">H", data, offset)[0]
+            offset += 2
+        else:
+            offset += widths[tag]
+        index += 2 if tag in (5, 6) else 1
+    _, this, parent = struct.unpack_from(">HHH", data, offset)
+
+    def name(entry):
+        return utf8[classes[entry]].replace("/", ".").replace("$", ".")
+
+    return name(this), name(parent) if parent else None
+
+
+def compiled_ancestry(root):
+    parents, errors = {}, []
+    for group in ("libs", "services"):
+        for language in ("kotlin", "java"):
+            for classfile in sorted((root / group).glob(f"*/build/classes/{language}/main/**/*.class")):
+                try:
+                    name, parent = class_supertype(classfile)
+                except (ValueError, KeyError, IndexError, struct.error) as error:
+                    errors.append(f"{classfile.relative_to(root)}: cannot read superclass: {error}")
+                    continue
+                if parent:
+                    parents.setdefault(name, set()).add(parent)
+    return parents, errors
+
+
 def check_bytecode(root, jdeps):
     boundaries = BoundaryCatalog(root)
-    errors = []
-    modules = [("libs", name) for name in MODULES] + [("services", name) for name in LEGACY_SERVICES]
-    for group, name in modules:
+    ancestry, errors = compiled_ancestry(root)
+    boundaries.add_http_descendants(ancestry)
+    for group, name in GUARDED_MODULES:
         module = root / group / name
         classdirs = [module / f"build/classes/{language}/main" for language in ("kotlin", "java")]
         classdirs = [directory for directory in classdirs if any(directory.rglob("*.class"))]
@@ -371,18 +499,13 @@ def check_bytecode(root, jdeps):
             errors.append(f"{name}: jdeps failed ({result.returncode}): {(result.stderr or result.stdout).strip()}")
             continue
         if group == "services":
-            entrypoint = ENTRYPOINTS.get(name)
-            allowed_roots = {entrypoint, entrypoint + "Kt"} if entrypoint else set()
-            for source in (module / "src/main/kotlin").rglob("*.kt"):
-                package, code = boundaries.sources[source]
-                if composition_or_type_aliases(name, source, package, code) == "aliases":
-                    allowed_roots.add(f"{package}.{source.stem}Kt")
             for directory in classdirs:
                 for bytecode in directory.rglob("*.class"):
                     class_name = ".".join(bytecode.relative_to(directory).with_suffix("").parts)
-                    if layer(class_name.rsplit(".", 1)[0]) is None and class_name.split("$", 1)[0] not in allowed_roots:
+                    if boundaries.class_layer(class_name) is None:
                         errors.append(f"{name}: unclassified production class {class_name}")
-        errors.extend(f"{name}: {error}" for error in bytecode_errors(result.stdout, boundaries, pure_module=group == "libs"))
+        violations = bytecode_errors(result.stdout, boundaries, pure_module=name in MODULES, common_domain_only=name == "platform-common")
+        errors.extend(f"{name}: {error}" for error in violations)
     return errors
 
 
@@ -393,6 +516,6 @@ if __name__ == "__main__":
     report = check()
     if args.jdeps:
         report["errors"].extend(check_bytecode(ROOT, args.jdeps))
-        report["scope"] += "; production bytecode for pure libraries and guarded services"
+        report["scope"] += "; production bytecode for all services, pure libraries and platform-common domain"
     print(json.dumps(report, sort_keys=True))
     raise SystemExit(bool(report["errors"]))

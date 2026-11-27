@@ -120,6 +120,8 @@ jobs:
           ./gradlew build --no-daemon -PcabinetKotlinCentralMirror=true
           # Keep the repository choice for the Catalog integration Gradle invocations.
           printf '%s\n' 'ORG_GRADLE_PROJECT_cabinetKotlinCentralMirror=true' >> "$GITHUB_ENV"
+      - name: Compile the opt-in Analytics service for the boundary check
+        run: ./gradlew :services:analytics:classes --no-daemon -PalphaAnalytics=true
       - name: Verify compiled backend dependencies
         run: python3 -B scripts/check-hexagonal-boundaries.py --jdeps "$JAVA_HOME/bin/jdeps"
       - name: Verify Catalog cutover and Credit submission over mutual TLS

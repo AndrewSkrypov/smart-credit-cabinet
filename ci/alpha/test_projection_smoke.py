@@ -82,6 +82,7 @@ class ConfigurationTest(unittest.TestCase):
         predicate = pipeline[".alpha-pilot-verify"]["rules"][1]["if"]
         self.assertIn('SOURCE_BRANCH_NAME == "feature/alpha-private-valkey"', predicate)
         self.assertIn('SOURCE_BRANCH_NAME == "feature/alpha-services-integration"', predicate)
+        self.assertIn('SOURCE_BRANCH_NAME == "feature/alpha-remote-dev-release"', predicate)
         self.assertNotIn("codex/alpha-dev-valkey", predicate)
         self.assertIn('TARGET_BRANCH_NAME == "feat/final-platform-release"', predicate)
         job = pipeline["alpha-pilot-analytics-jar"]

@@ -20,6 +20,7 @@ from catalog_rollout import store as write_state, validated_journal
 from runtime_delivery_support import ensure_private, fsync_dir, read_record
 from common import Deployment, ROOT, deploy_lock, lock_environment, replace_env
 from dev_diagnostics import diagnose, read_request
+from business_smoke import run as run_business_smoke
 from jury import COMPANY, provision, read_credentials, verify
 from registry_release import RegistryRelease, REVISION
 import runtime_attempts
@@ -239,6 +240,13 @@ def deploy(args, state_dir, release):
         report["release"] = json.loads(run(ROOT, "verify-release.py", *env_args, *release_args,
                                            "--expected-revision", release.revision, capture=True))
         if (not args.verify_only and pending_file.exists() and release.has_all_runtimes
+                and all(deployment.runtime_modes.get(name) == "remote"
+                        for name in ("catalog", "assessment", "servicing", "documents"))
+                and deployment.dev_payment_reserve_simulation):
+            report["release"]["business_smoke"] = run_business_smoke(
+                deployment, state_dir, status, desired, report, lock_fd=args.deployment_fd,
+            )
+        if (not args.verify_only and pending_file.exists() and release.has_all_runtimes
                 and (deployment.runtime_modes or deployment.alpha_dev)):
             attempt = runtime_attempts.load(state_dir, release)
             if attempt.get("alpha"):
@@ -246,7 +254,15 @@ def deploy(args, state_dir, release):
                 if (not alpha or alpha.get("manifest_sha256") != release.checksum
                         or alpha.get("caught_up") is not True):
                     raise RuntimeError("Не подтверждена сохранность и сходимость текущей Alpha")
-                report["alpha_continuity"] = alpha
+                # Business API writes and cleanup happened after the original ready journal.
+                # Recheck stores/outbox/consumer/projection without overwriting that journal.
+                if "business_smoke" in report["release"]:
+                    from runtime_backup import verify_alpha_catchup
+                    fresh_alpha = verify_alpha_catchup(deployment, attempt["alpha"]["frozen"])
+                    report["alpha_continuity"] = {**fresh_alpha, "manifest_sha256": release.checksum}
+                    report["release"]["business_smoke"]["alpha_catchup_verified"] = True
+                else:
+                    report["alpha_continuity"] = alpha
     except (OSError, ValueError, RuntimeError):
         if not args.verify_only and pending_file.exists() and release.has_all_runtimes:
             deployment.compose("stop", "caddy")

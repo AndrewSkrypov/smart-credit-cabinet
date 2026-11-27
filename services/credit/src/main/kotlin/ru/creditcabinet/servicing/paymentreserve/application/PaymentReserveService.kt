@@ -19,7 +19,7 @@ class PaymentReserveService(
     private val applications: ApplicationRepository,
     private val agentApplications: AgentApplicationService,
     private val clock: Clock,
-    private val demoAccounts: Boolean,
+    private val simulationEnabled: Boolean,
     private val callerContext: CreditCaller,
 ) {
     fun get(loanId: UUID): PaymentReserveQuote? {
@@ -31,26 +31,28 @@ class PaymentReserveService(
     fun confirm(loanId: UUID, expectedVersion: Long): PaymentReserveQuote =
         operations.confirmReserve(owned(loanId).id, ConfirmReserveCommand(actor(), expectedVersion))
     fun agentSummary(applicationId: UUID): AgentPaymentReserveSummary? {
-        requireDemo()
+        requireSimulation()
         val (_, application) = agentApplications.ownAgentApplication(applicationId)
-        if (!application.company.inn.startsWith("00")) throw missing()
+        if (application.id != applicationId || !application.company.inn.startsWith("00")) throw missing()
         if (application.status != ApplicationStatus.DISBURSED) return null
         return operations.agentSummary(applicationId)
     }
     private fun owned(id: UUID): LoanAccount {
-        requireDemo()
+        requireSimulation()
         val current = actor()
         val account = operations.byId(id)?.takeIf { it.companyId == current.companyId } ?: throw missing()
         val application = applications.find(account.applicationId) ?: throw missing()
-        if (application.status != ApplicationStatus.DISBURSED || !application.company.inn.startsWith("00")) throw missing()
+        if (account.id != id || application.id != account.applicationId || application.company.id != current.companyId ||
+            application.status != ApplicationStatus.DISBURSED || !application.company.inn.startsWith("00")
+        ) throw missing()
         return account
     }
     private fun actor(): ServicingActor {
         val (caller, companyId) = callerContext.requireClient()
         return ServicingActor(caller.userId, companyId)
     }
-    private fun requireDemo() {
-        if (!demoAccounts) throw missing()
+    private fun requireSimulation() {
+        if (!simulationEnabled) throw missing()
     }
     private fun missing() = NotFound("Резерв к платежу не найден")
 }

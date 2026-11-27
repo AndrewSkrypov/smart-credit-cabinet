@@ -40,3 +40,14 @@ val documentsClaimFenceRuntimeTest by tasks.registering(Test::class) {
     include("**/DocumentsClaimFenceRuntimeTest.class", "**/DocumentsArtifactIntentRuntimeTest.class")
     useJUnitPlatform()
 }
+
+val documentsCreditRuntimeCoverageReport by tasks.registering(org.gradle.testing.jacoco.tasks.JacocoReport::class) {
+    dependsOn(documentsClaimFenceRuntimeTest)
+    executionData(fileTree(layout.buildDirectory.dir("jacoco")) { include("test.exec", "documentsClaimFenceRuntimeTest.exec") })
+    sourceSets(sourceSets.main.get())
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+documentsClaimFenceRuntimeTest.configure { finalizedBy(documentsCreditRuntimeCoverageReport) }

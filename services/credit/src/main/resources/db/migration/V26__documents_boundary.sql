@@ -28,14 +28,15 @@ create table document_artifact_inputs (
  application_id uuid not null references applications(id), offer_id uuid not null references offers(id),
  phase varchar(10) not null, input_hash char(64) not null, input_json jsonb not null,
  created_at timestamptz not null default now(), delivered_at timestamptz,
+ requested_backend varchar(10) not null default 'LOCAL' check(requested_backend in ('LOCAL','S3')),
  primary key(application_id,offer_id,phase,input_hash)
 );
 create unique index document_final_input_immutable on document_artifact_inputs(application_id,offer_id) where phase='FINAL';
 create function preserve_document_artifact_input() returns trigger language plpgsql as $$
 begin
  if TG_OP='DELETE' then raise exception 'Document input is immutable'; end if;
- if (new.application_id,new.offer_id,new.phase,new.input_hash,new.input_json::text,new.created_at) is distinct from
-    (old.application_id,old.offer_id,old.phase,old.input_hash,old.input_json::text,old.created_at) then
+ if (new.application_id,new.offer_id,new.phase,new.input_hash,new.input_json::text,new.created_at,new.requested_backend) is distinct from
+    (old.application_id,old.offer_id,old.phase,old.input_hash,old.input_json::text,old.created_at,old.requested_backend) then
   raise exception 'Document input is immutable';
  end if;
  if old.delivered_at is not null and new.delivered_at is distinct from old.delivered_at then
@@ -128,3 +129,21 @@ create trigger document_deletion_intents_immutable before update or delete on do
 
 alter table pipeline_jobs add column business_failures integer not null default 0 check(business_failures>=0);
 comment on column pipeline_jobs.business_failures is 'Бюджет неожиданных бизнес-ошибок, независимый от монотонных попыток захвата и ожидаемых сбоев портов';
+
+-- A durable upload command input is not a public business reference or file registry.
+-- No application FK: reserving it in an independent transaction must never wait on
+-- the outer business transaction's application lock. Scope/actor are checked first.
+create table document_upload_operations (
+ operation_id uuid primary key, application_id uuid not null, company_id uuid not null,
+ actor_id uuid not null, request_hash char(64) not null,
+ requested_at timestamptz not null, requested_backend varchar(10) not null check(requested_backend in ('LOCAL','S3'))
+);
+create function preserve_document_upload_operation() returns trigger language plpgsql as $$
+begin raise exception 'Upload operation input is immutable'; end $$;
+create trigger document_upload_operations_immutable before update or delete on document_upload_operations for each row execute function preserve_document_upload_operation();
+comment on table document_upload_operations is 'Неизменяемый управляющий вход загрузки; не даёт видимости без committed business reference и журнала';
+comment on column document_upload_operations.request_hash is 'Непрозрачный SHA-256 точного нормализованного запроса и байтов, включая scope и actor';
+comment on column document_upload_operations.requested_at is 'Стабильное время операции с точностью PostgreSQL, сохраняемое при rollback и смене владельца';
+comment on column document_upload_operations.requested_backend is 'Первоначально выбранный backend операции; исполняется при LOCAL и REMOTE retry';
+
+comment on column document_artifact_inputs.requested_backend is 'Неизменяемое размещение команды артефактов для публикации и обратного переноса pending входов';

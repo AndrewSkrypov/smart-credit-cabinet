@@ -80,15 +80,8 @@ class GeneratedArtifacts(
     }
 
     private fun prepare(application: LoanApplication): List<ArtifactView> {
-        if (boundary?.remote == true) {
-            val frozen = jdbc.query("select input_json from document_artifact_inputs where application_id=? and phase='FINAL' order by created_at limit 1", {
-                    rs,
-                    _,
-                ->
-                mapper.readValue<ArtifactInput>(rs.getString(1))
-            }, application.id).firstOrNull()
-            if (frozen != null) return prepareRemote(application, frozen)
-        }
+        val frozen = jdbc.query("select input_json from document_artifact_inputs where application_id=? and phase='FINAL' order by created_at limit 1", { rs, _ -> mapper.readValue<ArtifactInput>(rs.getString(1)) }, application.id).firstOrNull()
+        if (frozen != null) return if (boundary?.remote == true) prepareRemote(application, frozen) else prepareLocal(application, frozen)
         val offer = offers.current(application.id) ?: throw NotFoundException("Банк ещё не сделал предложение")
         val loan = loans.find(application.id)
         val product = products.version(offer.productCode, offer.productVersion)!!
@@ -108,10 +101,15 @@ class GeneratedArtifacts(
             loan?.contractNumber, snapshot?.createdAt ?: offer.createdAt,
         )
         if (boundary?.remote == true) return prepareRemote(application, input)
+        return prepareLocal(application, input)
+    }
+
+    private fun prepareLocal(application: LoanApplication, input: ArtifactInput): List<ArtifactView> {
         val inputJson = mapper.writeValueAsString(input)
         val hash = checksum(inputJson.toByteArray(Charsets.UTF_8))
         val now = Timestamp.from(clock.instant())
-        val kinds = ArtifactKind.entries.filter { loan != null || it != ArtifactKind.CONTRACT_PDF }
+        val backend = jdbc.query("select requested_backend from document_artifact_inputs where application_id=? and offer_id=? and phase=? and input_hash=?", { rs, _ -> rs.getString(1) }, application.id, input.offerId, input.phase.name, hash).firstOrNull() ?: files.writeBackend.name
+        val kinds = ArtifactKind.entries.filter { input.phase == ArtifactPhase.FINAL || it != ArtifactKind.CONTRACT_PDF }
         for (kind in kinds) {
             val id = UUID.randomUUID()
             jdbc.update(
@@ -134,17 +132,17 @@ class GeneratedArtifacts(
                     updated_at)
                 values(?,?,?,?,?,?,?,?::jsonb,?,?,?,?,?,?,?,?) on conflict(application_id,offer_id,kind,phase,template_version,input_hash) do nothing
                 """.trimIndent(),
-                id, application.id, offer.id, kind.name, phase.name, ArtifactRenderer.TEMPLATE_VERSION, hash, inputJson,
+                id, application.id, input.offerId, kind.name, input.phase.name, ArtifactRenderer.TEMPLATE_VERSION, hash, inputJson,
                 renderer.title(kind, input), "application-${application.number}-${kind.name.lowercase()}.${kind.extension}", kind.contentType,
-                "generated-$id.${kind.extension}", files.writeBackend.name, now, now, now,
+                "generated-$id.${kind.extension}", backend, now, now, now,
             )
         }
         return jdbc.query(
             "select * from generated_artifacts where application_id=? and offer_id=? and phase=? and input_hash=? and template_version=? order by kind",
             { rs, _ -> view(rs) },
             application.id,
-            offer.id,
-            phase.name,
+            input.offerId,
+            input.phase.name,
             hash,
             ArtifactRenderer.TEMPLATE_VERSION,
         )
@@ -160,12 +158,13 @@ class GeneratedArtifacts(
         val frozen = tx.execute {
             // Credit owns the immutable terms and durable command intent, never remote file metadata.
             jdbc.update(
-                "insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json) values(?,?,?,?,?::jsonb) on conflict do nothing",
+                "insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json,requested_backend) values(?,?,?,?,?::jsonb,?) on conflict do nothing",
                 application.id,
                 input.offerId,
                 input.phase.name,
                 hash,
                 canonical,
+                files.writeBackend.name,
             )
             if (input.phase == ArtifactPhase.FINAL) {
                 jdbc.queryForObject(
@@ -188,12 +187,13 @@ class GeneratedArtifacts(
         val stableInput = mapper.readValue<ArtifactInput>(frozen)
         val stableJson = mapper.writeValueAsString(stableInput)
         val stableHash = checksum(stableJson.toByteArray())
-        val records = remoteRecords(application, stableInput, stableJson, stableHash)
+        val backend = jdbc.queryForObject("select requested_backend from document_artifact_inputs where application_id=? and offer_id=? and phase=? and input_hash=?", String::class.java, application.id, stableInput.offerId, stableInput.phase.name, stableHash)!!
+        val records = remoteRecords(application, stableInput, stableJson, stableHash, backend)
         if (outerTransaction) return records.map { it.remoteView() }
         return publishRemote(application.id, records)
     }
 
-    private fun remoteRecords(application: LoanApplication, input: ArtifactInput, json: String, hash: String): List<ru.creditcabinet.documents.ArtifactRecord> {
+    private fun remoteRecords(application: LoanApplication, input: ArtifactInput, json: String, hash: String, backend: String): List<ru.creditcabinet.documents.ArtifactRecord> {
         val scope = boundary!!.scope(application.id)
         return ArtifactKind.entries.filter { input.phase == ArtifactPhase.FINAL || it != ArtifactKind.CONTRACT_PDF }.map { kind ->
             val id = UUID.nameUUIDFromBytes(
@@ -203,7 +203,7 @@ class GeneratedArtifacts(
                 id, scope, input.offerId, kind.name, input.phase.name, ArtifactRenderer.TEMPLATE_VERSION,
                 hash, json, renderer.title(kind, input),
                 "application-${application.number}-${kind.name.lowercase()}.${kind.extension}", kind.contentType,
-                "generated-$id.${kind.extension}", files.writeBackend.name, clock.instant(),
+                "generated-$id.${kind.extension}", backend, clock.instant(),
             )
         }
     }
@@ -226,17 +226,17 @@ class GeneratedArtifacts(
     }
 
     private fun publishPendingRemote() {
-        val pending = jdbc.query("select application_id,input_json from document_artifact_inputs where delivered_at is null order by created_at limit 5", {
+        val pending = jdbc.query("select application_id,input_json,requested_backend from document_artifact_inputs where delivered_at is null order by created_at limit 5", {
                 rs,
                 _,
             ->
-            rs.getObject(1, UUID::class.java) to mapper.readValue<ArtifactInput>(rs.getString(2))
+            Triple(rs.getObject(1, UUID::class.java), mapper.readValue<ArtifactInput>(rs.getString(2)), rs.getString(3))
         })
-        pending.forEach { (id, input) ->
+        pending.forEach { (id, input, backend) ->
             runCatching {
                 val application = repository.find(id) ?: throw NotFoundException("Заявка не найдена")
                 val json = mapper.writeValueAsString(input)
-                publishRemote(id, remoteRecords(application, input, json, checksum(json.toByteArray())))
+                publishRemote(id, remoteRecords(application, input, json, checksum(json.toByteArray()), backend))
             }
         }
     }
@@ -272,12 +272,6 @@ class GeneratedArtifacts(
             ids.forEach { id ->
                 runCatching {
                     prepare(repository.find(id) ?: throw NotFoundException("Заявка не найдена"))
-                    tx.executeWithoutResult {
-                        jdbc.update(
-                            "update document_artifact_inputs set delivered_at=now() where application_id=? and phase='FINAL' and delivered_at is null",
-                            id,
-                        )
-                    }
                 }
             }
             publishPendingRemote()

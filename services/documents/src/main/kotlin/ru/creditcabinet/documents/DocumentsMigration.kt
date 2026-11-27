@@ -30,9 +30,11 @@ class DocumentsMigration(
     private val tx: TransactionTemplate,
     private val mapper: ObjectMapper,
     private val files: FileStore,
+    private val renderer: ru.creditcabinet.document.generated.ArtifactRenderer,
     private val context: ConfigurableApplicationContext,
 ) : CommandLineRunner {
     override fun run(vararg args: String) {
+        target.fetchSize = 100
         val direction = env("DOCUMENTS_MIGRATION_DIRECTION")
         require(direction in setOf("forward", "reverse"))
         val source =
@@ -164,6 +166,15 @@ class DocumentsMigration(
                         rs.getString("checksum"), rs.getTimestamp("ready_at")?.toInstant(),
                     )
                 bindScope(record.scope)
+                val previous = target.query("select metadata from artifact_records where id=?", { row, _ ->
+                    mapper.readValue<ArtifactRecord>(row.getString(1))
+                }, record.id).firstOrNull()
+                if (previous != null) {
+                    val normalized = previous.copy(createdAt = pgInstant(credit, previous.createdAt), readyAt = previous.readyAt?.let { pgInstant(credit, it) })
+                    check(normalized.copy(status = record.status, sizeBytes = record.sizeBytes, checksum = record.checksum, readyAt = record.readyAt) == record)
+                    if (previous.status == "READY") check(normalized == record) // Published history is immutable.
+                }
+                val accepted = if (previous?.status == "READY") previous else record
                 if (record.status ==
                     "READY"
                 ) {
@@ -174,12 +185,8 @@ class DocumentsMigration(
                         read(creditStore(record.backend), record.storedName, record.backend, record.sizeBytes!!, record.checksum),
                     )
                 }
-                val previous = target.query("select metadata from artifact_records where id=?", { row, _ ->
-                    mapper.readValue<ArtifactRecord>(row.getString(1))
-                }, record.id).firstOrNull()
-                check(previous == null || previous == record)
                 target.update(
-                    "insert into artifact_records(id,company_id,application_id,offer_id,kind,phase,template_version,input_hash,metadata,status,attempts,next_attempt_at) values(?,?,?,?,?,?,?,?,?::jsonb,?,?,?) on conflict(id) do nothing",
+                    "insert into artifact_records(id,company_id,application_id,offer_id,kind,phase,template_version,input_hash,metadata,status,attempts,next_attempt_at) values(?,?,?,?,?,?,?,?,?::jsonb,?,?,?) on conflict(id) do update set metadata=excluded.metadata,status=excluded.status,attempts=excluded.attempts,next_attempt_at=excluded.next_attempt_at,lease_token=null,lease_until=null",
 
                     record.id,
                     record.scope.companyId,
@@ -191,9 +198,9 @@ class DocumentsMigration(
                     record.inputHash,
 
                     mapper.writeValueAsString(
-                        record,
+                        accepted,
                     ),
-                    record.status, rs.getInt("attempts"), rs.getTimestamp("next_attempt_at"),
+                    accepted.status, rs.getInt("attempts"), rs.getTimestamp("next_attempt_at"),
                 )
                 credit.update(
                     "insert into document_artifact_references(application_id,offer_id,phase,input_hash,input_json) values(?,?,?,?,?::jsonb) on conflict do nothing",
@@ -205,13 +212,14 @@ class DocumentsMigration(
                 )
                 // Import the immutable Credit snapshot as a retry intent, retaining old file links.
                 credit.update(
-                    "insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json,delivered_at) values(?,?,?,?,?::jsonb,now()) on conflict do nothing",
+                    "insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json,delivered_at,requested_backend) values(?,?,?,?,?::jsonb,now(),?) on conflict do nothing",
 
                     record.scope.applicationId,
                     record.offerId,
                     record.phase,
                     record.inputHash,
                     frozen,
+                    record.backend,
                 )
                 artifacts++
             },
@@ -435,6 +443,7 @@ class DocumentsMigration(
                 )
             },
         )
+        materializePendingInputs(credit)
         credit.execute("alter table documents enable trigger documents_owner_fence")
         credit.execute("alter table generated_artifacts enable trigger artifacts_owner_fence")
         println("documents_migration direction=reverse checksums=verified owner=FROZEN")
@@ -442,6 +451,30 @@ class DocumentsMigration(
 
     // Compare file metadata at PostgreSQL's actual timestamptz precision. Frozen
     // ArtifactInput JSON and its hash are compared verbatim and never normalized here.
+    /** A committed command must survive reverse even if its first Prepare RPC never happened. */
+    private fun materializePendingInputs(credit: JdbcTemplate) {
+        credit.query("select i.*,a.number from document_artifact_inputs i join applications a on a.id=i.application_id where i.delivered_at is null order by i.created_at", org.springframework.jdbc.core.RowCallbackHandler { row ->
+            val input = mapper.readValue<ArtifactInput>(row.getString("input_json"))
+            val json = mapper.writeValueAsString(input)
+            val hash = row.getString("input_hash")
+            val application = row.getObject("application_id", UUID::class.java)
+            val offer = row.getObject("offer_id", UUID::class.java)
+            val phase = row.getString("phase")
+            check(sha256(json.toByteArray()) == hash && input.applicationId == application && input.offerId == offer && input.phase.name == phase)
+            val backend = row.getString("requested_backend")
+            check(backend in setOf("LOCAL", "S3"))
+            ru.creditcabinet.document.generated.ArtifactKind.entries.filter { phase == "FINAL" || it != ru.creditcabinet.document.generated.ArtifactKind.CONTRACT_PDF }.forEach { kind ->
+                val id = UUID.nameUUIDFromBytes("credit-artifact-v1:$application:$offer:${kind.name}:$phase:${ru.creditcabinet.document.generated.ArtifactRenderer.TEMPLATE_VERSION}:$hash".toByteArray())
+                credit.update("""insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,status,next_attempt_at,created_at,updated_at)
+                    values(?,?,?,?,?,?,?,?::jsonb,?,?,?,?,?,'PENDING',now(),?,now())
+                    on conflict(application_id,offer_id,kind,phase,template_version,input_hash) do nothing""",
+                    id, application, offer, kind.name, phase, ru.creditcabinet.document.generated.ArtifactRenderer.TEMPLATE_VERSION, hash, json,
+                    renderer.title(kind, input), "application-${row.getLong("number")}-${kind.name.lowercase()}.${kind.extension}", kind.contentType,
+                    "generated-$id.${kind.extension}", backend, row.getTimestamp("created_at"))
+            }
+        })
+    }
+
     private fun pgInstant(
         credit: JdbcTemplate,
         instant: Instant,

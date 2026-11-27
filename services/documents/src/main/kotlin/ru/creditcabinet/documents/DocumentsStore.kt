@@ -117,6 +117,7 @@ class DocumentsStore(
             }, id, scope.companyId, scope.applicationId).firstOrNull()
                 ?: throw NoSuchElementException()
         if (record.status == "READY") return record
+        check(jdbc.update("update artifact_records set lease_token=null,lease_until=null where id=? and status<>'READY' and (lease_until is null or lease_until<clock_timestamp())", id) == 1)
         if (record.templateVersion != ArtifactRenderer.TEMPLATE_VERSION) {
             require(record.templateVersion < ArtifactRenderer.TEMPLATE_VERSION)
             val replacement = UUID.randomUUID()
@@ -180,29 +181,26 @@ class DocumentsStore(
             val rendered = renderer.render(ArtifactKind.valueOf(record.kind), input)
             require(rendered.size in 1..MAX_DOCUMENT_BYTES)
             owned(epoch) {
-                // Token + lease lock protect the file itself, not just the metadata update.
-                val active = jdbc.queryForList(
-                    "select id from artifact_records where id=? and lease_token=? and lease_until>now() and status<>'READY' for update",
-                    record.id,
-                    token,
-                ).isNotEmpty()
+                // Row lock first; expiry is evaluated with fresh DB time after any wait.
+                jdbc.queryForList("select id from artifact_records where id=? for update", record.id)
+                val active = jdbc.queryForObject("select exists(select 1 from artifact_records where id=? and lease_token=? and lease_until>clock_timestamp() and status<>'READY')", Boolean::class.java, record.id, token)!!
                 if (!active) return@owned
                 files.put(record.storedName, rendered.inputStream(), rendered.size.toLong(), StorageBackend.valueOf(record.backend))
                 val ready = record.copy(status = "READY", sizeBytes = rendered.size.toLong(), checksum = sha256(rendered), readyAt = Instant.now())
-                jdbc.update(
-                    "update artifact_records set metadata=?::jsonb,status='READY',lease_token=null,lease_until=null where id=?",
-                    mapper.writeValueAsString(ready),
-                    record.id,
+                val completed = jdbc.update(
+                    "update artifact_records set metadata=?::jsonb,status='READY',lease_token=null,lease_until=null where id=? and lease_token=? and lease_until>clock_timestamp() and status<>'READY'",
+                    mapper.writeValueAsString(ready), record.id, token,
                 )
-                jdbc.update("insert into artifact_outbox(artifact_id) values(?) on conflict do nothing", record.id)
+                if (completed == 1) jdbc.update("insert into artifact_outbox(artifact_id) values(?) on conflict do nothing", record.id)
             }
         } catch (_: Exception) {
             // A failed stale worker is still a writer. Losing ownership or the claim must
             // never demote a record belonging to the next epoch or another live worker.
             runCatching {
                 owned(epoch) {
+                    jdbc.queryForList("select id from artifact_records where id=? for update", record.id)
                     jdbc.update(
-                        "update artifact_records set status='ERROR',metadata=jsonb_set(metadata,'{status}','\"ERROR\"'),lease_token=null,lease_until=null,next_attempt_at=now()+interval '15 seconds' where id=? and lease_token=? and lease_until>now() and status<>'READY'",
+                        "update artifact_records set status='ERROR',metadata=jsonb_set(metadata,'{status}','\"ERROR\"'),lease_token=null,lease_until=null,next_attempt_at=now()+interval '15 seconds' where id=? and lease_token=? and lease_until>clock_timestamp() and status<>'READY'",
 
                         record.id,
                         token,

@@ -144,6 +144,11 @@ class DocumentService(
         } else {
             UUID.randomUUID()
         }
+        val bytesHash = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        val requestHash = ru.creditcabinet.documents.sha256(
+            com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().writeValueAsBytes(listOf("credit-upload-v1", application.company.id, application.id, claims.userId, context.name, type.name, fileName, size, privateToBank, bytesHash)),
+        )
+        val operation = boundary?.reserveUpload(id, application.id, claims.userId, requestHash, store.writeBackend, now)
         boundary?.lockUpload(id)
         replay(application, claims, type, originalName, size, { bytes }, context, privateToBank, operationKey)?.let { return it }
         var document = ApplicationDocument(
@@ -154,17 +159,17 @@ class DocumentService(
             storedName = "$id.$extension",
             sizeBytes = bytes.size.toLong(),
             uploadedBy = claims.userId,
-            uploadedAt = now,
+            uploadedAt = operation?.at ?: now.truncatedTo(java.time.temporal.ChronoUnit.MICROS),
             context = context,
-            storageBackend = store.writeBackend,
-            checksumSha256 = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) },
+            storageBackend = operation?.backend ?: store.writeBackend,
+            checksumSha256 = bytesHash,
             privateToBank = privateToBank,
         )
         val newlyCommitted = if (boundary?.remote == true) {
             document = boundary.put(document, bytes)
             boundary.commitReference(document)
         } else {
-            store.put(document.storedName, bytes.inputStream(), document.sizeBytes)
+            store.put(document.storedName, bytes.inputStream(), document.sizeBytes, document.storageBackend)
             documents.save(document)
             true
         }
@@ -228,7 +233,7 @@ class DocumentService(
     /** Only from a draft: once sent, what the bank received stays in the application. */
     @Transactional
     override fun delete(applicationId: UUID, documentId: UUID) {
-        val (claims, application) = ownForDocumentWrite(applicationId)
+        val (claims, application) = ownForDocumentWrite(applicationId, forUpdate = true)
         deleteInternal(application, claims, documentId)
     }
 

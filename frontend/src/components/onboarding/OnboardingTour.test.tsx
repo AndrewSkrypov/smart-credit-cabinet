@@ -76,6 +76,10 @@ describe('OnboardingTour', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Начать обучение' }));
     expect(screen.getByRole('dialog', { name: /Шаг 1 из 3:/ })).toBeInTheDocument();
+    const steps = screen.getByRole('group', { name: 'Шаги обучения' });
+    const firstStep = screen.getByRole('button', { name: 'Перейти к шагу 1' });
+    expect(steps).toContainElement(firstStep);
+    expect(firstStep).toHaveAttribute('aria-current', 'step');
     expect(screen.getByRole('button', { name: 'Закрыть обучение' })).toHaveFocus();
     expect(screen.getByText('Сводка по клиентам и вознаграждению')).toBeInTheDocument();
 

@@ -85,12 +85,12 @@ export function LoanServicingBlock({
 
   const load = useCallback(async () => {
     setLoading(true);
-    setLoadError(null);
     try {
       const data = agentScope
         ? await agentApi.getLoan(applicationId)
         : await loanServicingApi.getByApplication(applicationId);
       setLoan(data);
+      setLoadError(null);
     } catch (nextError) {
       setLoadError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить данные по обслуживанию кредита');
     } finally {
@@ -109,7 +109,7 @@ export function LoanServicingBlock({
   const isActive = loan.status === 'ACTIVE';
   const canMutate = !readOnly && isActive;
   const currentPending = !readOnly && pending?.loanId === loan.id ? pending : null;
-  const locked = busyAction !== null || currentPending !== null;
+  const locked = busyAction !== null || currentPending !== null || loading || loadError !== null;
   const nextPayment = loan.payments.find(payment => payment.status === 'SCHEDULED');
   const today = moscowDate.format(new Date());
   const drawPeriodOpen = today < loan.maturityDate && loan.payments.some(payment => payment.status === 'SCHEDULED' && payment.dueDate > today);
@@ -145,7 +145,7 @@ export function LoanServicingBlock({
       const updated = operation.kind === 'pay'
         ? await loanServicingApi.payNext(loanId, operation.paymentId, key)
         : await loanServicingApi.drawTranche(loanId, operation.amount, operation.purpose, key);
-      setLoan(updated);
+      if (!retry) setLoan(updated);
       rememberOperation(null);
       if (operation.kind === 'tranche') {
         setTrancheAmount('');
@@ -207,6 +207,18 @@ export function LoanServicingBlock({
 
         {notice && <Alert severity="success" onClose={() => setNotice(null)}>{notice}</Alert>}
         {actionError && <Alert severity="error" onClose={() => setActionError(null)}>{actionError}</Alert>}
+        {loadError && (
+          <Alert
+            severity="warning"
+            action={
+              <Button variant="outlined" size="small" disabled={loading || busyAction !== null} onClick={() => void load()}>
+                Обновить график
+              </Button>
+            }
+          >
+            Не удалось обновить график платежей.
+          </Alert>
+        )}
         {currentPending && (
           <Alert severity="info" action={<Button disabled={busyAction !== null} onClick={() => void applyOperation(currentPending, true)}>Повторить</Button>}>
             {busyAction ? 'Получаем результат операции.' : 'Результат операции пока неизвестен. Повторите запрос с теми же данными.'}

@@ -297,7 +297,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
               {currentStep.description}
             </Typography>
 
-            <Stack direction="row" spacing={0.75} sx={{ mb: 2 }} role="tablist" aria-label="Шаги обучения">
+            <Stack direction="row" spacing={0.75} sx={{ mb: 2 }} role="group" aria-label="Шаги обучения">
               {activeSteps.map((step, index) => (
                 <Box
                   key={step.id}

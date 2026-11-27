@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loanServicingApi } from '../api/client';
+import { rubExact } from '../shared/format';
 import { LoanAccount } from '../types';
 import { LoanServicingBlock } from './LoanServicingBlock';
 
@@ -167,6 +168,68 @@ describe('LoanServicingBlock', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Повторить' }));
     expect(await screen.findByText(/Платёж № 1 .* проведён/)).toBeInTheDocument();
     expect(vi.mocked(loanServicingApi.payNext).mock.calls[1]).toEqual(vi.mocked(loanServicingApi.payNext).mock.calls[0]);
+  });
+
+  it.each(['ACTIVE', 'REPAID'] as const)('keeps the current %s loan when a replay succeeds but refreshing fails', async (status) => {
+    const [firstPayment, secondPayment] = activeRevolvingLoan.payments;
+    const receipt: LoanAccount = {
+      ...activeRevolvingLoan,
+      outstandingPrincipal: firstPayment.remainingBalance,
+      payments: [{ ...firstPayment, status: 'PAID' }, secondPayment],
+    };
+    const current: LoanAccount = {
+      ...receipt,
+      status,
+      outstandingPrincipal: status === 'REPAID' ? 0 : 1_500_000,
+    };
+    const refreshed: LoanAccount = {
+      ...current,
+      outstandingPrincipal: status === 'REPAID' ? 0 : 1_450_000,
+    };
+    const key = 'a1da0b52-e765-4ba4-b17b-a42e4a55c50b';
+    sessionStorage.setItem('cabinet.loan-operation:app-1', JSON.stringify({
+      loanId: current.id,
+      key,
+      operation: {
+        kind: 'pay',
+        paymentId: firstPayment.id,
+        amount: firstPayment.paymentAmount,
+        dueDate: firstPayment.dueDate,
+        paymentNumber: firstPayment.paymentNumber,
+      },
+    }));
+    vi.mocked(loanServicingApi.getByApplication)
+      .mockResolvedValueOnce(current)
+      .mockRejectedValueOnce(new Error('Нет ответа'))
+      .mockResolvedValueOnce(refreshed);
+    vi.mocked(loanServicingApi.payNext).mockResolvedValueOnce(receipt);
+
+    render(<LoanServicingBlock applicationId="app-1" />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Повторить' }));
+
+    const refreshButton = await screen.findByRole('button', { name: 'Обновить график' });
+    expect(screen.getByText('Не удалось обновить график платежей.')).toBeInTheDocument();
+    expect(screen.getByText(status === 'REPAID' ? 'Погашен' : 'Активен')).toBeInTheDocument();
+    const balance = screen.getByText('Остаток долга').parentElement;
+    expect(balance?.textContent).toContain(rubExact(current.outstandingPrincipal));
+    expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
+    const mutationActions = ['Запросить транш', 'Внести очередной платёж', 'Досрочно погасить'];
+    for (const name of mutationActions) {
+      const button = screen.queryByRole('button', { name });
+      if (status === 'REPAID') expect(button).not.toBeInTheDocument();
+      else expect(button).toBeDisabled();
+    }
+
+    await userEvent.click(refreshButton);
+
+    expect(loanServicingApi.getByApplication).toHaveBeenCalledTimes(3);
+    expect(loanServicingApi.payNext).toHaveBeenCalledExactlyOnceWith(current.id, firstPayment.id, key);
+    expect(sessionStorage.getItem('cabinet.loan-operation:app-1')).toBeNull();
+    expect(balance?.textContent).toContain(rubExact(refreshed.outstandingPrincipal));
+    expect(screen.queryByRole('button', { name: 'Обновить график' })).not.toBeInTheDocument();
+    if (status === 'ACTIVE') {
+      for (const name of mutationActions) expect(screen.getByRole('button', { name })).toBeEnabled();
+    }
   });
 
   it('hides all mutation buttons in readOnly mode for AGENT', async () => {

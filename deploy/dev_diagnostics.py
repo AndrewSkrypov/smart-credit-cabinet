@@ -26,6 +26,9 @@ MAX_REPORT = 64 * 1024
 MAX_CONTAINERS = 64
 MAX_NETWORKS = 16
 READ_TIMEOUT = 8
+DOCKER_SOCKET = "unix:///var/run/docker.sock"
+DOCKER_READ_OPERATIONS = frozenset({"container.ls", "container.inspect", "network.ls", "network.inspect",
+                                    "image.inspect"})
 SHA = re.compile(r"[0-9a-f]{40}")
 DIGEST = re.compile(r"[0-9a-f]{64}")
 ID = re.compile(r"[0-9a-f]{64}")
@@ -177,15 +180,32 @@ def target_images(releases):
     return repository, refs | STOCK_REFS
 
 
-def docker_read(*args):
+def docker_read_error(message):
+    lowered = message[:16384].lower()
+    if any(marker in lowered for marker in ("template parsing error", "executing template", "error calling index",
+                                            "index of untyped nil", "template:")):
+        return "template_error"
+    if any(marker in lowered for marker in ("unknown flag:", "unknown shorthand flag", "unknown command",
+                                            "is not a docker command",
+                                            "minimum supported api version", "maximum supported api version",
+                                            "unsupported api version", "client is newer than server")):
+        return "unsupported_cli"
+    category = error_category(lowered)
+    return "engine_error" if category == "unclassified" else category
+
+
+def docker_read(kind, action, *args):
     """Capture a bounded local-engine response with a deadline, without inheriting a Docker context."""
-    command = ["docker", "--host", "unix:///var/run/docker.sock", *args]
+    operation = f"{kind}.{action}"
+    if operation not in DOCKER_READ_OPERATIONS:
+        raise ValueError("Неподдерживаемая операция диагностики Docker")
+    command = ["docker", "--host", DOCKER_SOCKET, kind, action, *args]
     environment = {"PATH": "/usr/local/bin:/usr/bin:/bin", "LC_ALL": "C"}
     try:
         process = subprocess.Popen(command, env=environment, stdin=subprocess.DEVNULL,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except OSError:
-        raise RuntimeError("Docker: docker_unavailable") from None
+        raise RuntimeError(f"Docker {operation}: docker_unavailable") from None
     outputs = {"stdout": bytearray(), "stderr": bytearray()}
     deadline = time.monotonic() + READ_TIMEOUT
     try:
@@ -195,7 +215,7 @@ def docker_read(*args):
             while ready.get_map():
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    raise RuntimeError("Docker: timeout")
+                    raise RuntimeError(f"Docker {operation}: timeout")
                 for key, _ in ready.select(remaining):
                     chunk = os.read(key.fileobj.fileno(), 8192)
                     if not chunk:
@@ -204,11 +224,12 @@ def docker_read(*args):
                     output = outputs[key.data]
                     output.extend(chunk)
                     if sum(map(len, outputs.values())) > MAX_DOCKER_BYTES:
-                        raise RuntimeError("Docker: output_limit")
+                        raise RuntimeError(f"Docker {operation}: output_limit")
         if process.wait(timeout=max(0.01, deadline - time.monotonic())):
-            raise RuntimeError(f'Docker: {error_category(outputs["stderr"].decode(errors="replace"))}')
+            category = docker_read_error(outputs["stderr"].decode(errors="replace"))
+            raise RuntimeError(f"Docker {operation}: {category}")
     except subprocess.TimeoutExpired:
-        raise RuntimeError("Docker: timeout") from None
+        raise RuntimeError(f"Docker {operation}: timeout") from None
     finally:
         if process.poll() is None:
             process.kill()
@@ -241,32 +262,56 @@ def inspect(kind, ids, fields):
     return records
 
 
-LABEL_PROJECT = '{{json (index .Config.Labels "com.docker.compose.project")}}'
+def template_or_null(key, body):
+    # Docker's raw inspect fallback sets missingkey=error. Go's map index
+    # returns nil for an absent key, including fields omitted by the Engine.
+    return '{{with index . "' + key + '"}}' + body + "{{else}}null{{end}}"
+
+
+def value_field(key):
+    return '{{json (index . "' + key + '")}}'
+
+
+def label_field(key):
+    return template_or_null("Labels", value_field(key))
+
+
+def config_label(key):
+    return template_or_null("Config", label_field(key))
+
+
+def state_field(key):
+    return template_or_null("State", value_field(key))
+
+
+PROJECT_LABEL = "com.docker.compose.project"
+REVISION_LABEL = "org.opencontainers.image.revision"
 CONTAINER_FIELDS = {
     "id": "{{json .Id}}",
-    "project": LABEL_PROJECT,
-    "service": '{{json (index .Config.Labels "com.docker.compose.service")}}',
-    "oneoff": '{{json (index .Config.Labels "com.docker.compose.oneoff")}}',
-    "state": "{{json .State.Status}}",
-    "health": "{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}}",
-    "exit_code": "{{json .State.ExitCode}}",
-    "oom_killed": "{{json .State.OOMKilled}}",
-    "started_at": "{{json .State.StartedAt}}",
-    "finished_at": "{{json .State.FinishedAt}}",
-    "error": "{{json .State.Error}}",
-    "registry_ref": "{{json .Config.Image}}",
+    "project": config_label(PROJECT_LABEL),
+    "service": config_label("com.docker.compose.service"),
+    "oneoff": config_label("com.docker.compose.oneoff"),
+    "state": state_field("Status"),
+    "health": template_or_null("State", template_or_null("Health", value_field("Status"))),
+    "exit_code": state_field("ExitCode"),
+    "oom_killed": state_field("OOMKilled"),
+    "started_at": state_field("StartedAt"),
+    "finished_at": state_field("FinishedAt"),
+    "error": state_field("Error"),
+    "registry_ref": template_or_null("Config", value_field("Image")),
     "image_id": "{{json .Image}}",
-    "networks": "[{{range $name, $_ := .NetworkSettings.Networks}}{{json $name}},{{end}}null]",
+    "networks": '[{{with index . "NetworkSettings"}}{{range $name, $_ := index . "Networks"}}'
+                "{{json $name}},{{end}}{{end}}null]",
 }
-IMAGE_FIELDS = {"id": "{{json .Id}}",
-                "revision": '{{json (index .Config.Labels "org.opencontainers.image.revision")}}'}
+IMAGE_FIELDS = {"id": "{{json .Id}}", "revision": config_label(REVISION_LABEL)}
 NETWORK_FIELDS = {
     "id": "{{json .Id}}",
     "name": "{{json .Name}}",
-    "project": '{{json (index .Labels "com.docker.compose.project")}}',
-    "logical": '{{json (index .Labels "com.docker.compose.network")}}',
+    "project": label_field(PROJECT_LABEL),
+    "logical": label_field("com.docker.compose.network"),
     "internal": "{{json .Internal}}",
-    "subnets": "[{{range .IPAM.Config}}{{json .Subnet}},{{end}}null]",
+    "subnets": '[{{with index . "IPAM"}}{{range index . "Config"}}{{if .}}{{json (index . "Subnet")}},'
+               "{{end}}{{end}}{{end}}null]",
 }
 
 

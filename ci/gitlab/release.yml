@@ -54,7 +54,9 @@ dev-diagnostics:
   environment:
     name: dev
     action: verify
-  needs: []
+  needs:
+    - job: dev-diagnostics-docker
+      artifacts: false
   variables:
     GIT_DEPTH: "2"
   timeout: 5 minutes

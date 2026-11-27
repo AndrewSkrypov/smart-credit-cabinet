@@ -116,8 +116,8 @@ def prepare(deployment, up):
             raise ValueError("В выпуске отсутствуют SQL-файлы bootstrap Analytics")
     deployment.compose("stop", "analytics")
     deployment.compose(*up, "analytics-db", "analytics-kafka")
-    # The first Alpha volume was initialized before template0 was included
-    # in the public CONNECT revocations. Narrow that ACL on existing volumes.
+    # Existing Alpha volumes predate the template0 CONNECT revocation. Apply
+    # only this narrower ACL before the restricted runtime is started.
     deployment.compose(
         "exec", "-T", "analytics-db", "sh", "-eu", "-c",
         'export PGPASSWORD="$POSTGRES_PASSWORD"; '

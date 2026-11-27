@@ -10,6 +10,9 @@ x-analytics-image: &analytics-image
   mem_limit: 576m
 
 services:
+  valkey:
+    networks: [cabinet, alpha-cache]
+
   credit:
     networks: [cabinet, alpha-stream, alpha-read]
     environment:
@@ -93,7 +96,7 @@ services:
 
   analytics:
     <<: *analytics-image
-    networks: [cabinet, alpha-stream, alpha-store, alpha-read]
+    networks: [alpha-stream, alpha-store, alpha-read, alpha-cache]
     restart: unless-stopped
     environment:
       <<: *analytics-db
@@ -126,6 +129,8 @@ services:
       retries: 24
 
 networks:
+  alpha-cache:
+    internal: true
   alpha-stream:
     internal: true
   alpha-store:

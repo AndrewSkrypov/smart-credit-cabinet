@@ -17,7 +17,7 @@ PINNED_IMAGE = 'chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37
 HTTP = build_opener(ProxyHandler({}))
 
 class S3Fixture:
-    def __init__(self, scratch, report, free_port, *, binary=None, binary_sha256=None, image=None, docker_env=None, scope=None, labels=None, environment=None, register=None):
+    def __init__(self, scratch, report, free_port, *, binary=None, binary_sha256=None, image=None, docker_env=None, scope=None, labels=None, environment=None, register=None, readiness_timeout=60):
         self.scratch = Path(scratch) / 's3'
         self.scratch.mkdir()
         self.report = report
@@ -30,7 +30,7 @@ class S3Fixture:
         self.buckets = {name: f'documents-{name}-{secrets.token_hex(6)}' for name in self.identities}
         self.port = free_port()
         self.endpoint = f'http://127.0.0.1:{self.port}'
-        config = {'identities': [{'name': name, 'credentials': [{'accessKey': key, 'secretKey': secret}], 'actions': [f'{action}:{self.buckets[name]}' + ('/documents/*' if action in ('Read', 'Write') else '') for action in ('Read', 'Write', 'List')]} for name, (key, secret) in self.identities.items()]}
+        config = {'identities': [{'name': name, 'credentials': [{'accessKey': key, 'secretKey': secret}], 'actions': [f'{action}:{self.buckets[name]}' + ('/documents/*' if action == 'Write' else '') for action in ('Read', 'Write', 'List')]} for name, (key, secret) in self.identities.items()]}
         configuration = self.scratch / 'iam.json'
         configuration.write_text(json.dumps(config))
         configuration.chmod(0o600)
@@ -57,18 +57,56 @@ class S3Fixture:
             self.handle = (report/'s3-server.log').open('ab')
             self.process = subprocess.Popen([str(binary),*common,'-ip.bind=127.0.0.1',f'-dir={data}',f'-s3.config={configuration}',f'-s3.port={self.port}',f'-master.port={free_port()}',f'-master.port.grpc={free_port()}',f'-volume.port={free_port()}',f'-volume.port.grpc={free_port()}',f'-filer.port={free_port()}',f'-filer.port.grpc={free_port()}',f'-grpc.localSocketDir={self.scratch}'],cwd=self.scratch,env=self.environment|{'GOMEMLIMIT':'256MiB'},stdout=self.handle,stderr=subprocess.STDOUT)
         if self.process and register: register(self.process,f"-dir={data}")
-        deadline = time.monotonic()+60
+        deadline = time.monotonic()+readiness_timeout
+        last_failure='not-listening'
         while True:
             try:
                 self.request('source','HEAD','')
+                self.request('target','HEAD','')
                 break
-            except (OSError,HTTPError):
-                if time.monotonic()>deadline: raise RuntimeError('Private S3 readiness deadline exceeded')
-                time.sleep(.3)
+            except HTTPError as failure:
+                # Persist only a bounded protocol code, never credentials or response messages.
+                import xml.etree.ElementTree as ET
+                try: code=ET.fromstring(failure.read(4096)).findtext('Code') or 'unknown'
+                except ET.ParseError: code='non-xml'
+                failure.close()
+                last_failure=f'HTTP-{failure.code}-'+(code if re.fullmatch('[A-Za-z0-9_-]{1,64}',code) else 'unknown')
+                if code=='non-xml':
+                    try:
+                        self.request('source','GET','')
+                        last_failure+='-GET-OK'
+                    except HTTPError as detail:
+                        try: detail_code=ET.fromstring(detail.read(4096)).findtext('Code') or 'unknown'
+                        except ET.ParseError: detail_code='non-xml'
+                        detail.close()
+                        last_failure+='-GET-'+str(detail.code)+'-'+(detail_code if re.fullmatch('[A-Za-z0-9_-]{1,64}',detail_code) else 'unknown')
+                    except OSError: pass
+            except OSError:
+                last_failure='not-listening'
+            if self.process and self.process.poll() is not None: raise RuntimeError('Private S3 process exited before readiness')
+            if time.monotonic()>deadline: raise RuntimeError('Private S3 readiness deadline exceeded: '+last_failure)
+            time.sleep(.3)
 
-    def request(self, identity, method, name, body=b''):
+        # HEAD needs bucket-level Read in this engine. Both credentials still own only
+        # their synthetic bucket; verify anonymous and cross-bucket access remain denied.
+        for identity in self.identities:
+            try:
+                with HTTP.open(Request(self.endpoint+'/'+self.buckets[identity],method='HEAD'),timeout=5):
+                    raise AssertionError('Synthetic S3 bucket allows anonymous access')
+            except HTTPError as failure:
+                if failure.code not in (401,403): raise
+                failure.close()
+            other='target' if identity=='source' else 'source'
+            try:
+                self.request(identity,'HEAD','',bucket_identity=other)
+                raise AssertionError('Synthetic S3 credentials cross bucket ownership')
+            except HTTPError as failure:
+                if failure.code not in (401,403): raise
+                failure.close()
+
+    def request(self, identity, method, name, body=b'', *, bucket_identity=None):
         access,secret = self.identities[identity]
-        uri = '/' + self.buckets[identity] + ('/documents/'+name if name else '')
+        uri = '/' + self.buckets[bucket_identity or identity] + ('/documents/'+name if name else '')
         now = datetime.now(timezone.utc)
         stamp = now.strftime('%Y%m%dT%H%M%SZ'); date = now.strftime('%Y%m%d')
         authority = f'127.0.0.1:{self.port}'

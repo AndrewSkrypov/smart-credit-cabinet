@@ -213,10 +213,10 @@ export const applicationsApi = {
     post<Application>(`/applications/${id}/return-to-agent`, { comment }),
   withdraw: (id: string, comment?: string) => post<Application>(`/applications/${id}/withdraw`, { comment }),
   events: (id: string) => get<JournalEntry[]>(`/applications/${id}/events`),
-  uploadDocument: async (id: string, type: DocumentType, file: File, privateToBank?: boolean) => {
+  uploadDocument: async (id: string, type: DocumentType, file: File, privateToBank: boolean | undefined, key: string) => {
     const form = new FormData();
     form.append('file', file);
-    return (await api.post<ApplicationDocument>(`/applications/${id}/documents`, form, { params: { type, privateToBank }, headers: { 'Content-Type': 'multipart/form-data' } })).data;
+    return (await api.post<ApplicationDocument>(`/applications/${id}/documents`, form, { params: { type, privateToBank }, headers: { 'Idempotency-Key': key, 'Content-Type': 'multipart/form-data' } })).data;
   },
   deleteDocument: async (id: string, documentId: string) => {
     await api.delete(`/applications/${id}/documents/${documentId}`);
@@ -291,10 +291,10 @@ export const agentApi = {
   cancelApplication: (id: string) => post<Application>(`/agent/applications/${id}/cancel`),
   provideInfo: (id: string, answer?: string) => post<Application>(`/agent/applications/${id}/info-provided`, { answer }),
   listDocuments: (id: string) => get<ApplicationDocument[]>(`/agent/applications/${id}/documents`),
-  uploadDocument: async (id: string, type: DocumentType, file: File) => {
+  uploadDocument: async (id: string, type: DocumentType, file: File, key: string) => {
     const form = new FormData();
     form.append('file', file);
-    return (await api.post<ApplicationDocument>(`/agent/applications/${id}/documents`, form, { params: { type }, headers: { 'Content-Type': 'multipart/form-data' } })).data;
+    return (await api.post<ApplicationDocument>(`/agent/applications/${id}/documents`, form, { params: { type }, headers: { 'Idempotency-Key': key, 'Content-Type': 'multipart/form-data' } })).data;
   },
   deleteDocument: async (id: string, documentId: string) => {
     await api.delete(`/agent/applications/${id}/documents/${documentId}`);

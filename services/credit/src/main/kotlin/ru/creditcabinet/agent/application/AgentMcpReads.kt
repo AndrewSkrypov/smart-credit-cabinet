@@ -3,6 +3,7 @@ package ru.creditcabinet.agent.application
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.agent.domain.ActionOwner
+import ru.creditcabinet.application.application.CreditFailure.DependencyUnavailable
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.InfoRequests
 import ru.creditcabinet.application.domain.LoanApplication
@@ -45,7 +46,7 @@ internal class AgentMcpReads(
         return AgentMcpSummary(
             clock.instant(),
             caseItem(application),
-            application.version?.toString(),
+            application.version?.toString() ?: throw DependencyUnavailable("Версия заявки недоступна"),
             scenarios.forAgent(application)?.revision?.toString(),
             statementRequirement(application),
         )
@@ -85,11 +86,11 @@ internal class AgentMcpReads(
         val suffix = if (application.status == ApplicationStatus.INFO_REQUESTED && action != null) "#application-info-request" else ""
         return AgentMcpCase(
             application.id,
-            application.number,
+            application.number?.toString(),
             application.company.name,
             application.status,
             action?.owner,
-            action?.label,
+            action?.label ?: "Действий нет",
             action?.deadline,
             "/agent/applications/${application.id}$suffix",
         )
@@ -111,11 +112,11 @@ internal enum class StatementRequirement { OPEN, SATISFIED, NOT_REQUESTED }
 
 internal data class AgentMcpCase(
     val applicationId: UUID,
-    val number: Long?,
+    val number: String?,
     val companyName: String?,
     val status: ApplicationStatus,
     val actionOwner: ActionOwner?,
-    val actionLabel: String?,
+    val actionLabel: String,
     val actionDeadline: Instant?,
     val cabinetPath: String,
 )
@@ -129,7 +130,7 @@ internal data class AgentMcpPriorities(
 internal data class AgentMcpSummary(
     val asOf: Instant,
     val application: AgentMcpCase,
-    val applicationVersion: String?,
+    val applicationVersion: String,
     val savedScenarioRevision: String?,
     val statementRequirement: StatementRequirement,
     val source: String = "credit",

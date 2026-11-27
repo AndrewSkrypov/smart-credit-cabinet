@@ -341,6 +341,8 @@ class FinancingScenarioIntegrationTest {
         val priority = snapshot(get(prioritiesPath, agent))["items"].single()
         assertEquals(priority, summary["application"])
         assertEquals("AGENT", priority["actionOwner"].asText())
+        assertTrue(priority["actionLabel"].isTextual)
+        assertTrue(priority["number"].isNull || priority["number"].isTextual)
         assertEquals(application.version.toString(), summary["applicationVersion"].asText())
 
         val before = stateOf(id)

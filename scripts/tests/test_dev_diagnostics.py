@@ -57,6 +57,7 @@ class DiagnosticsTest(unittest.TestCase):
         self.manifest = self.root / "release.json"
         self.manifest.write_text(json.dumps(self.request))
         self.lock = self.state / "deploy.lock"
+        self.lock.touch(mode=0o600)
         self.lock.write_bytes(b"existing lock\n")
         self.current = {"revision": diagnostics.TARGET_REVISION, "manifest_sha256": self.target_hash,
                         "alpha_dev": {"generation": "g" + "a" * 16, "read_enabled": False,

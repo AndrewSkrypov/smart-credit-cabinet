@@ -10,13 +10,15 @@ import uuid
 from catalog import fsync_dir
 from catalog_rollout import validated_journal
 from common import Deployment, ROOT, deploy_lock
-from documents_dev import input_backends
 from maintenance import Database
 from runtime_backup import alpha_preflight, backup_private, runtime_modes
 from runtime_delivery_support import write_record
 from registry_release import SERVICE_COMPONENTS
 from runtime_rollout import RUNTIME_WRITERS
-from backup_support import backup_needs_s3, checked_docker, database_names, database_snapshot, digest, document_inventory, document_volume, storage_volume, storage_backend_counts
+from backup_support import (
+    backup_needs_s3, checked_docker, database_names, database_snapshot, digest, document_inventory, document_volume,
+    storage_backend_counts, storage_intent_backends, storage_volume,
+)
 
 parser = argparse.ArgumentParser(description="Согласованная копия БД и документов с короткой остановкой записи")
 parser.add_argument("--project", default="cabinet-prod")
@@ -63,7 +65,7 @@ with deploy_lock(args.env_file, args.project):
     try:
         assert maintenance.sql("select pg_try_advisory_lock(16781, 8801);") == "t", "Перенос или другая копия уже выполняется"
         if deployment.documents:
-            backends = set(storage_backend_counts(deployment)) | input_backends(deployment.documents.credit_storage_inputs(deployment))
+            backends = set(storage_backend_counts(deployment)) | storage_intent_backends(deployment)
             deployment.documents.verify_source_store(deployment, backends)
         preflight = alpha_preflight(deployment) if deployment.alpha_dev else None
         if preflight:
@@ -77,9 +79,12 @@ with deploy_lock(args.env_file, args.project):
             seaweed_stopped = True
             checked_docker("stop", *seaweed_running)
         backends = storage_backend_counts(deployment)
+        requested_backends = storage_intent_backends(deployment)
         credit_environment = deployment.config()["services"]["credit"]["environment"]
         manifest["storage"] = {"backends": backends, "s3_volume_included": include_seaweed,
                                "s3_bucket": credit_environment.get("S3_BUCKET") if include_seaweed else None}
+        if requested_backends:
+            manifest["storage"]["requested_backends"] = sorted(requested_backends)
         if backup_needs_s3(manifest):
             if not include_seaweed:
                 raise RuntimeError("Нет локального тома S3 для резервной копии файлов или заданий Documents")

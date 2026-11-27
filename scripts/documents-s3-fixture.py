@@ -58,13 +58,23 @@ class S3Fixture:
             self.process = subprocess.Popen([str(binary),*common,'-ip.bind=127.0.0.1',f'-dir={data}',f'-s3.config={configuration}',f'-s3.port={self.port}',f'-master.port={free_port()}',f'-master.port.grpc={free_port()}',f'-volume.port={free_port()}',f'-volume.port.grpc={free_port()}',f'-filer.port={free_port()}',f'-filer.port.grpc={free_port()}',f'-grpc.localSocketDir={self.scratch}'],cwd=self.scratch,env=self.environment|{'GOMEMLIMIT':'256MiB'},stdout=self.handle,stderr=subprocess.STDOUT)
         if self.process and register: register(self.process,f"-dir={data}")
         deadline = time.monotonic()+60
+        last_failure='not-listening'
         while True:
             try:
                 self.request('source','HEAD','')
                 break
-            except (OSError,HTTPError):
-                if time.monotonic()>deadline: raise RuntimeError('Private S3 readiness deadline exceeded')
-                time.sleep(.3)
+            except HTTPError as failure:
+                # Persist only a bounded protocol code, never credentials or response messages.
+                import xml.etree.ElementTree as ET
+                try: code=ET.fromstring(failure.read(4096)).findtext('Code') or 'unknown'
+                except ET.ParseError: code='non-xml'
+                failure.close()
+                last_failure=f'HTTP-{failure.code}-'+(code if re.fullmatch('[A-Za-z0-9_-]{1,64}',code) else 'unknown')
+            except OSError:
+                last_failure='not-listening'
+            if self.process and self.process.poll() is not None: raise RuntimeError('Private S3 process exited before readiness')
+            if time.monotonic()>deadline: raise RuntimeError('Private S3 readiness deadline exceeded: '+last_failure)
+            time.sleep(.3)
 
     def request(self, identity, method, name, body=b''):
         access,secret = self.identities[identity]

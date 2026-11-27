@@ -122,6 +122,6 @@ class ServicingPostgresIntegrationTest {
         } finally {
             workers.shutdownNow()
         }
-        assertFailsWith<ServicingNotFound> { engine.payNext(id, actor.copy(companyId = UUID.randomUUID())) }
+        assertFailsWith<ServicingNotFound> { engine.payNext(id, PayNextCommand(actor.copy(companyId = UUID.randomUUID()))) }
     }
 }

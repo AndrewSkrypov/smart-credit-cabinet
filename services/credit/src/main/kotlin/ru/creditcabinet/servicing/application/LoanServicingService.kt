@@ -7,6 +7,7 @@ import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.offer.Loan
 import ru.creditcabinet.servicing.contract.v1.DrawCommand
+import ru.creditcabinet.servicing.contract.v1.PayNextCommand
 import ru.creditcabinet.servicing.contract.v1.ServicingActor
 import ru.creditcabinet.servicing.contract.v1.ServicingOperations
 import ru.creditcabinet.servicing.domain.LoanAccount
@@ -24,9 +25,10 @@ class LoanServicingService(
         if (application.status != ApplicationStatus.DISBURSED) throw missing()
         return operations.byApplication(applicationId) ?: throw NotFoundException("Кредитный счёт по заявке не найден")
     }
-    fun drawTranche(loanId: UUID, amount: Long, purpose: String?): LoanAccount =
-        operations.draw(loanId, DrawCommand(readyActor(loanId), amount, purpose))
-    fun payNext(loanId: UUID): LoanAccount = operations.payNext(loanId, readyActor(loanId))
+    fun drawTranche(loanId: UUID, key: UUID, amount: Long, purpose: String?): LoanAccount =
+        operations.draw(loanId, DrawCommand(readyActor(loanId), amount, purpose, operationKey = key))
+    fun payNext(loanId: UUID, key: UUID, paymentId: UUID): LoanAccount =
+        operations.payNext(loanId, PayNextCommand(readyActor(loanId), paymentId = paymentId, operationKey = key))
     fun repayEarly(loanId: UUID): LoanAccount = operations.repayEarly(loanId, readyActor(loanId))
     private fun readyActor(loanId: UUID): ServicingActor {
         val actor = actor()

@@ -59,7 +59,7 @@ class ServicingEngineTest {
         val id = engine.open(command(false, 999_999)).accountId
         assertEquals(999_999, engine.byId(id)!!.disbursedAmount)
         assertEquals(0, engine.byId(id)!!.availableLimit)
-        val paid = engine.payNext(id, actor)
+        val paid = engine.payNext(id, PayNextCommand(actor))
         assertTrue(paid.outstandingPrincipal < BigDecimal("999999.00"))
         val closed = engine.repayEarly(id, actor)
         assertEquals(LoanAccountStatus.REPAID, closed.status)
@@ -129,7 +129,7 @@ class ServicingEngineTest {
         val db = Memory()
         val engine = db.engine(clock)
         val id = engine.open(command()).accountId
-        assertFailsWith<ServicingNotFound> { engine.payNext(id, actor.copy(companyId = UUID.randomUUID())) }
+        assertFailsWith<ServicingNotFound> { engine.payNext(id, PayNextCommand(actor.copy(companyId = UUID.randomUUID()))) }
         val workers = Executors.newFixedThreadPool(2)
         try {
             val results = workers.invokeAll(List(2) { Callable { runCatching { engine.draw(id, DrawCommand(actor, 400_000)) }.isSuccess } }).map { it.get() }
@@ -174,6 +174,11 @@ class ServicingEngineTest {
         }
         override fun saveState(account: LoanAccount, newTranche: LoanTranche?) {
             accounts[account.id] = account
+        }
+        var operations = mutableMapOf<Pair<UUID, UUID>, LoanOperationReceipt>()
+        override fun findOperation(loanId: UUID, operationKey: UUID) = operations[loanId to operationKey]
+        override fun recordOperation(loanId: UUID, receipt: LoanOperationReceipt) {
+            operations[loanId to receipt.operationKey] = receipt
         }
         override fun find(loanId: UUID): PaymentReservePlan? = plans[loanId]
         override fun save(plan: PaymentReservePlan, actorId: UUID) {

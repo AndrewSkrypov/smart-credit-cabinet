@@ -16,12 +16,14 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Typography
+  Typography,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { agentApi } from '../../api/client';
 import { useAuth } from '../../auth/AuthProvider';
@@ -57,10 +59,52 @@ function portfolioAction(application: ApplicationSummary) {
 
 function KpiCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2.5, height: '100%' }}>
+    <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2.5 }, height: '100%' }}>
       <Typography variant="body2" color="text.secondary">{label}</Typography>
-      <Typography variant="h4" component="p" fontWeight={700} sx={{ mt: 0.75 }}>{value}</Typography>
-      {hint && <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>{hint}</Typography>}
+      <Typography variant="h4" component="p" fontWeight={700} sx={{ mt: 0.5, fontSize: { xs: '1.375rem', md: undefined }, overflowWrap: 'anywhere' }}>{value}</Typography>
+      {hint && <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: { xs: 'none', sm: 'block' } }}>{hint}</Typography>}
+    </Paper>
+  );
+}
+
+function PortfolioApplicationCard({ application, nextStep: next }: {
+  application: ApplicationSummary;
+  nextStep: ReturnType<typeof portfolioAction>;
+}) {
+  const tone = statusTone(application.status);
+  const commission = application.agentCommissionStatus;
+  return (
+    <Paper component="li" variant="outlined" sx={{ p: 2 }}>
+      <Stack spacing={1}>
+        <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap" useFlexGap>
+          <Typography fontWeight={700}>{application.number ? `№ ${application.number}` : 'Черновик'}</Typography>
+          <Chip size="small" color={tone === 'default' ? 'default' : tone} label={statusTitle(application.status)} />
+          {!!application.unreadChatCount && <Chip size="small" color="info" label={`Чат: ${application.unreadChatCount}`} />}
+        </Stack>
+        <Typography variant="body2" fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
+          {application.companyName ?? `ИНН ${application.companyInn}`}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {application.productName} · {rub(application.amount)} · {months(application.termMonths)}
+        </Typography>
+        <Typography variant="body2" color={next.requiresAgent ? 'warning.dark' : 'text.secondary'} fontWeight={next.requiresAgent ? 600 : 400}>
+          {next.label}
+        </Typography>
+        {next.owner && (
+          <Typography variant="caption" color="text.secondary">
+            {actionOwnerLabels[next.owner]}{next.deadline ? ` · до ${formatDateTime(next.deadline)}` : ''}
+          </Typography>
+        )}
+        {commission && commission !== 'NONE' && application.agentCommissionAmount != null && (
+          <Typography variant="caption" color="text.secondary">
+            {rub(application.agentCommissionAmount)} · {commissionStatusLabels[commission]}
+          </Typography>
+        )}
+        <Button component={RouterLink} to={next.href} variant="outlined" size="small"
+          endIcon={<ChevronRightRoundedIcon />} sx={{ alignSelf: 'flex-start' }}>
+          Открыть заявку
+        </Button>
+      </Stack>
     </Paper>
   );
 }
@@ -68,6 +112,8 @@ function KpiCard({ label, value, hint }: { label: string; value: string; hint?: 
 export function AgentPortfolioPage() {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const narrow = useMediaQuery(useTheme().breakpoints.down('md'));
+  const applicationsRef = useRef<HTMLDivElement>(null);
   const [onlyActionRequired, setOnlyActionRequired] = useState(false);
   const [applyingOfferId, setApplyingOfferId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -103,7 +149,9 @@ export function AgentPortfolioPage() {
   }
 
   const activeWorkCount = portfolio.draftCount + portfolio.pendingConfirmationCount + portfolio.inProgressCount;
-  const visibleApps = applications.map((app) => ({ app, nextStep: portfolioAction(app) }))
+  const rows = applications.map((app) => ({ app, nextStep: portfolioAction(app) }));
+  const actionRequired = rows.filter(({ nextStep }) => nextStep.requiresAgent);
+  const visibleApps = rows
     .filter(({ nextStep }) => !onlyActionRequired || nextStep.requiresAgent)
     .sort((left, right) => (left.nextStep.deadline ? Date.parse(left.nextStep.deadline) : Number.MAX_SAFE_INTEGER)
       - (right.nextStep.deadline ? Date.parse(right.nextStep.deadline) : Number.MAX_SAFE_INTEGER)
@@ -126,25 +174,31 @@ export function AgentPortfolioPage() {
       <PageHeader
         title="Портфель агента"
         subtitle={session ? `${session.user.fullName} · управление заявками закреплённых компаний` : undefined}
+        actions={narrow && actionRequired.length > 0 && (
+          <Button variant="contained" size="small" onClick={() => {
+            setOnlyActionRequired(true);
+            applicationsRef.current?.focus();
+          }}>Требуют моего действия · {actionRequired.length}</Button>
+        )}
       />
 
       {actionError && <Alert severity="error" onClose={() => setActionError(null)}>{actionError}</Alert>}
 
       <Grid container spacing={2} data-tour="agent-kpi">
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} md={3}>
           <KpiCard label="Активных клиентов" value={String(portfolio.assignedCompaniesCount)} hint="Компаний с действующим мандатом" />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} md={3}>
           <KpiCard
             label="Заявок в работе"
             value={String(activeWorkCount)}
             hint={`Черновиков: ${portfolio.draftCount} · у клиента: ${portfolio.pendingConfirmationCount} · в банке: ${portfolio.inProgressCount}`}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} md={3}>
           <KpiCard label="Ожидаемая комиссия" value={rub(portfolio.expectedCommissionTotal)} hint="По активным заявкам до выдачи" />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} md={3}>
           <KpiCard label="Начисленная комиссия" value={rub(portfolio.accruedCommissionTotal)} hint={`Выдано кредитов: ${portfolio.disbursedCount}`} />
         </Grid>
       </Grid>
@@ -220,7 +274,7 @@ export function AgentPortfolioPage() {
         )}
       </Box>
 
-      <Box data-tour="agent-applications">
+      <Box data-tour="agent-applications" ref={applicationsRef} tabIndex={-1} sx={{ scrollMarginTop: 88 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
           <Typography variant="h6" component="h2">Заявки портфеля</Typography>
           <FormControlLabel
@@ -234,6 +288,10 @@ export function AgentPortfolioPage() {
             title={onlyActionRequired ? 'Нет заявок, требующих вашего действия' : 'Заявок пока нет'}
             description={onlyActionRequired ? 'Отключите фильтр, чтобы увидеть все заявки портфеля.' : 'Выберите клиента выше, чтобы подготовить первую заявку.'}
           />
+        ) : narrow ? (
+          <Stack component="ul" aria-label="Заявки портфеля агента" spacing={1} sx={{ m: 0, p: 0, listStyle: 'none' }}>
+            {visibleApps.map(({ app, nextStep }) => <PortfolioApplicationCard key={app.id} application={app} nextStep={nextStep} />)}
+          </Stack>
         ) : (
           <Paper variant="outlined" sx={{ p: { xs: 1, sm: 0 }, overflow: 'hidden' }}>
             <TableScrollRegion label="Заявки портфеля агента">

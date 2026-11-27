@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.Roles
@@ -24,6 +25,8 @@ data class DrawTrancheRequest(
     val amount: Long,
     val purpose: String? = null,
 )
+
+data class PayNextRequest(val paymentId: UUID)
 
 data class LoanTrancheResponse(
     val id: UUID,
@@ -83,13 +86,21 @@ class LoanServicingController(
 
     @Operation(summary = "Выбрать очередной транш по возобновляемому кредиту (только клиент)")
     @PostMapping("/api/v1/loans/{loanId}/tranches")
-    fun drawTranche(@PathVariable loanId: UUID, @RequestBody request: DrawTrancheRequest): LoanAccountResponse =
-        servicing.drawTranche(loanId, request.amount, request.purpose).toResponse()
+    fun drawTranche(
+        @PathVariable loanId: UUID,
+        @RequestHeader("Idempotency-Key") key: UUID,
+        @RequestBody request: DrawTrancheRequest,
+    ): LoanAccountResponse =
+        servicing.drawTranche(loanId, key, request.amount, request.purpose).toResponse()
 
     @Operation(summary = "Провести очередной плановый платёж по кредиту (только клиент)")
     @PostMapping("/api/v1/loans/{loanId}/payments/next")
-    fun payNext(@PathVariable loanId: UUID): LoanAccountResponse =
-        servicing.payNext(loanId).toResponse()
+    fun payNext(
+        @PathVariable loanId: UUID,
+        @RequestHeader("Idempotency-Key") key: UUID,
+        @RequestBody request: PayNextRequest,
+    ): LoanAccountResponse =
+        servicing.payNext(loanId, key, request.paymentId).toResponse()
 
     @Operation(summary = "Досрочно погасить весь остаток долга по кредиту (только клиент)")
     @PostMapping("/api/v1/loans/{loanId}/repay-early")

@@ -69,7 +69,12 @@ class ServicingGrpcService(
         require(request.hasActor())
         val who = wire.decode(request.actor, ServicingActor::class.java)
         actor(who)
-        wire.encode(engine.payNext(UUID.fromString(request.loanId), who), WireLoanAccount.newBuilder())
+        val command = PayNextCommand(
+            who,
+            paymentId = request.paymentId.takeIf { request.hasPaymentId() }?.let(UUID::fromString),
+            operationKey = request.operationKey.takeIf { request.hasOperationKey() }?.let(UUID::fromString),
+        )
+        wire.encode(engine.payNext(UUID.fromString(request.loanId), command), WireLoanAccount.newBuilder())
     }
     override fun repayEarly(request: ActorRequest, observer: StreamObserver<WireLoanAccount>) = respond(observer) {
         require(request.hasActor())

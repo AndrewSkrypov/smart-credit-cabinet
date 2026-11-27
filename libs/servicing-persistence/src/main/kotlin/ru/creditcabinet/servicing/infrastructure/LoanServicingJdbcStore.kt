@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository
 import ru.creditcabinet.servicing.domain.LoanAccount
 import ru.creditcabinet.servicing.domain.LoanAccountStatus
 import ru.creditcabinet.servicing.domain.LoanAccountStore
+import ru.creditcabinet.servicing.domain.LoanOperationReceipt
 import ru.creditcabinet.servicing.domain.LoanPayment
 import ru.creditcabinet.servicing.domain.LoanPaymentStatus
 import ru.creditcabinet.servicing.domain.LoanTranche
@@ -52,6 +53,22 @@ class LoanServicingJdbcStore(
             id,
         ).firstOrNull() ?: return null
         return hydrate(row)
+    }
+
+    override fun findOperation(loanId: UUID, operationKey: UUID): LoanOperationReceipt? = jdbc.query(
+        "select operation_key, fingerprint from loan_operations where loan_account_id = ? and operation_key = ?",
+        { rs, _ -> LoanOperationReceipt(rs.getObject("operation_key", UUID::class.java), rs.getString("fingerprint")) },
+        loanId,
+        operationKey,
+    ).firstOrNull()
+
+    override fun recordOperation(loanId: UUID, receipt: LoanOperationReceipt) {
+        jdbc.update(
+            "insert into loan_operations (loan_account_id, operation_key, fingerprint) values (?, ?, ?)",
+            loanId,
+            receipt.operationKey,
+            receipt.fingerprint,
+        )
     }
 
     override fun create(account: LoanAccount) {

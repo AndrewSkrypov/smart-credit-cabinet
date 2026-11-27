@@ -1915,6 +1915,14 @@ components:
       - explanation
       - outcome
       type: object
+    PayNextRequest:
+      properties:
+        paymentId:
+          format: uuid
+          type: string
+      required:
+      - paymentId
+      type: object
     PaymentReserveInputs:
       properties:
         controlDate:
@@ -1991,13 +1999,6 @@ components:
       - shortfall
       - suggestedDraw
       - version
-    PayNextRequest:
-      properties:
-        paymentId:
-          format: uuid
-          type: string
-      required:
-      - paymentId
       type: object
     PreApprovedApplicationView:
       properties:

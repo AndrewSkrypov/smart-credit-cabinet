@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Кабинет</string>
+    <string name="title_activity_main">Кабинет</string>
+    <string name="package_name">ru.creditcabinet.pump</string>
+    <string name="custom_url_scheme">ru.creditcabinet.pump</string>
+</resources>

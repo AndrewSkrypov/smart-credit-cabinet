@@ -1,0 +1,21 @@
+{
+  "name": "smart-credit-cabinet-mobile",
+  "private": true,
+  "description": "Нативная оболочка iOS и Android для кабинета: открывает стенд и показывает страницу без связи",
+  "scripts": {
+    "sync": "cap sync",
+    "ios": "cap run ios",
+    "android:apk": "cap sync android && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/ios": "8.6.0",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0",
+    "typescript": "^5.9.3"
+  }
+}

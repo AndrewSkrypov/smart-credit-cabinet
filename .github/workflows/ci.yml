@@ -114,6 +114,8 @@ jobs:
           fi
           echo 'Resolving Kotlin build plugin dependencies from the Maven Central mirror.'
           ./gradlew build --no-daemon -PcabinetKotlinCentralMirror=true
+          # Keep the repository choice for the Catalog integration Gradle invocations.
+          printf '%s\n' 'ORG_GRADLE_PROJECT_cabinetKotlinCentralMirror=true' >> "$GITHUB_ENV"
       - name: Verify Catalog cutover and Credit submission over mutual TLS
         env:
           CATALOG_TEST_POSTGRES_IMAGE: cabinet/postgres:16.15-alpine-su-exec-0.3

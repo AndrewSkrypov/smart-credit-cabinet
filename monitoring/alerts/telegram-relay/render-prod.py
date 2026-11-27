@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Append the Telegram route to an existing native Alertmanager config."""
+"""Replace the direct Telegram route in an existing native Alertmanager config."""
 import argparse
 import base64
 import binascii
@@ -27,16 +27,16 @@ def render(existing, proxy, authorization, smoke_only=False):
     client = receiver["telegram_configs"][0]["http_config"]
     client["proxy_url"] = proxy
     client["proxy_connect_header"]["Proxy-Authorization"] = [authorization]
-    receiver_name = receiver["name"]
+    telegram_receivers = {"telegram", receiver["name"]}
 
     routes = config["route"].setdefault("routes", [])
-    routes[:] = [route for route in routes if route.get("receiver") != receiver_name]
+    routes[:] = [route for route in routes if route.get("receiver") not in telegram_receivers]
     # Keep all internal routes, including their priority over the Telegram route.
     routes.append(fragment["smoke"])
     if not smoke_only:
         routes.append(fragment["paging"])
     receivers = config["receivers"]
-    receivers[:] = [entry for entry in receivers if entry["name"] != receiver_name]
+    receivers[:] = [entry for entry in receivers if entry["name"] not in telegram_receivers]
     receivers.append(receiver)
     return yaml.safe_dump(config, sort_keys=False)
 

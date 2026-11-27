@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.auth.application.AuthService
+import ru.creditcabinet.auth.controller.sessionToken
 import ru.creditcabinet.common.exception.NotFoundException
-import ru.creditcabinet.user.domain.UserDataPort
+import ru.creditcabinet.user.application.UserQueries
 import ru.creditcabinet.user.domain.UserRole
-import ru.creditcabinet.user.domain.UserStatus
 import ru.creditcabinet.user.dto.UserResponse
 import java.util.UUID
 
@@ -24,7 +24,7 @@ class UserController(private val authService: AuthService) {
     @Operation(summary = "Профиль текущего пользователя и его роль")
     @GetMapping("/me")
     fun me(@RequestHeader("Authorization", required = false) authorization: String?): UserResponse =
-        UserResponse.of(authService.currentUser(authorization))
+        UserResponse.of(authService.currentUser(sessionToken(authorization)))
 }
 
 /**
@@ -34,33 +34,22 @@ class UserController(private val authService: AuthService) {
 @Hidden
 @RestController
 @RequestMapping("/internal/v1/users")
-class InternalUserController(private val users: UserDataPort) {
+class InternalUserController(private val users: UserQueries) {
     @GetMapping
     fun list(
         @RequestParam(required = false) ids: List<UUID>?,
         @RequestParam(required = false) companyId: UUID?,
         @RequestParam(required = false) role: UserRole?,
-    ): List<UserResponse> {
-        val found = when {
-            companyId != null -> users.findByCompany(companyId).filter { it.status == UserStatus.ACTIVE }
-            role != null -> users.findByRole(role)
-            else -> users.findByIds(ids.orEmpty().distinct().take(MAX_IDS))
-        }
-        return found.map(UserResponse::of)
-    }
+    ): List<UserResponse> = users.list(ids, companyId, role).map(UserResponse::of)
 
     @GetMapping("/{id}")
-    fun get(@PathVariable id: UUID): UserResponse = users.findById(id)?.let(UserResponse::of) ?: throw NotFoundException("Пользователь не найден")
+    fun get(@PathVariable id: UUID): UserResponse = UserResponse.of(users.get(id))
 
     /** For the token check of other services: a token older than this version is revoked. */
     @GetMapping("/{id}/credentials")
     fun credentials(@PathVariable id: UUID): CredentialsResponse =
-        users.findById(id)?.takeIf { it.status == UserStatus.ACTIVE }?.let { CredentialsResponse(it.credentialsVersion) }
+        users.activeCredentialsVersion(id)?.let(::CredentialsResponse)
             ?: throw NotFoundException("Пользователь не найден")
 
     data class CredentialsResponse(val credentialsVersion: Int)
-
-    private companion object {
-        const val MAX_IDS = 500
-    }
 }

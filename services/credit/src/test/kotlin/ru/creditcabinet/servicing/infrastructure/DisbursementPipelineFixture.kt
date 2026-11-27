@@ -1,7 +1,7 @@
 package ru.creditcabinet.servicing.infrastructure
 
 import org.springframework.context.ApplicationContext
-import ru.creditcabinet.integration.CoreBanking
+import ru.creditcabinet.integration.domain.CoreBanking
 import ru.creditcabinet.offer.OfferRepository
 import ru.creditcabinet.offer.SigningSessions
 import ru.creditcabinet.pipeline.application.PipelineJobHandler

@@ -87,7 +87,10 @@ test('Агентский канал API: мандат, подтверждени�
     expect(await agentLoan.json()).toEqual(loan);
     expect((await request.get(`${clientPath}/loan`, { headers: headers(agent) })).status()).toBe(403);
     expect((await request.get(`${agentPath}/loan`, { headers: headers(other) })).status()).toBe(404);
-    expect((await request.post(`/api/v1/loans/${loan.id}/payments/next`, { headers: headers(agent) })).status()).toBe(403);
+    expect((await request.post(`/api/v1/loans/${loan.id}/payments/next`, {
+      headers: { ...headers(agent), 'Idempotency-Key': randomUUID() },
+      data: { paymentId: loan.payments[0].id },
+    })).status()).toBe(403);
   } finally {
     await clean(request, id, agent, client);
   }
@@ -98,6 +101,16 @@ test('Агент и клиент проходят подтверждение и 
   const account = 'logistic';
   const agent = await signIn(request, 'agent');
   await login(page, 'agent');
+  const welcome = page.getByTestId('onboarding-welcome-banner');
+  await expect(welcome.getByText('Впервые в кабинете агента?', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-tour="agent-kpi"]')).toBeVisible();
+  await noHorizontalOverflow(page);
+  await welcome.getByRole('button', { name: 'Начать обучение', exact: true }).click();
+  const onboarding = page.getByRole('dialog', { name: /Шаг 1 из \d+: Сводка по клиентам и вознаграждению/ });
+  await expect(onboarding).toBeVisible();
+  await onboarding.getByRole('button', { name: 'Закрыть обучение', exact: true }).click();
+  await expect(onboarding).toHaveCount(0);
+  await expect(welcome).toHaveCount(0);
   const client = await signIn(request, account);
   await clearActive(request, client);
   const fixture = await scenario(request, account);
@@ -151,6 +164,10 @@ test('Агент и клиент проходят подтверждение и 
     await waitStatus(request, client, id, ['PENDING_CLIENT_CONFIRMATION']);
     await logout();
     await login(page, account);
+    await expect(welcome.getByText('Впервые в кредитном кабинете?', { exact: true })).toBeVisible();
+    await noHorizontalOverflow(page);
+    await welcome.getByRole('button', { name: 'Скрыть', exact: true }).click();
+    await expect(welcome).toHaveCount(0);
     await page.goto(`/client/applications/${id}`);
     await noHorizontalOverflow(page);
     await page.getByRole('checkbox', { name: /кредитной истории|БКИ/i }).check();
@@ -167,6 +184,7 @@ test('Агент и клиент проходят подтверждение и 
     await noHorizontalOverflow(page);
     await logout();
     await login(page, account);
+    await expect(welcome).toHaveCount(0);
     await page.goto(`/client/applications/${id}`);
     await page.getByRole('button', { name: 'Принять и перейти к подписанию', exact: true }).click();
     const code = page.getByTestId('signing-code');
@@ -178,6 +196,7 @@ test('Агент и клиент проходят подтверждение и 
     await noHorizontalOverflow(page);
     await logout();
     await login(page, 'agent');
+    await expect(welcome).toHaveCount(0);
     const agentLoan = page.waitForResponse((response) => response.url().endsWith(`/api/v1/agent/applications/${id}/loan`));
     await page.goto(`/agent/applications/${id}`);
     expect((await agentLoan).status()).toBe(200);

@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.put
 import org.springframework.transaction.support.TransactionTemplate
 import ru.creditcabinet.agent.domain.AgentAccessDecision
 import ru.creditcabinet.agent.domain.AgentAccessPort
+import ru.creditcabinet.agent.domain.AgentAccessUnavailable
 import ru.creditcabinet.agent.infrastructure.IdentityAgentAccessClient
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ApplicationEvent
@@ -41,8 +42,8 @@ import ru.creditcabinet.common.notifications.PlatformNotification
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.integration.CompanySources
-import ru.creditcabinet.integration.SourceUnavailableException
+import ru.creditcabinet.integration.domain.CompanySources
+import ru.creditcabinet.integration.domain.SourceUnavailableException
 import java.math.BigDecimal
 import java.sql.Timestamp
 import java.time.Instant
@@ -779,17 +780,21 @@ class AgentWorkflowIntegrationTest {
     }
 
     @Test
-    fun `IdentityAgentAccessClient fails closed with 503 when identity is unconfigured or unreachable`() {
+    fun `IdentityAgentAccessClient fails closed when identity is unconfigured`() {
         val unconfigured = IdentityAgentAccessClient("", org.springframework.web.client.RestClient.builder())
-        val ex1 = kotlin.test.assertFailsWith<ru.creditcabinet.common.exception.ApiException> {
+        kotlin.test.assertFailsWith<AgentAccessUnavailable> {
             unconfigured.listCompanyIds(agentId)
         }
-        assertEquals(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, ex1.httpStatus)
-
-        val ex2 = kotlin.test.assertFailsWith<ru.creditcabinet.common.exception.ApiException> {
+        kotlin.test.assertFailsWith<AgentAccessUnavailable> {
             unconfigured.checkAccess(agentId, kotovaCompanyId)
         }
-        assertEquals(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, ex2.httpStatus)
+
+        whenever(agentAccess.listCompanyIds(agentId)).thenThrow(AgentAccessUnavailable())
+        val response = mockMvc.get("/api/v1/agent/portfolio") {
+            header("Authorization", "Bearer $agentToken")
+        }.andReturn().response
+        assertEquals(503, response.status)
+        assertEquals("Сервис учётных записей недоступен — попробуйте через минуту", json(response)["message"].asText())
     }
 
     private fun insertOffer(company: UUID): UUID {

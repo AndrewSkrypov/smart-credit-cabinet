@@ -40,7 +40,7 @@ import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.document.domain.FileStore
-import ru.creditcabinet.integration.CompanySources
+import ru.creditcabinet.integration.domain.CompanySources
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.LoanMath
 import ru.creditcabinet.product.domain.ProductCatalog
@@ -101,6 +101,13 @@ class FinancingScenarioIntegrationTest {
              "delayDays":14,"alternativeTermMonths":24,"selectedTermMonths":24}
         """.trimIndent()
         assertEquals(400, put("$agentPath/financing-scenario", missingOpeningBalance).status)
+        val denied = putScenario(agentPath, auth = token(Roles.AGENT))
+        assertEquals(404, denied.status)
+        val deniedBody = mapper.readTree(denied.contentAsByteArray)
+        assertEquals(404, deniedBody["status"].asInt())
+        assertEquals("Not Found", deniedBody["error"].asText())
+        assertEquals("Заявка не найдена", deniedBody["message"].asText())
+        assertEquals("$agentPath/financing-scenario", deniedBody["path"].asText())
         val first = snapshot(putScenario(agentPath))
         assertEquals(1L, first["revision"].asLong())
         assertEquals("DRAFT", first["status"].asText())
@@ -121,6 +128,9 @@ class FinancingScenarioIntegrationTest {
         assertEquals("AWAITING_CLIENT", firstHandoff["status"].asText())
         assertEquals(1L, firstHandoff["revision"].asLong())
         assertEquals(24, applications.find(application.id)?.terms?.termMonths)
+        val afterHandoff = putScenario(agentPath)
+        assertEquals(409, afterHandoff.status)
+        assertEquals("Сценарий можно изменить только в черновике", mapper.readTree(afterHandoff.contentAsByteArray)["message"].asText())
         assertEquals(404, get(bankPath, bank).status)
         assertEquals(404, get("$clientPath/financing-scenario", token(Roles.CLIENT, companyId = UUID.randomUUID())).status)
         assertEquals(409, confirm(clientPath, revision = null).status)
@@ -369,13 +379,21 @@ class FinancingScenarioIntegrationTest {
         )
     }
 
-    private fun putScenario(path: String, openingBalance: Long = 150_000, delayDays: Int = 14, alternative: Int = 24, selected: Int = 24) =
+    private fun putScenario(
+        path: String,
+        openingBalance: Long = 150_000,
+        delayDays: Int = 14,
+        alternative: Int = 24,
+        selected: Int = 24,
+        auth: String = agent,
+    ) =
         put(
             "$path/financing-scenario",
             """
             {"openingBalance":$openingBalance,"expectedReceiptAmount":140000,"expectedReceiptDate":"2026-12-10",
              "paymentDate":"2026-12-15","delayDays":$delayDays,"alternativeTermMonths":$alternative,"selectedTermMonths":$selected}
             """.trimIndent(),
+            auth,
         )
 
     private fun confirm(path: String, revision: Long?, consent: Boolean = true) =
@@ -404,8 +422,8 @@ class FinancingScenarioIntegrationTest {
             }
         }.andReturn().response
 
-    private fun put(path: String, body: String) = mvc.put(path) {
-        header("Authorization", "Bearer $agent")
+    private fun put(path: String, body: String, auth: String = agent) = mvc.put(path) {
+        header("Authorization", "Bearer $auth")
         contentType = MediaType.APPLICATION_JSON
         content = body
     }.andReturn().response

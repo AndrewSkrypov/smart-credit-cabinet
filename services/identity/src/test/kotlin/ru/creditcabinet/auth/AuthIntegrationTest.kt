@@ -16,9 +16,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import ru.creditcabinet.auth.application.SessionTokens
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.company.domain.CompanyRegistry
 import ru.creditcabinet.company.domain.RegistryAnswer
+import ru.creditcabinet.user.domain.User
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
@@ -47,6 +49,9 @@ class AuthIntegrationTest {
 
     @MockitoSpyBean
     private lateinit var passwordEncoder: PasswordEncoder
+
+    @MockitoSpyBean
+    private lateinit var tokens: SessionTokens
 
     @Autowired
     private lateinit var jdbc: JdbcTemplate
@@ -80,6 +85,39 @@ class AuthIntegrationTest {
         assertEquals("CLIENT", claims.role)
         assertNotNull(claims.companyId)
         assertTrue(claims.canSign)
+        assertEquals(
+            listOf("2026-10-21"),
+            jdbc.queryForList(
+                "select version from personal_data_consents where user_id=? and document='PERSONAL_DATA'",
+                String::class.java,
+                claims.userId,
+            ),
+        )
+    }
+
+    @Test
+    fun `a failed session issuance rolls back registration and recorded consent`() {
+        val inn = randomInn12()
+        val email = "failed-session-${UUID.randomUUID()}@example.test"
+        var issuedUser: User? = null
+        var recordedConsent = emptyList<String>()
+        doAnswer { invocation ->
+            val user = invocation.getArgument<User>(0)
+            issuedUser = user
+            recordedConsent = jdbc.queryForList(
+                "select version from personal_data_consents where user_id=? and document='PERSONAL_DATA'",
+                String::class.java,
+                user.id,
+            )
+            error("Session signing failed")
+        }.whenever(tokens).issue(any())
+
+        assertEquals(500, signUp(inn, email).status)
+        val user = assertNotNull(issuedUser)
+        assertEquals(listOf("2026-10-21"), recordedConsent)
+        assertEquals(0, jdbc.queryForObject("select count(*) from companies where inn=?", Int::class.java, inn))
+        assertEquals(0, jdbc.queryForObject("select count(*) from users where email=?", Int::class.java, email))
+        assertEquals(0, jdbc.queryForObject("select count(*) from personal_data_consents where user_id=?", Int::class.java, user.id))
     }
 
     @Test

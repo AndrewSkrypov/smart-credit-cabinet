@@ -14,6 +14,16 @@ import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
+import ru.creditcabinet.assistant.application.AssistantApplications
+import ru.creditcabinet.assistant.application.AssistantProducts
+import ru.creditcabinet.assistant.application.LanguageModel
+import ru.creditcabinet.assistant.application.ProductAdvice
+import ru.creditcabinet.assistant.domain.FinancingNeed
+import ru.creditcabinet.assistant.domain.NeedParser
+import ru.creditcabinet.assistant.infrastructure.toAdviceSnapshot
+import ru.creditcabinet.assistant.infrastructure.toAssistantApplication
+import ru.creditcabinet.assistant.infrastructure.toAssistantProduct
+import ru.creditcabinet.assistant.infrastructure.toProductMatch
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.tokenFor
 import java.util.UUID
@@ -32,9 +42,9 @@ class ProductPickAndSummaryTest {
 
     @MockitoBean private lateinit var model: LanguageModel
 
-    @MockitoBean private lateinit var applications: CreditApplications
+    @MockitoBean private lateinit var applications: AssistantApplications
 
-    @MockitoBean private lateinit var products: CreditProducts
+    @MockitoBean private lateinit var products: AssistantProducts
 
     private val client by lazy { verifier.tokenFor(UUID.randomUUID(), "CLIENT", UUID.randomUUID()) }
     private val underwriter by lazy { verifier.tokenFor(UUID.randomUUID(), "UNDERWRITER") }
@@ -57,7 +67,7 @@ class ProductPickAndSummaryTest {
          {"product":{"code":"OVERDRAFT","name":"Овердрафт","baseRate":19},"fits":false,"reasons":[],"adjustments":["сумма больше лимита"],
           "termMonths":12,"monthlyPayment":null,"overpayment":null}]
         """,
-        )
+        ).map { it.toProductMatch() }
     }
 
     @Test
@@ -89,7 +99,7 @@ class ProductPickAndSummaryTest {
             mapper.readTree(
                 """{"status":"OFFER_ISSUED","purpose":"WORKING_CAPITAL","amount":2000000,"termMonths":12,
                 "product":{"code":"WORKING_CAPITAL"},"process":{"offer":{"kind":"COUNTER","productCode":"OVERDRAFT"}}}""",
-            ),
+            ).toAssistantApplication(),
         )
         whenever(products.purposes(any())).thenReturn(mapOf("WORKING_CAPITAL" to "Закупка товара или сырья"))
         whenever(products.match(eq("WORKING_CAPITAL"), eq(2_000_000L), eq(12), any())).thenReturn(matches)
@@ -108,7 +118,11 @@ class ProductPickAndSummaryTest {
         whenever(products.purposes(any())).thenReturn(mapOf("WORKING_CAPITAL" to "Закупка товара или сырья"))
         whenever(
             products.catalogue(any()),
-        ).thenReturn(mapper.readTree("""[{"name":"Кредит на пополнение оборота","purposes":["WORKING_CAPITAL"],"maxAmount":30000000,"baseRate":20}]"""))
+        ).thenReturn(
+            mapper.readTree("""[{"name":"Кредит на пополнение оборота","purposes":["WORKING_CAPITAL"],"maxAmount":30000000,"baseRate":20}]""").map {
+                it.toAssistantProduct()
+            },
+        )
         val first = ask("Посоветуй кредит на закупку сырья")
         assertTrue(ProductAdvice.ASK_AMOUNT in first["text"].asText(), first["text"].asText())
 
@@ -132,7 +146,7 @@ class ProductPickAndSummaryTest {
         whenever(applications.advice(eq(applicationId), any())).thenReturn(
             mapper.readTree(
                 """{"verdict":"Перед решением: рисков — 1.","modelVersion":1,"items":[{"title":"Нагрузка 47% при пороге 35%","text":"С новым платежом нагрузка выше политики."}]}""",
-            ),
+            ).toAdviceSnapshot(),
         )
         whenever(model.chat(any())).thenReturn("Нагрузка 47% выше порога 35%: перед решением стоит обсудить меньшую сумму.")
         val summary = mapper.readTree(

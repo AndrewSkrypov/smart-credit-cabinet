@@ -22,7 +22,7 @@
 {{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    location = /sim { return 404; }\n    location = /swagger { return 404; }\n    location ~ ^/(?:sim|swagger|v3/api-docs|actuator|internal|ext)(?:/|$) { return 404; }" $gateway }}
 {{- if .Values.publicDemo.enabled }}
 {{- $demo := printf "http://cabinet-demo-proxy.%s.svc.%s:8080" .Release.Namespace $domain }}
-{{- $routes := printf "    server_tokens off;\n    set $cabinet_demo_proxy %s;\n    location = /demo/__ready { proxy_pass $cabinet_demo_proxy; }\n    location = /demo/api { return 404; }\n    location ^~ /demo/api/ { return 404; }\n    location ^~ /demo/api/v1/ { proxy_pass $cabinet_demo_proxy; }" $demo }}
+{{- $routes := printf "    server_tokens off;\n    set $cabinet_demo_proxy %s;\n    location = /demo/__ready { proxy_pass $cabinet_demo_proxy; }\n    location = /demo/api { return 404; }\n    location = /demo/api/v1 { return 404; }\n    location ^~ /demo/api/ { return 404; }\n    location ^~ /demo/api/v1/ { proxy_pass $cabinet_demo_proxy; }" $demo }}
 {{- $gateway = replace "    server_tokens off;" $routes $gateway }}
 {{- end }}
 {{- if and .Values.ingress.enabled .Values.ingress.aliases }}

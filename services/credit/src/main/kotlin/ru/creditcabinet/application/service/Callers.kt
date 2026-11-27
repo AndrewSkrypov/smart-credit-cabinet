@@ -1,9 +1,9 @@
 package ru.creditcabinet.application.service
 
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
 
@@ -30,4 +30,4 @@ fun TokenClaims.canSee(application: LoanApplication): Boolean =
         else -> false
     }
 
-fun notFound() = NotFoundException("Заявка не найдена")
+fun notFound() = NotFound("Заявка не найдена")

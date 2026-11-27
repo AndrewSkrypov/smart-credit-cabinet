@@ -1915,6 +1915,14 @@ components:
       - explanation
       - outcome
       type: object
+    PayNextRequest:
+      properties:
+        paymentId:
+          format: uuid
+          type: string
+      required:
+      - paymentId
+      type: object
     PaymentReserveInputs:
       properties:
         controlDate:
@@ -9167,6 +9175,18 @@ paths:
         schema:
           format: uuid
           type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayNextRequest'
+        required: true
       responses:
         '200':
           content:
@@ -9363,6 +9383,12 @@ paths:
       parameters:
       - in: path
         name: loanId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      - in: header
+        name: Idempotency-Key
         required: true
         schema:
           format: uuid

@@ -36,6 +36,8 @@ parser.add_argument("--keep", action="store_true", help="Оставить тол
 parser.add_argument("--storage", choices=["local", "s3"], default="local")
 parser.add_argument("--legacy-backup", action="store_true", help="Проверить local-копию с manifest прежнего формата 1")
 parser.add_argument("--expected-revision", help="Потребовать одинаковый OCI revision у всех пяти образов, например SHA текущего CI")
+parser.add_argument("--final-profiles", action="store_true", help="Проверить исходный стенд с профилями ai и monitoring")
+parser.add_argument("--host-memory-gib", type=int, default=8)
 args = parser.parse_args()
 assert not args.legacy_backup or args.storage == "local", "Формат 1 не поддерживал S3"
 assert re.fullmatch(r"[a-z0-9][a-z0-9_.-]{2,80}", args.image_prefix)
@@ -70,6 +72,9 @@ def configure(path, index):
     values.update(CABINET_RELEASE="local-verification-" + suffix, HTTPS_PORT=str(args.https_port + index), HTTP_PORT=str(args.http_port + index),
                   PUBLIC_CABINET_URL="https://localhost:" + str(args.https_port + index),
                   EDGE_SUBNET=f"172.30.{block}.0/28", CADDY_EDGE_IP=f"172.30.{block}.2", GATEWAY_EDGE_IP=f"172.30.{block}.3")
+    if args.final_profiles and index == 0:
+        values.update(CABINET_OPTIONAL_PROFILES="ai,monitoring", ASSISTANT_MODEL="qwen2.5:1.5b",
+                      OLLAMA_URL="http://ollama:11434", GRAFANA_PASSWORD=secrets.token_urlsafe(24))
     path.write_text("".join(f"{key}={value}\n" for key, value in values.items()), encoding="utf-8")
 
 
@@ -89,6 +94,53 @@ def verify_release(deployment, artifact):
 def check(name, condition):
     assert condition, name
     report["checks"].append(name)
+
+
+def verify_final_profiles(deployment, api, token):
+    engagement = deployment.container("engagement")
+
+    def curl(url):
+        return subprocess.check_output(["docker", "exec", engagement, "curl", "-fsS", "--max-time", "5", url],
+                                       text=True, encoding="utf-8", timeout=10)
+
+    def model_status():
+        return api.json("GET", "/api/v1/assistant/status", token=token)
+
+    def completed_generations():
+        metrics = curl("http://127.0.0.1:8080/actuator/prometheus")
+        return sum(float(match) for match in re.findall(
+            r'^cabinet_assistant_model_total\{[^}\n]*outcome="(?:ACCEPTED|GUARD_REJECTED)"[^}\n]*\}\s+([\d.eE+-]+)',
+            metrics, re.MULTILINE,
+        ))
+
+    status = model_status()
+    check("Ollama доступна с выбранной моделью", status["mode"] == "MODEL" and status["model"] == deployment.values["ASSISTANT_MODEL"])
+    question = {"question": "Что банк узнаёт из ЕГРЮЛ и ФНС?"}
+    before = completed_generations()
+    answer = api.json("POST", "/api/v1/assistant/messages", question, token, timeout=45)
+    generated = completed_generations() - before
+    check("Помощник обработал настоящий ответ Ollama", generated == 1 and "ЕГРЮЛ, ЕГРИП и ФНС" in answer["sources"])
+
+    required = ["credit", "engagement", "external-sim", "identity"]
+    deadline = time.monotonic() + 45
+    while True:
+        targets = json.loads(curl("http://prometheus:9090/api/v1/targets"))
+        healthy = sorted({item["labels"]["service"] for item in targets["data"]["activeTargets"] if item["health"] == "up"})
+        if healthy == required or time.monotonic() >= deadline:
+            break
+        time.sleep(2)
+    check("Prometheus наблюдает четыре сервиса", healthy == required)
+    report["final_profiles"] = {"model": status["model"], "generated_answers": int(generated), "prometheus_targets": healthy}
+
+    deployment.compose("stop", "ollama")
+    deadline = time.monotonic() + 40
+    while model_status()["mode"] == "MODEL":
+        assert time.monotonic() < deadline, "Помощник не обнаружил остановку Ollama"
+        time.sleep(1)
+    fallback = api.json("POST", "/api/v1/assistant/messages", question, token)
+    check("Помощник отвечает по правилам после остановки Ollama без перезапуска Engagement",
+          fallback["mode"] == "RULES" and "ЕГРЮЛ, ЕГРИП и ФНС" in fallback["sources"] and deployment.container("engagement") == engagement)
+    report["final_profiles"]["fallback"] = fallback["mode"]
 
 
 def sample_memory():
@@ -132,8 +184,8 @@ try:
     stage = "source-start"
     owned.append(source)
     sampler.start()
-    run("start.py", "--project", source_name, "--env-file", source_path, "--local", "--no-build")
-    run("verify.py", "--project", source_name, "--env-file", source_path)
+    run("start.py", "--project", source_name, "--env-file", source_path, "--local", "--no-build", "--host-memory-gib", args.host_memory_gib)
+    run("verify.py", "--project", source_name, "--env-file", source_path, "--host-memory-gib", args.host_memory_gib)
     shutil.copyfile(ROOT / f"deploy/reports/{source_name}-boundary.json", output / "source-boundary.json")
     stage = "source-release"
     verify_release(source, "source-release.json")
@@ -232,6 +284,9 @@ try:
             attributes = (backup / name).stat()
             check("Частная копия принадлежит запускающему пользователю: " + name,
                   attributes.st_uid == os.getuid() and attributes.st_mode & 0o777 == 0o600)
+    if args.final_profiles:
+        stage = "optional-profiles"
+        verify_final_profiles(source, api, fixture["token"])
     # The restore is independent; stop the owned source so two antivirus engines do not exceed CI RAM.
     stop_sampling.set()
     sampler.join(timeout=10)

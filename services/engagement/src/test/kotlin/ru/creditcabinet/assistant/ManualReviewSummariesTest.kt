@@ -1,0 +1,376 @@
+package ru.creditcabinet.assistant
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.sun.net.httpserver.HttpServer
+import org.junit.jupiter.api.AfterAll
+import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.http.MediaType
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
+import org.springframework.test.context.bean.override.mockito.MockitoBean
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
+import ru.creditcabinet.assistant.application.LanguageModel
+import ru.creditcabinet.assistant.application.ManualReviewEvent
+import ru.creditcabinet.assistant.application.ReviewSummaryCache
+import ru.creditcabinet.common.outbox.OutboxWorker
+import ru.creditcabinet.common.security.JwtVerifier
+import ru.creditcabinet.tokenFor
+import java.net.InetSocketAddress
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
+import kotlin.math.ceil
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+@SpringBootTest(properties = ["cabinet.outbox.worker-enabled=false"])
+@AutoConfigureMockMvc
+class ManualReviewSummariesTest {
+    @Autowired private lateinit var mvc: MockMvc
+
+    @Autowired private lateinit var mapper: ObjectMapper
+
+    @Autowired private lateinit var jwt: JwtVerifier
+
+    @Autowired private lateinit var outbox: OutboxWorker
+
+    @Autowired private lateinit var jdbc: JdbcTemplate
+
+    @MockitoBean private lateinit var model: LanguageModel
+
+    @MockitoBean private lateinit var cache: ReviewSummaryCache
+
+    private val applicationId = UUID.randomUUID()
+    private val event = ManualReviewEvent(1, UUID.randomUUID(), applicationId)
+    private val previousRevision = "a".repeat(64)
+    private val nextRevision = "b".repeat(64)
+    private val underwriter by lazy { jwt.tokenFor(UUID.randomUUID(), "UNDERWRITER") }
+
+    @Test
+    fun `delivery is durable and idempotent and a later staff request reads the warmed text`() {
+        val advice = advice("Рекомендована дополнительная проверка", previousRevision)
+        val expected = "Рекомендована дополнительная проверка\n— Источник. Сверить данные."
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(advice))
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.publish(applicationId, null, event.eventId, previousRevision, expected)).thenReturn(true)
+
+        assertEquals(204, accept(event))
+        assertEquals(204, accept(event))
+        val queued = jdbc.queryForObject(
+            "select count(*) from delivery_outbox where event_key=? and channel=?",
+            Int::class.java,
+            event.eventId.toString(),
+            "assistant-manual-review",
+        )
+        assertEquals(1, queued)
+        assertEquals("PENDING", deliveryState())
+        assertTrue(callsFor(internalPath()).isEmpty())
+        outbox.runDue()
+        assertEquals("DELIVERED", deliveryState())
+        verify(cache).publish(applicationId, null, event.eventId, previousRevision, expected)
+        assertEquals(listOf(false), callsFor(internalPath()).map { it.hasAuthorization })
+
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+        whenever(cache.text(applicationId, previousRevision)).thenReturn(expected)
+        advice.remove("adviceRevision")
+        creditReplies[publicPath()] = StubReply(200, mapper.writeValueAsString(advice))
+        val summary = summary(underwriter)
+        assertEquals(200, summary.status)
+        val result = mapper.readTree(summary.getContentAsString(Charsets.UTF_8))
+        assertEquals(expected, result["text"].asText())
+        assertEquals("RULES", result["mode"].asText())
+        assertEquals(listOf(true), callsFor(publicPath()).map { it.hasAuthorization })
+        assertEquals(listOf(false, false), callsFor(internalPath()).map { it.hasAuthorization })
+        val timings = List(20) {
+            val token = jwt.tokenFor(UUID.randomUUID(), "UNDERWRITER")
+            val start = System.nanoTime()
+            val response = summary(token)
+            val millis = (System.nanoTime() - start) / 1_000_000.0
+            assertEquals(200, response.status)
+            assertEquals(expected, mapper.readTree(response.contentAsByteArray)["text"].asText())
+            millis
+        }.sorted()
+        println("Manual review cache hit on contract stub p95_ms=${timings[ceil(timings.size * .95).toInt() - 1]} samples=${timings.size}")
+        verify(model, never()).chat(any())
+    }
+
+    @Test
+    fun `a stale transition is acknowledged without publishing a summary`() {
+        creditReplies[internalPath()] = StubReply(409)
+        whenever(cache.enabled).thenReturn(true)
+        assertEquals(204, accept(event))
+        outbox.runDue()
+        assertEquals("DELIVERED", deliveryState())
+        assertEquals(1, callsFor(internalPath()).size)
+        verify(cache, never()).publish(any(), anyOrNull(), any(), any(), any())
+        verify(model, never()).chat(any())
+    }
+
+    @Test
+    fun `a transient Credit failure leaves the event available for retry`() {
+        creditReplies[internalPath()] = StubReply(503)
+        whenever(cache.enabled).thenReturn(true)
+        assertEquals(204, accept(event))
+        outbox.runDue()
+        assertEquals("PENDING", deliveryState())
+        verify(cache, never()).publish(any(), anyOrNull(), any(), any(), any())
+
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(advice("Проверить данные", previousRevision)))
+        whenever(cache.publish(applicationId, null, event.eventId, previousRevision, "Проверить данные\n— Источник. Сверить данные.")).thenReturn(true)
+        jdbc.update("update delivery_outbox set next_attempt_at=now() where event_key=?", event.eventId.toString())
+        outbox.runDue()
+        assertEquals("DELIVERED", deliveryState())
+        assertEquals(2, callsFor(internalPath()).size)
+    }
+
+    @Test
+    fun `a changed advice revision is rebuilt from the authorized current facts`() {
+        val changed = "Изменился вывод"
+        val fresh = advice(changed, nextRevision)
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(fresh))
+        fresh.remove("adviceRevision")
+        creditReplies[publicPath()] = StubReply(200, mapper.writeValueAsString(fresh))
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+        val expected = "$changed\n— Источник. Сверить данные."
+        whenever(cache.publish(applicationId, event.eventId, event.eventId, nextRevision, expected)).thenReturn(true)
+
+        val user = summary(underwriter)
+        assertEquals(200, user.status)
+        assertEquals(expected, mapper.readTree(user.getContentAsString(Charsets.UTF_8))["text"].asText())
+        verify(cache, never()).text(applicationId, previousRevision)
+        verify(cache).publish(applicationId, event.eventId, event.eventId, nextRevision, expected)
+        verify(model, never()).chat(any())
+    }
+
+    @Test
+    fun `the employee advice is read again when published facts change during the request`() {
+        val old = publicAdvice("Прежний вывод")
+        val current = publicAdvice("Новый вывод")
+        val revised = advice("Новый вывод", nextRevision)
+        replacePublicAdviceAfterFirstRead(old, current)
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(revised))
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+        val expected = "Новый вывод\n— Источник. Сверить данные."
+        whenever(cache.text(applicationId, nextRevision)).thenReturn(expected)
+
+        val response = summary(underwriter)
+        assertEquals(200, response.status)
+        assertEquals(expected, mapper.readTree(response.contentAsByteArray)["text"].asText())
+        assertEquals(listOf(true, true), callsFor(publicPath()).map { it.hasAuthorization })
+        verify(model, never()).chat(any())
+    }
+
+    @Test
+    fun `reordered advice fields still match the authorized snapshot`() {
+        val privateAdvice = advice("Прежний вывод", nextRevision)
+        val publicAdvice = mapper.createObjectNode().apply {
+            putArray("items").addObject().put("text", "Сверить данные.").put("title", "Источник")
+            put("modelVersion", 1)
+            put("verdict", "Прежний вывод")
+            put("applicationId", applicationId.toString())
+        }
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(privateAdvice))
+        creditReplies[publicPath()] = StubReply(200, mapper.writeValueAsString(publicAdvice))
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+        val cached = "Прежний вывод\n— Источник. Сверить данные."
+        whenever(cache.text(applicationId, nextRevision)).thenReturn(cached)
+
+        val response = summary(underwriter)
+        assertEquals(200, response.status)
+        assertEquals(cached, mapper.readTree(response.contentAsByteArray)["text"].asText())
+        assertEquals(listOf(true), callsFor(publicPath()).map { it.hasAuthorization })
+        verify(cache).text(applicationId, nextRevision)
+        verify(model, never()).chat(any())
+    }
+
+    @Test
+    fun `a change outside rendered advice fields disqualifies the warmed summary`() {
+        val published = advice("Вывод", nextRevision).apply { put("evidenceVersion", 1) }
+        val authorized = published.deepCopy().apply {
+            remove("adviceRevision")
+            put("evidenceVersion", 2)
+        }
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(published))
+        creditReplies[publicPath()] = StubReply(200, mapper.writeValueAsString(authorized))
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+
+        val response = summary(underwriter)
+        assertEquals(200, response.status)
+        assertTrue(mapper.readTree(response.contentAsByteArray)["text"].asText().startsWith("Вывод"))
+        assertEquals(listOf(true, true), callsFor(publicPath()).map { it.hasAuthorization })
+        verify(cache, never()).text(any(), any())
+        verify(cache, never()).publish(any(), anyOrNull(), any(), any(), any())
+    }
+
+    @Test
+    fun `a 409 during a staff request replaces the original snapshot before ordinary fallback`() {
+        replacePublicAdviceAfterFirstRead(publicAdvice("Прежний вывод"), publicAdvice("Новое решение"))
+        creditReplies[internalPath()] = StubReply(409)
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+
+        val response = summary(underwriter)
+        assertEquals(200, response.status)
+        assertTrue(mapper.readTree(response.contentAsByteArray)["text"].asText().startsWith("Новое решение"))
+        assertEquals(listOf(true, true), callsFor(publicPath()).map { it.hasAuthorization })
+        verify(cache, never()).text(any(), any())
+    }
+
+    @Test
+    fun `a slow private lookup falls back to the employee advice within the foreground timeout`() {
+        creditReplies[publicPath()] = StubReply(200, publicAdvice("Проверенные рекомендации"))
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(advice("Другие рекомендации", nextRevision)), delayMillis = 2_000)
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+
+        val start = System.nanoTime()
+        val response = summary(underwriter)
+        val millis = (System.nanoTime() - start) / 1_000_000.0
+        assertEquals(200, response.status)
+        assertTrue(mapper.readTree(response.contentAsByteArray)["text"].asText().startsWith("Проверенные рекомендации"))
+        assertEquals(1, callsFor(publicPath()).size)
+        verify(cache, never()).text(any(), any())
+        println("Manual review contract stub slow upstream fallback_ms=$millis")
+    }
+
+    @Test
+    fun `a second entry replaces the transition and replay of the first event adds no work`() {
+        val nextEvent = event.copy(eventId = UUID.randomUUID())
+        val previous = "Первый вывод\n— Источник. Сверить данные."
+        val current = "Новый вывод\n— Источник. Сверить данные."
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(advice("Первый вывод", previousRevision)))
+        creditReplies[internalPath(nextEvent)] = StubReply(200, mapper.writeValueAsString(advice("Новый вывод", nextRevision)))
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.publish(applicationId, null, event.eventId, previousRevision, previous)).thenReturn(true)
+
+        assertEquals(204, accept(event))
+        outbox.runDue()
+        assertEquals("DELIVERED", deliveryState())
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+        whenever(cache.publish(applicationId, event.eventId, nextEvent.eventId, nextRevision, current)).thenReturn(true)
+        creditReplies[internalPath()] = StubReply(409)
+
+        assertEquals(204, accept(nextEvent))
+        assertEquals(204, accept(event))
+        outbox.runDue()
+        assertEquals("DELIVERED", deliveryState(nextEvent))
+        assertEquals(1, callsFor(internalPath()).size)
+        assertEquals(1, callsFor(internalPath(nextEvent)).size)
+        verify(cache).publish(applicationId, event.eventId, nextEvent.eventId, nextRevision, current)
+    }
+
+    @Test
+    fun `unsupported versions fail and the event route stays out of the public OpenAPI`() {
+        assertEquals(400, accept(event.copy(schemaVersion = 2)))
+        assertEquals(0, jdbc.queryForObject("select count(*) from delivery_outbox where event_key=?", Int::class.java, event.eventId.toString()))
+        val docs = mvc.get("/v3/api-docs/engagement").andReturn().response
+        assertEquals(200, docs.status)
+        assertFalse(mapper.readTree(docs.contentAsByteArray)["paths"].has(EVENT_PATH))
+    }
+
+    @Test
+    fun `customers cannot read a warmed underwriter summary`() {
+        val customer = jwt.tokenFor(UUID.randomUUID(), "CLIENT", UUID.randomUUID())
+        assertEquals(403, summary(customer).status)
+        assertTrue(callsFor(publicPath()).isEmpty())
+        assertTrue(callsFor(internalPath()).isEmpty())
+        verify(cache, never()).eventFor(applicationId)
+    }
+
+    private fun accept(value: ManualReviewEvent) = mvc.post(EVENT_PATH) {
+        contentType = MediaType.APPLICATION_JSON
+        content = mapper.writeValueAsString(value)
+    }.andReturn().response.status
+
+    private fun summary(token: String) = mvc.post("/api/v1/assistant/underwriting-summary") {
+        header("Authorization", "Bearer $token")
+        contentType = MediaType.APPLICATION_JSON
+        content = mapper.writeValueAsString(mapOf("applicationId" to applicationId))
+    }.andReturn().response
+
+    private fun deliveryState(value: ManualReviewEvent = event) =
+        jdbc.queryForObject("select state from delivery_outbox where event_key=?", String::class.java, value.eventId.toString())
+
+    private fun internalPath(value: ManualReviewEvent = event) = "/internal/v1/underwriting/applications/$applicationId/advice?eventId=${value.eventId}"
+
+    private fun publicPath() = "/api/v1/underwriting/applications/$applicationId/advice"
+
+    private fun advice(verdict: String, revision: String) = mapper.createObjectNode().apply {
+        put("applicationId", applicationId.toString())
+        put("verdict", verdict)
+        put("modelVersion", 1)
+        putArray("items").addObject().put("title", "Источник").put("text", "Сверить данные.")
+        put("adviceRevision", revision)
+    }
+
+    private fun publicAdvice(verdict: String): String {
+        val response = advice(verdict, previousRevision)
+        response.remove("adviceRevision")
+        return mapper.writeValueAsString(response)
+    }
+
+    private fun replacePublicAdviceAfterFirstRead(initial: String, current: String) {
+        val path = publicPath()
+        creditReplies[path] = StubReply(200, initial, afterRead = { creditReplies[path] = StubReply(200, current) })
+    }
+
+    private fun callsFor(path: String) = creditCalls.filter { it.path == path }
+
+    private data class StubReply(val status: Int, val body: String = "", val delayMillis: Long = 0, val afterRead: (() -> Unit)? = null)
+
+    private data class CreditCall(val path: String, val hasAuthorization: Boolean)
+
+    companion object {
+        private const val EVENT_PATH = "/internal/v1/assistant/manual-review-events"
+        private val creditReplies = ConcurrentHashMap<String, StubReply>()
+        private val creditCalls = CopyOnWriteArrayList<CreditCall>()
+        private val creditExecutor = Executors.newVirtualThreadPerTaskExecutor()
+        private val credit = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+            executor = creditExecutor
+            createContext("/") { exchange ->
+                exchange.use {
+                    val path = exchange.requestURI.toString()
+                    creditCalls.add(CreditCall(path, exchange.requestHeaders.containsKey("Authorization")))
+                    val reply = creditReplies[path] ?: StubReply(404)
+                    reply.afterRead?.invoke()
+                    if (reply.delayMillis > 0) Thread.sleep(reply.delayMillis)
+                    val bytes = reply.body.toByteArray(Charsets.UTF_8)
+                    exchange.responseHeaders.set("Content-Type", "application/json")
+                    exchange.sendResponseHeaders(reply.status, bytes.size.toLong())
+                    exchange.responseBody.use { body -> body.write(bytes) }
+                }
+            }
+            start()
+        }
+
+        @JvmStatic
+        @DynamicPropertySource
+        fun creditLocation(registry: DynamicPropertyRegistry) {
+            registry.add("cabinet.credit.url") { "http://127.0.0.1:${credit.address.port}" }
+        }
+
+        @JvmStatic
+        @AfterAll
+        fun stopCredit() {
+            credit.stop(0)
+            creditExecutor.shutdownNow()
+        }
+    }
+}

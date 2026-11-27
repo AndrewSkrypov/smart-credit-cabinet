@@ -9,13 +9,18 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager
 import org.springframework.jdbc.datasource.DriverManagerDataSource
 import org.springframework.transaction.support.TransactionTemplate
 import ru.creditcabinet.application.domain.LoanApplication
+import ru.creditcabinet.application.infrastructure.SpringCreditTransactions
 import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.domain.StorageBackend
 import ru.creditcabinet.document.generated.ArtifactInput
 import ru.creditcabinet.document.generated.ArtifactPhase
 import ru.creditcabinet.document.generated.ArtifactRenderer
-import ru.creditcabinet.document.generated.ArtifactView
-import ru.creditcabinet.document.generated.GeneratedArtifacts
+import ru.creditcabinet.document.generated.application.ArtifactView
+import ru.creditcabinet.document.generated.application.GeneratedArtifacts
+import ru.creditcabinet.document.generated.infrastructure.DefaultGeneratedArtifactRendering
+import ru.creditcabinet.document.generated.infrastructure.DocumentsGeneratedArtifactRemote
+import ru.creditcabinet.document.generated.infrastructure.JacksonArtifactInputCodec
+import ru.creditcabinet.document.generated.infrastructure.JdbcGeneratedArtifactStore
 import ru.creditcabinet.document.infrastructure.DocumentsBoundary
 import java.io.File
 import java.time.Clock
@@ -77,10 +82,11 @@ class DocumentsArtifactIntentRuntimeTest {
         whenever(renderer.title(any(), any())).thenReturn("Intent protocol")
         val files = mock<FileStore>()
         whenever(files.writeBackend).thenReturn(StorageBackend.valueOf(env("DOCUMENTS_TEST_STORAGE_BACKEND")))
+        val codec = JacksonArtifactInputCodec(mapper)
         fun service() =
             GeneratedArtifacts(
-                jdbc,
-                mapper,
+                JdbcGeneratedArtifactStore(jdbc, codec),
+                codec,
                 mock(),
                 repository,
                 mock(),
@@ -89,11 +95,12 @@ class DocumentsArtifactIntentRuntimeTest {
                 mock(),
                 mock(),
                 files,
-                renderer,
-                tx,
+                DefaultGeneratedArtifactRendering(renderer),
+                SpringCreditTransactions(tx),
                 Clock.systemUTC(),
                 mock(),
-                boundary,
+                DocumentsGeneratedArtifactRemote(boundary),
+                mock(),
             )
         val prepare = GeneratedArtifacts::class.java.getDeclaredMethod("prepareRemote", LoanApplication::class.java, ArtifactInput::class.java).apply {
             isAccessible =

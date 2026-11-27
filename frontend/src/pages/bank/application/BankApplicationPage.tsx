@@ -108,15 +108,15 @@ function BankApplicationCard({ id }: { id: string }) {
       />
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
       {error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => void load()}>Повторить</Button>}>{error}. Показаны последние полученные данные; действия появятся после обновления.</Alert>}
-      <BankSummary application={application} assessment={assessment} stale={Boolean(error)} />
+      <Box data-tour="bank-app-summary"><BankSummary application={application} assessment={assessment} stale={Boolean(error)} /></Box>
       {scenario.data && !scenario.error && <Box sx={{ mb: 3 }}><FinancingScenarioView applicationId={id} scenario={scenario.data} /></Box>}
       {scenario.error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => void scenario.reload()}>Повторить</Button>}>{scenario.error}</Alert>}
       <Grid container spacing={3}>
         <Grid item xs={12} lg={7}>
           <Stack spacing={3}>
-            {!error && <DecisionPanel application={application} assessment={assessment} onDone={() => { setNotice('Решение сохранено, клиент увидит его в кабинете'); void load(); }} />}
-            <AdviceBlock applicationId={application.id} version={`${application.status}-${application.statusChangedAt}`} />
-            <ScoreBlock decision={assessment.automaticDecision} />
+            {!error && <Box data-tour="bank-app-decision"><DecisionPanel application={application} assessment={assessment} onDone={() => { setNotice('Решение сохранено, клиент увидит его в кабинете'); void load(); }} /></Box>}
+            <Box data-tour="bank-app-advice"><AdviceBlock applicationId={application.id} version={`${application.status}-${application.statusChangedAt}`} /></Box>
+            <Box data-tour="bank-app-score"><ScoreBlock decision={assessment.automaticDecision} /></Box>
             {assessment.latestDecision && assessment.latestDecision.decidedByType !== 'SYSTEM' && (
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
                 <Typography variant="h6" component="h2">Решение специалиста</Typography>
@@ -124,13 +124,13 @@ function BankApplicationCard({ id }: { id: string }) {
                 {assessment.latestDecision.comment && <Typography color="text.secondary">{assessment.latestDecision.comment}</Typography>}
               </Paper>
             )}
-            <SourcesBlock assessment={assessment} />
+            <Box data-tour="bank-app-sources"><SourcesBlock assessment={assessment} /></Box>
             <MessagesBlock key={application.id} applicationId={application.id} status={application.status} />
           </Stack>
         </Grid>
         <Grid item xs={12} lg={5}>
           <Stack spacing={3}>
-            <DiscrepanciesBlock assessment={assessment} />
+            <Box data-tour="bank-app-discrepancies"><DiscrepanciesBlock assessment={assessment} /></Box>
             <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
               <Typography variant="h6" component="h2" gutterBottom>Заявка клиента</Typography>
               <Stack spacing={1}>
@@ -185,7 +185,7 @@ function BankApplicationCard({ id }: { id: string }) {
                 </List>
               )}
             </Paper>
-            <AuditBlock applicationId={application.id} version={`${application.status}-${application.statusChangedAt}`} />
+            <Box data-tour="bank-app-audit"><AuditBlock applicationId={application.id} version={`${application.status}-${application.statusChangedAt}`} /></Box>
           </Stack>
         </Grid>
       </Grid>

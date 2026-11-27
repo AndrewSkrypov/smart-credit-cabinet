@@ -11,6 +11,7 @@ import io.grpc.StatusRuntimeException
 import io.grpc.TlsChannelCredentials
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.MetadataUtils
+import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.exception.UnauthorizedException
 import ru.creditcabinet.contracts.servicing.v1.ActorRequest
@@ -45,6 +46,7 @@ class ServicingGrpcClient(
     mapper: ObjectMapper,
     private val authorization: () -> String?,
     private val deadlineMs: Long = 3000,
+    private val authorizationFailure: (ApiException) -> RuntimeException = { it },
 ) : ServicingOperations, AutoCloseable {
     override fun close() {
         (channel as? ManagedChannel)?.shutdown()
@@ -78,8 +80,12 @@ class ServicingGrpcClient(
             LoanAccount::class.java,
         )
     }
-    override fun payNext(loanId: UUID, actor: ServicingActor): LoanAccount = call {
-        wire.decode(stub().payNext(actor(loanId, actor)), LoanAccount::class.java)
+    override fun payNext(loanId: UUID, command: PayNextCommand): LoanAccount = call {
+        val request = actor(loanId, command.actor).toBuilder().apply {
+            command.operationKey?.let { setOperationKey(it.toString()) }
+            command.paymentId?.let { setPaymentId(it.toString()) }
+        }.build()
+        wire.decode(stub().payNext(request), LoanAccount::class.java)
     }
     override fun repayEarly(loanId: UUID, actor: ServicingActor): LoanAccount = call {
         wire.decode(stub().repayEarly(actor(loanId, actor)), LoanAccount::class.java)
@@ -134,8 +140,8 @@ class ServicingGrpcClient(
             Status.Code.INVALID_ARGUMENT -> ServicingBadRequest("Некорректная операция обслуживания")
             Status.Code.NOT_FOUND -> ServicingNotFound("Кредитный счёт или резерв не найден")
             Status.Code.ABORTED, Status.Code.ALREADY_EXISTS -> ServicingConflict("Конфликт условий или состояния обслуживания")
-            Status.Code.UNAUTHENTICATED -> UnauthorizedException()
-            Status.Code.PERMISSION_DENIED -> ForbiddenException("Недостаточно прав для обслуживания")
+            Status.Code.UNAUTHENTICATED -> authorizationFailure(UnauthorizedException())
+            Status.Code.PERMISSION_DENIED -> authorizationFailure(ForbiddenException("Недостаточно прав для обслуживания"))
             else -> ServicingUnavailable("Владелец текущего баланса недоступен")
         }
     } catch (e: IllegalArgumentException) {

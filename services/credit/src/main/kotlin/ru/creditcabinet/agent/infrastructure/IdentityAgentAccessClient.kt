@@ -2,15 +2,14 @@ package ru.creditcabinet.agent.infrastructure
 
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.http.HttpStatus
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import ru.creditcabinet.agent.domain.AgentAccessDecision
 import ru.creditcabinet.agent.domain.AgentAccessPort
+import ru.creditcabinet.agent.domain.AgentAccessUnavailable
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
-import ru.creditcabinet.common.exception.ApiException
 import java.time.Duration
 import java.util.UUID
 
@@ -69,6 +68,5 @@ class IdentityAgentAccessClient(
         }
     }
 
-    private fun unavailable() =
-        ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Сервис учётных записей недоступен — попробуйте через минуту")
+    private fun unavailable() = AgentAccessUnavailable()
 }

@@ -3,6 +3,7 @@ package ru.creditcabinet.chat.infrastructure
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Component
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.chat.domain.ChatAction
 import ru.creditcabinet.chat.domain.ChatAudit
@@ -12,7 +13,6 @@ import ru.creditcabinet.chat.domain.ChatMessage
 import ru.creditcabinet.chat.domain.ChatSide
 import ru.creditcabinet.chat.domain.ChatState
 import ru.creditcabinet.chat.domain.UploadReceipt
-import ru.creditcabinet.common.exception.NotFoundException
 import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
@@ -38,7 +38,7 @@ class JdbcChatData(
     override fun lockApplication(applicationId: UUID): ApplicationStatus = jdbc.query(
         "select status from applications where id = :id for share",
         mapOf("id" to applicationId),
-    ) { rs, _ -> ApplicationStatus.valueOf(rs.getString("status")) }.firstOrNull() ?: throw NotFoundException("Заявка не найдена")
+    ) { rs, _ -> ApplicationStatus.valueOf(rs.getString("status")) }.firstOrNull() ?: throw NotFound("Заявка не найдена")
 
     override fun lockState(applicationId: UUID): Long {
         jdbc.update("insert into application_chat_state(application_id) values (:id) on conflict do nothing", mapOf("id" to applicationId))

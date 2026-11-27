@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
+import ru.creditcabinet.application.application.CreditFailure
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.offer.Loan
 import ru.creditcabinet.offer.application.ContractTextStore
@@ -64,7 +65,7 @@ class LoanOpeningOutbox(
             session.offerId != cycleId ||
             session.signatureId == null ||
             session.contractSnapshotId != snapshot.id ||
-            ru.creditcabinet.offer.ContractTexts.sha256(snapshot.text) != snapshot.sha256
+            ru.creditcabinet.offer.application.ContractTexts.sha256(snapshot.text) != snapshot.sha256
         ) {
             throw ServicingConflict("Подпись и неизменяемый снимок не относятся к циклу заявки")
         }
@@ -160,7 +161,9 @@ class LoanOpeningOutbox(
             val retryable = e is ru.creditcabinet.servicing.domain.ServicingUnavailable || e is org.springframework.dao.DataAccessException
             val errorCode = when (e) {
                 is ServicingConflict -> "OPENING_CONFLICT"
-                is ru.creditcabinet.common.exception.ForbiddenException, is ru.creditcabinet.common.exception.UnauthorizedException -> "PEER_AUTHORIZATION"
+                is CreditFailure.Forbidden, is CreditFailure.Unauthenticated,
+                is ru.creditcabinet.common.exception.ForbiddenException, is ru.creditcabinet.common.exception.UnauthorizedException,
+                -> "PEER_AUTHORIZATION"
                 is IllegalArgumentException -> "INVALID_RESPONSE"
                 else -> if (retryable) "OWNER_UNAVAILABLE" else "DELIVERY_ERROR"
             }

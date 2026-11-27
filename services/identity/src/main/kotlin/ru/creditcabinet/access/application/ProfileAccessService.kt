@@ -1,15 +1,12 @@
 package ru.creditcabinet.access.application
 
-import org.springframework.security.crypto.password.PasswordEncoder
-import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.access.domain.AccountAccessPort
-import ru.creditcabinet.access.dto.UpdateProfileRequest
-import ru.creditcabinet.auth.application.JwtService
-import ru.creditcabinet.auth.dto.UserSessionResponse
-import ru.creditcabinet.common.exception.BadRequestException
-import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.user.dto.UserResponse
+import ru.creditcabinet.auth.application.IdentityActor
+import ru.creditcabinet.auth.application.IdentitySession
+import ru.creditcabinet.auth.application.PasswordHashes
+import ru.creditcabinet.auth.application.SessionTokens
+import ru.creditcabinet.identity.application.IdentityTransactions
+import ru.creditcabinet.identity.domain.IdentityFailure.InvalidInput
 import java.time.Clock
 
 /**
@@ -17,26 +14,25 @@ import java.time.Clock
  * tokens stay valid until they expire. A new email is the new login: it needs the current
  * password, and recovery links sent to the old address stop working.
  */
-@Service
 class ProfileAccessService(
     private val store: AccountAccessPort,
-    private val encoder: PasswordEncoder,
-    private val tokens: JwtService,
+    private val passwords: PasswordHashes,
+    private val tokens: SessionTokens,
+    private val transactions: IdentityTransactions,
     private val clock: Clock = Clock.systemUTC(),
 ) {
-    @Transactional
-    fun update(claims: TokenClaims, request: UpdateProfileRequest): UserSessionResponse {
+    fun update(claims: IdentityActor, rawName: String, rawEmail: String, currentPassword: String?): IdentitySession = transactions.write {
         val account = store.actor(claims)
-        val fullName = request.fullName.trim().replace(Regex("\\s+"), " ")
-        val email = request.email.trim().lowercase()
+        val fullName = rawName.trim().replace(Regex("\\s+"), " ")
+        val email = rawEmail.trim().lowercase()
         val emailChanged = email != account.user.email
         if (emailChanged) {
-            val password = request.currentPassword.orEmpty()
-            if (password.isEmpty()) throw BadRequestException("Чтобы сменить email, укажите текущий пароль")
-            if (!encoder.matches(password, account.passwordHash)) throw BadRequestException("Текущий пароль указан неверно")
+            val password = currentPassword.orEmpty()
+            if (password.isEmpty()) throw InvalidInput("Чтобы сменить email, укажите текущий пароль")
+            if (!passwords.matches(password, account.passwordHash)) throw InvalidInput("Текущий пароль указан неверно")
         }
         val user = account.user.copy(fullName = fullName, email = email)
-        if (user == account.user) return UserSessionResponse(tokens.issue(user), UserResponse.of(user))
+        if (user == account.user) return@write IdentitySession(tokens.issue(user), user)
         store.updateProfile(user.id, fullName, email)
         val now = clock.instant()
         if (emailChanged) {
@@ -44,6 +40,6 @@ class ProfileAccessService(
             store.audit(user.id, "EMAIL_CHANGED", user.id, user.companyId, now)
         }
         if (fullName != account.user.fullName) store.audit(user.id, "NAME_CHANGED", user.id, user.companyId, now)
-        return UserSessionResponse(tokens.issue(user), UserResponse.of(user))
+        IdentitySession(tokens.issue(user), user)
     }
 }

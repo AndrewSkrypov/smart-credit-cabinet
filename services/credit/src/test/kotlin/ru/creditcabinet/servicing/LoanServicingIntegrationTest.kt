@@ -50,6 +50,8 @@ import java.math.BigDecimal
 import java.time.ZoneOffset
 import java.util.Date
 import java.util.UUID
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -372,6 +374,7 @@ class LoanServicingIntegrationTest {
                 403,
                 mockMvc.post("/api/v1/loans/$loanId/tranches") {
                     header("Authorization", "Bearer $nonClientToken")
+                    header("Idempotency-Key", UUID.randomUUID())
                     contentType = MediaType.APPLICATION_JSON
                     content = """{"amount":200000,"purpose":"Тест"}"""
                 }.andReturn().response.status,
@@ -380,6 +383,9 @@ class LoanServicingIntegrationTest {
                 403,
                 mockMvc.post("/api/v1/loans/$loanId/payments/next") {
                     header("Authorization", "Bearer $nonClientToken")
+                    header("Idempotency-Key", UUID.randomUUID())
+                    contentType = MediaType.APPLICATION_JSON
+                    content = mapper.writeValueAsString(mapOf("paymentId" to initialLoan["payments"][0]["id"].asText()))
                 }.andReturn().response.status,
             )
             assertEquals(
@@ -395,6 +401,7 @@ class LoanServicingIntegrationTest {
             404,
             mockMvc.post("/api/v1/loans/$loanId/tranches") {
                 header("Authorization", "Bearer $otherClientToken")
+                header("Idempotency-Key", UUID.randomUUID())
                 contentType = MediaType.APPLICATION_JSON
                 content = """{"amount":200000,"purpose":"Чужой"}"""
             }.andReturn().response.status,
@@ -405,6 +412,7 @@ class LoanServicingIntegrationTest {
             400,
             mockMvc.post("/api/v1/loans/$loanId/tranches") {
                 header("Authorization", "Bearer $clientToken")
+                header("Idempotency-Key", UUID.randomUUID())
                 contentType = MediaType.APPLICATION_JSON
                 content = """{"amount":0,"purpose":"Ноль"}"""
             }.andReturn().response.status,
@@ -413,6 +421,7 @@ class LoanServicingIntegrationTest {
             409,
             mockMvc.post("/api/v1/loans/$loanId/tranches") {
                 header("Authorization", "Bearer $clientToken")
+                header("Idempotency-Key", UUID.randomUUID())
                 contentType = MediaType.APPLICATION_JSON
                 content = """{"amount":1500000,"purpose":"Сверх лимита"}"""
             }.andReturn().response.status,
@@ -428,12 +437,21 @@ class LoanServicingIntegrationTest {
 
         // Valid second tranche
         val firstPaymentBefore = initialLoan["payments"][0]["paymentAmount"].decimalValue()
-        val trancheResp = mockMvc.post("/api/v1/loans/$loanId/tranches") {
+        val trancheKey = UUID.randomUUID()
+        fun draw(amount: Long) = mockMvc.post("/api/v1/loans/$loanId/tranches") {
             header("Authorization", "Bearer $clientToken")
+            header("Idempotency-Key", trancheKey)
             contentType = MediaType.APPLICATION_JSON
-            content = """{"amount":500000,"purpose":"Закупка сырья"}"""
+            content = """{"amount":$amount,"purpose":"Закупка сырья"}"""
         }.andReturn().response
+
+        val (trancheResp, replay) = Executors.newFixedThreadPool(2).use { pool ->
+            pool.invokeAll(List(2) { Callable { draw(500_000L) } }).map { it.get() }
+        }
         assertEquals(200, trancheResp.status, trancheResp.getContentAsString(Charsets.UTF_8))
+        assertEquals(200, replay.status, replay.getContentAsString(Charsets.UTF_8))
+        assertEquals(json(trancheResp), json(replay))
+        assertEquals(409, draw(300_000L).status)
         val afterTranche = json(trancheResp)
         assertEquals(1_500_000L, afterTranche["disbursedAmount"].asLong())
         assertEquals(0, afterTranche["outstandingPrincipal"].decimalValue().compareTo(BigDecimal("1500000.00")))
@@ -459,6 +477,7 @@ class LoanServicingIntegrationTest {
             409,
             mockMvc.post("/api/v1/loans/$stdLoanId/tranches") {
                 header("Authorization", "Bearer $clientToken")
+                header("Idempotency-Key", UUID.randomUUID())
                 contentType = MediaType.APPLICATION_JSON
                 content = """{"amount":100000,"purpose":"Нельзя"}"""
             }.andReturn().response.status,
@@ -482,17 +501,25 @@ class LoanServicingIntegrationTest {
         )
         val loanId = opened["id"].asText()
         val initialPrincipal = opened["outstandingPrincipal"].decimalValue()
+        val firstPayment = opened["payments"][0]["id"].asText()
+        val paymentKey = UUID.randomUUID()
 
         // Pay next scheduled payment
-        val payResp = mockMvc.post("/api/v1/loans/$loanId/payments/next") {
+        fun pay(key: UUID, paymentId: String) = mockMvc.post("/api/v1/loans/$loanId/payments/next") {
             header("Authorization", "Bearer $clientToken")
+            header("Idempotency-Key", key)
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(mapOf("paymentId" to paymentId))
         }.andReturn().response
+        val payResp = pay(paymentKey, firstPayment)
         assertEquals(200, payResp.status, payResp.getContentAsString(Charsets.UTF_8))
         val afterPay = json(payResp)
         assertEquals("ACTIVE", afterPay["status"].asText())
         assertEquals("PAID", afterPay["payments"][0]["status"].asText())
         assertEquals("SCHEDULED", afterPay["payments"][1]["status"].asText())
         assertTrue(afterPay["outstandingPrincipal"].decimalValue() < initialPrincipal)
+        assertEquals(409, pay(paymentKey, opened["payments"][1]["id"].asText()).status)
+        assertEquals(409, pay(UUID.randomUUID(), firstPayment).status)
 
         // Early repayment closes the loan
         val repayResp = mockMvc.post("/api/v1/loans/$loanId/repay-early") {
@@ -504,12 +531,10 @@ class LoanServicingIntegrationTest {
         assertEquals(0, afterRepay["outstandingPrincipal"].decimalValue().compareTo(BigDecimal.ZERO))
 
         // Further mutations on REPAID loan return 409
-        assertEquals(
-            409,
-            mockMvc.post("/api/v1/loans/$loanId/payments/next") {
-                header("Authorization", "Bearer $clientToken")
-            }.andReturn().response.status,
-        )
+        assertEquals(409, pay(UUID.randomUUID(), opened["payments"][1]["id"].asText()).status)
+        val replay = pay(paymentKey, firstPayment)
+        assertEquals(200, replay.status, replay.getContentAsString(Charsets.UTF_8))
+        assertEquals(afterPay, json(replay))
         assertEquals(
             409,
             mockMvc.post("/api/v1/loans/$loanId/repay-early") {

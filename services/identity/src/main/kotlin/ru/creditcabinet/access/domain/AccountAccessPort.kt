@@ -51,5 +51,3 @@ interface AccountLinkIssuer {
 fun interface RecoveryLimits {
     fun acquire(email: String, address: String, now: Instant)
 }
-
-data class SecurityMailReference(val purpose: LinkPurpose, val referenceId: UUID)

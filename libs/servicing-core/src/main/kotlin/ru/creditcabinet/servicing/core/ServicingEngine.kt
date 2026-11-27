@@ -79,14 +79,16 @@ class ServicingEngine(
     }
     override fun byId(loanId: UUID): LoanAccount? = checkedRead { accounts.findByIdForUpdate(loanId) }
     override fun draw(loanId: UUID, command: DrawCommand): LoanAccount = tx.execute {
-        val account = owned(loanId, command.actor)
-        val now = clock.instant()
-        val updated = account.drawTranche(command.amount, command.purpose, now, today())
-        accounts.saveState(updated, updated.tranches.last())
-        updated
+        once(loanId, command.actor, command.operationKey, "tranche:${command.amount}:${command.purpose?.trim().orEmpty()}") { account ->
+            val updated = account.drawTranche(command.amount, command.purpose, clock.instant(), today())
+            accounts.saveState(updated, updated.tranches.last())
+            updated
+        }
     }
-    override fun payNext(loanId: UUID, actor: ServicingActor): LoanAccount = tx.execute {
-        owned(loanId, actor).payNext(clock.instant()).also { accounts.saveState(it) }
+    override fun payNext(loanId: UUID, command: PayNextCommand): LoanAccount = tx.execute {
+        once(loanId, command.actor, command.operationKey, "payment:${command.paymentId}") { account ->
+            account.payNext(command.paymentId, clock.instant()).also { accounts.saveState(it) }
+        }
     }
     override fun repayEarly(loanId: UUID, actor: ServicingActor): LoanAccount = tx.execute {
         owned(loanId, actor).repayEarly(clock.instant(), today()).also { accounts.saveState(it) }
@@ -169,6 +171,22 @@ class ServicingEngine(
             updated.quote(updatedAccount, today())
         }
     }
+
+    /**
+     * Runs a client operation at most once per key under the account lock. A retry with the same
+     * key and request returns the first result; the same key with another request is a conflict.
+     */
+    private fun once(loanId: UUID, actor: ServicingActor, key: UUID?, request: String, change: (LoanAccount) -> LoanAccount): LoanAccount {
+        val account = owned(loanId, actor)
+        if (key == null) return change(account)
+        val fingerprint = MessageDigest.getInstance("SHA-256").digest(request.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        accounts.findOperation(loanId, key)?.let { receipt ->
+            if (receipt.fingerprint != fingerprint) throw ServicingConflict("Этот ключ уже использован для другой операции по кредиту")
+            return receipt.result
+        }
+        return change(account).also { accounts.recordOperation(loanId, LoanOperationReceipt(key, fingerprint, it)) }
+    }
+
     private fun owned(id: UUID, actor: ServicingActor): LoanAccount =
         accounts.findByIdForUpdate(id)?.takeIf { it.companyId == actor.companyId } ?: throw missing()
 

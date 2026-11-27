@@ -41,7 +41,7 @@ class ServicingPostgresIntegrationTest {
     private val clock = Clock.fixed(Instant.parse("2026-10-01T10:00:00Z"), ZoneOffset.UTC)
     private fun engine(
         plans: PaymentReserveStore = JdbcPaymentReserveStore(jdbc),
-    ) = ServicingEngine(LoanServicingJdbcStore(jdbc), plans, JdbcOpeningLedger(jdbc, mapper), JdbcServicingTransaction(jdbc, tx, "REMOTE"), clock)
+    ) = ServicingEngine(LoanServicingJdbcStore(jdbc, mapper), plans, JdbcOpeningLedger(jdbc, mapper), JdbcServicingTransaction(jdbc, tx, "REMOTE"), clock)
     private fun command() = OpenLoanCommand(
         UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 5, UUID.randomUUID(), UUID.randomUUID(),
         "a".repeat(
@@ -122,6 +122,6 @@ class ServicingPostgresIntegrationTest {
         } finally {
             workers.shutdownNow()
         }
-        assertFailsWith<ServicingNotFound> { engine.payNext(id, actor.copy(companyId = UUID.randomUUID())) }
+        assertFailsWith<ServicingNotFound> { engine.payNext(id, PayNextCommand(actor.copy(companyId = UUID.randomUUID()))) }
     }
 }

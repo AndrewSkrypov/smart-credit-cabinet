@@ -7,17 +7,21 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
-import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
+import ru.creditcabinet.application.application.CreditFailure.DependencyUnavailable
 import ru.creditcabinet.cataloggrpc.CatalogGrpcClient
 import ru.creditcabinet.cataloggrpc.catalogTlsChannel
 import ru.creditcabinet.catalogjdbc.JdbcProductCatalog
-import ru.creditcabinet.common.exception.ApiException
 import java.io.File
 import java.time.Clock
 
 @Configuration(proxyBeanMethods = false)
 internal class CreditCatalogConfiguration {
+    @Bean
+    @Primary
+    @ConditionalOnProperty(prefix = "cabinet.catalog", name = ["mode"], havingValue = "local", matchIfMissing = true)
+    fun localProductCatalog(creditProductCatalog: JdbcProductCatalog): LocalProductCatalog = LocalProductCatalog(creditProductCatalog)
+
     @Bean
     fun creditProductCatalog(
         jdbc: JdbcTemplate,
@@ -29,7 +33,7 @@ internal class CreditCatalogConfiguration {
         return JdbcProductCatalog(jdbc, clock) {
             val installed = jdbc.queryForObject("select to_regclass('catalog_cutover.authority') is not null", Boolean::class.java) == true
             if (installed && jdbc.queryForObject("select catalog_cutover.lock_authority()", Boolean::class.java) != true) {
-                throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Локальный каталог закрыт для новых операций")
+                throw DependencyUnavailable("Локальный каталог закрыт для новых операций")
             }
         }
     }

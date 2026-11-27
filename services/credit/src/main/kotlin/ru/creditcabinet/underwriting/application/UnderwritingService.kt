@@ -2,6 +2,9 @@ package ru.creditcabinet.underwriting.application
 
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import ru.creditcabinet.application.application.CommitTransition
+import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.Conflict
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
@@ -11,7 +14,6 @@ import ru.creditcabinet.application.domain.InfoRequests
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
-import ru.creditcabinet.application.service.Transitions
 import ru.creditcabinet.application.service.notFound
 import ru.creditcabinet.application.service.toActor
 import ru.creditcabinet.assessment.domain.CreditPolicy
@@ -22,13 +24,11 @@ import ru.creditcabinet.assessment.domain.OfferTerms
 import ru.creditcabinet.assessment.domain.RejectReason
 import ru.creditcabinet.assessment.domain.RuleSet
 import ru.creditcabinet.assessment.domain.RuleSets
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.offer.OfferIssuer
 import ru.creditcabinet.offer.OfferKind
-import ru.creditcabinet.pipeline.PipelineSettings
+import ru.creditcabinet.offer.application.OfferIssuance
+import ru.creditcabinet.pipeline.application.PipelineSettings
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.ProductMatcher.rubles
 import ru.creditcabinet.product.domain.forApplication
@@ -53,15 +53,16 @@ interface UnderwritingDecisions {
 @Service
 class UnderwritingService(
     private val applications: ApplicationRepository,
-    private val transitions: Transitions,
+    private val transitions: CommitTransition,
     private val decisions: DecisionRepository,
-    private val issuer: OfferIssuer,
+    private val issuer: OfferIssuance,
     private val infoRequests: InfoRequests,
     private val jobs: PipelineJobs,
     private val products: ProductCatalog,
     private val ruleSets: RuleSets,
     private val settings: PipelineSettings,
     private val clock: Clock,
+    private val callerContext: CreditCaller,
 ) : UnderwritingDecisions {
     @Transactional
     override fun approve(id: UUID, comment: String?): LoanApplication {
@@ -153,14 +154,14 @@ class UnderwritingService(
     private data class Reviewed(val claims: TokenClaims, val application: LoanApplication, val automatic: Decision?, val rules: RuleSet)
 
     private fun reviewed(id: UUID, vararg roles: String): Reviewed {
-        val claims = CurrentCaller.requireRole(*roles)
+        val claims = callerContext.requireRole(*roles)
         val application = applications.find(id)?.takeIf { it.visibleToBank } ?: throw notFound()
-        if (application.status != ApplicationStatus.MANUAL_REVIEW) throw ConflictException("Заявка не на ручном рассмотрении")
+        if (application.status != ApplicationStatus.MANUAL_REVIEW) throw Conflict("Заявка не на ручном рассмотрении")
         val automatic = decisions.latestAutomatic(application.id)
         val rules = if (automatic == null) {
             ruleSets.current()
         } else {
-            ruleSets.find(automatic.ruleSetVersion) ?: throw ConflictException("Не найдена сохранённая версия правил оценки; решение не сохранено")
+            ruleSets.find(automatic.ruleSetVersion) ?: throw Conflict("Не найдена сохранённая версия правил оценки; решение не сохранено")
         }
         return Reviewed(claims, application, automatic, rules)
     }

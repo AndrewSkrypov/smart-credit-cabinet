@@ -1,15 +1,14 @@
 package ru.creditcabinet.application.infrastructure
 
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.http.HttpStatus
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
+import ru.creditcabinet.application.application.CreditFailure.DependencyUnavailable
 import ru.creditcabinet.application.domain.CompanyDirectory
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
-import ru.creditcabinet.common.exception.ApiException
 import java.time.Duration
 import java.util.UUID
 
@@ -41,5 +40,5 @@ class IdentityCompanyDirectory(
         }
     }
 
-    private fun unavailable() = ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Сервис учётных записей недоступен — попробуйте через минуту")
+    private fun unavailable() = DependencyUnavailable("Сервис учётных записей недоступен — попробуйте через минуту")
 }

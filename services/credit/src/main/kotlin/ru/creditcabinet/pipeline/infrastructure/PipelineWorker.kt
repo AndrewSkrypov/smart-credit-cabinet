@@ -1,15 +1,14 @@
 package ru.creditcabinet.pipeline.infrastructure
 
 import org.slf4j.LoggerFactory
-import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import ru.creditcabinet.application.domain.PipelineJob
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.observability.PipelineMetrics
-import ru.creditcabinet.pipeline.PipelineSettings
 import ru.creditcabinet.pipeline.application.PipelineJobHandler
+import ru.creditcabinet.pipeline.application.PipelineSettings
 import java.time.Clock
 import java.time.Duration
 
@@ -21,7 +20,6 @@ import java.time.Duration
  */
 @Component
 @EnableScheduling
-@EnableConfigurationProperties(PipelineSettings::class)
 class PipelineWorker(
     private val jobs: PipelineJobs,
     private val steps: PipelineJobHandler,

@@ -59,7 +59,7 @@ class ServicingEngineTest {
         val id = engine.open(command(false, 999_999)).accountId
         assertEquals(999_999, engine.byId(id)!!.disbursedAmount)
         assertEquals(0, engine.byId(id)!!.availableLimit)
-        val paid = engine.payNext(id, actor)
+        val paid = engine.payNext(id, PayNextCommand(actor))
         assertTrue(paid.outstandingPrincipal < BigDecimal("999999.00"))
         val closed = engine.repayEarly(id, actor)
         assertEquals(LoanAccountStatus.REPAID, closed.status)
@@ -108,6 +108,71 @@ class ServicingEngineTest {
         assertEquals(1, engine.byId(id)!!.tranches.size)
     }
 
+    @Test fun `reserve quote and agent action stop offering draws at maturity`() {
+        val db = Memory()
+        val opening = command()
+        val id = db.engine(clock).open(opening).accountId
+        val input = PaymentReserveInputs(20_000, 180_000, 100_000, 50_000, opening.maturityDate.minusDays(1), opening.maturityDate)
+        val before = db.engine(Clock.fixed(opening.maturityDate.minusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC))
+        before.putReserve(id, ReserveCommand(actor, input))
+        before.receipt(id, ReceiptCommand(actor, ReceiptEvent("maturity-delay", ReceiptStatus.DELAYED)))
+
+        for (day in listOf(opening.maturityDate.minusDays(1), opening.maturityDate, opening.maturityDate.plusDays(1))) {
+            val engine = db.engine(Clock.fixed(day.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC))
+            val account = assertNotNull(engine.byId(id))
+            val quote = assertNotNull(engine.reserve(id))
+            val allowed = day < opening.maturityDate
+            assertEquals(allowed, account.canDrawTrancheOn(day))
+            assertEquals(allowed, quote.canDraw)
+            assertEquals(
+                if (allowed) AgentReserveAction.CLIENT_CONFIRM_DRAW else AgentReserveAction.REVIEW_REQUIRED,
+                engine.agentSummary(opening.applicationId)?.action,
+            )
+            if (allowed) {
+                assertEquals(2, account.drawTranche(quote.suggestedDraw, null, now, day).tranches.size)
+            } else {
+                assertFailsWith<ServicingConflict> { engine.confirmReserve(id, ConfirmReserveCommand(actor, quote.version)) }
+                assertEquals(account, engine.byId(id))
+            }
+        }
+    }
+
+    @Test fun `reserve cannot offer draw without a future unpaid schedule even before maturity`() {
+        val db = Memory()
+        val opening = command().copy(maturityDate = LocalDate.parse("2027-10-10"))
+        val id = db.engine(clock).open(opening).accountId
+        val day = LocalDate.parse("2027-10-05")
+        val engine = db.engine(Clock.fixed(day.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC))
+        val account = assertNotNull(engine.byId(id))
+        assertTrue(day < account.maturityDate)
+        assertTrue(account.payments.all { it.dueDate <= day })
+        val input = PaymentReserveInputs(20_000, 180_000, 100_000, 50_000, day, day)
+        engine.putReserve(id, ReserveCommand(actor, input))
+        val quote = engine.receipt(id, ReceiptCommand(actor, ReceiptEvent("late-delay", ReceiptStatus.DELAYED)))
+        assertFalse(quote.canDraw)
+        assertEquals(AgentReserveAction.REVIEW_REQUIRED, engine.agentSummary(opening.applicationId)?.action)
+        assertFailsWith<ServicingConflict> { account.drawTranche(quote.suggestedDraw, null, now, day) }
+        assertFailsWith<ServicingConflict> { engine.confirmReserve(id, ConfirmReserveCommand(actor, quote.version)) }
+        assertEquals(account, engine.byId(id))
+    }
+
+    @Test fun `paid future payments do not make the tranche draw period eligible`() {
+        val db = Memory()
+        val id = db.engine(clock).open(command()).accountId
+        val account = assertNotNull(db.engine(clock).byId(id))
+        val day = account.payments.first().dueDate
+        val noFutureUnpaid = account.copy(
+            payments = account.payments.map {
+                if (it.dueDate > day) it.copy(status = LoanPaymentStatus.PAID, paidAt = now) else it
+            },
+        )
+        val plan = PaymentReservePlan(id, 1, PaymentReserveInputs(20_000, 180_000, 100_000, 50_000, day, day), ReceiptStatus.DELAYED)
+        assertFalse(noFutureUnpaid.canDrawTrancheOn(day))
+        assertFalse(plan.quote(noFutureUnpaid, day).canDraw)
+        assertEquals(AgentReserveAction.REVIEW_REQUIRED, plan.quote(noFutureUnpaid, day).agentSummary(day).action)
+        assertFailsWith<ServicingConflict> { noFutureUnpaid.drawTranche(130_000, null, now, day) }
+    }
+
     @Test fun `reserve write failure rolls tranche and schedule back with same aggregate transaction`() {
         val db = Memory()
         val engine = db.engine(clock)
@@ -129,7 +194,7 @@ class ServicingEngineTest {
         val db = Memory()
         val engine = db.engine(clock)
         val id = engine.open(command()).accountId
-        assertFailsWith<ServicingNotFound> { engine.payNext(id, actor.copy(companyId = UUID.randomUUID())) }
+        assertFailsWith<ServicingNotFound> { engine.payNext(id, PayNextCommand(actor.copy(companyId = UUID.randomUUID()))) }
         val workers = Executors.newFixedThreadPool(2)
         try {
             val results = workers.invokeAll(List(2) { Callable { runCatching { engine.draw(id, DrawCommand(actor, 400_000)) }.isSuccess } }).map { it.get() }
@@ -174,6 +239,11 @@ class ServicingEngineTest {
         }
         override fun saveState(account: LoanAccount, newTranche: LoanTranche?) {
             accounts[account.id] = account
+        }
+        var operations = mutableMapOf<Pair<UUID, UUID>, LoanOperationReceipt>()
+        override fun findOperation(loanId: UUID, operationKey: UUID) = operations[loanId to operationKey]
+        override fun recordOperation(loanId: UUID, receipt: LoanOperationReceipt) {
+            operations[loanId to receipt.operationKey] = receipt
         }
         override fun find(loanId: UUID): PaymentReservePlan? = plans[loanId]
         override fun save(plan: PaymentReservePlan, actorId: UUID) {

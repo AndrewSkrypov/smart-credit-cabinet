@@ -483,3 +483,57 @@ Compose-файлом. Проверяйте `caddy validate` перед прим�
 после завершения штатного релиза оператор применяет тот же проверенный оверлей
 к двум контейнерам или пересоздаёт их без оверлея для отката. Резервная копия Caddyfile,
 `cabinet.env` и SQLite Grafana хранится в защищённом подкаталоге `backup-*`.
+
+### Helm на T1 и публичная Grafana
+
+На `alfa-cluster-2` явно передайте `-f helm/observability/storage-t1-cinder-values.yaml`.
+Он выбирает Cinder `t1cloud-average` для всех шести PVC.
+Добавьте `registry-t1-values.yaml` для проверенных Docker Hub копий образов Quay
+с теми же amd64 digest. Основной релиз в
+`monitoring` использует `--set global.cabinetAppNamespace=cabinet-prod`; для
+изолированного GoAlert добавьте `goalert-values.yaml`, `goalert-db-values.yaml` и
+`goalert-test-contacts-values.yaml` из `helm/observability`. Внешняя доставка при этом
+выключена. Ключи БД и Grafana остаются в Secrets `cabinet-goalert`,
+`cabinet-goalert-db` и `cabinet-grafana-admin`.
+
+Edge настраивает Traefik для наблюдения за `monitoring` и обслуживает Secret
+`grafana-prod-tls` в этом namespace. После готовности сертификата и Deployment
+Grafana подключите `-f helm/observability/grafana-prod-ingress-values.yaml`. Этот файл
+добавляет только `https://grafana.credit-cabinet.ru/` через `cabinet-public` к
+ClusterIP Grafana. Прямые сервисы метрик, логов, трейсов и оповещений остаются
+внутри. Анонимный доступ, внешние дашборды, snapshots и публичные метрики Grafana
+выключены. CI/CD задаёт для приложения `monitoring.namespaces=[monitoring]`,
+`app.otlpEndpoint=http://tempo.monitoring.svc:4318/v1/traces` и явный
+`MANAGEMENT_TRACING_SAMPLING_PROBABILITY`. В Helm приложения проверьте egress к
+поду с меткой `cabinet-observability: tempo` на TCP 4318, если применяется политика
+для Ollama bridge.
+
+До выдачи учётки выполните вход в браузере и убедитесь, что от TLS до
+Grafana требуется логин. Без сессии `/api/search`, API дашбордов и прокси
+всех трёх источников должны отвечать `401`. С сессией проверьте три дашборда,
+четыре цели `Up`, синтетический отказ агента с приростом метрики, trace в Tempo и
+JSON в Loki с тем же trace ID. Публичный `/actuator/prometheus` и приём OTLP
+не должны быть доступны. Синтетический вопрос о продуктах без данных заявки на
+`POST /api/v1/assistant/messages` проверяет прирост
+`cabinet_assistant_answer_seconds_count` и режим модели.
+
+Учётка для просмотра может быть подготовлена через локальный kubectl port-forward
+с помощью `--port-forward PORT`. Выдача для публичного входа выполняется после
+подтверждения TLS и повторной проверки без этого параметра.
+Путь `PUMP_GRAFANA_VIEWER_FILE` должен быть вне Git в приватном каталоге оператора.
+
+```bash
+python3 monitoring/grafana/issue-prod-viewer.py \
+  --kubeconfig "$PUMP_PROD_KUBECONFIG" --context kubernetes-admin@alfa-cluster-2 \
+  --login pump-observer --output "$PUMP_GRAFANA_VIEWER_FILE"
+```
+
+Команда читает Admin Secret только в процессе, создаёт отдельную роль Viewer
+и сохраняет credentials в файле `0600`. Повторный запуск использует тот же файл и
+проверяет границы учётки. Пароль существующей учётки с совпадающим логином не сбрасывается.
+
+Для проверки переживания пересоздания пода выделите отдельный RWO PVC 1 GiB
+в `monitoring-acceptance` с тем же StorageClass. Запишите синтетический маркер,
+удалите первый под, подключите тот же PVC к поду на другой Ready-ноде и проверьте
+маркер. После теста удалите временный PVC. Рабочие тома Loki, Tempo и Grafana
+для этой проверки не используются.

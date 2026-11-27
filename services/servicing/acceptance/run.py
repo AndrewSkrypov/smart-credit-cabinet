@@ -210,6 +210,17 @@ class Acceptance:
         manifest = json.loads((self.root / label / "source-fenced.json").read_text())
         self.receipt["checks"][label] = {"sha256": manifest["sha256"], "counts": {table: len(rows) for table, rows in manifest["tables"].items()}}
 
+    def operation_receipts(self, database):
+        return json.loads(self.sql(database, database + "_owner", "set timezone='UTC'; select coalesce(jsonb_agg(to_jsonb(r)||jsonb_build_object('result',r.result::text) order by loan_account_id,operation_key),'[]'::jsonb) from loan_operations r;"))
+
+    def retired_receipts(self, database):
+        permissions = (REPO / "libs/platform-common/src/main/resources/cabinet/database-permissions.sql").read_text().replace("__OWNER__", database + "_owner").replace("__APP__", database + "_app")
+        self.sql(database, database + "_owner", permissions)
+        denied = self.sql(database, database + "_owner", f"select not(has_table_privilege('{database}_app','loan_operations','SELECT') or has_table_privilege('{database}_app','loan_operations','INSERT') or has_table_privilege('{database}_app','loan_operations','UPDATE') or has_table_privilege('{database}_app','loan_operations','DELETE'));")
+        if denied != "t":
+            raise RuntimeError("Retired operation receipts regained runtime privileges")
+        self.sql(database, database + "_app", "select * from loan_operations;", failure=True)
+
     def forward_with_activation_fault(self):
         tool = REPO / "services/servicing/cutover/transfer.py"
         options = ["remote", "--credit-service", "credit_owner", "--servicing-service", "servicing_owner"]
@@ -217,6 +228,7 @@ class Acceptance:
         self.run("forward-fault", [sys.executable, tool, *options, "--artifacts", directory, "--test-fail-after-target-activation"], accepted_codes=(1,))
         if self.sql("credit", "credit_owner", "select writer from servicing_writer_fence where singleton;") != "FENCED" or self.sql("servicing", "servicing_owner", "select writer from servicing_writer_fence where singleton;") != "REMOTE":
             raise RuntimeError("The injected checkpoint did not leave exactly the expected authority")
+        self.retired_receipts("credit")
         legacy = json.loads((self.root / "legacy-account.json").read_text())
         loan_id = str(uuid.UUID(legacy["id"]))
         # Explicit storage fault fixture. The runtime payment path is tested independently below.
@@ -319,7 +331,12 @@ class Acceptance:
         filters = ["*LoanAccountDomainTest", "*LoanServicingIntegrationTest", "*PaymentReserveIntegrationTest", "*LoanOpeningAtomicityIntegrationTest", "*ServicingLegacyExportFixtureTest", "*LoanServicingVisibilityTest"]
         self.gradle("credit-local", [":services:credit:test", *sum((["--tests", name] for name in filters), [])], local)
         self.tests(":services:credit", "credit-local", 10)
+        local_operations = self.operation_receipts("credit")
+        if not local_operations:
+            raise RuntimeError("Forward receipt fixture must contain a real committed operation")
         self.forward_with_activation_fault()
+        if self.operation_receipts("servicing") != local_operations:
+            raise RuntimeError("Forward cutover lost operation keys, fingerprints or first results")
         self.sql("credit", "credit_app", "select * from loan_accounts;", failure=True)
         self.sql("credit", "credit_app", "update servicing_writer_fence set writer='LOCAL';", failure=True)
         pg = {"ALPHA_SERVICING_TEST_JDBC_URL": f"jdbc:postgresql://127.0.0.1:{self.pg_port}/servicing", "ALPHA_SERVICING_TEST_DB_USER": "servicing_app", "ALPHA_SERVICING_TEST_DB_PASSWORD": self.passwords["servicing_app"]}
@@ -336,7 +353,16 @@ class Acceptance:
         self.tests(":services:credit", "credit-live-delivery")
         self.seed_fixture_counterparts()
         self.stop_stand()
+        remote_operations = self.operation_receipts("servicing")
+        if len(remote_operations) <= len(local_operations):
+            raise RuntimeError("Reverse receipt fixture must contain a new remote operation")
         self.reverse_with_abort_fault()
+        if self.operation_receipts("credit") != remote_operations:
+            raise RuntimeError("Reverse cutover lost operation keys, fingerprints or first results")
+        self.retired_receipts("servicing")
+        self.gradle("credit-reverse-operation-replay", [":services:credit:test", "--tests", "*ServicingLegacyExportFixtureTest"], {**local, "ALPHA_SERVICING_LOCAL_REPLAY": "true"})
+        self.tests(":services:credit", "credit-reverse-operation-replay")
+        self.receipt["checks"]["operation-receipts-forward-reverse-replay"] = {"local": len(local_operations), "remote": len(remote_operations), "firstResultsPreserved": True, "retiredRegrantDenied": True}
         latest = json.loads((self.root / "latest-payment-account.json").read_text())
         value = self.sql("credit", "credit_app", f"select outstanding_principal::text from loan_accounts where id='{uuid.UUID(latest['id'])}';")
         from decimal import Decimal

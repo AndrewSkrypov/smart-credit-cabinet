@@ -66,6 +66,12 @@ data class LoanAccount(
             0L
         }
 
+    fun canDrawTrancheOn(today: LocalDate): Boolean =
+        revolving &&
+            status == LoanAccountStatus.ACTIVE &&
+            today.isBefore(maturityDate) &&
+            payments.any { it.status == LoanPaymentStatus.SCHEDULED && it.dueDate.isAfter(today) }
+
     fun drawTranche(amount: Long, purpose: String?, now: Instant, today: LocalDate): LoanAccount {
         if (amount <= 0L) {
             throw BadRequestException("Сумма транша должна быть больше нуля")
@@ -75,6 +81,9 @@ data class LoanAccount(
         }
         if (status != LoanAccountStatus.ACTIVE) {
             throw ConflictException("Кредит уже полностью погашен")
+        }
+        if (!canDrawTrancheOn(today)) {
+            throw ConflictException("Срок выборки траншей закончился или в графике нет будущих платежей")
         }
         val remainingLimit = approvedLimit - disbursedAmount
         if (amount > remainingLimit) {
@@ -94,32 +103,28 @@ data class LoanAccount(
         val updatedDisbursed = disbursedAmount + amount
         val updatedOutstanding = outstandingPrincipal.add(BigDecimal(amount)).setScale(2, RoundingMode.HALF_UP)
 
-        val paidPayments = payments.filter { it.status == LoanPaymentStatus.PAID }.sortedBy { it.paymentNumber }
-        val existingScheduled = payments.filter { it.status == LoanPaymentStatus.SCHEDULED }.sortedBy { it.paymentNumber }
-        val dueDates = if (existingScheduled.isNotEmpty()) {
-            existingScheduled.map { it.dueDate }
-        } else {
-            listOf(today.plusMonths(1))
+        val (preserved, future) = payments.sortedBy { it.paymentNumber }.partition {
+            it.status == LoanPaymentStatus.PAID || !it.dueDate.isAfter(today)
         }
-        val startPaymentNumber = (paidPayments.maxOfOrNull { it.paymentNumber } ?: 0) + 1
+        val duePrincipal = preserved.filter { it.status == LoanPaymentStatus.SCHEDULED }.sumOf { it.principalAmount }
         val recalculated = buildSchedule(
             loanAccountId = id,
-            principal = updatedOutstanding,
+            principal = updatedOutstanding.subtract(duePrincipal),
             rate = rate,
             revolving = revolving,
-            startPaymentNumber = startPaymentNumber,
-            dueDates = dueDates,
+            startPaymentNumber = future.first().paymentNumber,
+            dueDates = future.map { it.dueDate },
         )
 
         return copy(
             disbursedAmount = updatedDisbursed,
             outstandingPrincipal = updatedOutstanding,
             tranches = tranches + newTranche,
-            payments = paidPayments + recalculated,
+            payments = preserved + recalculated,
         )
     }
 
-    fun payNext(now: Instant): LoanAccount {
+    fun payNext(paymentId: UUID?, now: Instant): LoanAccount {
         if (status != LoanAccountStatus.ACTIVE) {
             throw ConflictException("Кредит уже полностью погашен")
         }
@@ -129,6 +134,7 @@ data class LoanAccount(
             throw ConflictException("Нет запланированных платежей")
         }
         val next = ordered[nextIndex]
+        if (paymentId != null && next.id != paymentId) throw ConflictException("Очередной платёж изменился — обновите график перед оплатой")
         val paidPayment = next.copy(status = LoanPaymentStatus.PAID, paidAt = now)
         val updatedPayments = ordered.toMutableList().apply { this[nextIndex] = paidPayment }
         val remaining = outstandingPrincipal.subtract(next.principalAmount).setScale(2, RoundingMode.HALF_UP)

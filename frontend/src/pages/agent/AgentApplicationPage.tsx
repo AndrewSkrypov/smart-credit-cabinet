@@ -40,6 +40,7 @@ import { useApi } from '../../hooks/useApi';
 import { agentNextAction, SYSTEM_STATUSES, statusTitle, statusTone } from '../../shared/applicationText';
 import { fileSize, formatDateTime, months, percent, rub, rubExact } from '../../shared/format';
 import { commissionStatusLabels } from '../../shared/labels';
+import { transparentOutlineButtonSx } from '../../theme/theme';
 import { Application, ApplicationInput, DocumentType } from '../../types';
 import { HistoryBlock } from '../client/application/HistoryBlock';
 import { StageStepper } from '../client/application/StageStepper';
@@ -287,7 +288,7 @@ function AgentApplicationCard({ id }: { id: string }) {
       <Grid container spacing={3} sx={{ pb: 6 }}>
         <Grid item xs={12} md={8}>
           <Stack spacing={3}>
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+            <Paper data-tour="agent-app-status" variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
               <StageStepper status={application.status} />
               <Box sx={{ mt: 2 }}>
                 <Typography fontWeight={600}>Следующий шаг</Typography>
@@ -305,7 +306,7 @@ function AgentApplicationCard({ id }: { id: string }) {
             {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
             {isDraft && application.editable && (
-              <Paper id="draft-financing" variant="outlined" sx={{ p: { xs: 2, md: 3 }, scrollMarginTop: 110 }}>
+              <Paper data-tour="agent-app-draft" id="draft-financing" variant="outlined" sx={{ p: { xs: 2, md: 3 }, scrollMarginTop: 110 }}>
                 <Typography variant="h6" component="h2" gutterBottom>Параметры черновика</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   Заполните параметры заявки и приложите обязательные документы. Согласие на запрос в БКИ даст сам клиент на этапе подтверждения.
@@ -392,7 +393,7 @@ function AgentApplicationCard({ id }: { id: string }) {
             )}
 
             {infoRequest && application.status === 'INFO_REQUESTED' && (
-              <Paper id="application-info-request" variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main', scrollMarginTop: 110 }}>
+              <Paper data-tour="agent-app-info" id="application-info-request" variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main', scrollMarginTop: 110 }}>
                 <Typography variant="h6" component="h2">Банк запросил дополнительные документы</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2 }}>
                   Ответить нужно до {formatDateTime(infoRequest.deadline)}.{infoRequest.comment ? ` ${infoRequest.comment}` : ''}
@@ -450,7 +451,7 @@ function AgentApplicationCard({ id }: { id: string }) {
             )}
 
             {application.process.offer && (
-              <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+              <Paper data-tour="agent-app-offer" variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
                 <Typography variant="h6" component="h2" gutterBottom>
                   {application.process.offer.kind === 'COUNTER' ? 'Встречное предложение банка' : 'Одобренное предложение банка'}
                 </Typography>
@@ -467,12 +468,12 @@ function AgentApplicationCard({ id }: { id: string }) {
             )}
 
             {application.status === 'DISBURSED' && (
-              <LoanServicingBlock applicationId={application.id} readOnly agentScope />
+              <Box data-tour="agent-app-loan"><LoanServicingBlock applicationId={application.id} readOnly agentScope /></Box>
             )}
 
             {/* Documents block via agent API */}
             {(isDraft || application.documents.length > 0) && (
-              <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+              <Paper data-tour="agent-app-documents" variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
                 <Typography variant="h6" component="h2" gutterBottom>Документы</Typography>
                 {docError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDocError(null)}>{docError}</Alert>}
                 {isDraft && application.canUploadDocuments && <SensitiveDataNotice />}
@@ -553,13 +554,13 @@ function AgentApplicationCard({ id }: { id: string }) {
               </Paper>
             )}
 
-            <MessagesBlock key={application.id} applicationId={application.id} status={application.status} />
+            <Box data-tour="agent-app-messages"><MessagesBlock key={application.id} applicationId={application.id} status={application.status} /></Box>
             <HistoryBlock agentScope applicationId={application.id} version={`${application.status}-${application.documents.length}`} />
           </Stack>
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Paper variant="outlined" component="aside" aria-label="Сводка заявки" sx={{ p: { xs: 2, md: 3 }, position: { md: 'sticky' }, top: { md: 96 } }}>
+          <Paper data-tour="agent-app-summary" variant="outlined" component="aside" aria-label="Сводка заявки" sx={{ p: { xs: 2, md: 3 }, position: { md: 'sticky' }, top: { md: 96 } }}>
             <Typography variant="body2" color="text.secondary">{application.product.name}</Typography>
             <Typography variant="h5" component="p" sx={{ mt: 0.5 }}>{rub(application.amount)}</Typography>
             <Typography color="text.secondary">на {months(application.termMonths)}</Typography>
@@ -586,7 +587,7 @@ function AgentApplicationCard({ id }: { id: string }) {
             </Stack>
 
             {canCancel && (
-              <Button color="error" onClick={() => setCancelDialogOpen(true)} sx={{ mt: 2, ml: -1 }}>
+              <Button variant="outlined" size="small" onClick={() => setCancelDialogOpen(true)} sx={{ ...transparentOutlineButtonSx, mt: 2 }}>
                 Отменить черновик
               </Button>
             )}
@@ -599,9 +600,15 @@ function AgentApplicationCard({ id }: { id: string }) {
         <DialogContent>
           <Typography>Заявка перейдёт в статус «Отозвана». При необходимости вы сможете создать новую заявку для этого клиента.</Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCancelDialogOpen(false)}>Не отменять</Button>
-          <Button color="error" disabled={busyAction !== null} onClick={() => void handleCancel()}>
+        <DialogActions disableSpacing sx={(theme) => ({
+          flexWrap: 'wrap',
+          gap: 1,
+          [theme.breakpoints.down('sm')]: {
+            '& .MuiButton-root': { px: 1.5, fontSize: '0.875rem' },
+          },
+        })}>
+          <Button variant="outlined" onClick={() => setCancelDialogOpen(false)} sx={transparentOutlineButtonSx}>Не отменять</Button>
+          <Button variant="contained" color="error" disabled={busyAction !== null} onClick={() => void handleCancel()}>
             {busyAction === 'cancel' ? 'Отменяем…' : 'Отменить черновик'}
           </Button>
         </DialogActions>

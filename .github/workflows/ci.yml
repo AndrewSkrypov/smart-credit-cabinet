@@ -21,6 +21,10 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Verify source dependencies across backend layers
+        run: |
+          python3 -B scripts/check-hexagonal-boundaries.py
+          python3 -B -m unittest discover -s scripts/tests -p test_hexagonal_boundaries.py
       - name: Build and verify the patched database image
         run: |
           docker build -f docker/postgres/Dockerfile -t cabinet/postgres:16.15-alpine-su-exec-0.3 .
@@ -87,7 +91,39 @@ jobs:
           ASSESSMENT_DB_URL: jdbc:postgresql://127.0.0.1:5432/assessment
           ASSESSMENT_DB_USER: cabinet
           ASSESSMENT_DB_PASSWORD: cabinet
-        run: ./gradlew build --no-daemon
+        run: |
+          set -o pipefail
+          log="$RUNNER_TEMP/cabinet-gradle-build.log"
+          if ./gradlew build --no-daemon 2>&1 | tee "$log"; then
+            exit 0
+          else
+            status=$?
+          fi
+          if ! grep -Fq "Could not resolve all artifacts for configuration ':build-logic:classpath'" "$log" ||
+             ! grep -Eq 'repo\.maven\.apache\.org/.+/org/jetbrains/kotlin/.+Received status code 429' "$log"; then
+            exit "$status"
+          fi
+          if [[ "$GRADLE_BUILD_ACTION_CACHE_RESTORED" == true ]]; then
+            echo 'Maven Central rate-limited dependency resolution. Retrying the same build from the restored Gradle cache.'
+            offline_log="$RUNNER_TEMP/cabinet-gradle-offline.log"
+            if ./gradlew build --no-daemon --offline 2>&1 | tee "$offline_log"; then
+              exit 0
+            else
+              status=$?
+            fi
+            if ! grep -Fq "Could not resolve all artifacts for configuration ':build-logic:classpath'" "$offline_log" ||
+               ! grep -Eq 'No cached version of org\.jetbrains\.kotlin:.+ available for offline mode' "$offline_log"; then
+              exit "$status"
+            fi
+          fi
+          echo 'Resolving Kotlin build plugin dependencies from the Maven Central mirror.'
+          ./gradlew build --no-daemon -PcabinetKotlinCentralMirror=true
+          # Keep the repository choice for the Catalog integration Gradle invocations.
+          printf '%s\n' 'ORG_GRADLE_PROJECT_cabinetKotlinCentralMirror=true' >> "$GITHUB_ENV"
+      - name: Compile the opt-in Analytics service for the boundary check
+        run: ./gradlew :services:analytics:classes --no-daemon -PalphaAnalytics=true
+      - name: Verify compiled backend dependencies
+        run: python3 -B scripts/check-hexagonal-boundaries.py --jdeps "$JAVA_HOME/bin/jdeps"
       - name: Verify Catalog cutover and Credit submission over mutual TLS
         env:
           CATALOG_TEST_POSTGRES_IMAGE: cabinet/postgres:16.15-alpine-su-exec-0.3
@@ -337,13 +373,23 @@ jobs:
             security/reports/infra-${{ matrix.name }}/summary.json
 
   deployment:
+    name: deployment (${{ matrix.scenario }})
     needs: [backend, frontend]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        storage: [local, s3]
+        include:
+          - scenario: local
+            storage: local
+            final_profiles: false
+          - scenario: s3
+            storage: s3
+            final_profiles: false
+          - scenario: final-profiles
+            storage: s3
+            final_profiles: true
     env:
       SOURCE_REVISION: ${{ github.sha }}
     steps:
@@ -365,12 +411,22 @@ jobs:
       - name: Build deployment images from tested artifacts
         run: docker compose -p cabinet-deploy-build -f docker-compose.yml -f ci/compose.yaml build
       - name: Exercise TLS, production memory limits and an independent restore
-        run: '"$RUNNER_TEMP/cabinet-deployment/bin/python" deploy/test-local.py --image-prefix cabinet-deploy-build --companies 20 --storage "${{ matrix.storage }}" --expected-revision "$GITHUB_SHA"'
+        env:
+          TEST_STORAGE: ${{ matrix.storage }}
+          WITH_FINAL_PROFILES: ${{ matrix.final_profiles }}
+        run: |
+          extra=()
+          if [[ "$WITH_FINAL_PROFILES" == true ]]; then
+            host_memory_gib=$(awk '/^MemTotal:/ {print int($2 / 1048576)}' /proc/meminfo)
+            extra=(--final-profiles --host-memory-gib "$host_memory_gib")
+          fi
+          "$RUNNER_TEMP/cabinet-deployment/bin/python" deploy/test-local.py --image-prefix cabinet-deploy-build --companies 20 \
+            --storage "$TEST_STORAGE" --expected-revision "$GITHUB_SHA" "${extra[@]}"
       - name: Deployment measurements without credentials or database dumps
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: deployment-reports-${{ matrix.storage }}
+          name: deployment-reports-${{ matrix.scenario }}
           path: deploy/reports/test-*/*.json
           retention-days: 14
 
@@ -556,6 +612,12 @@ jobs:
       - name: Wait for public API routes
         run: npm run wait
         working-directory: e2e
+      - name: Verify Credit to Engagement delivery for manual review
+        run: |
+          mkdir -p scripts/assistant-eval-reports
+          python3 scripts/check-manual-review-delivery.py --revision "$SOURCE_REVISION" \
+            --project "$COMPOSE_PROJECT_NAME" --base http://127.0.0.1:8080 \
+            --output scripts/assistant-eval-reports/ci-manual-review-delivery.json
       - name: Verify live OpenAPI snapshots
         run: '"$RUNNER_TEMP/cabinet-contracts/bin/python" scripts/export-openapi.py --check'
       - name: Verify the final access matrix through the gateway
@@ -673,6 +735,7 @@ jobs:
           path: |
             scripts/assistant-eval-reports/ci-rules/report.json
             scripts/assistant-eval-reports/ci-agent-rules.json
+            scripts/assistant-eval-reports/ci-manual-review-delivery.json
           retention-days: 14
       - name: Reliability measurements without session tokens
         if: always()

@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.RequestContextHolder
 import org.springframework.web.context.request.ServletRequestAttributes
 import ru.creditcabinet.agent.application.AgentApplicationService
+import ru.creditcabinet.application.application.CreditCaller
 import ru.creditcabinet.application.domain.ApplicationRepository
+import ru.creditcabinet.application.infrastructure.creditPortFailure
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.servicing.application.LoanServicingService
 import ru.creditcabinet.servicing.contract.v1.ServicingOperations
@@ -66,7 +68,7 @@ class ServicingConfiguration {
         require(accepted == true) { "Remote Servicing requires accepted fenced migration" }
         return ServicingGrpcClient(servicingTlsChannel(host, port, File(certificate), File(key), File(ca)), mapper, {
             (RequestContextHolder.getRequestAttributes() as? ServletRequestAttributes)?.request?.getHeader("Authorization")
-        })
+        }, authorizationFailure = ::creditPortFailure)
     }
 
     @Bean fun loanServicingService(
@@ -75,7 +77,8 @@ class ServicingConfiguration {
         accounts: LoanAccountStore,
         jdbc: JdbcTemplate,
         tx: TransactionTemplate,
-    ): LoanServicingService = LoanServicingService(operations, applications) { application, loan ->
+        callerContext: CreditCaller,
+    ): LoanServicingService = LoanServicingService(operations, applications, callerContext) { application, loan ->
         require(operations is ServicingEngine) { "Legacy opening is disabled for the remote writer" }
         JdbcServicingTransaction(jdbc, tx, "LOCAL").execute {
             JdbcOpeningLedger(jdbc, com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()).lockApplication(application.id)
@@ -93,8 +96,9 @@ class ServicingConfiguration {
         agentApplications: AgentApplicationService,
         clock: Clock,
         @Value("\${DEMO_ACCOUNTS:false}") demo: Boolean,
+        callerContext: CreditCaller,
     ) =
-        PaymentReserveService(operations, applications, agentApplications, clock, demo)
+        PaymentReserveService(operations, applications, agentApplications, clock, demo, callerContext)
 }
 
 @RestControllerAdvice

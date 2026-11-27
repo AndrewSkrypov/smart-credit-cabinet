@@ -13,6 +13,9 @@ import org.springframework.transaction.support.TransactionTemplate
 import ru.creditcabinet.application.domain.*
 import ru.creditcabinet.offer.*
 import ru.creditcabinet.offer.application.ContractTextStore
+import ru.creditcabinet.offer.application.ContractTexts
+import ru.creditcabinet.offer.application.OfferService
+import ru.creditcabinet.offer.domain.ContractTextSnapshot
 import ru.creditcabinet.pipeline.PipelineFakesConfig
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.servicing.application.LoanServicingService
@@ -183,8 +186,8 @@ class LoanOpeningAtomicityIntegrationTest {
         )
         val offerStore = mock<OfferRepository> { on { current(fixture.app.id) } doReturn offer }
         val sessions = mock<SigningSessions> { on { signedFor(fixture.app.id, fixture.cycle) } doReturn fixture.signed }
-        val core = mock<ru.creditcabinet.integration.CoreBanking> {
-            on { disburse(any()) } doReturn ru.creditcabinet.integration.LoanBooked(
+        val core = mock<ru.creditcabinet.integration.domain.CoreBanking> {
+            on { disburse(any()) } doReturn ru.creditcabinet.integration.domain.LoanBooked(
                 fixture.loan.contractNumber,
                 fixture.loan.loanAccount,
                 fixture.loan.settlementAccount,
@@ -249,14 +252,14 @@ class LoanOpeningAtomicityIntegrationTest {
         val entered = java.util.concurrent.CountDownLatch(1)
         val release = java.util.concurrent.CountDownLatch(1)
         val calls = java.util.concurrent.atomic.AtomicInteger()
-        val core = mock<ru.creditcabinet.integration.CoreBanking>()
+        val core = mock<ru.creditcabinet.integration.domain.CoreBanking>()
         whenever(core.disburse(any())).thenAnswer {
             if (calls.incrementAndGet() == 1) {
                 entered.countDown()
                 check(release.await(20, java.util.concurrent.TimeUnit.SECONDS))
-                throw ru.creditcabinet.integration.SourceUnavailableException("CORE", "Late response from expired lease")
+                throw ru.creditcabinet.integration.domain.SourceUnavailableException("CORE", "Late response from expired lease")
             }
-            ru.creditcabinet.integration.LoanBooked(
+            ru.creditcabinet.integration.domain.LoanBooked(
                 fixture.loan.contractNumber,
                 fixture.loan.loanAccount,
                 fixture.loan.settlementAccount,
@@ -319,7 +322,7 @@ class LoanOpeningAtomicityIntegrationTest {
             val sessions = mock<SigningSessions> { on { signedFor(fixture.app.id, fixture.cycle) } doReturn fixture.signed }
             val entered = java.util.concurrent.CountDownLatch(1)
             val release = java.util.concurrent.CountDownLatch(1)
-            val core = mock<ru.creditcabinet.integration.CoreBanking>()
+            val core = mock<ru.creditcabinet.integration.domain.CoreBanking>()
             whenever(core.disburse(any())).thenAnswer {
                 entered.countDown()
                 check(release.await(20, java.util.concurrent.TimeUnit.SECONDS))
@@ -336,7 +339,7 @@ class LoanOpeningAtomicityIntegrationTest {
                 ru.creditcabinet.pipeline.infrastructure.PipelineWorker(
                     jobs,
                     handler,
-                    ru.creditcabinet.pipeline.PipelineSettings(enabled = false, maxAttempts = maxAttempts),
+                    ru.creditcabinet.pipeline.application.PipelineSettings(enabled = false, maxAttempts = maxAttempts),
                     clock,
                     context.getBean(ru.creditcabinet.observability.PipelineMetrics::class.java),
                 )
@@ -414,20 +417,23 @@ class LoanOpeningAtomicityIntegrationTest {
         records.save(initial)
         val entered = java.util.concurrent.CountDownLatch(1)
         val release = java.util.concurrent.CountDownLatch(1)
-        val gateway = mock<ru.creditcabinet.integration.SigningGateway>()
+        val gateway = mock<ru.creditcabinet.integration.domain.SigningGateway>()
         whenever(gateway.start(any(), any(), any(), any())).thenAnswer {
             entered.countDown()
             check(release.await(20, java.util.concurrent.TimeUnit.SECONDS))
-            ru.creditcabinet.integration.SigningStarted(UUID.randomUUID(), "654321", clock.instant().plusSeconds(300))
+            ru.creditcabinet.integration.domain.SigningStarted(UUID.randomUUID(), "654321", clock.instant().plusSeconds(300))
         }
         val signature = UUID.randomUUID()
-        whenever(gateway.confirm(initial.externalSessionId, "123456")).thenReturn(ru.creditcabinet.integration.SigningResult.Signed(signature, clock.instant()))
+        whenever(
+            gateway.confirm(initial.externalSessionId, "123456"),
+        ).thenReturn(ru.creditcabinet.integration.domain.SigningResult.Signed(signature, clock.instant()))
         val service =
             OfferService(
                 context.getBean(
                     ru.creditcabinet.application.service.ApplicationService::class.java,
                 ),
-                transitions, offerStore, records, gateway, jobs, products, contractTexts, tx, clock,
+                transitions, offerStore, records, gateway, jobs, products, contractTexts,
+                context.getBean(ru.creditcabinet.application.application.CreditTransactions::class.java), clock,
             )
         val caller = ru.creditcabinet.common.security.TokenClaims(
             application.createdBy,
@@ -449,7 +455,7 @@ class LoanOpeningAtomicityIntegrationTest {
                     service.requestCode(application.id)
                     false
                 } catch (
-                    _: ru.creditcabinet.common.exception.ConflictException,
+                    _: ru.creditcabinet.application.application.CreditFailure.Conflict,
                 ) {
                     true
                 } finally {

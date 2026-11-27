@@ -1,9 +1,10 @@
 package ru.creditcabinet.offer.application
 
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.offer.ContractTextView
+import ru.creditcabinet.offer.domain.ContractTextSnapshot
 import ru.creditcabinet.offer.domain.Offer
 import ru.creditcabinet.offer.domain.SigningSessionRecord
+import java.time.Instant
 import java.util.UUID
 
 interface OfferActions {
@@ -19,3 +20,11 @@ interface OfferActions {
 
     fun contract(id: UUID): ContractTextView
 }
+
+data class ContractTextView(
+    val snapshot: ContractTextSnapshot?,
+    val text: String,
+    val legacySummary: Boolean,
+    val signable: Boolean,
+    val signedAt: Instant?,
+)

@@ -90,7 +90,7 @@ data class PaymentReservePlan(
             required > 0L &&
             suggested == required &&
             today <= inputs.paymentDate &&
-            today <= account.maturityDate
+            account.canDrawTrancheOn(today)
         return PaymentReserveQuote(
             version = version,
             inputs = inputs,

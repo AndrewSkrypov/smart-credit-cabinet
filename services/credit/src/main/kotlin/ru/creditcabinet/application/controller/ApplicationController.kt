@@ -23,25 +23,21 @@ import org.springframework.web.bind.annotation.RequestPart
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
+import ru.creditcabinet.application.application.ApplicationDetails
+import ru.creditcabinet.application.application.ApplicationOperations
 import ru.creditcabinet.application.application.ApplicationPages
+import ru.creditcabinet.application.application.ApplicationProcess
 import ru.creditcabinet.application.application.ApplicationProcesses
-import ru.creditcabinet.application.domain.ApplicationEvent
-import ru.creditcabinet.application.domain.ApplicationStateMachine
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.application.service.ApplicationService
-import ru.creditcabinet.application.service.toActor
 import ru.creditcabinet.chat.application.ChatService
-import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.document.application.ApplicationDocuments
 import ru.creditcabinet.document.controller.toDocumentUpload
-import ru.creditcabinet.document.domain.DocumentRequirements
 import ru.creditcabinet.document.domain.DocumentType
-import ru.creditcabinet.offer.ContractTextView
+import ru.creditcabinet.offer.application.ContractTextView
 import ru.creditcabinet.offer.application.OfferActions
 import ru.creditcabinet.product.domain.Calculation
-import ru.creditcabinet.product.domain.LoanMath
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
@@ -49,7 +45,8 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/v1/applications")
 class ApplicationController(
-    private val service: ApplicationService,
+    private val service: ApplicationOperations,
+    private val details: ApplicationDetails,
     private val documents: ApplicationDocuments,
     private val offers: OfferActions,
     private val processes: ApplicationProcesses,
@@ -189,24 +186,22 @@ class ApplicationController(
             .body(InputStreamResource(file.content))
     }
 
-    private fun process(application: LoanApplication, isOwnClient: Boolean): ProcessView {
-        val process = processes.read(application)
-        return ProcessView(
+    private fun processView(process: ApplicationProcess, showSigningCode: Boolean): ProcessView =
+        ProcessView(
             infoRequest = process.infoRequest?.let { InfoRequestView.of(it, documents.satisfiedDocumentTypes(it)) },
             offer = process.offer?.let { OfferView.of(it.offer, it.productName, it.changes) },
-            signing = process.signing?.toView(showCode = isOwnClient && CurrentCaller.claims().canSign),
+            signing = process.signing?.toView(showCode = showSigningCode),
             loan = process.loan?.let(LoanView::of),
             outcome = process.rejection?.let(OutcomeView::of),
         )
-    }
 
     internal fun summaryView(application: LoanApplication): ApplicationSummary = summary(application)
 
     internal fun detailView(application: LoanApplication): ApplicationResponse = detail(application)
 
     private fun summary(original: LoanApplication): ApplicationSummary {
-        val application = if (CurrentCaller.claims().isClient) service.clientReadView(original) else original
-        val product = service.product(application)
+        val application = details.readView(original, CurrentCaller.claims())
+        val product = details.product(application)
         return ApplicationSummary(
             id = application.id,
             number = application.number,
@@ -228,44 +223,11 @@ class ApplicationController(
     }
 
     private fun detail(original: LoanApplication, newDraft: Boolean = false): ApplicationResponse {
-        val claims = CurrentCaller.claims()
-        val application = if (claims.isClient) service.clientReadView(original) else original
-        val product = service.product(application)
-        val catalogPreview = if (application.status == ApplicationStatus.DRAFT || application.status == ApplicationStatus.PENDING_CLIENT_CONFIRMATION) {
-            try {
-                Result.success(service.currentProduct(product.code))
-            } catch (failure: ApiException) {
-                if (failure.httpStatus != HttpStatus.SERVICE_UNAVAILABLE) throw failure
-                Result.failure(failure)
-            }
-        } else {
-            Result.success(null)
-        }
-        val currentProduct = catalogPreview.getOrNull()
+        val detail = details.read(original, CurrentCaller.claims(), newDraft)
+        val application = detail.application
+        val product = detail.product
         val terms = application.terms
-        val uploaded = if (newDraft) emptyList() else documents.list(application)
-        val isOwnClient = claims.isClient && claims.companyId == application.company.id
-        val isOwnAgent = claims.isAgent && application.activeAgentId == claims.userId
-        val canResume = isOwnClient &&
-            try {
-                service.canResumeIndependently(application)
-            } catch (_: ApiException) {
-                false
-            }
-        val actions = claims.toActor()?.let { actor ->
-            ApplicationStateMachine.eventsFrom(application.status, actor.type)
-                // Only a person with the right to sign may sign for the company.
-                .filter { it != ApplicationEvent.SIGN || claims.canSign }
-                // Clients confirm agent applications via CONFIRM_AND_SUBMIT, never direct SUBMIT.
-                .filter { !(it == ApplicationEvent.SUBMIT && application.agentId != null) }
-                .filter { it != ApplicationEvent.CONFIRM_AND_SUBMIT || application.status != ApplicationStatus.DRAFT || canResume }
-                .filter { it != ApplicationEvent.WITHDRAW || application.status != ApplicationStatus.DRAFT || application.activeAgentId == null }
-        }.orEmpty()
-        val estimate = if (product.amountFits(terms.amount) && product.termFits(terms.termMonths)) {
-            LoanMath.calculate(terms.amount, product.baseRate, terms.termMonths, product.revolving).let { EstimateView(it.rate, it.monthlyPayment) }
-        } else {
-            null
-        }
+        val uploaded = detail.documents
         return ApplicationResponse(
             id = application.id,
             number = application.number,
@@ -273,7 +235,7 @@ class ApplicationController(
             closeReason = application.closeReason,
             company = with(application.company) { CompanyView(id, inn, name, legalForm) },
             product = ProductView(product.code, product.name, product.revolving, product.version),
-            currentProduct = currentProduct,
+            currentProduct = detail.currentProduct,
             purpose = terms.purpose,
             purposeTitle = terms.purpose.title,
             purposeComment = terms.purposeComment,
@@ -286,36 +248,23 @@ class ApplicationController(
             submittedAt = application.submittedAt,
             statusChangedAt = application.statusChangedAt,
             version = application.version,
-            allowedActions = actions,
-            editable = ((isOwnClient && application.agentId == null) || isOwnAgent) && application.status == ApplicationStatus.DRAFT,
-            canUploadDocuments = when (application.status) {
-                ApplicationStatus.DRAFT -> (isOwnClient && application.activeAgentId == null) || isOwnAgent
-                ApplicationStatus.INFO_REQUESTED -> isOwnClient || isOwnAgent
-                else -> false
-            },
-            submissionProblems = if (application.status == ApplicationStatus.DRAFT) {
-                when {
-                    catalogPreview.isFailure -> listOf("Каталог временно недоступен — попробуйте позже")
-                    currentProduct?.active != true -> listOf("Продукт выключен из каталога — выберите другой продукт")
-                    application.agentId != null -> application.agentSubmissionProblems(currentProduct)
-                    else -> application.submissionProblems(currentProduct)
-                }
-            } else {
-                emptyList()
-            },
-            requiredDocuments = DocumentRequirements.required(product, terms.amount, application.company.legalForm).map { requirement ->
+            allowedActions = detail.allowedActions,
+            editable = detail.editable,
+            canUploadDocuments = detail.canUploadDocuments,
+            submissionProblems = detail.submissionProblems,
+            requiredDocuments = detail.requiredDocuments.map { requirement ->
                 RequiredDocumentView(requirement.type, requirement.type.title, requirement.reason, uploaded.any { it.type == requirement.type })
             },
             documents = uploaded.map(DocumentView::of),
-            estimate = estimate,
-            process = process(application, isOwnClient),
+            estimate = detail.estimate?.let { EstimateView(it.rate, it.monthlyPayment) },
+            process = processView(detail.process, detail.showSigningCode),
             agentId = application.agentId,
             agentName = application.agentName,
             preApprovedOfferId = application.preApprovedOfferId,
             agentCommissionRateBps = application.agentCommissionRateBps,
             agentCommissionAmount = application.agentCommissionAmount,
             agentCommissionStatus = application.agentCommissionStatus,
-            canResumeIndependently = canResume,
+            canResumeIndependently = detail.canResumeIndependently,
             clientManaged = application.clientManaged,
         )
     }

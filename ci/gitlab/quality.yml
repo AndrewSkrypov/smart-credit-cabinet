@@ -322,6 +322,11 @@ e2e:
       npm ci --prefix contracts/postman
     - docker compose --profile monitoring up --build --wait --wait-timeout 300
     - (cd e2e && npm run wait)
+    - |
+      mkdir -p scripts/assistant-eval-reports
+      python3 -B scripts/check-manual-review-delivery.py --revision "$SOURCE_REVISION" \
+        --project "$COMPOSE_PROJECT_NAME" --base "$CABINET_URL" \
+        --output scripts/assistant-eval-reports/ci-manual-review-delivery.json
     - '"$RUNNER_TEMP/cabinet-contracts/bin/python" scripts/export-openapi.py --check'
     - |
       status=0
@@ -359,6 +364,7 @@ e2e:
       - contracts/postman/reports/
       - scripts/assistant-eval-reports/ci-rules/report.json
       - scripts/assistant-eval-reports/ci-agent-rules.json
+      - scripts/assistant-eval-reports/ci-manual-review-delivery.json
       - security/reports/access-matrix.json
       - security/reports/early-final-access-matrix.json
       - security/reports/final-access-matrix.json

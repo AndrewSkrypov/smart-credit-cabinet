@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import ru.creditcabinet.application.application.CreditFailure.Conflict
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.InfoItem
@@ -30,7 +31,6 @@ import ru.creditcabinet.assessment.domain.RuleSets
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.assessment.domain.StopFactor
 import ru.creditcabinet.assessment.domain.TaxInfo
-import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.offer.Loan
 import ru.creditcabinet.offer.Loans
 import ru.creditcabinet.offer.Offer
@@ -102,14 +102,14 @@ class JdbcRuleSets(private val jdbc: NamedParameterJdbcTemplate, private val map
         // Serialize appends before reading the head; checking only the insert's unique key loses sequential stale edits.
         jdbc.jdbcTemplate.execute("lock table rule_sets in share row exclusive mode")
         val current = current()
-        if (current.version != expectedVersion) throw ConflictException("Правила только что изменил другой администратор — откройте действующую версию")
+        if (current.version != expectedVersion) throw Conflict("Правила только что изменил другой администратор — откройте действующую версию")
         require(current.copy(version = 0) != rules.copy(version = 0)) { "Условия не изменились — новая версия не требуется" }
         val params =
             with(rules) { Params(maxLoad, revenueMismatch, ratingCutoffs, ratingMargins, lowRiskOkved, highRiskOkved, weakAmountShare, weakRevenueShare) }
         val version = try {
             insertVersion(current.version + 1, params, createdBy, comment, authorName, authorRole)
         } catch (_: DuplicateKeyException) {
-            throw ConflictException("Правила только что изменил другой администратор — обновите страницу")
+            throw Conflict("Правила только что изменил другой администратор — обновите страницу")
         }
         return rules.copy(version = version)
     }

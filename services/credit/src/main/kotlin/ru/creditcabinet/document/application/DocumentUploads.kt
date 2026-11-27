@@ -2,6 +2,7 @@ package ru.creditcabinet.document.application
 
 import ru.creditcabinet.application.domain.InfoRequest
 import ru.creditcabinet.application.domain.LoanApplication
+import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.document.domain.StoredFile
@@ -23,6 +24,16 @@ interface ApplicationDocuments {
     fun open(applicationId: UUID, documentId: UUID): Pair<ApplicationDocument, StoredFile>
 }
 
+interface AgentDocuments {
+    fun uploadForAgent(application: LoanApplication, claims: TokenClaims, type: DocumentType, file: DocumentUpload): ApplicationDocument
+
+    fun deleteForAgent(application: LoanApplication, claims: TokenClaims, documentId: UUID)
+
+    fun open(applicationId: UUID, documentId: UUID): Pair<ApplicationDocument, StoredFile>
+}
+
 fun interface DocumentUploadLimit {
     fun acquire(userId: UUID)
 }
+
+data class DocumentUploadSettings(val maxSizeBytes: Long, val enabled: Boolean)

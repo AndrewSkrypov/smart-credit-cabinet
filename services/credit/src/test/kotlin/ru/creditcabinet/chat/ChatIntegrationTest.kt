@@ -385,14 +385,21 @@ class ChatIntegrationTest {
                 jdbc.update(
                     "insert into application_chat_upload_keys(application_id,actor_id,idempotency_key,payload_hash,document_id,created_at) " +
                         "values (?,?,?,?,?,now())",
-                    id, actorId, UUID.randomUUID(), "a".repeat(64), file,
+                    id,
+                    actorId,
+                    UUID.randomUUID(),
+                    "a".repeat(64),
+                    file,
                 )
             },
             "application_chat_audit_business_reference_fkey" to { file ->
                 jdbc.update(
                     "insert into application_chat_audit(id,application_id,actor_id,actor_role,action,document_id,occurred_at) " +
                         "values (?,?,?,'CLIENT','ATTACHMENT_UPLOADED',?,now())",
-                    UUID.randomUUID(), id, actorId, file,
+                    UUID.randomUUID(),
+                    id,
+                    actorId,
+                    file,
                 )
             },
         )

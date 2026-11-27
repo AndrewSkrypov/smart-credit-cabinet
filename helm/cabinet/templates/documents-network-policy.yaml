@@ -1,0 +1,58 @@
+{{- $d := .Values.documents | default dict }}
+{{- if $d.enabled }}
+{{- $root := . }}
+{{- $links := dict
+  "documents" (dict "port" 9096 "sources" (list "credit" "documents-probe"))
+  "documents-db" (dict "port" 5432 "sources" (list "documents"))
+  "documents-s3" (dict "port" 8333 "sources" (list "documents"))
+  "clamav" (dict "port" 3310 "sources" (list "documents")) }}
+{{- range $name, $link := $links }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-documents-{{ $name }}-ingress
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list $root $name) | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports: [{protocol: TCP, port: {{ $link.port }}}]
+      from:
+        {{- range $source := $link.sources }}
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list $root $source) | nindent 14 }}
+        {{- end }}
+{{- end }}
+{{- $roles := dict "documents" (dict "documents-db" 5432 "documents-s3" 8333 "clamav" 3310) "documents-probe" (dict "documents" 9096) }}
+{{- range $source, $targets := $roles }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-{{ $source }}-egress
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list $root $source) | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    {{- range $name, $port := $targets }}
+    - ports: [{protocol: TCP, port: {{ $port }}}]
+      to:
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list $root $name) | nindent 14 }}
+    {{- end }}
+    - ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $d.dns.namespace | quote }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $d.dns.podLabels | nindent 14 }}
+{{- end }}
+{{- end }}

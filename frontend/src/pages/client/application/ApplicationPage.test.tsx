@@ -94,36 +94,26 @@ describe('client application route isolation', () => {
   it('allows a slow poll to finish without superseding it on every interval', async () => {
     vi.useFakeTimers(); const poll = deferred<Application>();
     get.mockResolvedValueOnce(app('a', 101, 'SCORING')).mockReturnValue(poll.promise);
-    const ui = mount();
-    try {
-      await act(async () => {});
-      await act(async () => { vi.advanceTimersByTime(10000); });
-      expect(get).toHaveBeenCalledTimes(2);
-      await act(async () => poll.resolve(app('a', 102, 'DRAFT')));
-      expect(screen.getByRole('heading', { name: 'Заявка № 102' })).toBeInTheDocument();
-    } finally {
-      ui.unmount();
-      vi.useRealTimers();
-    }
+    const ui = mount(); await act(async () => {});
+    await act(async () => { vi.advanceTimersByTime(10000); });
+    expect(get).toHaveBeenCalledTimes(2);
+    await act(async () => poll.resolve(app('a', 102, 'DRAFT')));
+    expect(screen.getByRole('heading', { name: 'Заявка № 102' })).toBeInTheDocument();
+    ui.unmount();
   });
 
   it('does not overwrite a completed withdrawal with a poll started before it', async () => {
     vi.useFakeTimers(); const poll = deferred<Application>();
     get.mockResolvedValueOnce({ ...app('a', 101, 'SCORING'), allowedActions: ['WITHDRAW'] }).mockReturnValue(poll.promise);
     withdraw.mockResolvedValue(app('a', 404, 'WITHDRAWN'));
-    const ui = mount();
-    try {
-      await act(async () => {});
-      await act(async () => { vi.advanceTimersByTime(2000); });
-      fireEvent.click(screen.getByRole('button', { name: 'Отозвать заявку' }));
-      await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Отозвать' })));
-      await act(async () => poll.resolve(app('a', 101, 'SCORING')));
-      await act(async () => { vi.advanceTimersByTime(300); });
-      expect(screen.getByRole('heading', { name: 'Заявка № 404' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Отозвать заявку' })).not.toBeInTheDocument();
-    } finally {
-      ui.unmount();
-      vi.useRealTimers();
-    }
+    const ui = mount(); await act(async () => {});
+    await act(async () => { vi.advanceTimersByTime(2000); });
+    fireEvent.click(screen.getByRole('button', { name: 'Отозвать заявку' }));
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Отозвать' })));
+    await act(async () => poll.resolve(app('a', 101, 'SCORING')));
+    await act(async () => { vi.advanceTimersByTime(300); });
+    expect(screen.getByRole('heading', { name: 'Заявка № 404' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Отозвать заявку' })).not.toBeInTheDocument();
+    ui.unmount();
   });
 });

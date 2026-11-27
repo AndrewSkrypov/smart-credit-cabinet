@@ -17,7 +17,7 @@ PINNED_IMAGE = 'chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37
 HTTP = build_opener(ProxyHandler({}))
 
 class S3Fixture:
-    def __init__(self, scratch, report, free_port, *, binary=None, binary_sha256=None, image=None, docker_env=None, scope=None, labels=None, environment=None, register=None):
+    def __init__(self, scratch, report, free_port, *, binary=None, binary_sha256=None, image=None, docker_env=None, scope=None, labels=None, environment=None, register=None, readiness_timeout=60):
         self.scratch = Path(scratch) / 's3'
         self.scratch.mkdir()
         self.report = report
@@ -57,7 +57,7 @@ class S3Fixture:
             self.handle = (report/'s3-server.log').open('ab')
             self.process = subprocess.Popen([str(binary),*common,'-ip.bind=127.0.0.1',f'-dir={data}',f'-s3.config={configuration}',f'-s3.port={self.port}',f'-master.port={free_port()}',f'-master.port.grpc={free_port()}',f'-volume.port={free_port()}',f'-volume.port.grpc={free_port()}',f'-filer.port={free_port()}',f'-filer.port.grpc={free_port()}',f'-grpc.localSocketDir={self.scratch}'],cwd=self.scratch,env=self.environment|{'GOMEMLIMIT':'256MiB'},stdout=self.handle,stderr=subprocess.STDOUT)
         if self.process and register: register(self.process,f"-dir={data}")
-        deadline = time.monotonic()+60
+        deadline = time.monotonic()+readiness_timeout
         last_failure='not-listening'
         while True:
             try:
@@ -70,6 +70,16 @@ class S3Fixture:
                 except ET.ParseError: code='non-xml'
                 failure.close()
                 last_failure=f'HTTP-{failure.code}-'+(code if re.fullmatch('[A-Za-z0-9_-]{1,64}',code) else 'unknown')
+                if code=='non-xml':
+                    try:
+                        self.request('source','GET','')
+                        last_failure+='-GET-OK'
+                    except HTTPError as detail:
+                        try: detail_code=ET.fromstring(detail.read(4096)).findtext('Code') or 'unknown'
+                        except ET.ParseError: detail_code='non-xml'
+                        detail.close()
+                        last_failure+='-GET-'+str(detail.code)+'-'+(detail_code if re.fullmatch('[A-Za-z0-9_-]{1,64}',detail_code) else 'unknown')
+                    except OSError: pass
             except OSError:
                 last_failure='not-listening'
             if self.process and self.process.poll() is not None: raise RuntimeError('Private S3 process exited before readiness')

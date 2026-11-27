@@ -31,12 +31,22 @@ def options():
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     address = urlsplit(args.base)
-    ci_project = (
+    github_project = (
         args.project == "cabinet-e2e"
         and os.environ.get("GITHUB_ACTIONS") == "true"
         and os.environ.get("COMPOSE_PROJECT_NAME") == args.project
     )
-    if not ci_project and not re.fullmatch(r"cabinet-e2e-review[a-z0-9]{1,20}", args.project):
+    gitlab_job = os.environ.get("CI_JOB_ID", "")
+    gitlab_project = (
+        os.environ.get("GITLAB_CI") == "true"
+        and gitlab_job.isascii() and gitlab_job.isdecimal()
+        and os.environ.get("CI_PROJECT_ID", "").isascii()
+        and os.environ.get("CI_PROJECT_ID", "").isdecimal()
+        and args.project == os.environ.get("COMPOSE_PROJECT_NAME") == f"cabinet-e2e-{gitlab_job}"
+        and os.environ.get("CI_COMMIT_SHA") == args.revision
+        and Path(os.environ.get("CI_PROJECT_DIR", "")).resolve() == ROOT
+    )
+    if not (github_project or gitlab_project) and not re.fullmatch(r"cabinet-e2e-review[a-z0-9]{1,20}", args.project):
         parser.error("Use a dedicated cabinet-e2e-review… fixture project")
     if address.scheme != "http" or address.hostname != "127.0.0.1" or args.base != f"http://127.0.0.1:{address.port}":
         parser.error("Use an explicit loopback port without a path")

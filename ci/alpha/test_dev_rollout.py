@@ -17,7 +17,8 @@ from urllib.error import HTTPError, URLError
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "deploy"))
 from alpha_dev import AlphaDev, SECRET_KEYS
-from registry_release import IMAGE_COMPONENTS, RegistryRelease
+from backup_support import DATABASES, digest
+from registry_release import IMAGE_COMPONENTS, RUNTIME_COMPONENTS, RegistryRelease
 
 spec = importlib.util.spec_from_file_location("dev_release", ROOT / "deploy/dev-release.py")
 dev_release = importlib.util.module_from_spec(spec)
@@ -148,9 +149,13 @@ class DevRolloutTest(unittest.TestCase):
         self.assertEqual(self.alpha.environment(release)["CABINET_ALPHA_DEV_KAFKA_IMAGE"],
                          self.alpha_metadata["kafka_image"])
 
+    def alpha_deployment(self, config):
+        return SimpleNamespace(alpha_dev=self.alpha, values=config, catalog_enabled=False,
+                               catalog_state=self.state / "catalog", runtime_modes={}, servicing=None, documents=None)
+
     def test_rollout_requires_shadow_and_rejects_reusing_retired_generation(self):
         release = self.manifest(alpha_dev=self.alpha_metadata)
-        deployment = SimpleNamespace(values=self.config(), alpha_dev=self.alpha)
+        deployment = self.alpha_deployment(self.config())
         desired, history, generation_set = dev_release.rollout_metadata(deployment, self.state, release, {}, {})
         self.assertEqual(generation_set, {self.alpha.generation})
         history.write_text(json.dumps(sorted(generation_set)))
@@ -308,7 +313,7 @@ class DevRolloutTest(unittest.TestCase):
         original = self.write_env(b"PUMP_KEEP=old")
         edited = original + b"\nCABINET_ALPHA_DEV_ENABLED=false\n"
 
-        def edit_during_backup(root, script, *arguments):
+        def edit_during_backup(root, script, *arguments, lock_fd=None):
             self.assertEqual(script, "backup.py")
             self.env_file.write_bytes(edited)
 
@@ -346,7 +351,7 @@ class DevRolloutTest(unittest.TestCase):
         self.assertFalse((self.state / "pending.json").exists())
 
     def test_alpha_gateway_requires_a_definitive_not_found(self):
-        deployment = SimpleNamespace(alpha_dev=self.alpha, release=self.manifest(alpha_dev=self.alpha_metadata))
+        deployment = SimpleNamespace(alpha_dev=self.alpha, release=self.manifest(alpha_dev=self.alpha_metadata), compose=MagicMock())
         containers = {"credit": "credit", "analytics-kafka": "kafka"}
         origin = "https://dev.example.invalid"
         url = origin + verify_release.ALPHA_ROUTE
@@ -368,6 +373,8 @@ class DevRolloutTest(unittest.TestCase):
                     report = verify_release.verify_alpha(deployment, opener, origin, containers)
                     self.assertEqual(report["public_http"], 404)
                     self.assertEqual(report["http_with_token"], 503)
+                    self.assertEqual(report["credit_status_source"], "sql")
+                    self.assertEqual(deployment.compose.call_args.args[-2:], ("false", self.alpha.topic))
                     self.assertEqual(report["kafka"], {"container": "kafka", "image_id": image_id,
                                                        "registry_ref": deployment.release.kafka_image,
                                                        "revision": self.revision,
@@ -394,12 +401,128 @@ class DevRolloutTest(unittest.TestCase):
                 verify_release.verify_alpha(deployment, MagicMock(), "https://dev.example.invalid",
                                             {"analytics-kafka": "kafka"})
 
+    def test_enrollment_reuses_backup_and_secrets_across_registration_boundaries(self):
+        release = self.manifest(
+            images={**self.images, **{name: f"{self.repository}/{name}@sha256:" + "c" * 64 for name in RUNTIME_COMPONENTS}},
+            runtime_oci={name: "sha256:" + "c" * 64 for name in (*RUNTIME_COMPONENTS, "kafka")},
+            catalog={"dev_mode": "local", "jar_sha256": "c" * 64, "config_digest": "sha256:" + "c" * 64},
+            assessment={"dev_mode": "disabled", "jar_sha256": "c" * 64, "kafka_image": self.alpha_metadata["kafka_image"]},
+            servicing={"dev_mode": "remote", "jar_sha256": "c" * 64},
+            documents={"dev_mode": "disabled", "jar_sha256": "c" * 64},
+        )
+        previous = {"revision": "b" * 40, "manifest_sha256": "b" * 64}
+        original_env = self.write_env(newline=b"\r\n")
+        deploy_state = dev_release.write_state
+        begin = dev_release.runtime_attempts.begin
+        authorize = dev_release.runtime_attempts.authorize_servicing
+
+        for boundary in ("begin", "pending", "hooks", "authorize", "current"):
+            for when in ("before", "after"):
+                with self.subTest(boundary=boundary, when=when):
+                    state = self.state / f"{boundary}-{when}"
+                    state.mkdir(mode=0o700)
+                    env_file = state / "cabinet.env"
+                    env_file.touch(mode=0o600)
+                    env_file.write_bytes(original_env)
+                    current = state / "current.json"
+                    pending = state / "pending.json"
+                    deploy_state(current, previous)
+                    failed = False
+                    captures = []
+                    hooked_credentials = []
+
+                    def interrupt(label, operation, *args, **kwargs):
+                        nonlocal failed
+                        trigger = label == boundary and not failed
+                        if trigger:
+                            failed = True
+                        if trigger and when == "before":
+                            raise InterruptedError("injected enrollment interruption")
+                        result = operation(*args, **kwargs)
+                        if trigger and when == "after":
+                            raise InterruptedError("injected enrollment interruption")
+                        return result
+
+                    def save(path, value):
+                        return interrupt("current" if path == current else "pending", deploy_state, path, value)
+
+                    def capture(_, path, __, source, ___, backup):
+                        self.assertEqual(path.read_bytes(), original_env)
+                        self.assertEqual(source, previous)
+                        self.assertFalse(pending.exists())
+                        self.assertTrue((state / "runtime-enrollment.json").is_file())
+                        self.assertFalse((state / "hook-secret").exists())
+                        captures.append(backup)
+                        backup.mkdir(mode=0o700)
+                        files = {}
+                        for name in ("credit.dump", "identity.dump", "engagement.dump", "documents.tar.gz"):
+                            file = backup / name
+                            file.write_text("data from the current release")
+                            files[name] = {"bytes": file.stat().st_size, "sha256": digest(file)}
+                        dev_release.runtime_attempts.write_record(backup / "manifest.json", {"format_version": 2,
+                            "backup_complete": True, "source_resumed": True, "source_project": "cabinet-dev",
+                            "release": source["revision"], "release_manifest_sha256": source["manifest_sha256"],
+                            "databases": {name: {} for name in DATABASES}, "files": files, "documents": {},
+                            "storage": {"backends": {}, "s3_volume_included": False}})
+
+                    def open_hooks(environment):
+                        attempt = dev_release.runtime_attempts.load(state, release)
+                        self.assertEqual(json.loads(pending.read_bytes()), attempt["target"])
+                        self.assertEqual(env_file.read_bytes(), environment)
+                        hooked_credentials.append(environment)
+                        secret = state / "hook-secret"
+                        if not secret.exists():
+                            secret.write_text("retained private enrollment")
+                        return SimpleNamespace(descriptor=SimpleNamespace(mode="remote"))
+
+                    def deployment(_, path, *, release_manifest, env_contents, open_hooks=True):
+                        self.assertEqual(path, env_file)
+                        self.assertEqual(release_manifest, release.path)
+                        servicing = interrupt("hooks", open_hooks_for_release, env_contents) if open_hooks else None
+                        return SimpleNamespace(values={"PUBLIC_CABINET_URL": "https://dev.example.invalid"},
+                            path=path, release=release, alpha_dev=None, catalog_enabled=True, catalog_mode="local",
+                            catalog_state=state / "catalog", runtime_modes={"catalog": "local", "servicing": "remote"},
+                            servicing=servicing, documents=None, compose=MagicMock())
+
+                    open_hooks_for_release = open_hooks
+                    with (self.runtime(), patch.object(dev_release, "Deployment", side_effect=deployment),
+                          patch.object(dev_release, "ensure_tls"), patch.object(dev_release, "capture_previous", side_effect=capture),
+                          patch.object(dev_release, "write_state", side_effect=save),
+                          patch.object(dev_release.runtime_attempts, "begin",
+                                       side_effect=lambda *args, **kwargs: interrupt("begin", begin, *args, **kwargs)),
+                          patch.object(dev_release.runtime_attempts, "authorize_servicing",
+                                       side_effect=lambda *args: interrupt("authorize", authorize, *args))):
+                        with self.assertRaisesRegex(InterruptedError, "injected enrollment interruption"):
+                            dev_release.deploy(self.apply, state, release)
+                        self.assertTrue((state / "runtime-enrollment.json").exists())
+                        dev_release.deploy(self.apply, state, release)
+                    self.assertEqual(len(captures), 1)
+                    self.assertIn(b"CATALOG_DB_PASSWORD=", env_file.read_bytes())
+                    self.assertTrue(all(environment == env_file.read_bytes() for environment in hooked_credentials))
+                    self.assertEqual((state / "hook-secret").read_text(), "retained private enrollment")
+                    self.assertEqual(json.loads(current.read_bytes())["revision"], release.revision)
+                    self.assertFalse(pending.exists())
+                    self.assertFalse((state / "runtime-enrollment.json").exists())
+                    self.assertFalse((state / "runtime-attempt.json").exists())
+
+    def test_historical_backup_does_not_open_hooks_outside_its_manifest(self):
+        release = self.manifest()
+        self.write_env()
+        with (patch("common.AssessmentDev.open") as assessment,
+              patch("common.ServicingDev.open") as servicing,
+              patch("common.DocumentsDev.open") as documents):
+            deployment = dev_release.Deployment("cabinet-dev", self.env_file, release_manifest=release.path,
+                                                historical_backup=True)
+            self.assertEqual(deployment.runtime_modes, {})
+            for hook in (assessment, servicing, documents):
+                hook.assert_not_called()
+
     def test_failed_shadow_verification_blocks_promotion_until_retry(self):
         release = self.manifest(alpha_dev=self.alpha_metadata)
-        (self.state / "cabinet.env").touch(mode=0o600)
+        self.write_env(*(f"{key}={value}".encode("ascii") for key, value in self.config().items()))
         args = SimpleNamespace(verify_only=False, host_memory_gib=8)
         config = self.config(PUBLIC_CABINET_URL="https://dev.example.invalid")
-        deployment = SimpleNamespace(alpha_dev=self.alpha, values=config)
+        deployment = self.alpha_deployment(config)
         current_file = self.state / "current.json"
         pending_file = self.state / "pending.json"
         verified = {"passed": True}
@@ -427,10 +550,10 @@ class DevRolloutTest(unittest.TestCase):
 
     def test_failed_activation_can_resume_the_same_release_in_shadow(self):
         release = self.manifest(alpha_dev=self.alpha_metadata)
-        (self.state / "cabinet.env").touch(mode=0o600)
+        self.write_env(*(f"{key}={value}".encode("ascii") for key, value in self.config().items()))
         args = SimpleNamespace(verify_only=False, host_memory_gib=8)
         config = self.config(PUBLIC_CABINET_URL="https://dev.example.invalid")
-        deployment = SimpleNamespace(alpha_dev=self.alpha, values=config)
+        deployment = self.alpha_deployment(config)
         state, _, _ = dev_release.rollout_metadata(deployment, self.state, release, {}, {})
         current_file = self.state / "current.json"
         pending_file = self.state / "pending.json"

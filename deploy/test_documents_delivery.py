@@ -11,7 +11,7 @@ import subprocess
 import unittest
 
 from documents_dev import (
-    DocumentsDev, FILES, ROOT, SECRET_KEYS, compare_parity, object_requests, rpc_body,
+    DocumentsDev, FILES, ROOT, SECRET_KEYS, compare_parity, object_requests, published_artifacts, published_documents, rpc_body,
     stable_digest, stable_gates, transition_gates, validate_intents,
 )
 from runtime_delivery_support import Descriptor, ensure_private, ensure_tls, load_secrets, read_record, write_record
@@ -160,16 +160,44 @@ class DocumentsDeliveryTest(unittest.TestCase):
         storage = {**artifact, "inputJson": raw}
         self.assertEqual([artifact], compare_parity([artifact], [storage], [], []))
         intent = ["app", "offer", "FINAL", artifact["inputHash"], artifact["inputJson"], "created", "delivered"]
-        validate_intents([intent], [intent], [artifact])
+        validate_intents([intent], [intent])
         for modified in ({**storage, "inputJson": raw + "\n"}, {**storage, "templateVersion": 3}):
             with self.assertRaises(RuntimeError):
                 compare_parity([artifact], [modified], [], [])
         invalid = deepcopy(intent)
         invalid[-1] = None
         with self.assertRaises(RuntimeError):
-            validate_intents([intent], [invalid], [artifact])
-        with self.assertRaises(RuntimeError):
-            validate_intents([], [invalid], [artifact])
+            validate_intents([intent], [invalid])
+
+    def test_artifact_parity_uses_committed_historical_references_without_a_delivery_intent(self):
+        artifacts = []
+        for value in (1, 2, 3):
+            raw = f'{{"amount":{value}}}'
+            artifacts.append({"id": str(value), "scope": {"applicationId": "app"}, "offerId": "offer",
+                              "phase": "FINAL", "inputHash": sha256(raw.encode()).hexdigest(), "inputJson": raw})
+        references = [["app", "offer", "FINAL", row["inputHash"], {"amount": value}]
+                      for value, row in enumerate(artifacts[:2], start=1)]
+        self.assertEqual(published_artifacts(artifacts, references), artifacts[:2])
+        self.assertEqual(len(artifacts), 3)
+        with self.assertRaisesRegex(RuntimeError, "Frozen input"):
+            published_artifacts([{**artifacts[0], "inputJson": '{"amount":42}'}], references)
+
+    def test_reverse_parity_requires_pending_delete_materialized_in_local_metadata(self):
+        reference = ["doc", "app"]
+        deleted_at = "2026-10-01T13:16:00+00:00"
+        document = {"id": "doc", "scope": {"applicationId": "app"}, "deletedAt": None, "backend": "LOCAL",
+                    "storedName": "sample.pdf", "sizeBytes": 8, "checksum": BYTE_SHA}
+        pending = ["doc", "app", deleted_at, None]
+        overlay = {**document, "deletedAt": deleted_at}
+        self.assertEqual(published_documents([document], [reference], [pending]), [overlay])
+        self.assertIsNone(document["deletedAt"])
+        with self.assertRaisesRegex(RuntimeError, "metadata"):
+            compare_parity([document], [overlay], [BYTE_SHA], [BYTE_SHA])
+        self.assertEqual(compare_parity([overlay], [overlay], [BYTE_SHA], [BYTE_SHA]), [overlay])
+        with self.assertRaisesRegex(RuntimeError, "Tombstone"):
+            published_documents([document], [reference], [[*pending[:3], "delivered"]])
+        with self.assertRaisesRegex(RuntimeError, "другой заявке"):
+            published_documents([document], [reference], [["doc", "other", deleted_at, None]])
 
     def test_local_object_script_validates_path_size_and_digest(self):
         (self.root / "sample.pdf").write_bytes(b"contract")
@@ -192,6 +220,15 @@ class DocumentsDeliveryTest(unittest.TestCase):
             self.assertEqual(len(body) - 5, int.from_bytes(body[1:5], "big"))
             self.assertTrue(body.endswith(b"\x18" + expected))
         self.assertEqual(78, len(rpc_body(1)) - 5)
+
+    def test_published_document_membership_uses_credit_reference_scope(self):
+        refers_to_credit = {"id": "published", "scope": {"applicationId": "app-a"}}
+        rpc_orphan = {"id": "orphan", "scope": {"applicationId": "app-a"}}
+        source = [refers_to_credit, rpc_orphan]
+        self.assertEqual(published_documents(source, [("published", "app-a")]), [refers_to_credit])
+        self.assertEqual(source, [refers_to_credit, rpc_orphan])
+        with self.assertRaisesRegex(RuntimeError, "другой заявке"):
+            published_documents(source, [("published", "app-b")])
 
     def test_chart_schema_and_grants_match_runtime_source(self):
         source = ROOT / "services/documents"

@@ -56,6 +56,18 @@ select jsonb_build_object(
 'attempts',g.attempts,'nextAttemptAt',g.next_attempt_at)::text
 from public.generated_artifacts g join public.applications a on a.id=g.application_id order by g.id;
 """
+CREDIT_REFERENCES = """
+select jsonb_build_array(document_id,application_id)::text
+from public.document_references order by document_id;
+"""
+ARTIFACT_REFERENCES = """
+select jsonb_build_array(application_id,offer_id,phase,input_hash,input_json)::text
+from public.document_artifact_references order by application_id,offer_id,phase,input_hash;
+"""
+DELETION_INTENTS = """
+select jsonb_build_array(document_id,application_id,deleted_at,delivered_at)::text
+from public.document_deletion_intents order by document_id;
+"""
 DOCUMENTS_DOC = """
 select (metadata || jsonb_build_object(
 'uploadedAt',(metadata->>'uploadedAt')::timestamptz,'deletedAt',(metadata->>'deletedAt')::timestamptz)
@@ -184,6 +196,44 @@ def object_requests(rows, side):
         yield f"{side} {backend} {name} {size}\n"
 
 
+def published_documents(records, references, deletions=()):
+    by_document = dict(references)
+    tombstones = {}
+    for document_id, application_id, deleted_at, delivered_at in deletions:
+        if by_document.get(document_id) != application_id:
+            raise RuntimeError("Удаление Documents относится к другой заявке, чем ссылка Credit")
+        tombstones[document_id] = (deleted_at, delivered_at)
+    published = []
+    for row in records:
+        application = by_document.get(row["id"])
+        if application is None:
+            continue
+        if application != row["scope"]["applicationId"]:
+            raise RuntimeError("Документ Documents относится к другой заявке, чем ссылка Credit")
+        if row["id"] in tombstones:
+            deleted_at, delivered_at = tombstones[row["id"]]
+            if row["deletedAt"] != deleted_at:
+                if row["deletedAt"] is not None or delivered_at is not None:
+                    raise RuntimeError("Tombstone Documents отличается от подтверждённого удаления Credit")
+                row = {**row, "deletedAt": deleted_at}
+        published.append(row)
+    return published
+
+
+def published_artifacts(records, references):
+    by_key = {tuple(row[:4]): row[4] for row in references}
+    published = []
+    for row in records:
+        key = row["scope"]["applicationId"], row["offerId"], row["phase"], row["inputHash"]
+        if key not in by_key:
+            continue
+        raw = row["inputJson"]
+        if sha256(raw.encode()).hexdigest() != row["inputHash"] or json.loads(raw) != by_key[key]:
+            raise RuntimeError("Frozen input артефакта Documents отличается от ссылки Credit")
+        published.append(row)
+    return published
+
+
 def compare_parity(credit, documents, credit_bytes, documents_bytes):
     if any(len(rows) != len({row["id"] for row in rows}) for rows in (credit, documents)):
         raise RuntimeError("Повтор идентификатора при сверке Documents")
@@ -214,15 +264,11 @@ def compare_parity(credit, documents, credit_bytes, documents_bytes):
     return normalized["documents"]
 
 
-def validate_intents(before, after, artifacts):
+def validate_intents(before, after):
     by_key = {tuple(row[:4]): row[4:] for row in after}
     for row in before:
         if by_key.get(tuple(row[:4])) != row[4:]:
             raise RuntimeError("Изменился существующий immutable input в Credit")
-    for row in artifacts:
-        key = row["scope"]["applicationId"], row["offerId"], row["phase"], row["inputHash"]
-        if key not in by_key or by_key[key][0] != row["inputJson"] or by_key[key][2] is None:
-            raise RuntimeError("Отсутствует неизменяемый Credit input/receipt для артефакта Documents")
 
 
 @dataclass
@@ -528,20 +574,31 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
             raise RuntimeError("Не получены SHA-256 всех объектов Documents")
         return output[:len(source)], output[len(source):]
 
-    def parity(self, deployment, intents_before):
+    def credit_authority(self, deployment):
+        sql = lambda statement: self.credit_sql(deployment, statement)
+        return {"documents": read_rows(sql, CREDIT_REFERENCES), "artifacts": read_rows(sql, ARTIFACT_REFERENCES),
+                "deletions": read_rows(sql, DELETION_INTENTS)}
+
+    def parity(self, deployment, original):
         credit, credit_artifacts, own, own_artifacts = self.records(deployment)
+        authority = self.credit_authority(deployment)
+        if authority != original["authority"]:
+            raise RuntimeError("Во время переноса изменилась бизнес-авторизация документов или артефактов Credit")
+        own = published_documents(own, authority["documents"], authority["deletions"])
+        own_artifacts = published_artifacts(own_artifacts, authority["artifacts"])
         ready = [row for row in credit_artifacts if row["status"] == "READY"]
         own_ready = [row for row in own_artifacts if row["status"] == "READY"]
         source, target = self.object_digests(deployment, credit + ready, own + own_ready)
         docs = compare_parity(credit, own, source[:len(credit)], target[:len(own)])
         artifacts = compare_parity(credit_artifacts, own_artifacts, source[len(credit):], target[len(own):])
         intents = read_rows(lambda statement: self.credit_sql(deployment, statement), INTENTS)
-        validate_intents(intents_before, intents, artifacts)
+        validate_intents(original["inputs"], intents)
         return {
             "documents": len(docs), "artifacts": len(artifacts), "ready_artifacts": len(own_ready),
             "backends": sorted({row["backend"] for row in docs + own_ready}),
             "metadata_and_bytes_sha256": stable_digest([docs, artifacts]),
             "credit_immutable_inputs_sha256": stable_digest(intents),
+            "credit_authority_sha256": stable_digest(authority),
         }
 
     def cutover(self, deployment):
@@ -588,10 +645,10 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
             intent_path = journal / "original-inputs.json"
             original = read_record(intent_path)
             if original is None:
-                original = {"inputs": inputs}
+                original = {"inputs": inputs, "authority": self.credit_authority(deployment)}
                 write_record(intent_path, original, immutable=True)
             self.migration(deployment, request)
-            evidence = self.parity(deployment, original["inputs"])
+            evidence = self.parity(deployment, original)
             verified = {"request": stable_digest(request), "image": self.descriptor.image,
                         "jar_sha256": self.descriptor.jar_sha256, "evidence": evidence}
             write_record(verified_path, verified, immutable=True)
@@ -669,6 +726,9 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
 
     def store_snapshot(self, deployment):
         credit, artifacts, own, own_artifacts = self.records(deployment)
+        authority = self.credit_authority(deployment)
+        published_documents(own, authority["documents"], authority["deletions"])
+        published_artifacts(own_artifacts, authority["artifacts"])
         credit_ready = credit + [row for row in artifacts if row["status"] == "READY"]
         own_ready = own + [row for row in own_artifacts if row["status"] == "READY"]
         source, target = self.object_digests(deployment, credit_ready, own_ready)
@@ -682,7 +742,7 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
             for table in ("documents_delivery_schema", "document_ownership", "document_application_scopes",
                           "document_records", "artifact_records", "artifact_outbox")
         }
-        return {"docs_tables": snapshot, "source_sha256": stable_digest([credit, artifacts, source]),
+        return {"docs_tables": snapshot, "source_sha256": stable_digest([authority, credit, artifacts, source]),
                 "target_sha256": stable_digest([own, own_artifacts, target]),
                 "backends": sorted({entry["backend"] for entry in credit_ready + own_ready})}
 

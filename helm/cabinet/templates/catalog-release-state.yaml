@@ -1,0 +1,9 @@
+{{- if .Values.app.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cabinet-catalog-release-state
+data:
+  rollout.json: |-
+    {{ dict "enabled" .Values.catalog.enabled "creditMode" .Values.catalog.creditMode "maintenance" .Values.catalog.maintenance "revision" .Values.release.revision | toJson }}
+{{- end }}

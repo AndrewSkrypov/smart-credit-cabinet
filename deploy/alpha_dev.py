@@ -38,7 +38,7 @@ class AlphaDev:
             if read == "true":
                 raise ValueError("Чтение из Analytics требует CABINET_ALPHA_DEV_ENABLED=true")
             return None
-        if local or project != PROJECT:
+        if local or (project != PROJECT and not project.startswith("cabinet-dev-restore-")):
             raise ValueError("Пилот Analytics допускается только в защищённом cabinet-dev")
         # Previous manifests can still be used to back up the base stack.
         if not release or not release.alpha_dev:
@@ -71,9 +71,10 @@ class AlphaDev:
     def group(self):
         return f"alpha-dev-analytics-{self.generation}"
 
-    def environment(self, release):
+    def environment(self, release, project=PROJECT):
         return {
             "CABINET_ALPHA_DEV_KAFKA_IMAGE": release.kafka_image,
+            "CABINET_ALPHA_DEV_ANALYTICS_VOLUME": f"{project}-alpha-analytics-{self.generation}",
             "CABINET_ALPHA_DEV_TOPIC": self.topic,
             "CABINET_ALPHA_DEV_GROUP": self.group,
             "CABINET_ALPHA_DEV_DLQ_TOPIC": self.dlq,
@@ -108,14 +109,15 @@ def analytics_owner(deployment, *args, stdin=None):
     return result.stdout.decode("utf-8").strip()
 
 
-def prepare(deployment, up):
+def prepare(deployment, up, expected_marker=None, *, storage_ready=False):
     """Migrate the private database and verify topic existence before pausing Credit."""
     alpha = deployment.alpha_dev
     for file in ("export-status-snapshot.sql", "import-status-snapshot.sql"):
         if not (OPS_DIR / file).is_file():
             raise ValueError("В выпуске отсутствуют SQL-файлы bootstrap Analytics")
-    deployment.compose("stop", "analytics")
-    deployment.compose(*up, "analytics-db", "analytics-kafka")
+    if not storage_ready:
+        deployment.compose("stop", "analytics")
+        deployment.compose(*up, "analytics-db", "analytics-kafka")
     # Existing Alpha volumes predate the template0 CONNECT revocation. Apply
     # only this narrower ACL before the restricted runtime is started.
     deployment.compose(
@@ -130,6 +132,11 @@ def prepare(deployment, up):
     if marker and marker != alpha.topic:
         raise RuntimeError("База Analytics привязана к другому поколению")
 
+    if expected_marker is not None:
+        observed = analytics_owner(deployment, "-qtA", "-c",
+                                   "SELECT generation || ' ' || snapshot_sha256 FROM application_status_generation WHERE singleton")
+        if observed != expected_marker or marker != alpha.topic:
+            raise RuntimeError("Не допускается пересоздание snapshot уже работающего поколения Alpha")
     topics = set(kafka(deployment, "kafka-topics", "--list").splitlines())
     for topic in (alpha.topic, alpha.dlq):
         if topic not in topics:
@@ -146,6 +153,15 @@ def prepare(deployment, up):
             if set(offsets.splitlines()) != expected:
                 raise RuntimeError("Для bootstrap нужны пустые topic нового поколения")
     return not marker
+
+
+def verify_credit_mode(deployment):
+    alpha = deployment.alpha_dev
+    deployment.compose("exec", "-T", "credit", "sh", "-ec",
+                       'test "$ANALYTICS_STATUS_READ_ENABLED" = "$1" && '
+                       'test "$APPLICATION_STATUS_KAFKA_TOPIC" = "$2"',
+                       "alpha-mode", str(alpha.read_enabled).lower(), alpha.topic)
+    return "analytics-with-sql-fallback" if alpha.read_enabled else "sql"
 
 
 def bootstrap(deployment, up):

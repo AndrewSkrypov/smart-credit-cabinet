@@ -4,7 +4,7 @@ temp="$(mktemp -d "/archive/.${stamp}.XXXXXXXX")"
 trap 'rm -rf "$temp"' EXIT
 trap 'exit 1' HUP INT TERM
 pg_dumpall --globals-only --no-role-passwords > "$temp/globals.sql"
-for db in identity credit engagement; do
+for db in identity credit engagement catalog; do
   exists="$(psql -XAt -v ON_ERROR_STOP=1 -c "select 1 from pg_database where datname='$db'")"
   if [ "$exists" = 1 ]; then
     pg_dump --format=custom --file "$temp/$db.dump" "$db"

@@ -114,7 +114,7 @@ class ServicingDeliveryTest(unittest.TestCase):
         return self.attempt_path(read_record(self.dev.pending)["attempt"])
 
     def switch(self):
-        return self.dev._switch_authority(self.transfer)
+        return self.dev._switch_authority(self.transfer, lambda before: {"from_mode": before})
 
     def test_default_local_records_current_authority_without_transferring(self):
         self.dev.descriptor = self.local
@@ -144,6 +144,23 @@ class ServicingDeliveryTest(unittest.TestCase):
                          self.transfer.fences["servicing"]["manifest_sha256"])
         self.assertFalse(self.dev.pending.exists())
         self.assertEqual((attempt / "source-fenced.json").stat().st_mode & 0o777, 0o600)
+
+    def test_switch_rechecks_common_authorization_before_new_or_resumed_mutation(self):
+        def reject(before):
+            self.assertEqual(before, "local")
+            raise RuntimeError("missing backup")
+
+        with self.assertRaisesRegex(RuntimeError, "missing backup"):
+            self.dev._switch_authority(self.transfer, reject)
+        self.assertEqual(self.transfer.last_changes, [])
+        self.transfer.failure = ("fence", "credit")
+        with self.assertRaisesRegex(RuntimeError, "after commit"):
+            self.switch()
+        with self.assertRaisesRegex(RuntimeError, "missing backup"):
+            self.dev._switch_authority(self.transfer, reject)
+        self.assertEqual(self.transfer.last_changes, [("fence", "credit")])
+        with self.assertRaisesRegex(RuntimeError, "начальная квитанция"):
+            self.dev._switch_authority(self.transfer, lambda before: {"different-attempt": before})
 
     def test_resume_after_target_fence_before_snapshot(self):
         self.transfer.failure = ("fence", "servicing")

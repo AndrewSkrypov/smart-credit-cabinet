@@ -4,6 +4,18 @@ create table document_ownership (
  epoch bigint not null check(epoch > 0)
 );
 insert into document_ownership values(true,'FROZEN',1);
+-- Runtime keeps SELECT-only fence access; locking requires the schema owner.
+create function assert_documents_writer(expected_epoch bigint) returns boolean
+language plpgsql security definer set search_path=pg_catalog as $$
+declare active_owner text; active_epoch bigint;
+begin
+ select owner,epoch into active_owner,active_epoch from public.document_ownership where singleton for share;
+ if active_owner is distinct from 'DOCUMENTS' or expected_epoch is null or active_epoch is distinct from expected_epoch then
+  raise exception 'Documents owner is fenced' using errcode='55000';
+ end if;
+ return true;
+end $$;
+revoke all on function assert_documents_writer(bigint) from public;
 create table document_application_scopes (application_id uuid primary key, company_id uuid not null);
 create table document_records (
  id uuid primary key, company_id uuid not null, application_id uuid not null,

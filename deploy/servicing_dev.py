@@ -8,6 +8,7 @@ import re
 import secrets
 import subprocess
 
+from runtime_attempts import require_servicing_authorization
 from runtime_delivery_support import (
     Descriptor, ensure_private, ensure_tls, fsync_dir, load_secrets, private_state,
     read_record, run, verify_container, write_record,
@@ -372,7 +373,7 @@ class ServicingDev:
             raise RuntimeError("Незавершённую попытку Servicing продолжает тот же защищённый manifest")
         return pending
 
-    def _switch_authority(self, transfer):
+    def _switch_authority(self, transfer, authorize):
         mode = self.descriptor.mode
         pending = self._check_pending()
         if pending is None:
@@ -380,17 +381,20 @@ class ServicingDev:
             if authority["mode"] == mode:
                 _save_once(self.state / "authority.json", authority)
                 return authority
+            binding = authorize(authority["mode"])
             _require_drained(transfer)
             attempt = secrets.token_hex(16)
             directory = ensure_private(ensure_private(self.state / "attempts") / attempt)
-            detail = {**self.provenance(), "direction": mode, "initial": authority["fences"]}
+            detail = {**self.provenance(), "direction": mode, "initial": authority["fences"], "authorization": binding}
             write_record(directory / "attempt.json", detail, immutable=True)
             write_record(self.pending, {"attempt": attempt, "provenance": self.provenance(), "direction": mode}, immutable=True)
         else:
+            binding = authorize("local" if mode == "remote" else "remote")
             attempt = pending["attempt"]
             directory = self._attempt_directory(attempt)
             detail = _read(directory / "attempt.json")
-            if detail != {**self.provenance(), "direction": mode, "initial": detail.get("initial") if detail else None}:
+            if not detail or detail != {**self.provenance(), "direction": mode, "initial": detail.get("initial"),
+                                        "authorization": binding}:
                 raise RuntimeError("Изменилась начальная квитанция попытки Servicing")
         _require_drained(transfer)
         completed = _finish_attempt(transfer, mode, detail["initial"], directory)
@@ -416,7 +420,7 @@ class ServicingDev:
         try:
             transfer.validate_databases("credit", "servicing")
             with transfer.control_lock("credit"):
-                authority = self._switch_authority(transfer)
+                authority = self._switch_authority(transfer, lambda before: require_servicing_authorization(deployment, before))
         except (subprocess.CalledProcessError, SystemExit) as error:
             raise RuntimeError("Перенос Servicing не завершён, проверьте записи попытки и состояние владельца") from error
         deployment.compose(*UP, "--no-deps", "servicing")

@@ -68,7 +68,9 @@ jobs:
           python3 - "$GITHUB_SHA" <<'PY'
           import json,subprocess,sys
           from pathlib import Path
-          for path in Path('ci-artifacts').glob('documents-r3*/native-processes.json'):
+          ledgers=[*Path('ci-artifacts').glob('documents-r3*/native-processes.json'),Path('ci-artifacts/documents-startup-cancel/native-processes.json')]
+          for path in ledgers:
+              if not path.is_file(): continue
               ledger=json.loads(path.read_text())
               subprocess.run(['python3','scripts/documents-fixture-cleanup.py',str(path),'--scope',ledger['scope'],'--source',sys.argv[1]],check=True)
           PY

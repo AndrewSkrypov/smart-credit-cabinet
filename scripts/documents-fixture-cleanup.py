@@ -13,8 +13,10 @@ def identity(pid):
     try:
         fields=Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()
         return None if fields[0]=='Z' else fields[19]
-    except (OSError, IndexError):
+    except (FileNotFoundError, ProcessLookupError):
         return None
+    except (OSError, IndexError) as failure:
+        raise RuntimeError("Cannot confirm owned process state; data retained") from failure
 
 
 def cleanup(path, expected=None):
@@ -24,7 +26,8 @@ def cleanup(path, expected=None):
         raise ValueError('Fixture cleanup scope mismatch')
     scope=receipt['scope']
     scratch=Path(receipt.get('scratch',''))
-    valid_scratch=scratch.parent in (Path('/tmp'),Path('/var/tmp')) and scratch.name.startswith('alpha-documents-runtime-')
+    resolved=scratch.resolve()
+    valid_scratch=(resolved.is_relative_to('/tmp') or resolved.is_relative_to('/var/tmp')) and resolved==scratch.absolute() and not scratch.is_symlink() and scratch.name.startswith('alpha-documents-runtime-')
     marker=scratch/'fixture-scope.json'
     if scratch.exists() and (not valid_scratch or not marker.is_file() or json.loads(marker.read_text())!={'scope':scope,'source':receipt['source']}):
         raise ValueError('Fixture directory ownership mismatch')
@@ -48,8 +51,12 @@ def cleanup(path, expected=None):
         pid=int(process['pid'])
         if identity(pid)!=process['start']: continue
         try: arguments=Path(f'/proc/{pid}/cmdline').read_bytes().split(b'\0')
-        except OSError: continue
-        if process['marker'].encode() not in arguments: continue
+        except OSError as failure:
+            if identity(pid)==process['start']: raise RuntimeError('Cannot inspect live owned process; data retained') from failure
+            continue
+        if process['marker'].encode() not in arguments:
+            if identity(pid)==process['start']: raise RuntimeError('Live recorded identity has an unconfirmed marker; data retained')
+            continue
         is_pg=process['marker']==str(scratch/'db')
         valid_marker=process['marker']==f'-Dcabinet.documents.fixture.scope={scope}' or is_pg or process['marker']==f'-dir={scratch}/s3/data'
         if not valid_marker: raise ValueError('Unexpected fixture marker')

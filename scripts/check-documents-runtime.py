@@ -44,7 +44,9 @@ def main():
         parser.error('Startup cancellation probe requires the private native LOCAL fixture')
     report = (ROOT / args.report_dir).resolve()
     report.mkdir(parents=True, exist_ok=True)
-    scratch = Path(tempfile.mkdtemp(prefix='alpha-documents-runtime-'))
+    temporary_root=Path(tempfile.gettempdir()).resolve()
+    if not (temporary_root.is_relative_to('/tmp') or temporary_root.is_relative_to('/var/tmp')): temporary_root=Path('/tmp')
+    scratch = Path(tempfile.mkdtemp(prefix='alpha-documents-runtime-',dir=temporary_root))
     processes = []
     handles = []
     container = None

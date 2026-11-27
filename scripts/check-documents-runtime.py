@@ -55,7 +55,7 @@ def main():
     project_id=os.environ.get('CI_PROJECT_ID','')
     profile=args.storage_backend
     scope=f'cabinet-documents-{project_id}-{job_id}-{profile}' if job_id else f'cabinet-documents-native-{uuid.uuid4().hex}'
-    ledger = context.initialize_ledger(scratch, report, scope)
+    ledger = context.initialize_ledger(scratch, report, scope, native_s3=profile=='s3' and not args.s3_image)
     ledger_path=report/'native-processes.json'
     processes = []
     identity_server = None

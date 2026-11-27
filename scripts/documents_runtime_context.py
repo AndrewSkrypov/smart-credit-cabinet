@@ -39,10 +39,12 @@ class RuntimeContext:
         self.parent.mkdir(parents=True, exist_ok=True)
         return Path(tempfile.mkdtemp(prefix='alpha-documents-runtime-', dir=self.parent))
 
-    def initialize_ledger(self, scratch, report, scope):
+    def initialize_ledger(self, scratch, report, scope, *, native_s3=False):
         if not self.permits(scratch, scope):
             raise ValueError('Initial fixture journal is outside the runtime context')
         ledger = {'scope': scope, 'source': self.source, 'scratch': str(scratch), 'processes': []}
+        if native_s3:
+            ledger['nativeS3'] = {'marker': f'-dir={scratch}/s3/data'}
         # Publish both ownership and the empty journal before any fixture side effect.
         for target, value in ((scratch / 'fixture-scope.json', {'scope': scope, 'source': self.source}),
                               (report / 'native-processes.json', ledger)):

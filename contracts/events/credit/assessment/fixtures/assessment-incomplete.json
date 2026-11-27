@@ -1,0 +1,75 @@
+{
+  "protocolVersion": 1,
+  "cycle": {
+    "generation": "alpha-r2-fixture",
+    "cycleId": "f162f60c-c301-4a74-b829-f0444985ad47",
+    "applicationId": "a4fd57ac-6182-4647-bdd2-176221bab0c2",
+    "applicationVersion": 9,
+    "ruleSetVersion": 12,
+    "selectedProduct": {
+      "code": "WORKING_CAPITAL",
+      "version": 7
+    },
+    "catalog": [
+      {
+        "code": "WORKING_CAPITAL",
+        "version": 7
+      },
+      {
+        "code": "OVERDRAFT",
+        "version": 3
+      }
+    ],
+    "candidatePreApprovalId": "7d65bf7b-9fed-49a1-b77c-82d51cd822db"
+  },
+  "receipts": {
+    "BANK": "2026-11-26T11:59:59Z",
+    "REGISTRY": "2026-11-26T12:00:00Z"
+  },
+  "facts": {
+    "registry": {
+      "inn": "000000000000",
+      "ogrn": "000000000000000",
+      "fullName": "ИП Пример",
+      "shortName": "Пример",
+      "status": "ACTIVE",
+      "statusTitle": "Действует",
+      "registrationDate": "2021-05-26",
+      "okvedCode": "62.01",
+      "okvedName": "Тестовая разработка",
+      "directorName": "Синтетический пример",
+      "address": "Синтетический адрес",
+      "unreliableAddress": false,
+      "unreliableDirector": false
+    },
+    "tax": null,
+    "bureau": null,
+    "bank": {
+      "client": true,
+      "settlementAccount": null,
+      "monthlyInflows": [
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000
+      ]
+    }
+  },
+  "outcome": "INCOMPLETE",
+  "missingSources": [
+    "TAX",
+    "BUREAU"
+  ],
+  "completedAt": "2026-11-26T12:02:00Z",
+  "assessment": null,
+  "policy": null,
+  "appliedPreApprovalId": null
+}

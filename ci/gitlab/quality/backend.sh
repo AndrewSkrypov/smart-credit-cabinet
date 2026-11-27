@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+python3 -B scripts/check-hexagonal-boundaries.py
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -p test_hexagonal_boundaries.py
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -p test_documents_runtime_context.py
+python3 -B scripts/test-documents-fixture-cleanup.py
+
 prefix="cabinet-ci-${CI_JOB_ID:?}"
 image="${prefix}-postgres:test"
 postgres="${prefix}-postgres"
@@ -44,7 +49,7 @@ retry 60 1 postgres_ready
 export DB_PORT
 DB_PORT=$(published_port "$postgres" 5432)
 export PGPASSWORD=cabinet
-for db in identity credit engagement common_test; do
+for db in identity credit engagement assessment common_test; do
     psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$DB_PORT" -U cabinet -d cabinet -c "create database $db"
 done
 
@@ -89,7 +94,16 @@ retry 30 1 valkey_ready
 export VALKEY_TEST_PORT
 VALKEY_TEST_PORT=$(published_port "$valkey" 6379)
 
-OUTBOX_WORKER_ENABLED=false ./gradlew build --no-daemon
+export ASSESSMENT_DB_URL="jdbc:postgresql://127.0.0.1:$DB_PORT/assessment"
+export ASSESSMENT_DB_USER=cabinet ASSESSMENT_DB_PASSWORD=cabinet
+# Bound the compiler for all eight services to one worker and a 2 GiB heap.
+OUTBOX_WORKER_ENABLED=false ./gradlew build --no-daemon --no-parallel --max-workers=1 \
+    -Dorg.gradle.jvmargs='-Xmx2048m -XX:MaxMetaspaceSize=768m -XX:+ExitOnOutOfMemoryError' \
+    -Pkotlin.compiler.execution.strategy=in-process
+GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}" CATALOG_TEST_POSTGRES_IMAGE="$image" \
+    CATALOG_TEST_POSTGRES_NAME="$prefix-catalog-postgres" \
+    bash scripts/check-catalog-integration.sh --no-daemon
+bash e2e/alpha-assessment/check-ci.sh "$(pg_config --bindir)" "$DB_PORT"
 
 mkdir -p ci-artifacts
 for db in identity credit engagement; do
@@ -100,6 +114,12 @@ python3 deploy/check-schema-rollback.py --pg-bin "$(pg_config --bindir)" --port 
     --source-prefix cabinet_test_ --output ci-artifacts/schema-rollback.json
 python3 deploy/check-migration-restore.py --pg-bin "$(pg_config --bindir)" --java-bin "${JAVA_HOME:?}/bin" \
     --port "$DB_PORT" --user cabinet --output ci-artifacts/migration-restore.json
+python3 scripts/check-documents-rollback.py --pg-bin "$(pg_config --bindir)" \
+    --port "$DB_PORT" --user cabinet --output ci-artifacts/documents-rollback.json
 
-test "$(find services -path '*/build/libs/app.jar' | wc -l)" -eq 4
-sha256sum services/*/build/libs/app.jar > ci-artifacts/backend.sha256
+DOCUMENTS_TEST_POSTGRES_IMAGE="$image" python3 scripts/check-documents-runtime.py --pg-bin "$(pg_config --bindir)" --skip-build
+DOCUMENTS_TEST_POSTGRES_IMAGE="$image" \
+    DOCUMENTS_TEST_S3_IMAGE="chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9" \
+    python3 scripts/check-documents-runtime.py --pg-bin "$(pg_config --bindir)" --skip-build \
+    --storage-backend s3 --report-dir ci-artifacts/documents-r3-s3
+bash ci/gitlab/quality/backend-artifacts.sh

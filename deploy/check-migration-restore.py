@@ -4,6 +4,7 @@
 import argparse
 from contextlib import contextmanager
 from hashlib import sha256
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -63,6 +64,13 @@ def executable(directory, name):
     return str(directory / (name + (".exe" if os.name == "nt" else "")))
 
 
+def credit_upgrade_fixture():
+    spec = importlib.util.spec_from_file_location("credit_upgrade_fixture", ROOT / "db/rollback/credit_upgrade_fixture.py")
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    return fixture
+
+
 def prepare_migrations(service, directory):
     source = ROOT / f"services/{service}/src/main/resources/{MIGRATIONS}"
     files = sorted(source.glob("*.sql"))
@@ -96,6 +104,7 @@ def java_classpath(java_bin, temporary):
 
 
 def rehearse(args, report, temporary):
+    upgrade_fixture = credit_upgrade_fixture()
     classpath = java_classpath(args.java_bin, temporary)
     java = executable(args.java_bin, "java")
 
@@ -154,6 +163,9 @@ def rehearse(args, report, temporary):
                 expected_versions.append(str(version))
                 history = sql(upgraded, HISTORY)
                 assert [row.split("|", 1)[0] for row in history.splitlines()] == expected_versions
+                upgrade_checks = []
+                if service == "credit" and version > upgrade_fixture.SEED_VERSION:
+                    upgrade_checks = upgrade_fixture.verify(sql, upgraded, version)
                 with disposable_database() as restored:
                     pg("pg_restore", restored, "--exit-on-error", "--no-owner", "--no-privileges", archive)
                     assert data_digest(restored) == checkpoint, f"{service} V{version}: отличаются данные"
@@ -164,11 +176,17 @@ def rehearse(args, report, temporary):
                     assert canonical_schema(restored) == applied_schema, f"{service} V{version}: отличается DDL"
                     if version > seed_version:
                         assert sql(upgraded, check_fixture) == sql(restored, check_fixture) == "1", service
+                    if upgrade_checks:
+                        assert upgrade_fixture.verify(sql, restored, version) == upgrade_checks
                 if version == seed_version:
                     sql(upgraded, insert_fixture)
+                if service == "credit" and version == upgrade_fixture.SEED_VERSION:
+                    sql(upgraded, upgrade_fixture.insert_sql())
+                    upgrade_fixture.verify(sql, upgraded, version)
                 entries.append({"version": version, "restored_data_sha256": checkpoint, "restored_schema_sha256": checkpoint_schema,
                                 "reapplied_schema_sha256": applied_schema,
-                                "history_verified": True, "existing_fixture_verified": version > seed_version})
+                                "history_verified": True, "existing_fixture_verified": version > seed_version,
+                                "credit_upgrade_checks": upgrade_checks})
     report.pop("pending", None)
 
 

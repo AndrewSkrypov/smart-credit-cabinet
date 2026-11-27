@@ -63,3 +63,53 @@ if helm template cabinet "$chart" --namespace cabinet-dev --is-upgrade "$@" >/de
   echo 'Demo proxy unexpectedly rendered outside cabinet-prod' >&2
   exit 1
 fi
+
+# Catalog publishes a digest even when the chart stays disabled. Remote requires opt-in and both TLS secrets.
+catalog="$chart/files/catalog"
+sh -n "$catalog/migrate.sh"
+cmp "$source_root/deploy/catalog-sql/roles.sql" "$catalog/roles.sql"
+cmp "$source_root/deploy/catalog-sql/fence-check.sql" "$catalog/fence-check.sql"
+cmp "$source_root/services/catalog-grpc/src/main/resources/db/catalog/V1__product_history.sql" "$catalog/V1__product_history.sql"
+for sql in grants.sql credit-fence.sql; do
+  cmp "$source_root/services/catalog-grpc/cutover/$sql" "$catalog/$sql"
+done
+if helm template cabinet "$chart" --namespace cabinet-prod --is-upgrade "$@" \
+  --set catalog.creditMode=remote >/dev/null 2>&1; then
+  echo 'Remote Credit unexpectedly rendered without enabled Catalog' >&2
+  exit 1
+fi
+set -- "$@" --set publicDemo.enabled=false --set catalog.enabled=true \
+  --set-string "images.catalog-grpc=example.invalid/catalog-grpc@sha256:$digest" \
+  --set-string catalog.databaseSecret=cabinet-catalog-db --set-string catalog.creditTLSSecret=cabinet-catalog-credit \
+  --set-string catalog.serverTLSSecret=cabinet-catalog-server
+helm lint "$chart" "$@"
+for mode in local remote; do
+  helm template cabinet "$chart" --namespace cabinet-prod --is-upgrade "$@" \
+    --set "catalog.creditMode=$mode" --show-only templates/catalog.yaml \
+    | grep -F "{name: CATALOG_MODE, value: \"$mode\"}" >/dev/null
+done
+
+helm template cabinet "$chart" --namespace cabinet-prod --is-upgrade "$@" --set catalog.maintenance=true \
+  --show-only templates/catalog-release-state.yaml | grep -F '"maintenance":true' >/dev/null
+helm template cabinet "$chart" --namespace cabinet-prod --is-upgrade "$@" --set catalog.maintenance=true \
+  --show-only templates/apps.yaml | awk '
+    /^kind: Deployment$/ { deployment = 1; gateway = 0 }
+    /^---$/ { deployment = 0; gateway = 0 }
+    deployment && /^  name: gateway$/ { gateway = 1 }
+    gateway && /^  replicas: 0$/ { found = 1 }
+    END { exit !found }
+  '
+
+# All private candidates share one release. Credit needs both TLS mounts and the Assessment settings.
+joint=$(helm template cabinet "$chart" --namespace cabinet-dev --is-upgrade "$@" \
+  -f "$chart/values.assessment.yaml" -f "$chart/values.servicing.yaml" -f "$chart/values.documents.yaml" \
+  --set assessment.enabled=true --set servicing.enabled=true --set documents.enabled=true \
+  --set-string assessment.generation=g0123456789abcdef --set-string assessment.clusterId=abcdefghijklmnopqrstuA \
+  --set-string "images.assessment=example.invalid/assessment@sha256:$digest" \
+  --set-string "images.assessment-kafka=example.invalid/kafka@sha256:$digest" \
+  --set-string "images.servicing=example.invalid/servicing@sha256:$digest" --set-string "servicing.jarSha256=$digest" \
+  --set-string "images.documents=example.invalid/documents@sha256:$digest" --set-string "documents.jarSha256=$digest" \
+  --show-only templates/apps.yaml)
+for credit_setting in 'name: assessment-credit-transport' 'mountPath: /run/catalog-tls' 'mountPath: /run/documents-tls'; do
+  printf '%s\n' "$joint" | grep -F "$credit_setting" >/dev/null
+done

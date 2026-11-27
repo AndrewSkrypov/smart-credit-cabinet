@@ -4,7 +4,7 @@
 CREATE ROLE analytics_owner LOGIN PASSWORD :'owner_password';
 CREATE ROLE analytics_app LOGIN PASSWORD :'app_password';
 ALTER DATABASE analytics OWNER TO analytics_owner;
-REVOKE CONNECT ON DATABASE analytics, postgres, template1 FROM PUBLIC;
+REVOKE CONNECT ON DATABASE analytics, postgres, template0, template1 FROM PUBLIC;
 REVOKE CREATE, TEMPORARY ON DATABASE analytics FROM PUBLIC;
 GRANT CONNECT ON DATABASE analytics TO analytics_app;
 

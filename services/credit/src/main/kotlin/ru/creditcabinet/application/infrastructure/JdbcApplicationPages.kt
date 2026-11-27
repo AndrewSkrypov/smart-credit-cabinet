@@ -34,9 +34,13 @@ class JdbcApplicationPages(private val jdbc: NamedParameterJdbcTemplate, private
         val selected = group ?: if (client) "active" else "review"
         require(selected in groups) { "Неизвестная группа заявок для этой роли" }
         val rights = if (client) {
-            "a.company_id = :company and (a.agent_id is null or a.status <> 'DRAFT')"
+            """
+            a.company_id = :company and (
+                a.agent_id is null or a.client_handoff_at is not null or a.submitted_at is not null or a.status = 'PENDING_CLIENT_CONFIRMATION'
+            )
+            """.trimIndent()
         } else {
-            "a.status not in ('DRAFT', 'PENDING_CLIENT_CONFIRMATION')"
+            "a.submitted_at is not null"
         }
         val columns = if (client) {
             "lower(p.name) like :q escape '!'"
@@ -81,7 +85,7 @@ class JdbcApplicationPages(private val jdbc: NamedParameterJdbcTemplate, private
         val actionParams = mapOf("company" to companyId, "action" to groups["action"].orEmpty())
         val actionCount = if (client) {
             jdbc.queryForObject(
-                "select count(*) from applications where company_id = :company and (agent_id is null or status <> 'DRAFT') and status in (:action)",
+                "select count(*) from applications a where $rights and a.status in (:action)",
                 actionParams,
                 Long::class.java,
             )
@@ -91,7 +95,7 @@ class JdbcApplicationPages(private val jdbc: NamedParameterJdbcTemplate, private
         }
         val previewIds = if (client) {
             jdbc.query(
-                "select id from applications where company_id = :company and (agent_id is null or status <> 'DRAFT') and status in (:action) order by status_changed_at asc, id asc limit 5",
+                "select a.id from applications a where $rights and a.status in (:action) order by a.status_changed_at asc, a.id asc limit 5",
                 actionParams,
             ) {
                     row,

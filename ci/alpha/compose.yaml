@@ -2,7 +2,8 @@
 services:
   kafka:
     profiles: [alpha-pilot]
-    image: ${ALPHA_PILOT_KAFKA_IMAGE:?Set an immutable apache/kafka image}
+    image: ${ALPHA_PILOT_KAFKA_IMAGE:?Build the Alpha Kafka image with ci/alpha/smoke.sh}
+    platform: linux/amd64
     environment:
       KAFKA_NODE_ID: "1"
       KAFKA_PROCESS_ROLES: broker,controller
@@ -28,7 +29,8 @@ services:
 
   analytics-db:
     profiles: [alpha-pilot]
-    image: postgres:16.15-alpine@sha256:deb28ee471183cb0c303113dac9b2433c51eeeeb678def7af9a9ec5820367815
+    image: ${ALPHA_PILOT_POSTGRES_IMAGE:-postgres:16.15-alpine@sha256:deb28ee471183cb0c303113dac9b2433c51eeeeb678def7af9a9ec5820367815}
+    platform: linux/amd64
     environment:
       POSTGRES_DB: analytics
       POSTGRES_USER: postgres

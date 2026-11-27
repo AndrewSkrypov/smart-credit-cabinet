@@ -84,6 +84,7 @@ class DocumentScanIntegrationTest {
         assertTrue(mapper.readTree(denied.getContentAsString(Charsets.UTF_8))["message"].asText().contains("содержит угрозу"))
         assertEquals(before, snapshot())
         verify(store, never()).put(any(), any(), any())
+        verify(store, never()).put(any(), any(), any(), any())
 
         mvc.post("/api/v1/applications/$id/submit") { header("Authorization", "Bearer $token") }.andExpect { status { isOk() } }
         before = snapshot()
@@ -92,13 +93,14 @@ class DocumentScanIntegrationTest {
         assertTrue(mapper.readTree(denied.getContentAsString(Charsets.UTF_8))["message"].asText().contains("содержит угрозу"))
         assertEquals(before, snapshot())
         verify(store, never()).put(any(), any(), any())
+        verify(store, never()).put(any(), any(), any(), any())
 
         mvc.multipart("/api/v1/applications/$id/messages/attachments") {
             header("Authorization", "Bearer $token")
             header("Idempotency-Key", UUID.randomUUID().toString())
             file(MockMultipartFile("file", "Безопасный.pdf", "application/pdf", "%PDF-1.7\n% synthetic\n%%EOF".toByteArray()))
         }.andExpect { status { isOk() } }
-        verify(store).put(any(), any(), any())
+        verify(store).put(any(), any(), any(), any())
         assertEquals(before[0]!! + 1, snapshot()[0])
         assertEquals(before[1], snapshot()[1], "A clean chat upload still must not alter the financial journal")
     }

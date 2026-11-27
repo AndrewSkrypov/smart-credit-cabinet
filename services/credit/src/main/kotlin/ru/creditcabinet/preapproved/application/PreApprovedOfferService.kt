@@ -3,6 +3,8 @@ package ru.creditcabinet.preapproved.application
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import ru.creditcabinet.agent.application.AgentClientEligibility
+import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationJournal
@@ -31,6 +33,8 @@ class PreApprovedOfferService(
     private val companies: CompanyDirectory,
     private val products: ProductCatalog,
     private val clock: Clock,
+    private val agentAccess: AgentAccessPort,
+    private val agentEligibility: AgentClientEligibility,
 ) {
     fun listForCompany(companyId: UUID): List<PreApprovedOffer> =
         store.listActiveByCompany(companyId, clock.instant())
@@ -61,6 +65,7 @@ class PreApprovedOfferService(
     ): LoanApplication {
         val offer = store.find(offerId)?.takeIf { it.companyId in companyIds }
             ?: throw NotFoundException("Предодобренное предложение не найдено")
+        if (!agentAccess.checkAccess(agentId, offer.companyId).allowed) throw NotFoundException("Предодобренное предложение не найдено")
         return createFromOffer(
             offer = offer,
             createdBy = agentId,
@@ -102,12 +107,13 @@ class PreApprovedOfferService(
         if (!offer.isAvailable(now)) {
             throw ConflictException("Предодобренное предложение уже использовано или истекло")
         }
-        val product = products.find(offer.productCode)
+        val product = products.forDraft(offer.productCode)
             ?: throw ConflictException("Продукт по предложению недоступен")
         if (applications.hasActive(offer.companyId, product.code)) {
             throw activeExists(product)
         }
         val company = companies.find(offer.companyId) ?: throw NotFoundException("Компания не найдена")
+        if (agentId != null) agentEligibility.requireEligible(company)
         val defaultPurpose = product.purposes.minBy { it.ordinal }
         val terms = ApplicationTerms(
             productCode = product.code,

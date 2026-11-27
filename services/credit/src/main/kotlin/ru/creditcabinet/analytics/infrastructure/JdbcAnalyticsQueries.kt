@@ -23,12 +23,15 @@ class JdbcAnalyticsQueries(private val jdbc: NamedParameterJdbcTemplate) : Analy
             manualOutcomes = outcomes("MANUAL", period),
             manualOverrides = overrides(period),
             disbursedAmount = jdbc.queryForObject(
-                "select coalesce(sum(amount), 0) from loans where disbursed_at >= :from and disbursed_at < :to",
+                """
+                select coalesce(sum(l.amount), 0) from loans l join applications a on a.id = l.application_id
+                where a.submitted_at is not null and l.disbursed_at >= :from and l.disbursed_at < :to
+                """.trimIndent(),
                 period,
                 Long::class.java,
             )!!,
             currentStatuses = projectedStatuses ?: jdbc.query(
-                "select status, count(*) as n from applications where status not in ('DRAFT', 'PENDING_CLIENT_CONFIRMATION') group by status",
+                "select status, count(*) as n from applications where submitted_at is not null group by status",
                 emptyMap<String, Any>(),
             ) {
                     rs,
@@ -47,7 +50,8 @@ class JdbcAnalyticsQueries(private val jdbc: NamedParameterJdbcTemplate) : Analy
             distinct(
                 """
                 select count(distinct e.application_id) from application_events e join applications a on a.id = e.application_id
-                where a.submitted_at >= :from and a.submitted_at < :to and e.event in (${events.joinToString { "'$it'" }})
+                where a.submitted_at >= :from and a.submitted_at < :to and e.occurred_at >= a.submitted_at
+                  and e.event in (${events.joinToString { "'$it'" }})
                 """.trimIndent(),
             )
         return listOf(
@@ -65,16 +69,16 @@ class JdbcAnalyticsQueries(private val jdbc: NamedParameterJdbcTemplate) : Analy
         jdbc.query(
             """
             with moves as (
-                select application_id, to_status, occurred_at,
-                       lead(occurred_at) over (partition by application_id order by seq) as left_at
-                from application_events
-                where from_status is distinct from to_status
+                select e.to_status, e.occurred_at,
+                       lead(e.occurred_at) over (partition by e.application_id order by e.seq) as left_at
+                from application_events e join applications a on a.id = e.application_id
+                where e.from_status is distinct from e.to_status and e.occurred_at >= a.submitted_at
             )
             select to_status, count(*) as n,
                    avg(extract(epoch from left_at - occurred_at)) / 60 as avg_min,
                    percentile_cont(0.5) within group (order by extract(epoch from left_at - occurred_at)) / 60 as median_min
             from moves
-            where left_at is not null and to_status not in ('DRAFT', 'PENDING_CLIENT_CONFIRMATION') and occurred_at >= :from and occurred_at < :to
+            where left_at is not null and occurred_at >= :from and occurred_at < :to
             group by to_status
             """.trimIndent(),
             period,
@@ -94,9 +98,10 @@ class JdbcAnalyticsQueries(private val jdbc: NamedParameterJdbcTemplate) : Analy
     private fun outcomes(kind: String, period: Map<String, Any>): List<OutcomeCount> =
         jdbc.query(
             """
-            select outcome, count(*) as n from decisions
-            where created_at >= :from and created_at < :to and ${if (kind == "SYSTEM") "decided_by_type = 'SYSTEM'" else "decided_by_type <> 'SYSTEM'"}
-            group by outcome order by count(*) desc
+            select d.outcome, count(*) as n from decisions d join applications a on a.id = d.application_id
+            where a.submitted_at is not null and d.created_at >= :from and d.created_at < :to
+              and ${if (kind == "SYSTEM") "d.decided_by_type = 'SYSTEM'" else "d.decided_by_type <> 'SYSTEM'"}
+            group by d.outcome order by count(*) desc
             """.trimIndent(),
             period,
         ) { rs, _ -> OutcomeCount(rs.getString("outcome"), rs.getInt("n")) }
@@ -104,10 +109,10 @@ class JdbcAnalyticsQueries(private val jdbc: NamedParameterJdbcTemplate) : Analy
     private fun overrides(period: Map<String, Any>): Int =
         jdbc.queryForObject(
             """
-            select count(*) from decisions
-            where created_at >= :from and created_at < :to and decided_by_type = 'UNDERWRITER'
-              and outcome in ('APPROVE', 'COUNTER_OFFER', 'REJECT')
-              and (recommendation is null or recommendation ->> 'outcome' <> outcome)
+            select count(*) from decisions d join applications a on a.id = d.application_id
+            where a.submitted_at is not null and d.created_at >= :from and d.created_at < :to and d.decided_by_type = 'UNDERWRITER'
+              and d.outcome in ('APPROVE', 'COUNTER_OFFER', 'REJECT')
+              and (d.recommendation is null or d.recommendation ->> 'outcome' <> d.outcome)
             """.trimIndent(),
             period,
             Int::class.java,

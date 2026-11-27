@@ -53,7 +53,7 @@ data class ChatPage(
     val hasNewer: Boolean,
 )
 
-data class ChatUpload(val fileName: String, val bytes: ByteArray)
+data class ChatUpload(val fileName: String, val bytes: ByteArray, val operationKey: String? = null)
 
 data class UploadReceipt(val hash: String, val documentId: UUID)
 

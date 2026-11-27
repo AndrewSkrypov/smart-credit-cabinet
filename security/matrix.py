@@ -49,7 +49,7 @@ table.extend(["", "| Сервис | Операция | " + " | ".join(policy["ro
               "| --- | --- | " + " | ".join(["---"]*len(roles)) + " |"])
 for service, method, path, fixture, statuses in policy["endpoints"]:
     table.append(f"| {service} | `{method} {path}` | " + " | ".join(map(str, statuses)) + " |")
-table += ["", "## Маршруты финала", "", "Матрица проверяет роли на отсутствующих объектах. Сквозные положительные сценарии используют действующий мандат в Playwright.",
+table += ["", "## Маршруты финала", "", "Матрица проверяет роли на отсутствующих объектах, выдачу и отзыв мандата у отдельных синтетических компаний. Сквозные сценарии с действующим мандатом и тестовыми кредитными линиями проверяет Playwright.",
           "", "| Сервис | Операция | " + " | ".join(final_access.ROLE_TITLES) + " |",
           "| --- | --- | " + " | ".join(["---"] * len(final_access.ROLES)) + " |"]
 for service, method, path, statuses in final_access.ROUTES:

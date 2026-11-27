@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package creditcabinet.catalog.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_outer_classname = "CatalogProto";
+option java_package = "ru.creditcabinet.contracts.catalog.v1";
+
+// Internal API for the trusted Credit service.
+service CatalogService {
+  rpc GetSubmissionSnapshot(GetSubmissionSnapshotRequest) returns (GetSubmissionSnapshotResponse);
+  rpc GetProductVersion(GetProductVersionRequest) returns (GetProductVersionResponse);
+  rpc ListCurrentProducts(ListCurrentProductsRequest) returns (ListProductsResponse);
+  rpc ListProductHistory(ListProductHistoryRequest) returns (ListProductsResponse);
+  rpc CreateProduct(CreateProductRequest) returns (GetProductVersionResponse);
+  rpc ReplaceProduct(ReplaceProductRequest) returns (GetProductVersionResponse);
+}
+
+message ListCurrentProductsRequest {
+  optional string product_code = 1;
+  bool effective_only = 2;
+}
+
+message ListProductHistoryRequest {
+  string product_code = 1;
+}
+
+message ListProductsResponse {
+  repeated ProductVersion products = 1;
+}
+
+message CreateProductRequest {
+  ProductVersion product = 1;
+  string reason = 2;
+}
+
+message ReplaceProductRequest {
+  ProductVersion product = 1;
+  int64 expected_version = 2;
+  string reason = 3;
+}
+
+message GetSubmissionSnapshotRequest {
+  string selected_product_code = 1;
+}
+
+message GetSubmissionSnapshotResponse {
+  google.protobuf.Timestamp evaluated_at = 1;
+  ProductVersionRef selected = 2;
+  // Includes the selected version and all other eligible current versions in catalogue order.
+  repeated ProductVersion products = 3;
+}
+
+message GetProductVersionRequest {
+  ProductVersionRef ref = 1;
+}
+
+message GetProductVersionResponse {
+  ProductVersion product = 1;
+}
+
+message ProductVersionRef {
+  string code = 1;
+  int64 version = 2;
+}
+
+message ProductVersion {
+  ProductVersionRef ref = 1;
+  string name = 2;
+  string description = 3;
+  repeated FinancingPurpose purposes = 4;
+  int64 min_amount_rub = 5;
+  int64 max_amount_rub = 6;
+  int32 min_term_months = 7;
+  int32 max_term_months = 8;
+  // 15.50% is 1550 basis points.
+  int32 base_rate_bps = 9;
+  int64 auto_approval_limit_rub = 10;
+  bool revolving = 11;
+  ProductLifecycleStatus lifecycle_status = 12;
+  // Missing bounds are open. Provided bounds are both inclusive.
+  google.protobuf.Timestamp effective_from = 13;
+  google.protobuf.Timestamp effective_to = 14;
+  // Zero is a valid rate. A producer must always send the field.
+  optional int32 agent_commission_rate_bps = 15;
+  RevisionAudit audit = 16;
+}
+
+message RevisionAudit {
+  optional string author_id = 1;
+  string reason = 2;
+  google.protobuf.Timestamp created_at = 3;
+  optional string author_name = 4;
+  optional string author_role = 5;
+}
+
+enum FinancingPurpose {
+  FINANCING_PURPOSE_UNSPECIFIED = 0;
+  FINANCING_PURPOSE_CASH_GAP = 1;
+  FINANCING_PURPOSE_CURRENT_EXPENSES = 2;
+  FINANCING_PURPOSE_WORKING_CAPITAL = 3;
+  FINANCING_PURPOSE_EQUIPMENT = 4;
+  FINANCING_PURPOSE_VEHICLE = 5;
+  FINANCING_PURPOSE_RENOVATION = 6;
+  FINANCING_PURPOSE_BUSINESS_DEVELOPMENT = 7;
+}
+
+enum ProductLifecycleStatus {
+  PRODUCT_LIFECYCLE_STATUS_UNSPECIFIED = 0;
+  PRODUCT_LIFECYCLE_STATUS_DRAFT = 1;
+  PRODUCT_LIFECYCLE_STATUS_ACTIVE = 2;
+  PRODUCT_LIFECYCLE_STATUS_ARCHIVED = 3;
+}

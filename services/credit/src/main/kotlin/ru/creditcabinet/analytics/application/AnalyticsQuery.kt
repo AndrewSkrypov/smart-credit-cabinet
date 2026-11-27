@@ -24,7 +24,7 @@ data class Analytics(
     /** Manual decisions that went against the rules' recommendation. */
     val manualOverrides: Int,
     val disbursedAmount: Long,
-    /** Applications in each status right now, drafts excluded. */
+    /** Submitted applications in each status right now. */
     val currentStatuses: Map<String, Int>,
 )
 

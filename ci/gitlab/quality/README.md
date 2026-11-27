@@ -14,8 +14,9 @@ Chromium's Linux system packages in the worker image using the repository's
 locked `e2e` package, for example `npm ci --prefix e2e` then
 `cd e2e && npx playwright install-deps chromium` during provisioning.
 The test job installs the matching Chromium revision as the runner user.
-Allow downloads from the dependency repositories, container registries and
-ClamAV signatures, and size the worker for the multi-replica Compose stack.
+Allow downloads from the dependency repositories, container registries,
+the Apache Kafka archive and ClamAV signatures. Size the worker for the
+multi-replica Compose stack.
 
 On the dedicated VM configure the quality daemon with the engine label
 `cabinet-ci=true`. Set the runner's `config.toml` environment entry to
@@ -24,9 +25,14 @@ the dedicated daemon, or to the worker's configured Unix socket otherwise.
 Use a runner concurrency limit of 1 per daemon and keep the VM out of public
 ingress. Verify access as the runner account with
 `docker --host "$CABINET_CI_DOCKER_HOST" info --format '{{json .Labels}}'`.
-Set the GitLab artifact size limit to accommodate the four packaged JARs from
-`backend`. Verify this on the first pipeline and check that the consumers accept
-both checksum files.
+Enable the project's Generic Package Registry for the quality and release jobs.
+After all backend gates pass, `backend` uploads eight individual tested JARs to
+`cabinet-backend-ci` under `<commit-sha>-<pipeline-id>-<backend-job-id>` using its
+own `CI_JOB_TOKEN`. Job artifacts retain the reports, `backend.sha256` and the
+completed `backend-package.json`. The verify and release jobs validate the
+receipt against their project and pipeline, then verify every JAR before image
+builds. Retain package versions while their matching pipeline artifacts remain
+usable for verification and promotion. [GitLab Generic Packages](https://docs.gitlab.com/user/packages/generic_packages/)
 
 Quality jobs run for MRs and protected refs. The longer TLS/restore, storage,
 shared state, demo reset and reliability exercises run automatically on protected

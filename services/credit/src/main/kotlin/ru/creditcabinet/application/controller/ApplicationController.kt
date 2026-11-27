@@ -7,6 +7,7 @@ import jakarta.validation.Valid
 import org.springframework.core.io.InputStreamResource
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -81,7 +82,7 @@ class ApplicationController(
     @Operation(summary = "Создать черновик заявки")
     @PostMapping
     @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
-    fun create(@Valid @RequestBody request: ApplicationRequest): ApplicationResponse = detail(service.create(request.toTerms()))
+    fun create(@Valid @RequestBody request: ApplicationRequest): ApplicationResponse = detail(service.create(request.toTerms()), newDraft = true)
 
     @Operation(summary = "Карточка своей заявки с состоянием конвейера, решением и документами")
     @GetMapping("/{id}")
@@ -104,7 +105,7 @@ class ApplicationController(
     @Operation(summary = "Подтвердить агентскую заявку, дать согласие на БКИ и отправить в банк (T23)")
     @PostMapping("/{id}/confirm")
     fun confirm(@PathVariable id: UUID, @RequestBody request: ConfirmApplicationRequest): ApplicationResponse =
-        detail(service.confirmByClient(id, request.bureauConsent, request.acceptedProductVersion))
+        detail(service.confirmByClient(id, request.bureauConsent, request.acceptedProductVersion, request.acceptedScenarioRevision))
 
     @Operation(summary = "Вернуть агентскую заявку агенту на доработку (T24)")
     @PostMapping("/{id}/return-to-agent")
@@ -159,8 +160,13 @@ class ApplicationController(
     @Operation(summary = "Загрузить документ (в черновик или по запросу банка)")
     @PostMapping("/{id}/documents", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
-    fun upload(@PathVariable id: UUID, @RequestParam type: DocumentType, @RequestPart file: MultipartFile): DocumentView =
-        DocumentView.of(documents.upload(id, type, file.toDocumentUpload()))
+    fun upload(
+        @PathVariable id: UUID,
+        @RequestParam type: DocumentType,
+        @RequestParam(defaultValue = "false") privateToBank: Boolean,
+        @RequestPart file: MultipartFile,
+        @RequestHeader("Idempotency-Key", required = false) operationKey: String?,
+    ): DocumentView = DocumentView.of(documents.upload(id, type, file.toDocumentUpload().copy(operationKey = operationKey), privateToBank))
 
     @Operation(summary = "Удалить свой документ из редактируемого черновика")
     @DeleteMapping("/{id}/documents/{documentId}")
@@ -182,7 +188,7 @@ class ApplicationController(
 
     private fun processView(process: ApplicationProcess, showSigningCode: Boolean): ProcessView =
         ProcessView(
-            infoRequest = process.infoRequest?.let(InfoRequestView::of),
+            infoRequest = process.infoRequest?.let { InfoRequestView.of(it, documents.satisfiedDocumentTypes(it)) },
             offer = process.offer?.let { OfferView.of(it.offer, it.productName, it.changes) },
             signing = process.signing?.toView(showCode = showSigningCode),
             loan = process.loan?.let(LoanView::of),
@@ -193,7 +199,8 @@ class ApplicationController(
 
     internal fun detailView(application: LoanApplication): ApplicationResponse = detail(application)
 
-    private fun summary(application: LoanApplication): ApplicationSummary {
+    private fun summary(original: LoanApplication): ApplicationSummary {
+        val application = details.readView(original, CurrentCaller.claims())
         val product = details.product(application)
         return ApplicationSummary(
             id = application.id,
@@ -215,8 +222,9 @@ class ApplicationController(
         )
     }
 
-    private fun detail(application: LoanApplication): ApplicationResponse {
-        val detail = details.read(application, CurrentCaller.claims())
+    private fun detail(original: LoanApplication, newDraft: Boolean = false): ApplicationResponse {
+        val detail = details.read(original, CurrentCaller.claims(), newDraft)
+        val application = detail.application
         val product = detail.product
         val terms = application.terms
         val uploaded = detail.documents
@@ -256,6 +264,8 @@ class ApplicationController(
             agentCommissionRateBps = application.agentCommissionRateBps,
             agentCommissionAmount = application.agentCommissionAmount,
             agentCommissionStatus = application.agentCommissionStatus,
+            canResumeIndependently = detail.canResumeIndependently,
+            clientManaged = application.clientManaged,
         )
     }
 }

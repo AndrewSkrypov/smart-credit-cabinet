@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Source-bound own-DB, LOCAL migration, mTLS and Credit HTTP gate; no skipped tests."""
 import argparse
+import base64
+import hmac
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import urllib.request
 from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
@@ -48,6 +52,7 @@ def main():
     if not (temporary_root.is_relative_to('/tmp') or temporary_root.is_relative_to('/var/tmp')): temporary_root=Path('/tmp')
     scratch = Path(tempfile.mkdtemp(prefix='alpha-documents-runtime-',dir=temporary_root))
     processes = []
+    identity_server = None
     handles = []
     container = None
     pg_started = False
@@ -136,12 +141,18 @@ def main():
             process.terminate()
             try: process.wait(timeout=15)
             except subprocess.TimeoutExpired: process.kill(); process.wait(timeout=5)
-    def object_inventory(identity, db):
+    def object_inventory(identity, db, committed_only=False):
         if not s3: return []
         if db == 'documents': query = "select json_build_object('storedName',metadata->>'storedName','sizeBytes',metadata->'sizeBytes','checksum',metadata->>'checksum','backend',metadata->>'backend') from document_records union all select json_build_object('storedName',metadata->>'storedName','sizeBytes',metadata->'sizeBytes','checksum',metadata->>'checksum','backend',metadata->>'backend') from artifact_records where status='READY'"
         else: query = "select json_build_object('storedName',stored_name,'sizeBytes',size_bytes,'checksum',checksum_sha256,'backend',storage_backend) from documents union all select json_build_object('storedName',stored_name,'sizeBytes',size_bytes,'checksum',checksum,'backend',storage_backend) from generated_artifacts where status='READY'"
         output = subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d',db,'-c',query],env=base_env|{'PGPASSWORD':admin_password})
         records=[json.loads(line) for line in output.splitlines() if line]
+        if committed_only and db=='documents':
+            ref_output=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','credit','-c',"select document_id from document_references"],env=base_env|{'PGPASSWORD':admin_password})
+            refs={line.decode() for line in ref_output.splitlines() if line}
+            metadata_output=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','documents','-c',"select metadata from document_records"],env=base_env|{'PGPASSWORD':admin_password})
+            orphan_names={item['storedName'] for line in metadata_output.splitlines() if line for item in [json.loads(line)] if item['id'] not in refs}
+            records=[item for item in records if item['storedName'] not in orphan_names]
         for record in records:
             assert record['backend']=='S3'
             s3.verify(identity,record['storedName'],record['sizeBytes'],record['checksum'])
@@ -210,15 +221,15 @@ def main():
         sql('credit', f"""
 insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,submitted_at,status_changed_at,agent_id,client_handoff_at,client_managed,product_catalog_snapshot)
  values('{application}','{company}','000100000004','Документы','ENTREPRENEUR','{uuid.uuid4()}','WORKING_CAPITAL','CASH_GAP',123456,6,'SUBMITTED',now()-interval '2 days',now(),now()-interval '1 hour',now(),'{revoked_agent}',now()-interval '1 day',true,'{{"WORKING_CAPITAL":1}}');
-insert into financing_scenario_revisions(application_id,revision,product_version,snapshot) values('{application}',1,1,'{{}}');
-insert into financing_scenario_publications(application_id,revision,status,document_ids,handed_terms) values('{application}',1,'AWAITING_CLIENT','["{visible}"]','{{}}');
+insert into financing_scenario_revisions(application_id,revision,product_version,snapshot) values('{application}',1,1,'{{"revision":1,"status":"AWAITING_CLIENT","inputs":{{"openingBalance":0,"expectedReceiptAmount":200000,"expectedReceiptDate":"2026-12-20","paymentDate":"2026-12-21","delayDays":5,"alternativeTermMonths":9,"selectedTermMonths":6}},"loanAmount":123456,"annualRatePercent":12,"options":[]}}');
+insert into financing_scenario_publications(application_id,revision,status,document_ids,handed_terms) values('{application}',1,'AWAITING_CLIENT','["{visible}"]','{{"productCode":"WORKING_CAPITAL","purpose":"CASH_GAP","amount":123456,"termMonths":6,"bureauConsent":true}}');
 """, user='credit_owner', password=credit_password)
         for identity in (hidden, visible, private):
             private_flag = identity == private
             uploaded = "now()" if private_flag else "now()-interval '1 day'"
             sql('credit', f"insert into documents(id,application_id,type,file_name,stored_name,size_bytes,uploaded_by,uploaded_at,context,storage_backend,checksum_sha256,private_to_bank) values('{identity}','{application}','{'BANK_STATEMENT' if private_flag else 'OTHER'}','proof.pdf','{identity}.pdf',{len(body)},'{uuid.uuid4()}',{uploaded},'BUSINESS','{args.storage_backend.upper()}',{'null' if identity == hidden else chr(39)+checksum+chr(39)},{str(private_flag).lower()});", user='credit_owner', password=credit_password)
         # Freeze the old writer before copying any bytes; migration itself cannot activate either writer.
-        sql('credit', "update document_ownership set owner='FROZEN',epoch=2;", user='credit_owner', password=credit_password)
+        sql('credit', "begin; update document_ownership set owner='FROZEN',epoch=2;"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;", user='credit_owner', password=credit_password)
         sql('documents', 'update document_ownership set epoch=2;', user='documents_owner', password=own_password)
         migration_env = base_env | {'DOCUMENTS_DATABASE_URL': f'jdbc:postgresql://127.0.0.1:{pg_port}/documents', 'DOCUMENTS_DATABASE_USER': 'documents_owner', 'DOCUMENTS_DATABASE_PASSWORD': own_password,
             'DOCUMENTS_CREDIT_DATABASE_URL': f'jdbc:postgresql://127.0.0.1:{pg_port}/credit', 'DOCUMENTS_CREDIT_DATABASE_USER': 'credit_owner', 'DOCUMENTS_CREDIT_DATABASE_PASSWORD': credit_password,
@@ -266,18 +277,97 @@ insert into financing_scenario_publications(application_id,revision,status,docum
                             connection.sendall(b'stream: ERROR\0' if b'GATE-SCANNER-UNAVAILABLE' in content else (b'stream: Gate.EICAR FOUND\0' if b'EICAR' in content else b'stream: OK\0'))
         threading.Thread(target=scanner, daemon=True).start()
         sql('documents', "update document_ownership set owner='DOCUMENTS';", user='documents_owner', password=own_password)
-        sql('credit', "update document_ownership set owner='REMOTE';", user='credit_owner', password=credit_password)
+        sql('credit', "begin; update document_ownership set owner='REMOTE';"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;", user='credit_owner', password=credit_password)
+        regrant=(ROOT/'libs/platform-common/src/main/resources/cabinet/database-permissions.sql').read_text().replace('__OWNER__','credit_owner').replace('__APP__','credit_app')
+        sql('credit',regrant,user='credit_owner',password=credit_password,name='remote-regrant')
         own_env = base_env | {'DOCUMENTS_DATABASE_URL': f'jdbc:postgresql://127.0.0.1:{pg_port}/documents', 'DOCUMENTS_DATABASE_USER':'documents_app','DOCUMENTS_DATABASE_PASSWORD':own_app_password,
             'DOCUMENTS_GRPC_PORT':str(grpc_port),'DOCUMENTS_TLS_CERTIFICATE':str(certs/'server.crt'),'DOCUMENTS_TLS_KEY':str(certs/'server.key'),'DOCUMENTS_TLS_CA':str(certs/'ca.crt')}
         if s3: own_env['SPRING_APPLICATION_JSON']=json.dumps({'cabinet':{'storage':{'s3':s3.configuration('target')}}})
+        class IdentityFixture(BaseHTTPRequestHandler):
+            def do_GET(self):
+                match=re.fullmatch(r'/internal/v1/companies/([a-f0-9-]{36})',self.path)
+                if not match: self.send_error(404); return
+                body=json.dumps({'id':match[1],'inn':'000100000004','name':'Synthetic Documents company','legalForm':'ENTREPRENEUR'}).encode()
+                self.send_response(200); self.send_header('Content-Type','application/json'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
+            def log_message(self,*args): pass
+        identity_server=ThreadingHTTPServer(('127.0.0.1',0),IdentityFixture)
+        threading.Thread(target=identity_server.serve_forever,daemon=True).start()
+        credit_env = base_env | {'DB_HOST':'127.0.0.1','DB_PORT':str(pg_port),'DB_NAME':'credit','DB_USER':'credit_app','DB_PASSWORD':credit_app_password,'SERVER_PORT':str(http_port),'JWT_SECRET':jwt,'PIPELINE_ENABLED':'true','OUTBOX_WORKER_ENABLED':'false','IDENTITY_URL':f'http://127.0.0.1:{identity_server.server_address[1]}','ANTIVIRUS_ENABLED':'false','STORAGE_BACKEND':args.storage_backend,'UPLOAD_DIR':str(credit_files)}
+        credit = start([java,'-Xmx320m','-jar','services/credit/build/libs/app.jar','--spring.flyway.enabled=false','--server.address=127.0.0.1','--spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration','--cabinet.pipeline.max-attempts=2','--cabinet.pipeline.poll-interval=PT0.2S','--cabinet.documents.grpc.deadline-ms=1500','--cabinet.documents.mode=remote','--cabinet.documents.epoch=2','--cabinet.documents.grpc.host=127.0.0.1',f'--cabinet.documents.grpc.port={grpc_port}',f'--cabinet.documents.grpc.certificate={certs/"credit.crt"}',f'--cabinet.documents.grpc.key={certs/"credit.key"}',f'--cabinet.documents.grpc.ca={certs/"ca.crt"}'], 'credit', credit_env)
+        wait_port(http_port, credit)
+        def synthetic_token(actor, company_id):
+            def b64(value): return base64.urlsafe_b64encode(value).decode().rstrip('=')
+            unsigned=b64(b'{"alg":"HS256"}')+'.'+b64(json.dumps({'sub':actor,'role':'CLIENT','cid':company_id,'name':'Synthetic Documents gate','exp':int(time.time())+300}).encode())
+            return unsigned+'.'+b64(hmac.new(jwt.encode(),unsigned.encode(),hashlib.sha256).digest())
+        draft_actor,draft_company=str(uuid.uuid4()),str(uuid.uuid4())
+        draft_token=synthetic_token(draft_actor,draft_company)
+        draft_request=urllib.request.Request(f'http://127.0.0.1:{http_port}/api/v1/applications',data=json.dumps({'productCode':'WORKING_CAPITAL','purpose':'CASH_GAP','amount':123456,'termMonths':6}).encode(),headers={'Authorization':'Bearer '+draft_token,'Content-Type':'application/json'},method='POST')
+        with urllib.request.urlopen(draft_request,timeout=10) as response:
+            assert response.status==201
+            created=json.load(response)
+            assert created['documents']==[]
+        (report/'create-while-documents-down.json').write_text(json.dumps({'status':201,'draftId':created['id'],'files':[],'documentsPortListening':False})+'\n')
         own = start([java,'-Xmx256m','-jar','services/documents/build/libs/app.jar','--spring.flyway.enabled=false',f'--cabinet.storage.local-dir={target_files}',f'--cabinet.antivirus.port={scanner_port}',f'--cabinet.storage.mode={args.storage_backend}','--cabinet.documents.grpc.host=127.0.0.1'], 'documents', own_env)
         wait_port(grpc_port, own)
         replica_port = free_port()
         replica = start([*own.args,f'--cabinet.documents.grpc.port={replica_port}'],'documents-replica',own_env)
         wait_port(replica_port,replica)
-        credit_env = base_env | {'DB_HOST':'127.0.0.1','DB_PORT':str(pg_port),'DB_NAME':'credit','DB_USER':'credit_app','DB_PASSWORD':credit_app_password,'SERVER_PORT':str(http_port),'JWT_SECRET':jwt,'PIPELINE_ENABLED':'true','OUTBOX_WORKER_ENABLED':'false','IDENTITY_URL':'','ANTIVIRUS_ENABLED':'false','STORAGE_BACKEND':args.storage_backend,'UPLOAD_DIR':str(credit_files)}
-        credit = start([java,'-Xmx320m','-jar','services/credit/build/libs/app.jar','--spring.flyway.enabled=false','--server.address=127.0.0.1','--spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration','--cabinet.documents.mode=remote','--cabinet.documents.epoch=2','--cabinet.documents.grpc.host=127.0.0.1',f'--cabinet.documents.grpc.port={grpc_port}',f'--cabinet.documents.grpc.certificate={certs/"credit.crt"}',f'--cabinet.documents.grpc.key={certs/"credit.key"}',f'--cabinet.documents.grpc.ca={certs/"ca.crt"}'], 'credit', credit_env)
-        wait_port(http_port, credit)
+        def scalar(db,query):
+            return subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d',db,'-c',query],env=base_env|{'PGPASSWORD':admin_password}).decode().strip()
+        # Real Credit process death after remote commit but before its journal/transaction commit.
+        draft_id=created['id']; crash_key=str(uuid.uuid4())
+        crash_body=b'%PDF-1.4\nCredit crash replay\n%%EOF'
+        form_boundary='documents-crash-'+str(uuid.uuid4())
+        form=(f'--{form_boundary}\r\nContent-Disposition: form-data; name="file"; filename="crash-retry.pdf"\r\nContent-Type: application/pdf\r\n\r\n'.encode()+crash_body+f'\r\n--{form_boundary}--\r\n'.encode())
+        upload_request=urllib.request.Request(f'http://127.0.0.1:{http_port}/api/v1/applications/{draft_id}/documents?type=OTHER',data=form,headers={'Authorization':'Bearer '+draft_token,'Idempotency-Key':crash_key,'Content-Type':'multipart/form-data; boundary='+form_boundary},method='POST')
+        sql('credit',f"create function documents_gate_crash() returns trigger language plpgsql as $$ begin if new.application_id='{draft_id}' and new.payload->>'fileName'='crash-retry.pdf' then perform pg_sleep(30); end if; return new; end $$; create trigger documents_gate_crash before insert on application_events for each row execute function documents_gate_crash();",user='credit_owner',password=credit_password,name='crash-fixture')
+        def interrupted_upload():
+            try:
+                with urllib.request.urlopen(upload_request,timeout=10) as response: response.read()
+            except Exception: pass # The deliberate process death owns this connection failure.
+        upload_thread=threading.Thread(target=interrupted_upload,daemon=True); upload_thread.start()
+        deadline=time.monotonic()+15
+        while True:
+            original=scalar('documents',f"select metadata from document_records where application_id='{draft_id}' and metadata->>'fileName'='crash-retry.pdf'")
+            if original: break
+            if time.monotonic()>deadline: raise AssertionError('Remote upload never reached crash checkpoint')
+            time.sleep(.1)
+        original=json.loads(original)
+        credit.kill(); credit.wait(timeout=10); upload_thread.join(timeout=5)
+        sql('credit','drop trigger documents_gate_crash on application_events; drop function documents_gate_crash();',user='credit_owner',password=credit_password,name='crash-fixture')
+        assert scalar('credit',f"select count(*) from document_references where document_id='{original['id']}'")=='0'
+        credit=start([arg for arg in credit.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')],'credit-after-upload-crash',credit_env); wait_port(http_port,credit)
+        with urllib.request.urlopen(upload_request,timeout=10) as response:
+            replay=json.load(response); assert response.status==201
+        assert replay['id']==original['id'] and replay['uploadedAt']==original['uploadedAt']
+        assert scalar('credit',f"select count(*) from application_events where application_id='{draft_id}' and event='DOCUMENT_ADDED'")=='1'
+        (report/'upload-crash-recovery.json').write_text(json.dumps({'replayedId':replay['id'],'stableUploadedAt':True,'journalCount':1,'remoteCommittedCreditRolledBack':True})+'\n')
+        # A real DATA_CHECK port outage exceeds maxAttempts; each retry preserves its business count.
+        stop(own); stop(replica)
+        outage_job=str(uuid.uuid4())
+        sql('credit',f"insert into enrichment_results(application_id,source,payload,fetched_at) values('{application}','BANK','{{\"client\":true,\"settlementAccount\":null,\"monthlyInflows\":[]}}',now()); insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at) values('{outage_job}','{application}','DATA_CHECK','PENDING',0,now(),now(),now());",user='credit_owner',password=credit_password,name='outage-fixture')
+        deadline=time.monotonic()+35
+        while True:
+            row=scalar('credit',f"select status||':'||attempts||':'||documents_outages from pipeline_jobs where id='{outage_job}'")
+            status,attempts,outages=row.split(':')
+            assert status!='FAILED' and int(attempts)<=1,row
+            if int(outages)>=4: break
+            sql('credit',f"update pipeline_jobs set run_at=now() where id='{outage_job}' and status='PENDING';",user='credit_owner',password=credit_password,name='outage-clock')
+            if time.monotonic()>deadline: raise AssertionError('Durable Documents outage retry did not repeat beyond maxAttempts: '+row)
+            time.sleep(.25)
+        own=start([arg for arg in own.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')],'documents-after-outage',own_env); wait_port(grpc_port,own)
+        # Keep the next pipeline step waiting, so this gate only proves DATA_CHECK recovery.
+        sql('credit',"create function documents_gate_hold_enrichment() returns trigger language plpgsql as $$ begin if new.step='ENRICHMENT' then new.run_at=now()+interval '1 hour'; end if; return new; end $$; create trigger documents_gate_hold_enrichment before insert on pipeline_jobs for each row execute function documents_gate_hold_enrichment();",user='credit_owner',password=credit_password,name='outage-fixture')
+        sql('credit',f"update pipeline_jobs set run_at=now() where id='{outage_job}' and status='PENDING';",user='credit_owner',password=credit_password,name='outage-clock')
+        deadline=time.monotonic()+15
+        while scalar('credit',f"select status from pipeline_jobs where id='{outage_job}'")!='DONE':
+            if time.monotonic()>deadline: raise AssertionError('DATA_CHECK did not recover')
+            time.sleep(.2)
+        assert scalar('credit',f"select status from applications where id='{application}'")=='ENRICHMENT'
+        # Restore the submitted packet fixture without modifying its documents or history.
+        sql('credit',f"update applications set status='SUBMITTED' where id='{application}'; update pipeline_jobs set status='CANCELLED' where application_id='{application}' and status='PENDING'; drop trigger documents_gate_hold_enrichment on pipeline_jobs; drop function documents_gate_hold_enrichment();",user='credit_owner',password=credit_password,name='outage-fixture')
+        (report/'data-check-outage-recovery.json').write_text(json.dumps({'outageRetries':int(outages),'maxBusinessAttempts':2,'failed':False,'recoveredStatus':'DONE','businessAttemptsPreserved':True})+'\n')
+        replica=start([*own.args,f'--cabinet.documents.grpc.port={replica_port}'],'documents-replica-after-outage',own_env); wait_port(replica_port,replica)
         test_env = base_env | {'DOCUMENTS_TEST_STORAGE_BACKEND':args.storage_backend.upper(),'DOCUMENTS_TEST_CERTS':str(certs),'DOCUMENTS_TEST_GRPC_PORT':str(grpc_port),'DOCUMENTS_TEST_APPLICATION':application,'DOCUMENTS_TEST_COMPANY':company,'DOCUMENTS_TEST_HIDDEN':hidden,'DOCUMENTS_TEST_VISIBLE':visible,'DOCUMENTS_TEST_PRIVATE':private,'DOCUMENTS_TEST_REVOKED_AGENT':revoked_agent,
             'DOCUMENTS_TEST_CREDIT_URL':f'http://127.0.0.1:{http_port}','DOCUMENTS_TEST_JWT_SECRET':jwt,'DOCUMENTS_TEST_DATABASE_BASE':f'jdbc:postgresql://127.0.0.1:{pg_port}','DOCUMENTS_TEST_ADMIN_USER':admin,'DOCUMENTS_TEST_ADMIN_PASSWORD':admin_password,'DOCUMENTS_TEST_CREDIT_APP_PASSWORD':credit_app_password,'DOCUMENTS_TEST_DOCUMENTS_APP_PASSWORD':own_app_password}
         run([gradle,'--no-daemon','--max-workers=1','-Pkotlin.compiler.execution.strategy=in-process','-Dorg.gradle.jvmargs=-Xmx512m -XX:MaxMetaspaceSize=384m',':services:documents:documentsRuntimeTest','--rerun-tasks'], 'tests', env=test_env)
@@ -303,7 +393,8 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         # A second restarted poll observes durable READY and must preserve one notice/outbox effect.
         time.sleep(2)
         sql('credit', "do $$ begin if (select count(*) from generated_artifact_notices)<>1 then raise exception 'Notice dedup failed'; end if; if (select count(*) from delivery_outbox where event_key like 'generated-files:%')<>1 then raise exception 'Outbox dedup failed'; end if; end $$;", user='credit_owner', password=credit_password, name='recovery')
-        target_inventory = object_inventory('target','documents')
+        physical_target_inventory = object_inventory('target','documents')
+        target_inventory = object_inventory('target','documents',committed_only=True)
         stop(credit); stop(own)
         sql('documents', "update document_ownership set owner='FROZEN',epoch=3;", user='documents_owner', password=own_password)
         sql('credit', "update document_ownership set owner='FROZEN',epoch=3;", user='credit_owner', password=credit_password)
@@ -353,17 +444,19 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         sql('credit',f"alter table generated_artifacts disable trigger artifacts_owner_fence; delete from generated_artifacts where id='{artifact['id']}'; alter table generated_artifacts enable trigger artifacts_owner_fence;",user='credit_owner',password=credit_password,name='conflict-fixture')
         run(migration_command, 'migration-reverse', env=migration_env | {'DOCUMENTS_MIGRATION_DIRECTION':'reverse'})
         run(migration_command, 'migration-reverse-repeat', env=migration_env | {'DOCUMENTS_MIGRATION_DIRECTION':'reverse'})
+        sql('credit', "do $$ begin if exists(select 1 from documents d left join document_references r on r.document_id=d.id and r.application_id=d.application_id where r.document_id is null) then raise exception 'Uncommitted orphan imported'; end if; end $$;", user='credit_owner',password=credit_password,name='orphan-reverse-invisibility')
         source_inventory = object_inventory('source','credit')
         assert not s3 or sorted(source_inventory,key=lambda row:row['storedName']) == sorted(target_inventory,key=lambda row:row['storedName'])
-        sql('credit', "update document_ownership set owner='LOCAL';", user='credit_owner', password=credit_password)
+        sql('credit', "begin; update document_ownership set owner='LOCAL';"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;", user='credit_owner', password=credit_password)
         sql('credit', (ROOT/'db/rollback/credit/U26__documents_boundary.sql').read_text(), user='credit_owner', password=credit_password, name='rollback-compatibility')
         # V26 remains additive: all pre-existing metadata and attachment references survive.
         sql('credit', f"do $$ begin if (select count(*) from documents where application_id='{application}') < 4 then raise exception 'Reverse import lost rows'; end if; end $$;", user='credit_owner', password=credit_password, name='rollback-compatibility')
         revision = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()
         tree = subprocess.check_output(['git','rev-parse','HEAD^{tree}'],cwd=ROOT).decode().strip()
         jars = {service:hashlib.sha256((ROOT/f'services/{service}/build/libs/app.jar').read_bytes()).hexdigest() for service in ('documents','credit')}
-        (report/'receipt.json').write_text(json.dumps({'sourceSha':revision,'sourceTree':tree,'jars':jars,'tests':totals,'migration':['forward','repeat','reverse','U26-data-preserving','document+artifact-immutable-conflicts-fail-FROZEN-with-original-bytes'],'recovery':['two-competing-Documents-workers','expired-lease-after-two-JAR-restart','durable-READY','single-Credit-notice-and-notification-outbox'],'storageBackend':args.storage_backend,'s3':({'provenance':s3.provenance,'targetPerFile':target_inventory,'reversePerFile':source_inventory} if s3 else {'status':'not-tested-in-LOCAL-profile'}),'scanner':'synthetic fresh clamd protocol; clean+reject; not AV efficacy evidence','environment':'native private PostgreSQL + actual standalone Documents/Credit JARs + mTLS'},ensure_ascii=False,indent=2)+'\n')
+        (report/'receipt.json').write_text(json.dumps({'sourceSha':revision,'sourceTree':tree,'jars':jars,'tests':totals,'migration':['forward','repeat','reverse','U26-data-preserving','document+artifact-immutable-conflicts-fail-FROZEN-with-original-bytes'],'recovery':['two-competing-Documents-workers','expired-lease-after-two-JAR-restart','durable-READY','single-Credit-notice-and-notification-outbox'],'storageBackend':args.storage_backend,'s3':({'provenance':s3.provenance,'targetPerFile':target_inventory,'physicalTargetIncludingOrphans':physical_target_inventory,'reversePerFile':source_inventory} if s3 else {'status':'not-tested-in-LOCAL-profile'}),'scanner':'synthetic fresh clamd protocol; clean+reject; not AV efficacy evidence','environment':'native private PostgreSQL + actual standalone Documents/Credit JARs + mTLS'},ensure_ascii=False,indent=2)+'\n')
     finally:
+        if identity_server: identity_server.shutdown(); identity_server.server_close()
         scanner_stop.set()
         if s3: s3.close()
         for process in reversed(processes): stop(process)

@@ -406,6 +406,18 @@ class DocumentsRuntimeTest {
             ).statusCode(),
         )
         assertEquals(404, http("/internal/documents/v1", client).statusCode())
+        val bank = token(UUID.randomUUID(), "UNDERWRITER", null)
+        assertEquals(200, http("/api/v1/applications", bank).statusCode())
+        assertEquals(200, http(base, bank).statusCode())
+        assertEquals(200, http("$base/financing-scenario", client).statusCode())
+        val uploaded = multipart("$base/messages/attachments", client, UUID.randomUUID().toString(), "chat.pdf", "%PDF-1.4\nchat\n%%EOF".toByteArray())
+        assertEquals(200, uploaded.statusCode(), String(uploaded.body()))
+        val chatId = mapper.readTree(uploaded.body())["id"].asText()
+        assertEquals(200, http("$base/messages", client, """{"idempotencyKey":"${UUID.randomUUID()}","text":"Remote attachment","documentIds":["$chatId"]}""").statusCode())
+        val messages = http("$base/messages", bank)
+        assertEquals(200, messages.statusCode())
+        assertTrue(String(messages.body()).contains(chatId))
+        assertEquals(200, http("$base/documents/$chatId", bank).statusCode())
     }
 
     @Test
@@ -431,12 +443,89 @@ class DocumentsRuntimeTest {
             connection.createStatement().use { statement ->
                 val denied = assertFailsWith<java.sql.SQLException> { statement.executeUpdate("update document_ownership set epoch=epoch+1") }
                 assertEquals("42501", denied.sqlState)
+                for (table in listOf("documents", "generated_artifacts")) {
+                    val oldReader = assertFailsWith<java.sql.SQLException> { statement.executeQuery("select * from $table limit 1") }
+                    assertEquals("42501", oldReader.sqlState)
+                }
                 val fenced = assertFailsWith<java.sql.SQLException> { statement.executeQuery("select public.assert_local_documents_writer()") }
                 assertEquals("55000", fenced.sqlState)
             }
         }
         assertFailsWith<java.sql.SQLException> { DriverManager.getConnection("$base/credit", "documents_app", documentsPassword).close() }
         assertFailsWith<java.sql.SQLException> { DriverManager.getConnection("$base/documents", "credit_app", creditPassword).close() }
+    }
+
+    @Test
+    fun `Credit rollback and lost reply keep uploads invisible until committed reference and replay exact owner metadata`() {
+        val application = UUID.randomUUID()
+        val company = UUID.randomUUID()
+        val actor = UUID.randomUUID()
+        val auth = token(actor, "CLIENT", company)
+        val documentScope = DocumentScope(company, application)
+        val base = "/api/v1/applications/$application"
+        db("credit") { connection ->
+            connection.createStatement().use { it.executeUpdate("insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,status_changed_at,product_catalog_snapshot) values('$application','$company','000100000004','Upload rollback','ENTREPRENEUR','$actor','WORKING_CAPITAL','CASH_GAP',123456,6,'DRAFT',now(),now(),now(),'{\"WORKING_CAPITAL\":1}')") }
+        }
+        for ((index, lostReply) in listOf(false, true, false).withIndex()) {
+            val key = UUID.randomUUID().toString()
+            val fileName = if (index == 2) "abandoned-upload.pdf" else if (lostReply) "timeout-rollback.pdf" else "journal-rollback.pdf"
+            val bytes = "%PDF-1.4\n$fileName\n%%EOF".toByteArray()
+            db("credit") { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute("create function documents_gate_journal_failure() returns trigger language plpgsql as $$ begin if new.application_id='$application' and new.payload->>'fileName'='$fileName' then perform pg_sleep(${if (lostReply) 2 else 0}); raise exception 'Synthetic journal rollback'; end if; return new; end $$")
+                    statement.execute("create trigger documents_gate_journal_failure before insert on application_events for each row execute function documents_gate_journal_failure()")
+                }
+            }
+            try {
+                if (lostReply) {
+                    assertFailsWith<java.net.http.HttpTimeoutException> { multipart("$base/documents?type=OTHER", auth, key, fileName, bytes, 300) }
+                    Thread.sleep(3000)
+                } else {
+                    assertEquals(500, multipart("$base/documents?type=OTHER", auth, key, fileName, bytes).statusCode())
+                }
+                var orphan: DocumentRecord? = null
+                client { remote -> orphan = remote.list(documentScope).single { it.fileName == fileName } }
+                val stored = orphan!!
+                assertEquals(404, http("$base/documents/${stored.id}", auth).statusCode())
+                val view = http(base, auth)
+                assertEquals(200, view.statusCode())
+                assertTrue(mapper.readTree(view.body())["documents"].none { it["id"].asText() == stored.id.toString() })
+                db("credit") { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.executeQuery("select count(*) from document_references where document_id='${stored.id}'").use { rs -> rs.next(); assertEquals(0, rs.getInt(1)) }
+                    }
+                }
+            } finally {
+                db("credit") { connection -> connection.createStatement().use { it.execute("drop trigger documents_gate_journal_failure on application_events; drop function documents_gate_journal_failure()") } }
+            }
+            if (index == 2) continue
+            var before: DocumentRecord? = null
+            client { remote -> before = remote.list(documentScope).single { it.fileName == fileName } }
+            val retry = multipart("$base/documents?type=OTHER", auth, key, fileName, bytes)
+            assertEquals(201, retry.statusCode(), String(retry.body()))
+            val actual = mapper.readTree(retry.body())
+            assertEquals(before!!.id.toString(), actual["id"].asText())
+            assertEquals(before!!.uploadedAt, Instant.parse(actual["uploadedAt"].asText()))
+            assertContentEquals(retry.body(), multipart("$base/documents?type=OTHER", auth, key, fileName, bytes).body())
+            assertEquals(409, multipart("$base/documents?type=OTHER", auth, key, fileName, "%PDF-1.4\nchanged\n%%EOF".toByteArray()).statusCode())
+            client { remote -> assertEquals(before, remote.list(documentScope).single { it.fileName == fileName }) }
+            db("credit") { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery("select count(*) from application_events where application_id='$application' and event='DOCUMENT_ADDED' and payload->>'documentId'='${before!!.id}'").use { rs -> rs.next(); assertEquals(1, rs.getInt(1)) }
+                }
+            }
+        }
+    }
+
+    private fun multipart(path: String, token: String, key: String, name: String, bytes: ByteArray, timeoutMs: Long = 10000): HttpResponse<ByteArray> {
+        val boundary = "documents-runtime-${UUID.randomUUID()}"
+        val prefix = "--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"$name\"\r\nContent-Type: application/pdf\r\n\r\n".toByteArray()
+        val body = prefix + bytes + "\r\n--$boundary--\r\n".toByteArray()
+        val request = HttpRequest.newBuilder(URI.create(env("DOCUMENTS_TEST_CREDIT_URL") + path))
+            .timeout(java.time.Duration.ofMillis(timeoutMs)).header("Authorization", "Bearer $token")
+            .header("Idempotency-Key", key).header("Content-Type", "multipart/form-data; boundary=$boundary")
+            .POST(HttpRequest.BodyPublishers.ofByteArray(body)).build()
+        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofByteArray())
     }
 
     private fun http(path: String, token: String, body: String? = null): HttpResponse<ByteArray> {

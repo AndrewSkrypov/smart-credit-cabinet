@@ -61,6 +61,10 @@ class DocumentsRpc(private val store: DocumentsStore, private val mapper: Object
             }
             observer.onNext(result)
             observer.onCompleted()
+        } catch (_: DocumentConflict) {
+            observer.onError(Status.ALREADY_EXISTS.asRuntimeException())
+        } catch (failure: ru.creditcabinet.common.exception.ApiException) {
+            observer.onError((if (failure.httpStatus == org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE) Status.UNAVAILABLE else Status.INVALID_ARGUMENT).asRuntimeException())
         } catch (
             _: IllegalArgumentException,
         ) {

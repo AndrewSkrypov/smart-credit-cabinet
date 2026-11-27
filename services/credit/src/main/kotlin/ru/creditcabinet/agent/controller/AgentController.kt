@@ -166,9 +166,10 @@ class AgentController(
         @RequestParam type: DocumentType,
         @RequestParam(defaultValue = "false") privateToBank: Boolean,
         @RequestPart file: MultipartFile,
+        @RequestHeader("Idempotency-Key", required = false) operationKey: String?,
     ): DocumentView {
         if (privateToBank) throw ForbiddenException("Приватную выписку банку может загрузить клиент")
-        return DocumentView.of(service.uploadDocument(id, type, file))
+        return DocumentView.of(service.uploadDocument(id, type, file, operationKey))
     }
 
     @Operation(summary = "Скачать документ агентской заявки")

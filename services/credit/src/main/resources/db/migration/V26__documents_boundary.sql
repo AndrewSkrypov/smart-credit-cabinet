@@ -49,3 +49,20 @@ create trigger document_artifact_inputs_immutable before update or delete on doc
 alter table message_attachments drop constraint message_attachments_document_id_application_id_fkey;
 alter table application_chat_upload_keys drop constraint application_chat_upload_keys_document_id_application_id_fkey;
 alter table application_chat_audit drop constraint application_chat_audit_document_id_application_id_fkey;
+
+-- Credit owns only the committed application association, never remote file metadata.
+-- The upload RPC may finish before this transaction: unreferenced remote rows remain invisible.
+create table document_references (
+ document_id uuid primary key, application_id uuid not null references applications(id),
+ created_at timestamptz not null default now()
+);
+insert into document_references(document_id,application_id) select id,application_id from documents;
+create function record_local_document_reference() returns trigger language plpgsql as $$
+begin
+ insert into document_references(document_id,application_id) values(new.id,new.application_id) on conflict do nothing;
+ return new;
+end $$;
+create trigger documents_business_reference after insert on documents for each row execute function record_local_document_reference();
+
+-- Expected Documents outages do not consume business failure attempts.
+alter table pipeline_jobs add column documents_outages integer not null default 0 check(documents_outages between 0 and 7);

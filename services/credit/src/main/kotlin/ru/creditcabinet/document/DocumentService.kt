@@ -81,21 +81,21 @@ class DocumentService(
                 infoRequests.open(application.id)?.items?.any { it.documentType == type } == true
             if (!requested) throw ConflictException("Банк сейчас не запрашивает выписку по счёту")
         }
-        return persist(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, privateToBank)
+        return persist(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, privateToBank, file.operationKey)
     }
 
     /** An agent adds documents to their own mandate-verified application in DRAFT or INFO_REQUESTED. */
     @Transactional
-    fun uploadForAgent(application: LoanApplication, claims: TokenClaims, type: DocumentType, file: MultipartFile): ApplicationDocument {
+    fun uploadForAgent(application: LoanApplication, claims: TokenClaims, type: DocumentType, file: MultipartFile, operationKey: String? = null): ApplicationDocument {
         if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
         val upload = DocumentUpload(file.originalFilename, file.size) { file.bytes }
-        return persist(application, claims, type, upload.fileName, upload.size, upload.read, DocumentContext.BUSINESS)
+        return persist(application, claims, type, upload.fileName, upload.size, upload.read, DocumentContext.BUSINESS, operationKey = operationKey)
     }
 
     /** Chat shares validation and storage, but its files cannot satisfy financial requirements or add process events. */
     @Transactional
     fun uploadChat(application: LoanApplication, caller: TokenClaims, upload: ChatUpload): ApplicationDocument =
-        persist(application, caller, DocumentType.OTHER, upload.fileName, upload.bytes.size.toLong(), { upload.bytes }, DocumentContext.CHAT)
+        persist(application, caller, DocumentType.OTHER, upload.fileName, upload.bytes.size.toLong(), { upload.bytes }, DocumentContext.CHAT, operationKey = upload.operationKey)
 
     private fun persist(
         application: LoanApplication,
@@ -106,6 +106,7 @@ class DocumentService(
         content: () -> ByteArray,
         context: DocumentContext,
         privateToBank: Boolean = false,
+        operationKey: String? = null,
     ): ApplicationDocument {
         if (!uploadsEnabled) {
             throw ru.creditcabinet.common.exception.ApiException(
@@ -126,11 +127,18 @@ class DocumentService(
         if (!FileContent.matches(extension, bytes)) throw BadRequestException("Содержимое файла не похоже на .$extension — проверьте, что выбран нужный файл")
         scanner.scan(bytes)
         val now = clock.instant()
-        val document = ApplicationDocument(
+        val key = operationKey?.also { if (it.isBlank() || it.length > 128) throw BadRequestException("Некорректный ключ загрузки") }
+        val id = if (boundary?.remote == true && key != null) {
+            UUID.nameUUIDFromBytes("credit-document-v1:${application.company.id}:${application.id}:${claims.userId}:$context:$key".toByteArray())
+        } else {
+            UUID.randomUUID()
+        }
+        var document = ApplicationDocument(
+            id = id,
             applicationId = application.id,
             type = type,
             fileName = fileName,
-            storedName = "${UUID.randomUUID()}.$extension",
+            storedName = "$id.$extension",
             sizeBytes = bytes.size.toLong(),
             uploadedBy = claims.userId,
             uploadedAt = now,
@@ -139,13 +147,15 @@ class DocumentService(
             checksumSha256 = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) },
             privateToBank = privateToBank,
         )
-        if (boundary?.remote == true) {
-            boundary.put(document, bytes)
+        val newlyCommitted = if (boundary?.remote == true) {
+            document = boundary.put(document, bytes)
+            boundary.commitReference(document)
         } else {
             store.put(document.storedName, bytes.inputStream(), document.sizeBytes)
             documents.save(document)
+            true
         }
-        if (context == DocumentContext.BUSINESS) {
+        if (newlyCommitted && context == DocumentContext.BUSINESS) {
             journal.append(
                 application.note(
                     if (privateToBank) JournalNote.PRIVATE_DOCUMENT_ADDED else JournalNote.DOCUMENT_ADDED,

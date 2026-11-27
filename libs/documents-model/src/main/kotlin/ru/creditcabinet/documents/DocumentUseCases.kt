@@ -12,6 +12,8 @@ interface DocumentMetadata {
     fun insert(record: DocumentRecord)
 }
 
+class DocumentConflict : IllegalStateException("Document identity conflict")
+
 /** Transaction and scope fencing surround the use case in the inbound adapter. */
 class StoreDocument(private val metadata: DocumentMetadata, private val objects: FileStore, private val scanner: DocumentScanner) {
     fun execute(record: DocumentRecord, bytes: ByteArray) {
@@ -19,13 +21,13 @@ class StoreDocument(private val metadata: DocumentMetadata, private val objects:
         require(record.deletedAt == null && bytes.size.toLong() == record.sizeBytes && sha256(bytes) == record.checksum)
         val old = metadata.find(record.id)
         if (old != null) {
-            require(old == record)
+            if (old.deletedAt != null || old.copy(uploadedAt = record.uploadedAt, backend = record.backend) != record) throw DocumentConflict()
             return
         }
         metadata.reserve(record)
         val concurrent = metadata.find(record.id)
         if (concurrent != null) {
-            require(concurrent == record)
+            if (concurrent.deletedAt != null || concurrent.copy(uploadedAt = record.uploadedAt, backend = record.backend) != record) throw DocumentConflict()
             return
         }
         scanner.scan(bytes)

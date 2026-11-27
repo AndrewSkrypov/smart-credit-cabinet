@@ -103,7 +103,7 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
                 limit :limit
                 for update skip locked
             )
-            returning id, application_id, step, attempts
+            returning id, application_id, step, attempts, locked_until
             """.trimIndent(),
             mapOf("now" to Timestamp.from(now), "leaseUntil" to Timestamp.from(leaseUntil), "limit" to limit),
         ) { rs, _ ->
@@ -112,6 +112,7 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
                 applicationId = rs.getObject("application_id", UUID::class.java),
                 step = PipelineStep.valueOf(rs.getString("step")),
                 attempts = rs.getInt("attempts"),
+                leaseUntil = rs.getTimestamp("locked_until").toInstant(),
             )
         }
 
@@ -129,6 +130,21 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
             where id = :id and status = 'RUNNING'
             """.trimIndent(),
             mapOf("id" to id, "runAt" to Timestamp.from(runAt), "error" to error?.take(2000)),
+        )
+    }
+
+    override fun retryDocumentsUnavailable(job: PipelineJob, now: Instant) {
+        require(job.step == PipelineStep.DATA_CHECK && job.leaseUntil != null)
+        jdbc.update(
+            """
+            update pipeline_jobs set status='PENDING', attempts=greatest(attempts-1,0),
+              run_at=:now + least(300,5*power(2,least(documents_outages,6))) * interval '1 second',
+              documents_outages=least(documents_outages+1,7), locked_until=null,
+              last_error='Documents temporarily unavailable', updated_at=:now
+            where id=:id and status='RUNNING' and attempts=:attempt and step='DATA_CHECK'
+              and locked_until=:lease and locked_until>:now
+            """.trimIndent(),
+            mapOf("id" to job.id, "attempt" to job.attempts, "lease" to Timestamp.from(job.leaseUntil), "now" to Timestamp.from(now)),
         )
     }
 

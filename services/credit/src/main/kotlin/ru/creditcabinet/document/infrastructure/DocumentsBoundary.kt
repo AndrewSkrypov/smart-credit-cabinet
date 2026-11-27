@@ -62,13 +62,31 @@ class DocumentsBoundary(
     fun scope(
         applicationId: UUID,
     ): DocumentScope = DocumentScope(jdbc.queryForObject("select company_id from applications where id=?", UUID::class.java, applicationId)!!, applicationId)
-    fun put(document: ApplicationDocument, bytes: ByteArray) = rpc { client().put(document.record(scope(document.applicationId)), bytes) }
+    fun put(document: ApplicationDocument, bytes: ByteArray): ApplicationDocument = rpc {
+        val scope = scope(document.applicationId)
+        client().put(document.record(scope), bytes)
+        // A replay returns the original owner-chosen timestamp/backend/path, including after a lost reply.
+        client().list(scope).single { it.id == document.id && it.deletedAt == null }.document()
+    }
+    fun commitReference(document: ApplicationDocument): Boolean {
+        check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+        val inserted = jdbc.update(
+            "insert into document_references(document_id,application_id) values(?,?) on conflict do nothing",
+            document.id, document.applicationId,
+        )
+        check(jdbc.queryForObject("select application_id from document_references where document_id=?", UUID::class.java, document.id) == document.applicationId)
+        return inserted == 1
+    }
     fun bytes(document: ApplicationDocument): StoredFile = rpc {
         val bytes = client().read(scope(document.applicationId), document.id, document.context.name)
         require(bytes.size.toLong() == document.sizeBytes && ru.creditcabinet.documents.sha256(bytes) == document.checksumSha256)
         StoredFile(bytes.size.toLong(), bytes.inputStream())
     }
-    fun all(applicationId: UUID): List<DocumentRecord> = rpc { client().list(scope(applicationId)) }
+    fun all(applicationId: UUID): List<DocumentRecord> {
+        val committed = jdbc.query("select document_id from document_references where application_id=?", { rs, _ -> rs.getObject(1, UUID::class.java) }, applicationId).toSet()
+        if (committed.isEmpty()) return emptyList()
+        return rpc { client().list(scope(applicationId)).filter { it.id in committed } }
+    }
     override fun list(applicationId: UUID): List<ApplicationDocument> = if (!remote) {
         local.list(applicationId)
     } else {
@@ -124,12 +142,18 @@ class DocumentsBoundary(
     ): T = try {
         action()
     } catch (failure: io.grpc.StatusRuntimeException) {
-        if (failure.status.code == io.grpc.Status.Code.NOT_FOUND) throw ru.creditcabinet.common.exception.NotFoundException("Файл не найден")
-        unavailable()
+        when (failure.status.code) {
+            io.grpc.Status.Code.NOT_FOUND, io.grpc.Status.Code.PERMISSION_DENIED, io.grpc.Status.Code.UNAUTHENTICATED ->
+                throw ru.creditcabinet.common.exception.NotFoundException("Файл не найден")
+            io.grpc.Status.Code.ALREADY_EXISTS -> throw ru.creditcabinet.common.exception.ConflictException("Ключ загрузки уже использован для другого файла")
+            io.grpc.Status.Code.INVALID_ARGUMENT -> throw ru.creditcabinet.common.exception.BadRequestException("Некорректные данные документа")
+            io.grpc.Status.Code.UNAVAILABLE, io.grpc.Status.Code.DEADLINE_EXCEEDED, io.grpc.Status.Code.RESOURCE_EXHAUSTED, io.grpc.Status.Code.CANCELLED -> unavailable()
+            else -> throw ApiException(HttpStatus.BAD_GATEWAY, "Ошибка обработки документа")
+        }
     } catch (_: IllegalArgumentException) {
         unavailable()
     }
-    private fun unavailable(): Nothing = throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Документы временно недоступны")
+    private fun unavailable(): Nothing = throw ru.creditcabinet.document.application.DocumentsUnavailable()
 
     @PreDestroy fun close() {
         channel?.shutdownNow()

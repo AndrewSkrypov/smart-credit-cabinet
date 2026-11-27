@@ -225,9 +225,9 @@ class AgentApplicationService(
     }
 
     @Transactional
-    fun uploadDocument(id: UUID, type: DocumentType, file: MultipartFile): ApplicationDocument {
+    fun uploadDocument(id: UUID, type: DocumentType, file: MultipartFile, operationKey: String? = null): ApplicationDocument {
         val (caller, application) = ownAgentApplication(id, forUpdate = true)
-        return documentService.uploadForAgent(application, caller, type, file)
+        return documentService.uploadForAgent(application, caller, type, file, operationKey)
     }
 
     @Transactional

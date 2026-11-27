@@ -62,3 +62,21 @@ PostgreSQL и native SeaweedFS. `scripts/prepare-documents-s3-native.py` про�
 закреплённый SHA-256 официального архива 4.55, затем пишет digest извлечённого
 binary для обязательной проверки fixture. Ему не нужен Docker endpoint.
 Runtime guard для shared-host Docker остаётся строгим и требует cabinet-ci label.
+
+Upload visibility: Credit owns `document_references` (application association only).
+V26 backfills every committed legacy row, including deleted history, and records new
+LOCAL inserts in the same transaction. Remote upload may durably store metadata/bytes
+before Credit commits; all Credit readers filter by committed reference. The reference
+and BUSINESS journal (or CHAT upload receipt/audit) share the Credit transaction.
+An optional BUSINESS `Idempotency-Key` and the existing mandatory CHAT key derive a
+stable ID scoped by company/application/actor/context; a retry returns the original
+owner timestamp/backend/path. A different immutable payload returns 409. Without a
+BUSINESS key, an abandoned remote row remains invisible and a new request gets a new ID.
+Reverse imports only IDs confirmed by Credit with the same application; expected
+unreferenced rows never enter legacy `documents`. Logical delivery parity uses that
+same subset. Physical backup must retain pending/orphan bytes and metadata as well,
+so a timeout retry survives restore. Do not garbage-collect them during cutover.
+V26 adds the reference table and `pipeline_jobs.documents_outages`; U26 retains both
+as additive history/retry data. No Documents own-schema/protobuf change is required.
+Expected transport outages during DATA_CHECK use durable capped 5..300 second backoff,
+without consuming business attempts; stale/expired claims cannot reschedule the job.

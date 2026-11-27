@@ -134,7 +134,7 @@ class ChatService(
             return files.find(application, previous.documentId, caller)
         }
         ChatRules.requireWritable(status)
-        val stored = files.upload(application, caller, upload)
+        val stored = files.upload(application, caller, upload.copy(operationKey = key.toString()))
         val now = clock.instant()
         data.recordUpload(id, caller.userId, key, UploadReceipt(hash, stored.id), now)
         data.audit(

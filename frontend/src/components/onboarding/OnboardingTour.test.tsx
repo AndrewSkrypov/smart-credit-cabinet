@@ -1,7 +1,7 @@
 import { createTheme, ThemeProvider } from '@mui/material';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Role } from '../../types';
 import { OnboardingHeaderMenu, OnboardingProvider, OnboardingWelcomeBanner } from './OnboardingTour';
 import { onboardingStorageKey } from './tourSteps';
@@ -56,7 +56,9 @@ function renderTour(initialPath: string, role: Role, body: JSX.Element) {
 describe('OnboardingTour', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(12, 24, 200, 120));
   });
+  afterEach(() => vi.restoreAllMocks());
 
   it('shows non-blocking first-visit banner for AGENT, walks through spotlight steps, and persists completion', () => {
     renderTour(
@@ -74,6 +76,7 @@ describe('OnboardingTour', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Начать обучение' }));
     expect(screen.getByRole('dialog', { name: /Шаг 1 из 3:/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Закрыть обучение' })).toHaveFocus();
     expect(screen.getByText('Сводка по клиентам и вознаграждению')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
@@ -92,7 +95,7 @@ describe('OnboardingTour', () => {
     expect(window.localStorage.getItem(onboardingStorageKey(mocks.userId, 'AGENT'))).toBe('completed');
   });
 
-  it('skips absent optional targets for CLIENT and allows restart & reset from header menu', () => {
+  it('skips absent optional targets for CLIENT and allows restart & reset from header menu', async () => {
     renderTour(
       '/client',
       'CLIENT',
@@ -113,8 +116,9 @@ describe('OnboardingTour', () => {
 
     // Only the 2 present targets are shown (optional pre-approved block skipped gracefully)
     expect(screen.getByRole('dialog', { name: /Шаг 1 из 2:/ })).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Закрыть обучение' }), { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Обучение' })).toHaveFocus());
 
     // Reset shows the welcome banner again
     fireEvent.click(screen.getByRole('button', { name: 'Обучение' }));

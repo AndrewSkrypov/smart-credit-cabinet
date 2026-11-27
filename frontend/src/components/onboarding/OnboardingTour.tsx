@@ -7,8 +7,8 @@ import {
   ListItemText,
   Menu,
   MenuItem,
+  Modal,
   Paper,
-  Portal,
   Stack,
   Tooltip,
   Typography,
@@ -44,7 +44,7 @@ interface OnboardingContextValue {
   bannerVisible: boolean;
   welcomeTitle: string;
   welcomeSubtitle: string;
-  startTour: () => void;
+  startTour: (trigger?: HTMLElement) => void;
   dismissBanner: () => void;
   resetTour: () => void;
 }
@@ -59,7 +59,7 @@ function findVisibleTarget(selector: string): HTMLElement | null {
     const rect = el.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) return el;
   }
-  return candidates[0] ?? null;
+  return null;
 }
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
@@ -68,6 +68,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
   const userId = session?.user.id ?? '';
   const role = session?.user.role ?? 'CLIENT';
@@ -82,6 +83,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<SpotlightRect | null>(null);
   const pendingStartRef = useRef(false);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -101,7 +103,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setOpen(true);
   }, [config.steps]);
 
-  const startTour = useCallback(() => {
+  const startTour = useCallback((trigger?: HTMLElement) => {
+    returnFocusRef.current = trigger ?? null;
     if (location.pathname !== homePath) {
       pendingStartRef.current = true;
       navigate(homePath);
@@ -124,6 +127,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       writeOnboardingState(userId, role, nextState);
       setStatus(nextState);
     }
+    const trigger = returnFocusRef.current;
+    window.requestAnimationFrame(() => {
+      const target = trigger?.isConnected ? trigger : document.querySelector<HTMLElement>('[data-tour="training-trigger"]');
+      target?.focus();
+    });
   }, [role, userId]);
 
   const dismissBanner = useCallback(() => {
@@ -166,7 +174,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     if (!open || !currentStep) return;
     const target = findVisibleTarget(currentStep.selector);
     if (target && typeof target.scrollIntoView === 'function') {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      target.scrollIntoView({ behavior: reduceMotion ? 'instant' : 'smooth', block: 'center', inline: 'nearest' });
     }
     measureCurrentTarget();
     const timer = window.setTimeout(measureCurrentTarget, 220);
@@ -177,15 +185,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('resize', measureCurrentTarget);
       window.removeEventListener('scroll', measureCurrentTarget, true);
     };
-  }, [currentStep, measureCurrentTarget, open]);
+  }, [currentStep, measureCurrentTarget, open, reduceMotion]);
 
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        finishTour('dismissed');
-      } else if (event.key === 'ArrowRight') {
+      if (event.key === 'ArrowRight') {
         event.preventDefault();
         if (stepIndex < activeSteps.length - 1) setStepIndex((i) => i + 1);
         else finishTour('completed');
@@ -228,7 +233,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     <OnboardingContext.Provider value={value}>
       {children}
       {open && currentStep && (
-        <Portal>
+        <Modal open hideBackdrop disableScrollLock disableRestoreFocus onClose={() => finishTour('dismissed')}>
+        <Box role="dialog" aria-modal="true" tabIndex={-1} sx={{ position: 'fixed', inset: 0, outline: 'none' }}
+          aria-label={`Шаг ${stepIndex + 1} из ${activeSteps.length}: ${currentStep.title}`}>
           <Box
             data-testid="onboarding-backdrop"
             onClick={() => finishTour('dismissed')}
@@ -253,14 +260,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                 boxShadow: '0 0 0 9999px rgba(15, 17, 21, 0.62), 0 0 0 4px rgba(239, 49, 36, 0.22)',
                 pointerEvents: 'none',
                 zIndex: 1395,
-                transition: 'all 180ms ease'
+                transition: reduceMotion ? 'none' : 'all 180ms ease'
               }}
             />
           )}
           <Paper
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Шаг ${stepIndex + 1} из ${activeSteps.length}: ${currentStep.title}`}
             elevation={10}
             sx={{
               position: 'fixed',
@@ -281,7 +285,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                   Шаг {stepIndex + 1} из {activeSteps.length}
                 </Typography>
               </Stack>
-              <IconButton size="small" aria-label="Закрыть обучение" onClick={() => finishTour('dismissed')}>
+              <IconButton autoFocus size="small" aria-label="Закрыть обучение" onClick={() => finishTour('dismissed')}>
                 <CloseRoundedIcon fontSize="small" />
               </IconButton>
             </Stack>
@@ -300,6 +304,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                   component="button"
                   type="button"
                   aria-label={`Перейти к шагу ${index + 1}`}
+                  aria-current={index === stepIndex ? 'step' : undefined}
                   onClick={() => setStepIndex(index)}
                   sx={{
                     p: 0,
@@ -309,7 +314,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                     width: index === stepIndex ? 24 : 8,
                     borderRadius: 99,
                     bgcolor: index === stepIndex ? tokens.red : 'action.disabledBackground',
-                    transition: 'width 160ms ease, background-color 160ms ease'
+                    transition: reduceMotion ? 'none' : 'width 160ms ease, background-color 160ms ease'
                   }}
                 />
               ))}
@@ -337,7 +342,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
               </Stack>
             </Stack>
           </Paper>
-        </Portal>
+        </Box>
+        </Modal>
       )}
     </OnboardingContext.Provider>
   );
@@ -354,6 +360,7 @@ export function OnboardingHeaderMenu() {
       <Tooltip title="Обучение и гид по кабинету">
         <IconButton
           aria-label="Обучение"
+          data-tour="training-trigger"
           aria-haspopup="menu"
           aria-expanded={Boolean(anchorEl)}
           onClick={(event) => setAnchorEl(event.currentTarget)}
@@ -372,7 +379,7 @@ export function OnboardingHeaderMenu() {
         <MenuItem
           onClick={() => {
             setAnchorEl(null);
-            ctx.startTour();
+            ctx.startTour(anchorEl ?? undefined);
           }}
         >
           <ListItemIcon><PlayArrowRoundedIcon fontSize="small" /></ListItemIcon>
@@ -402,16 +409,16 @@ export function OnboardingWelcomeBanner() {
       data-testid="onboarding-welcome-banner"
       variant="outlined"
       sx={{
-        mb: 3,
-        p: { xs: 2, sm: 2.5 },
+        mb: { xs: 2, sm: 3 },
+        p: { xs: 1.5, sm: 2 },
         borderRadius: 3,
-        borderColor: 'rgba(239, 49, 36, 0.28)',
-        bgcolor: 'rgba(239, 49, 36, 0.04)'
+        borderColor: 'divider',
+        bgcolor: 'background.paper'
       }}
     >
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
+        spacing={1.25}
         alignItems={{ xs: 'flex-start', sm: 'center' }}
         justifyContent="space-between"
       >
@@ -436,13 +443,13 @@ export function OnboardingWelcomeBanner() {
             <Typography variant="subtitle1" fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>
               {ctx.welcomeTitle}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere', display: { xs: 'none', sm: 'block' } }}>
               {ctx.welcomeSubtitle}
             </Typography>
           </Box>
         </Stack>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ flexShrink: 0 }}>
-          <Button variant="contained" size="small" onClick={ctx.startTour}>
+          <Button variant="outlined" size="small" onClick={(event) => ctx.startTour(event.currentTarget)}>
             Начать обучение
           </Button>
           <Button variant="text" size="small" color="inherit" onClick={ctx.dismissBanner}>

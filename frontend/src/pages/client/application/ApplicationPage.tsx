@@ -309,7 +309,11 @@ function ApplicationCard({ id }: { id: string }) {
       <Dialog open={withdrawing} onClose={() => setWithdrawing(false)} fullWidth maxWidth="sm">
         <DialogTitle>Отозвать заявку?</DialogTitle>
         <DialogContent>
-          <Typography gutterBottom>Банк прекратит рассмотрение. Позже можно подать новую заявку.</Typography>
+          <Typography gutterBottom>
+            {application.submittedAt
+              ? 'Банк прекратит рассмотрение. Позже можно подать новую заявку.'
+              : 'Заявка ещё не отправлена в банк. После отзыва её нельзя будет отправить. Позже можно создать новую заявку.'}
+          </Typography>
           <TextField label="Причина (необязательно)" fullWidth multiline minRows={2} value={withdrawComment} onChange={(event) => setWithdrawComment(event.target.value)} inputProps={{ maxLength: 2000 }} />
         </DialogContent>
         <DialogActions>

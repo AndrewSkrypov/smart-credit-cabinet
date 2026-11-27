@@ -5,7 +5,8 @@ import { loanServicingApi } from '../api/client';
 import { LoanAccount } from '../types';
 import { LoanServicingBlock } from './LoanServicingBlock';
 
-vi.mock('../api/client', () => ({
+vi.mock('../api/client', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../api/client')>(),
   loanServicingApi: {
     getByApplication: vi.fn(),
     drawTranche: vi.fn(),
@@ -67,6 +68,8 @@ const activeRevolvingLoan: LoanAccount = {
 describe('LoanServicingBlock', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.setSystemTime(new Date('2026-11-20T12:00:00Z'));
+    sessionStorage.clear();
   });
 
   it('displays loan summary, tranches, schedule and lets CLIENT draw a tranche on a revolving loan', async () => {
@@ -102,9 +105,11 @@ describe('LoanServicingBlock', () => {
     await userEvent.type(amountInput, '500000');
     await userEvent.type(purposeInput, 'Закупка сырья');
     await userEvent.click(screen.getByRole('button', { name: 'Запросить транш' }));
+    expect(loanServicingApi.drawTranche).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
 
     await waitFor(() => {
-      expect(loanServicingApi.drawTranche).toHaveBeenCalledWith('loan-1', 500_000, 'Закупка сырья');
+      expect(loanServicingApi.drawTranche).toHaveBeenCalledWith('loan-1', 500_000, 'Закупка сырья', expect.any(String));
     });
     expect(await screen.findByText('Закупка сырья')).toBeInTheDocument();
   });
@@ -133,14 +138,35 @@ describe('LoanServicingBlock', () => {
     render(<LoanServicingBlock applicationId="app-1" />);
 
     await userEvent.click(await screen.findByRole('button', { name: 'Внести очередной платёж' }));
-    await waitFor(() => expect(loanServicingApi.payNext).toHaveBeenCalledWith('loan-1'));
+    expect(loanServicingApi.payNext).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
+    await waitFor(() => expect(loanServicingApi.payNext).toHaveBeenCalledWith('loan-1', 'pay-1', expect.any(String)));
     expect(await screen.findByText('Оплачен')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Досрочно погасить' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Досрочно погасить' }));
     await waitFor(() => expect(loanServicingApi.repayEarly).toHaveBeenCalledWith('loan-1'));
     expect(await screen.findByText('Погашен')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Внести очередной платёж' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Запросить транш' })).not.toBeInTheDocument();
+  });
+
+  it('reuses the original payment and key after losing the response and reopening the page', async () => {
+    const afterPayment: LoanAccount = {
+      ...activeRevolvingLoan,
+      payments: [{ ...activeRevolvingLoan.payments[0], status: 'PAID' }, activeRevolvingLoan.payments[1]],
+    };
+    vi.mocked(loanServicingApi.getByApplication).mockResolvedValueOnce(activeRevolvingLoan).mockResolvedValue(afterPayment);
+    vi.mocked(loanServicingApi.payNext).mockRejectedValueOnce(new Error('Нет ответа')).mockResolvedValueOnce(afterPayment);
+    const firstVisit = render(<LoanServicingBlock applicationId="app-1" />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Внести очередной платёж' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
+    expect(await screen.findByText('Нет ответа')).toBeInTheDocument();
+    firstVisit.unmount();
+
+    render(<LoanServicingBlock applicationId="app-1" />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Повторить' }));
+    expect(await screen.findByText(/Платёж № 1 .* проведён/)).toBeInTheDocument();
+    expect(vi.mocked(loanServicingApi.payNext).mock.calls[1]).toEqual(vi.mocked(loanServicingApi.payNext).mock.calls[0]);
   });
 
   it('hides all mutation buttons in readOnly mode for AGENT', async () => {

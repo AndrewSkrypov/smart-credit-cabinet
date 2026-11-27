@@ -87,7 +87,10 @@ test('Агентский канал API: мандат, подтверждени�
     expect(await agentLoan.json()).toEqual(loan);
     expect((await request.get(`${clientPath}/loan`, { headers: headers(agent) })).status()).toBe(403);
     expect((await request.get(`${agentPath}/loan`, { headers: headers(other) })).status()).toBe(404);
-    expect((await request.post(`/api/v1/loans/${loan.id}/payments/next`, { headers: headers(agent) })).status()).toBe(403);
+    expect((await request.post(`/api/v1/loans/${loan.id}/payments/next`, {
+      headers: { ...headers(agent), 'Idempotency-Key': randomUUID() },
+      data: { paymentId: loan.payments[0].id },
+    })).status()).toBe(403);
   } finally {
     await clean(request, id, agent, client);
   }

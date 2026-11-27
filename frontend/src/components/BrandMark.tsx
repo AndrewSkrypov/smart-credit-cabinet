@@ -13,7 +13,12 @@ export function BrandMark({ to = '/', compact = false, inverted = false, label =
         <Box component="span" sx={{ fontFamily: 'Arial, Helvetica, sans-serif', fontWeight: 700, fontSize: 22, lineHeight: 1 }}>А</Box>
         <Box component="span" sx={{ width: 15, height: 3, mt: '2px', bgcolor: tokens.red }} />
       </Box>
-      <Typography variant="subtitle1" component="span" fontWeight={700} sx={{ minWidth: 0, overflowWrap: 'anywhere', display: compact ? { xs: 'none', sm: 'inline' } : 'inline' }}>
+      <Typography variant="subtitle1" component="span" fontWeight={700} sx={{
+        minWidth: 0,
+        overflowWrap: compact ? undefined : 'anywhere',
+        whiteSpace: compact ? 'nowrap' : undefined,
+        display: compact ? { xs: 'none', md: 'inline' } : 'inline',
+      }}>
         {label}
       </Typography>
     </Stack>

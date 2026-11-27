@@ -32,6 +32,23 @@ class LoanOpeningOutbox(
     @Value("\${cabinet.servicing.mode:local}") private val mode: String,
     @Value("\${cabinet.servicing.worker-enabled:true}") private val workerEnabled: Boolean = true,
 ) : LoanOpening {
+    override fun lockExecution(job: ru.creditcabinet.application.domain.PipelineJob): Boolean {
+        check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+        if (jdbc.query("select id from applications where id=? for update", { _, _ -> true }, job.applicationId).isEmpty()) return false
+        return jdbc.query(
+            "select attempts,locked_until from pipeline_jobs where id=? and application_id=? and step='DISBURSEMENT' and status='RUNNING' for update",
+            { row, _ ->
+                val lease = row.getTimestamp("locked_until")?.toInstant()
+                row.getInt("attempts") == job.attempts &&
+                    lease != null &&
+                    lease > clock.instant() &&
+                    job.leaseUntil != null &&
+                    lease == job.leaseUntil
+            },
+            job.id,
+            job.applicationId,
+        ).singleOrNull() == true
+    }
     override fun bookedLoan(
         applicationId: UUID,
     ): Loan? = jdbc.query("select booked_loan_json from servicing_open_outbox where application_id=?", { rs, _ ->
@@ -40,7 +57,7 @@ class LoanOpeningOutbox(
     override fun requireSignedSnapshot(applicationId: UUID, cycleId: UUID) {
         if (mode == "local") return
         val snapshot = snapshots.find(cycleId) ?: throw ServicingConflict("Нет неизменяемого снимка подписанного договора; требуется восстановление условий")
-        val session = signing.latest(applicationId)
+        val session = signing.signedFor(applicationId, cycleId)
         if (snapshot.applicationId != applicationId ||
             snapshot.offerId != cycleId ||
             session == null ||

@@ -111,7 +111,7 @@ class PipelineSteps(
         val application = applications.find(job.applicationId)
         if (application == null || application.status != expectedStatus(job.step)) {
             // Nothing to do any more: the application moved on or was withdrawn.
-            jobs.complete(job.id)
+            if (job.step != PipelineStep.DISBURSEMENT) jobs.complete(job.id)
             return
         }
         when (job.step) {
@@ -563,8 +563,15 @@ class PipelineSteps(
 
     /** T19/T20: a booked core result is durable before delivery; DISBURSED requires the unique account receipt. */
     private fun disburse(job: PipelineJob, application: LoanApplication) {
+        val active = tx.execute {
+            loanOpening.lockExecution(job) &&
+                applications.find(application.id)?.let {
+                    it.status == ApplicationStatus.DISBURSING && it.version == application.version
+                } == true
+        } == true
+        if (!active) return
         val offer = offers.current(application.id)!!
-        val session = signing.latest(application.id)!!
+        val session = signing.signedFor(application.id, offer.id) ?: error("Нет подписи текущего предложения")
         loanOpening.requireSignedSnapshot(application.id, offer.id)
         val loan = loanOpening.bookedLoan(application.id) ?: loans.find(application.id) ?: run {
             // Exact historical version is local in Credit, independent of current Catalog availability.
@@ -586,8 +593,17 @@ class PipelineSteps(
                 val now = clock.instant()
                 val next = now.plus(settings.sourceRetryDelay(job.attempts))
                 tx.executeWithoutResult {
+                    if (!loanOpening.lockExecution(job)) return@executeWithoutResult
+                    val current = applications.find(application.id) ?: return@executeWithoutResult
+                    if (current.status != ApplicationStatus.DISBURSING ||
+                        current.version != application.version ||
+                        loanOpening.bookedLoan(application.id) != null ||
+                        loans.find(application.id) != null
+                    ) {
+                        return@executeWithoutResult
+                    }
                     transitions.commit(
-                        application.move(ApplicationEvent.DISBURSEMENT_FAILED, Actor.SYSTEM, now, reasonCode = "CORE_UNAVAILABLE", comment = exception.message),
+                        current.move(ApplicationEvent.DISBURSEMENT_FAILED, Actor.SYSTEM, now, reasonCode = "CORE_UNAVAILABLE", comment = exception.message),
                     )
                     jobs.retry(job.id, next, exception.message)
                 }
@@ -602,7 +618,10 @@ class PipelineSteps(
         }
         val now = clock.instant()
         tx.executeWithoutResult {
-            if (!loanOpening.prepareOrConfirmed(application, loan, offer.id)) {
+            if (!loanOpening.lockExecution(job)) return@executeWithoutResult
+            val current = applications.find(application.id) ?: return@executeWithoutResult
+            if (current.status != ApplicationStatus.DISBURSING || current.version != application.version) return@executeWithoutResult
+            if (!loanOpening.prepareOrConfirmed(current, loan, offer.id)) {
                 loanOpening.awaitReceipt(job.id, now.plusSeconds(2))
                 return@executeWithoutResult
             }

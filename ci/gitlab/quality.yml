@@ -21,6 +21,7 @@
       artifacts: true
   before_script:
     - !reference [.quality, before_script]
+    - python3 -B ci/gitlab/backend-packages.py download
     - sha256sum -c ci-artifacts/backend.sha256
     - sha256sum -c ci-artifacts/frontend.sha256
 .extended:
@@ -55,7 +56,9 @@ backend:
     RUNNER_SCRIPT_TIMEOUT: 40m
     RUNNER_AFTER_SCRIPT_TIMEOUT: 5m
   script:
+    - python3 -B -m unittest discover -s ci/gitlab -p test_backend_packages.py
     - bash ci/gitlab/quality/backend.sh
+    - python3 -B ci/gitlab/backend-packages.py upload
   after_script:
     - bash ci/gitlab/quality/documents-cleanup.sh
     - bash ci/gitlab/quality/cleanup.sh
@@ -70,8 +73,8 @@ backend:
       - ci-artifacts/catalog-r1/
       - ci-artifacts/assessment/
       - security/reports/postgres-image.json
-      - services/*/build/libs/app.jar
       - ci-artifacts/backend.sha256
+      - ci-artifacts/backend-package.json
       - ci-artifacts/documents-r3/
       - ci-artifacts/documents-r3-s3/
     reports:

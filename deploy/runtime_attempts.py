@@ -186,6 +186,8 @@ def prebackup_replacement_env(state, entry, current, revision, checksum, origina
     private_directory(state / "runtime-attempts")
     audit = read_record(state / "runtime-attempts" / (attempt_id(entry) + "-prebackup-abort.json"))
     if audit is None:
+        if entry["target"] == current:
+            return original_env
         if entry["target"].get("revision") == revision and entry["target"].get("manifest_sha256") == checksum:
             return enrolled_env(state, entry, original_env)
         return original_env

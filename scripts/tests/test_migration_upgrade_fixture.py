@@ -88,6 +88,7 @@ class MigrationUpgradeFixtureTest(unittest.TestCase):
         self.assertEqual(eligible, {fixture.PENDING_JOB, fixture.RUNNING_JOB})
         self.assertEqual({jobs[job_id]["status"] for job_id in eligible}, {"PENDING", "RUNNING"})
         self.assertEqual(len({row["company_id"] for row in applications.values()}), 4)
+        self.assertTrue(all(row["product_catalog_snapshot"] == {"WORKING_CAPITAL": 1} for row in applications.values()))
         document, = rows["documents"]
         self.assertIsNotNone(applications[document["application_id"]]["submitted_at"])
         self.assertEqual(applications[document["application_id"]]["status"], "SUBMITTED")

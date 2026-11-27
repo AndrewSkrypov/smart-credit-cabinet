@@ -42,7 +42,7 @@ def application(app_id, status, version):
                 legal_form="OOO", created_by=ACTOR, product_code="WORKING_CAPITAL", purpose="WORKING_CAPITAL",
                 amount=1000000, term_months=12, status=status, created_at=STAMP, updated_at=STAMP,
                 submitted_at=STAMP, status_changed_at=STAMP, version=version, product_version=1,
-                product_catalog_snapshot={"fixture": "v23-restore", "code": "WORKING_CAPITAL", "version": 1})
+                product_catalog_snapshot={"WORKING_CAPITAL": 1})
 
 
 def job(job_id, app_id, status, attempts):

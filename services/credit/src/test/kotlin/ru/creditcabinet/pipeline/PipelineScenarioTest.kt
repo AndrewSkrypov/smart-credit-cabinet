@@ -365,7 +365,7 @@ class PipelineScenarioTest {
     }
 
     @Test
-    fun `a corrupted stored file is never downloaded and recovery keeps the issued loan and object key`() {
+    fun `corrupted published bytes are never served or rewritten and exact restoration preserves the issued loan`() {
         val id = submitted()
         worker.runDue()
         post("/api/v1/applications/$id/offer/accept", client)
@@ -377,19 +377,33 @@ class PipelineScenarioTest {
         repeat(3) { artifacts.generateOne() }
         val fileId = UUID.fromString(records[0]["id"].asText())
         val storedName = jdbc.queryForObject("select stored_name from generated_artifacts where id=?", String::class.java, fileId)!!
+        val url = "/api/v1/applications/$id/artifacts/$fileId"
+        fun download() = mockMvc.get("$url/download") { header("Authorization", "Bearer $client") }.andReturn().response
+        fun registry() = jdbc.queryForObject("select to_jsonb(a)::text from generated_artifacts a where id=?", String::class.java, fileId)
+        val original = download()
+        assertEquals(200, original.status)
+        val published = registry()
         val corrupt = "Synthetic corrupted bytes".toByteArray()
         fileStore.put(storedName, corrupt.inputStream(), corrupt.size.toLong(), StorageBackend.LOCAL)
-        val url = "/api/v1/applications/$id/artifacts/$fileId"
-        val failed = mockMvc.get("$url/download") { header("Authorization", "Bearer $client") }.andReturn().response
+        val failed = download()
         assertEquals(503, failed.status)
         assertTrue(json(failed)["message"].asText().contains("временно недоступен"))
-        assertEquals("ERROR", list().first { it["id"].asText() == fileId.toString() }["status"].asText())
-        assertEquals(200, post("$url/retry", client).status)
-        assertTrue(artifacts.generateOne())
-        assertEquals(storedName, jdbc.queryForObject("select stored_name from generated_artifacts where id=?", String::class.java, fileId))
-        val restored = mockMvc.get("$url/download") { header("Authorization", "Bearer $client") }.andReturn().response
+        assertEquals("READY", list().first { it["id"].asText() == fileId.toString() }["status"].asText())
+        val replay = post("$url/retry", client)
+        assertEquals(200, replay.status)
+        assertEquals("READY", json(replay)["status"].asText())
+        assertEquals(fileId.toString(), json(replay)["id"].asText())
+        assertTrue(!artifacts.generateOne(), "Retry cannot authorize replacing an already published object")
+        assertEquals(published, registry(), "Read failure and retry preserve the complete published registry row")
+        assertContentEquals(corrupt, fileStore.get(storedName, StorageBackend.LOCAL)!!.content.use { it.readBytes() })
+        assertEquals(503, download().status)
+        // The operator restores the immutable original; rendering a new document under its ID is forbidden.
+        val originalBytes = original.contentAsByteArray
+        fileStore.put(storedName, originalBytes.inputStream(), originalBytes.size.toLong(), StorageBackend.LOCAL)
+        val restored = download()
         assertEquals(200, restored.status)
-        assertTrue(restored.contentAsByteArray.size > corrupt.size)
+        assertContentEquals(originalBytes, restored.contentAsByteArray)
+        assertEquals(published, registry())
         assertEquals(3, list().size())
         assertEquals(loan, get(id)["process"]["loan"])
         assertEquals("DISBURSED", status(id))

@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.mock.web.MockHttpServletResponse
@@ -42,6 +43,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -364,6 +366,40 @@ class ChatIntegrationTest {
                 UUID.fromString(id),
                 UUID.fromString(foreignFile),
             )
+        }
+    }
+
+    @Test fun `committed remote references retain database scope guards without legacy file metadata`() {
+        val id = UUID.fromString(submitted())
+        val other = UUID.fromString(submitted("OVERDRAFT", "CASH_GAP"))
+        val remoteFile = UUID.randomUUID()
+        val foreignFile = UUID.randomUUID()
+        jdbc.update("insert into document_references(document_id,application_id) values (?,?),(?,?)", remoteFile, id, foreignFile, other)
+        assertEquals(0, jdbc.queryForObject("select count(*) from documents where id in (?,?)", Int::class.java, remoteFile, foreignFile))
+        val message = UUID.fromString(json(send(id.toString()))["id"].asText())
+        val bindings = listOf<Pair<String, (UUID) -> Int>>(
+            "message_attachments_business_reference_fkey" to { file ->
+                jdbc.update("insert into message_attachments(message_id,application_id,document_id) values (?,?,?)", message, id, file)
+            },
+            "application_chat_upload_keys_business_reference_fkey" to { file ->
+                jdbc.update(
+                    "insert into application_chat_upload_keys(application_id,actor_id,idempotency_key,payload_hash,document_id,created_at) " +
+                        "values (?,?,?,?,?,now())",
+                    id, actorId, UUID.randomUUID(), "a".repeat(64), file,
+                )
+            },
+            "application_chat_audit_business_reference_fkey" to { file ->
+                jdbc.update(
+                    "insert into application_chat_audit(id,application_id,actor_id,actor_role,action,document_id,occurred_at) " +
+                        "values (?,?,?,'CLIENT','ATTACHMENT_UPLOADED',?,now())",
+                    UUID.randomUUID(), id, actorId, file,
+                )
+            },
+        )
+        for ((constraint, insert) in bindings) {
+            assertEquals(1, insert(remoteFile))
+            val failure = assertFailsWith<DataIntegrityViolationException> { insert(foreignFile) }
+            assertTrue(failure.mostSpecificCause.message.orEmpty().contains(constraint))
         }
     }
 

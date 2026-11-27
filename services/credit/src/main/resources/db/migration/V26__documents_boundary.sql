@@ -45,8 +45,8 @@ begin
  return new;
 end $$;
 create trigger document_artifact_inputs_immutable before update or delete on document_artifact_inputs for each row execute function preserve_document_artifact_input();
--- Existing FK assumes local documents. Application/chat FKs and immutable attachment
--- triggers remain; Credit validates document scope before inserting each reference.
+-- Replace file-registry FKs with Credit's committed business association. Scope must
+-- remain enforced by the database when file metadata belongs to remote Documents.
 alter table message_attachments drop constraint message_attachments_document_id_application_id_fkey;
 alter table application_chat_upload_keys drop constraint application_chat_upload_keys_document_id_application_id_fkey;
 alter table application_chat_audit drop constraint application_chat_audit_document_id_application_id_fkey;
@@ -55,9 +55,16 @@ alter table application_chat_audit drop constraint application_chat_audit_docume
 -- The upload RPC may finish before this transaction: unreferenced remote rows remain invisible.
 create table document_references (
  document_id uuid primary key, application_id uuid not null references applications(id),
- created_at timestamptz not null default now()
+ created_at timestamptz not null default now(),
+ unique(document_id,application_id)
 );
 insert into document_references(document_id,application_id) select id,application_id from documents;
+alter table message_attachments add constraint message_attachments_business_reference_fkey
+ foreign key(document_id,application_id) references document_references(document_id,application_id);
+alter table application_chat_upload_keys add constraint application_chat_upload_keys_business_reference_fkey
+ foreign key(document_id,application_id) references document_references(document_id,application_id);
+alter table application_chat_audit add constraint application_chat_audit_business_reference_fkey
+ foreign key(document_id,application_id) references document_references(document_id,application_id);
 create function record_local_document_reference() returns trigger language plpgsql as $$
 begin
  insert into document_references(document_id,application_id) values(new.id,new.application_id) on conflict do nothing;

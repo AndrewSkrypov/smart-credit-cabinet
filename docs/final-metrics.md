@@ -47,6 +47,8 @@ SHA выполненного прогона. Для текущего объед�
 | Фронтенд: компоненты и страницы, TypeScript, ESLint | **195 тестов, 0 падений**, запись `be662ea` | `cd frontend && npx tsc --noEmit && npm run lint && npx vitest run` |
 | E2E в браузере на 1440 и 375 px | **98 прошли, 0 падений** (4 пропущены по условию окружения), 14,7 мин, запись `bce7668` | `CABINET_AGENT_ROUTE_BOUNDARY=1 npx playwright test` в `e2e` |
 | E2E на ревизии `fd9d5ee` | **99 прошли, 1 упал** (4 пропущены): подсветка тура продуктов выходила за край экрана на 375 px; исправлено в `c7c5c63`, тесты тура после исправления **24 из 24** (3 повтора) | `CABINET_AGENT_ROUTE_BOUNDARY=1 npx playwright test`, затем `tests/onboarding-tours.spec.ts --repeat-each=3` |
+| E2E ветки `feature/partial-gaps` | **103 прошли, 0 падений** (7 пропущено: 4 по условию окружения и 3 мобильных дубля API-проверок границ), 15,1 мин | `CABINET_AGENT_ROUTE_BOUNDARY=1 npx playwright test` в `e2e` |
+| Бэкенд ветки `feature/partial-gaps` | **457 тестов, 0 падений** (10 пропущено), включая ArchUnit в трёх сервисах | `./gradlew build -PalphaAnalytics=true` |
 | Агентский канал и режим обучения в браузере | **13 из 13** в отдельном раннем прогоне | `npx playwright test tests/agent-channel.spec.ts tests/onboarding-tours.spec.ts tests/polish-responsive.spec.ts` |
 
 ## 4. Ранее измеренные показатели, на которые опирается финал

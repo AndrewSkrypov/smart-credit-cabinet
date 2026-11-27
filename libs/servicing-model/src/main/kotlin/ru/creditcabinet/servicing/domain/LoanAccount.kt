@@ -67,7 +67,9 @@ data class LoanAccount(
         }
 
     fun canDrawTrancheOn(today: LocalDate): Boolean =
-        revolving && status == LoanAccountStatus.ACTIVE && today.isBefore(maturityDate) &&
+        revolving &&
+            status == LoanAccountStatus.ACTIVE &&
+            today.isBefore(maturityDate) &&
             payments.any { it.status == LoanPaymentStatus.SCHEDULED && it.dueDate.isAfter(today) }
 
     fun drawTranche(amount: Long, purpose: String?, now: Instant, today: LocalDate): LoanAccount {

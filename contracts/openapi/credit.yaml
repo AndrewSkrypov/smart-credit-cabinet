@@ -1343,6 +1343,33 @@ components:
       - code
       - title
       type: object
+    GeneratePreApprovedRequest:
+      properties:
+        annualRevenue:
+          format: int64
+          type: integer
+        bureauWorstOverdueDays:
+          format: int32
+          type: integer
+        companyId:
+          format: uuid
+          type: string
+        existingMonthlyPayments:
+          format: int64
+          type: integer
+        productCode:
+          type: string
+        validDays:
+          format: int64
+          type: integer
+      required:
+      - annualRevenue
+      - bureauWorstOverdueDays
+      - companyId
+      - existingMonthlyPayments
+      - productCode
+      - validDays
+      type: object
     InfoItemView:
       properties:
         documentType:
@@ -1544,6 +1571,8 @@ components:
         disbursedAt:
           format: date-time
           type: string
+        hasOverduePayments:
+          type: boolean
         id:
           format: uuid
           type: string
@@ -1552,6 +1581,11 @@ components:
           type: string
         outstandingPrincipal:
           type: number
+        overdueAmount:
+          type: number
+        overdueDays:
+          format: int64
+          type: integer
         payments:
           items:
             $ref: '#/components/schemas/LoanPaymentResponse'
@@ -1582,15 +1616,70 @@ components:
       - contractNumber
       - disbursedAmount
       - disbursedAt
+      - hasOverduePayments
       - id
       - maturityDate
       - outstandingPrincipal
+      - overdueAmount
+      - overdueDays
       - payments
       - rate
       - revolving
       - status
       - termMonths
       - tranches
+      type: object
+    LoanClosureCertificate:
+      properties:
+        applicationId:
+          format: uuid
+          type: string
+        approvedLimit:
+          format: int64
+          type: integer
+        certificateNumber:
+          type: string
+        contractNumber:
+          type: string
+        disbursedAt:
+          format: date-time
+          type: string
+        issuedAt:
+          format: date-time
+          type: string
+        loanAccountId:
+          format: uuid
+          type: string
+        outstandingPrincipal:
+          type: number
+        paidPaymentsCount:
+          format: int32
+          type: integer
+        repaidAt:
+          format: date-time
+          type: string
+        statement:
+          type: string
+        totalDisbursed:
+          format: int64
+          type: integer
+        tranchesCount:
+          format: int32
+          type: integer
+      required:
+      - applicationId
+      - approvedLimit
+      - certificateNumber
+      - contractNumber
+      - disbursedAt
+      - issuedAt
+      - loanAccountId
+      - outstandingPrincipal
+      - paidPaymentsCount
+      - repaidAt
+      - statement
+      - totalDisbursed
+      - tranchesCount
       type: object
     LoanPaymentResponse:
       properties:
@@ -1602,6 +1691,8 @@ components:
           type: string
         interestAmount:
           type: number
+        overdue:
+          type: boolean
         paidAt:
           format: date-time
           type: string
@@ -1623,6 +1714,7 @@ components:
       - dueDate
       - id
       - interestAmount
+      - overdue
       - paymentAmount
       - paymentNumber
       - principalAmount
@@ -1915,6 +2007,14 @@ components:
       - explanation
       - outcome
       type: object
+    PayNextRequest:
+      properties:
+        paymentId:
+          format: uuid
+          type: string
+      required:
+      - paymentId
+      type: object
     PaymentReserveInputs:
       properties:
         controlDate:
@@ -1991,13 +2091,6 @@ components:
       - shortfall
       - suggestedDraw
       - version
-    PayNextRequest:
-      properties:
-        paymentId:
-          format: uuid
-          type: string
-      required:
-      - paymentId
       type: object
     PreApprovedApplicationView:
       properties:
@@ -2085,6 +2178,19 @@ components:
       - rate
       - status
       - validUntil
+      type: object
+    PreparedDraftResponse:
+      properties:
+        application:
+          $ref: '#/components/schemas/ApplicationResponse'
+        nextRequiredStep:
+          type: string
+        requiresHumanConfirmation:
+          type: boolean
+      required:
+      - application
+      - nextRequiredStep
+      - requiresHumanConfirmation
       type: object
     ProcessView:
       properties:
@@ -2316,6 +2422,39 @@ components:
       - purposes
       - reason
       - revolving
+      type: object
+    ProductImpact:
+      properties:
+        activePreApprovedOffersCount:
+          format: int64
+          type: integer
+        archivalRule:
+          type: string
+        currentVersion:
+          format: int64
+          type: integer
+        draftApplicationsCount:
+          format: int64
+          type: integer
+        inProgressApplicationsCount:
+          format: int64
+          type: integer
+        lifecycleStatus:
+          enum:
+          - DRAFT
+          - ACTIVE
+          - ARCHIVED
+          type: string
+        productCode:
+          type: string
+      required:
+      - activePreApprovedOffersCount
+      - archivalRule
+      - currentVersion
+      - draftApplicationsCount
+      - inProgressApplicationsCount
+      - lifecycleStatus
+      - productCode
       type: object
     ProductLifecycleTransition:
       properties:
@@ -5134,6 +5273,107 @@ paths:
       security:
       - bearerAuth: []
       summary: Создать черновик заявки по предодобренному предложению закреплённой компании
+      tags:
+      - 'Агентский канал: заявки, портфель, документы и чат'
+  /api/v1/agent/pre-approved-offers/{id}/prepare-draft:
+    post:
+      operationId: prepareDraftFromOffer
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '201':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PreparedDraftResponse'
+          description: Created
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/agent/pre-approved-offers/{id}/prepare-draft
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/agent/pre-approved-offers/{id}/prepare-draft
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/agent/pre-approved-offers/{id}/prepare-draft
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/agent/pre-approved-offers/{id}/prepare-draft
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/agent/pre-approved-offers/{id}/prepare-draft
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/agent/pre-approved-offers/{id}/prepare-draft
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Автоматическая подготовка черновика по предодобрению с обязательным подтверждением человеком (статус строго
+        DRAFT)
       tags:
       - 'Агентский канал: заявки, портфель, документы и чат'
   /api/v1/analytics/funnel:
@@ -8563,6 +8803,79 @@ paths:
       summary: Отправить продукт в архив (DRAFT/ACTIVE -> ARCHIVED)
       tags:
       - Версии кредитных продуктов
+  /api/v1/bank/products/{code}/impact:
+    get:
+      operationId: impact
+      parameters:
+      - in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ProductImpact'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/bank/products/{code}/impact
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/bank/products/{code}/impact
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/bank/products/{code}/impact
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/bank/products/{code}/impact
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Оценка влияния изменений/архивации продукта на действующие заявки и предложения
+      tags:
+      - Версии кредитных продуктов
   /api/v1/bank/products/{code}/publish:
     post:
       operationId: publish
@@ -8773,6 +9086,80 @@ paths:
       summary: Восстановить архивный продукт (ARCHIVED -> ACTIVE)
       tags:
       - Версии кредитных продуктов
+  /api/v1/loans/{loanId}/closure-certificate:
+    get:
+      operationId: closureCertificate
+      parameters:
+      - in: path
+        name: loanId
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/LoanClosureCertificate'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/loans/{loanId}/closure-certificate
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/loans/{loanId}/closure-certificate
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/loans/{loanId}/closure-certificate
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/loans/{loanId}/closure-certificate
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Справка о полном погашении кредитного договора (только клиент, после REPAID)
+      tags:
+      - Обслуживание кредита и транши
   /api/v1/loans/{loanId}/payment-reserve:
     get:
       operationId: get
@@ -9542,6 +9929,92 @@ paths:
       security:
       - bearerAuth: []
       summary: Активные предодобренные предложения компании клиента
+      tags:
+      - Предодобренные предложения
+  /api/v1/pre-approved-offers/generate:
+    post:
+      operationId: generate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePreApprovedRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PreApprovedOfferView'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/pre-approved-offers/generate
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/pre-approved-offers/generate
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/pre-approved-offers/generate
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/pre-approved-offers/generate
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/pre-approved-offers/generate
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Сгенерировать предодобренное предложение по оборотам и данным БКИ (сотрудники банка)
       tags:
       - Предодобренные предложения
   /api/v1/pre-approved-offers/{id}/apply:

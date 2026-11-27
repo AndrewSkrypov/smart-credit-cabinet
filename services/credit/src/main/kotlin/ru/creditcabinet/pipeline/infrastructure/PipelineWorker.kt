@@ -53,17 +53,29 @@ class PipelineWorker(
         var failed = false
         try {
             steps.run(job)
+        } catch (exception: ru.creditcabinet.document.application.DocumentsUnavailable) {
+            failed = true
+            if (job.step == ru.creditcabinet.application.domain.PipelineStep.DATA_CHECK) {
+                jobs.retryDocumentsUnavailable(job, clock.instant())
+                log.warn("Pipeline DATA_CHECK waiting for Documents for application {}", job.applicationId)
+            } else {
+                unexpectedFailure(job, exception)
+            }
         } catch (exception: Exception) {
             failed = true
-            log.error("Pipeline step {} of application {} failed (attempt {})", job.step, job.applicationId, job.attempts, exception)
-            if (job.attempts >= settings.maxAttempts) {
-                jobs.fail(job.id, exception.message)
-            } else {
-                val pause = Duration.ofSeconds(10).multipliedBy(1L shl (job.attempts - 1).coerceIn(0, 5))
-                jobs.retry(job.id, clock.instant().plus(pause), exception.message)
-            }
+            unexpectedFailure(job, exception)
         } finally {
             metrics.step(job.step, startedNanos, failed)
+        }
+    }
+
+    private fun unexpectedFailure(job: PipelineJob, exception: Exception) {
+        log.error("Pipeline step {} of application {} failed (attempt {})", job.step, job.applicationId, job.attempts, exception)
+        if (job.businessFailures + 1 >= settings.maxAttempts) {
+            jobs.failClaim(job, clock.instant(), exception.message)
+        } else {
+            val pause = Duration.ofSeconds(10).multipliedBy(1L shl job.businessFailures.coerceIn(0, 5))
+            jobs.retryClaim(job, clock.instant(), clock.instant().plus(pause), exception.message)
         }
     }
 

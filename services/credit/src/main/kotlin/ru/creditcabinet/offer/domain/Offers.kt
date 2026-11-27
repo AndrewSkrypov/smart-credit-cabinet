@@ -63,6 +63,7 @@ interface OfferRepository {
 interface SigningSessions {
     fun save(session: SigningSessionRecord)
     fun latest(applicationId: UUID): SigningSessionRecord?
+    fun signedFor(applicationId: UUID, offerId: UUID): SigningSessionRecord?
     fun markSigned(id: UUID, signatureId: UUID, signedAt: Instant, signedBy: UUID)
 }
 

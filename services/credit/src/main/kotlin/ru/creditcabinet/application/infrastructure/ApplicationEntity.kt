@@ -92,6 +92,10 @@ class ApplicationEntity(
     @Enumerated(EnumType.STRING)
     @Column(name = "agent_commission_status", nullable = false)
     val agentCommissionStatus: CommissionStatus = CommissionStatus.NONE,
+    @Column(name = "client_handoff_at")
+    val clientHandoffAt: Instant? = null,
+    @Column(name = "client_managed", nullable = false)
+    val clientManaged: Boolean = false,
 ) {
     fun toDomain() =
         LoanApplication(
@@ -124,6 +128,8 @@ class ApplicationEntity(
             agentCommissionRateBps = agentCommissionRateBps,
             agentCommissionAmount = agentCommissionAmount,
             agentCommissionStatus = agentCommissionStatus,
+            clientHandoffAt = clientHandoffAt,
+            clientManaged = clientManaged,
         )
 
     companion object {
@@ -160,6 +166,8 @@ class ApplicationEntity(
                     agentCommissionRateBps = agentCommissionRateBps,
                     agentCommissionAmount = agentCommissionAmount,
                     agentCommissionStatus = agentCommissionStatus,
+                    clientHandoffAt = clientHandoffAt,
+                    clientManaged = clientManaged,
                 )
             }
     }

@@ -52,6 +52,7 @@ class HttpCurrentStatusesProjection(
         val remoteRequest = request ?: return sql("unconfigured")
         val http = client ?: return sql("unconfigured")
         if (!outboxDrained()) return sql("outbox_pending")
+        if (!visibilityMatchesProjection()) return sql("submission_visibility")
 
         val future = http.sendAsync(remoteRequest, HttpResponse.BodyHandlers.ofByteArray())
         val response = try {
@@ -72,6 +73,7 @@ class HttpCurrentStatusesProjection(
         }
         val counts = parse(response.body()) ?: return sql("invalid_projection")
         if (!outboxDrained()) return sql("outbox_pending")
+        if (!visibilityMatchesProjection()) return sql("submission_visibility")
 
         selected("projection", "ready")
         return counts
@@ -86,6 +88,22 @@ class HttpCurrentStatusesProjection(
             )
             """.trimIndent(),
             mapOf("generation" to generation),
+            Boolean::class.java,
+        ) == true
+    } catch (_: DataAccessException) {
+        false
+    }
+
+    // The current event contract carries status but no submission fact.
+    private fun visibilityMatchesProjection(): Boolean = try {
+        jdbc.queryForObject(
+            """
+            select not exists (
+                select 1 from applications
+                where (submitted_at is not null) <> (status not in ('DRAFT', 'PENDING_CLIENT_CONFIRMATION'))
+            )
+            """.trimIndent(),
+            emptyMap<String, Any>(),
             Boolean::class.java,
         ) == true
     } catch (_: DataAccessException) {

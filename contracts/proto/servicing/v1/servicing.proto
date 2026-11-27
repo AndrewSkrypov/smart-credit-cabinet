@@ -1,0 +1,75 @@
+syntax = "proto3";
+package creditcabinet.servicing.v1;
+option java_multiple_files = true;
+option java_package = "ru.creditcabinet.contracts.servicing.v1";
+option java_outer_classname = "ServicingProto";
+
+// Internal mTLS Credit peer only. Mutations require a delegated CLIENT token matching actor/company.
+// Decimal money and rates are exact decimal strings, timestamps UTC ISO-8601, dates ISO-8601.
+// v1 fields are never reused; incompatible semantics require a new service package.
+service ServicingService {
+ rpc OpenLoan(OpenLoanCommand) returns (LoanOpenedReceipt);
+ rpc ByApplication(IdRequest) returns (AccountResponse);
+ rpc ById(IdRequest) returns (AccountResponse);
+ rpc Draw(DrawRequest) returns (LoanAccount);
+ rpc PayNext(ActorRequest) returns (LoanAccount);
+ rpc RepayEarly(ActorRequest) returns (LoanAccount);
+ rpc Reserve(IdRequest) returns (ReserveResponse);
+ rpc PutReserve(ReserveRequest) returns (PaymentReserveQuote);
+ rpc Receipt(ReceiptRequest) returns (PaymentReserveQuote);
+ rpc ConfirmReserve(ConfirmRequest) returns (PaymentReserveQuote);
+ rpc AgentSummary(IdRequest) returns (AgentSummaryResponse);
+}
+message IdRequest { string id = 1; }
+message ServicingActor { string user_id = 1; string company_id = 2; }
+message OpenLoanCommand {
+ string command_id = 1; string application_id = 2; string cycle_id = 3; int64 application_version = 4;
+ string company_id = 5; string contract_snapshot_id = 6; string contract_sha256 = 7;
+ string contract_number = 8; int64 approved_limit = 9; int32 term_months = 10;
+ string rate = 11; bool revolving = 12; string disbursed_at = 13; string maturity_date = 14;
+ string currency = 15; int32 schema_version = 16;
+}
+message LoanOpenedReceipt {
+ string command_id = 1; string application_id = 2; string cycle_id = 3; int64 application_version = 4;
+ string account_id = 5; string payload_sha256 = 6; string recorded_at = 7; int32 schema_version = 8;
+}
+message LoanTranche {
+ string id = 1; string loan_account_id = 2; int32 tranche_number = 3; int64 amount = 4;
+ optional string purpose = 5; string disbursed_at = 6;
+}
+message LoanPayment {
+ string id = 1; string loan_account_id = 2; int32 payment_number = 3; string due_date = 4;
+ string payment_amount = 5; string principal_amount = 6; string interest_amount = 7;
+ string remaining_balance = 8; string status = 9; optional string paid_at = 10;
+}
+message LoanAccount {
+ string id = 1; string application_id = 2; string company_id = 3; string contract_number = 4;
+ int64 approved_limit = 5; int64 disbursed_amount = 6; string outstanding_principal = 7;
+ string rate = 8; int32 term_months = 9; bool revolving = 10; string status = 11;
+ string disbursed_at = 12; string maturity_date = 13; optional string repaid_at = 14;
+ repeated LoanTranche tranches = 15; repeated LoanPayment payments = 16; int64 available_limit = 17;
+}
+message AccountResponse { optional LoanAccount account = 1; }
+message DrawCommand { ServicingActor actor = 1; int64 amount = 2; optional string purpose = 3; }
+message DrawRequest { string loan_id = 1; DrawCommand command = 2; }
+message ActorRequest { string loan_id = 1; ServicingActor actor = 2; }
+message PaymentReserveInputs {
+ int64 opening_balance = 1; int64 expected_receipt_amount = 2; int64 payable_amount = 3;
+ int64 target_buffer = 4; string control_date = 5; string payment_date = 6;
+}
+message ReceiptEvent { string event_id = 1; string status = 2; optional int64 received_amount = 3; }
+message ReserveCommand { ServicingActor actor = 1; PaymentReserveInputs inputs = 2; }
+message ReceiptCommand { ServicingActor actor = 1; ReceiptEvent event = 2; }
+message ConfirmReserveCommand { ServicingActor actor = 1; int64 expected_version = 2; }
+message ReserveRequest { string loan_id = 1; ReserveCommand command = 2; }
+message ReceiptRequest { string loan_id = 1; ReceiptCommand command = 2; }
+message ConfirmRequest { string loan_id = 1; ConfirmReserveCommand command = 2; }
+message PaymentReserveQuote {
+ int64 version = 1; PaymentReserveInputs inputs = 2; string receipt_status = 3;
+ int64 received_amount = 4; int64 remaining_limit = 5; int64 required_amount = 6;
+ int64 suggested_draw = 7; int64 shortfall = 8; int64 projected_balance = 9;
+ bool can_draw = 10; int64 drawn_amount = 11;
+}
+message ReserveResponse { optional PaymentReserveQuote quote = 1; }
+message AgentPaymentReserveSummary { int64 version = 1; string receipt_status = 2; string payment_date = 3; string action = 4; }
+message AgentSummaryResponse { optional AgentPaymentReserveSummary summary = 1; }

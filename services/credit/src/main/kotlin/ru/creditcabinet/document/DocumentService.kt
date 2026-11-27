@@ -6,6 +6,8 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationStatus
+import ru.creditcabinet.application.domain.InfoRequest
+import ru.creditcabinet.application.domain.InfoRequests
 import ru.creditcabinet.application.domain.JournalNote
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.ApplicationService
@@ -42,36 +44,69 @@ class DocumentService(
     private val store: FileStore,
     private val scanner: DocumentScanner,
     private val journal: ApplicationJournal,
+    private val infoRequests: InfoRequests,
     private val throttle: DocumentUploadLimit,
     private val clock: Clock,
     @Value("\${cabinet.storage.max-size-bytes:20971520}") private val maxSizeBytes: Long,
     @Value("\${cabinet.storage.uploads-enabled:true}") private val uploadsEnabled: Boolean,
+    private val boundary: ru.creditcabinet.document.infrastructure.DocumentsBoundary? = null,
 ) : ApplicationDocuments {
-    override fun list(applicationId: UUID): List<ApplicationDocument> = documents.list(applications.get(applicationId).id)
+    override fun list(applicationId: UUID): List<ApplicationDocument> = list(applications.get(applicationId))
 
-    /** Lists documents for an already-authorized application aggregate (e.g. right after a transition). */
-    override fun list(authorizedApplication: LoanApplication): List<ApplicationDocument> = documents.list(authorizedApplication.id)
+    override fun list(authorizedApplication: LoanApplication): List<ApplicationDocument> {
+        val caller = CurrentCaller.claims()
+        val uploaded = if (caller.isAgent) {
+            documents.list(authorizedApplication.id)
+        } else {
+            documents.listForPacket(authorizedApplication.id, authorizedApplication.submittedAt)
+        }
+        return uploaded.filter { it.visibleTo(caller, authorizedApplication) }
+    }
+
+    override fun satisfiedDocumentTypes(request: InfoRequest): Set<DocumentType> =
+        documents.list(request.applicationId)
+            .filter { !it.uploadedAt.isBefore(request.createdAt) }
+            .map { it.type }
+            .toSet()
 
     /** A client adds documents while preparing the application or when the bank asked for them. */
     @Transactional
-    override fun upload(applicationId: UUID, type: DocumentType, file: DocumentUpload): ApplicationDocument {
-        val (claims, application) = applications.own(applicationId)
+    override fun upload(applicationId: UUID, type: DocumentType, file: DocumentUpload, privateToBank: Boolean): ApplicationDocument {
+        val (claims, application) = applications.own(applicationId, forUpdate = privateToBank)
+        replay(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, privateToBank, file.operationKey)?.let { return it }
+        if (application.status == ApplicationStatus.DRAFT && application.activeAgentId != null) throw NotFoundException("Заявка не найдена")
         if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
-        return persist(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS)
+        if (privateToBank) {
+            if (type != DocumentType.BANK_STATEMENT) throw BadRequestException("Приватная загрузка доступна для выписки по счёту")
+            val requested = application.status == ApplicationStatus.INFO_REQUESTED &&
+                application.submittedAt != null &&
+                infoRequests.open(application.id)?.items?.any { it.documentType == type } == true
+            if (!requested) throw ConflictException("Банк сейчас не запрашивает выписку по счёту")
+        }
+        return persist(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, privateToBank, file.operationKey)
     }
 
     /** An agent adds documents to their own mandate-verified application in DRAFT or INFO_REQUESTED. */
     @Transactional
-    fun uploadForAgent(application: LoanApplication, claims: TokenClaims, type: DocumentType, file: MultipartFile): ApplicationDocument {
+    fun uploadForAgent(
+        application: LoanApplication,
+        claims: TokenClaims,
+        type: DocumentType,
+        file: MultipartFile,
+        operationKey: String? = null,
+    ): ApplicationDocument {
+        replay(application, claims, type, file.originalFilename, file.size, { file.bytes }, DocumentContext.BUSINESS, false, operationKey)?.let { return it }
         if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
         val upload = DocumentUpload(file.originalFilename, file.size) { file.bytes }
-        return persist(application, claims, type, upload.fileName, upload.size, upload.read, DocumentContext.BUSINESS)
+        return persist(application, claims, type, upload.fileName, upload.size, upload.read, DocumentContext.BUSINESS, operationKey = operationKey)
     }
 
     /** Chat shares validation and storage, but its files cannot satisfy financial requirements or add process events. */
     @Transactional
     fun uploadChat(application: LoanApplication, caller: TokenClaims, upload: ChatUpload): ApplicationDocument =
-        persist(application, caller, DocumentType.OTHER, upload.fileName, upload.bytes.size.toLong(), { upload.bytes }, DocumentContext.CHAT)
+        persist(application, caller, DocumentType.OTHER, upload.fileName, upload.bytes.size.toLong(), {
+            upload.bytes
+        }, DocumentContext.CHAT, operationKey = upload.operationKey)
 
     private fun persist(
         application: LoanApplication,
@@ -81,6 +116,8 @@ class DocumentService(
         size: Long,
         content: () -> ByteArray,
         context: DocumentContext,
+        privateToBank: Boolean = false,
+        operationKey: String? = null,
     ): ApplicationDocument {
         if (!uploadsEnabled) {
             throw ru.creditcabinet.common.exception.ApiException(
@@ -94,48 +131,131 @@ class DocumentService(
         val fileName = originalName?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }?.take(MAX_NAME) ?: "document"
         if ('\u0000' in fileName) throw BadRequestException("Имя файла содержит нулевой символ")
         val extension = fileName.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+        if (privateToBank && extension != "pdf") throw BadRequestException("Приватную выписку загрузите в PDF")
         if (extension !in ALLOWED_EXTENSIONS) throw BadRequestException("Подходят PDF, JPG, PNG, Word и Excel, а это .$extension")
         val bytes = content()
         if (bytes.size.toLong() != size) throw BadRequestException("Размер файла изменился при загрузке — выберите файл заново")
         if (!FileContent.matches(extension, bytes)) throw BadRequestException("Содержимое файла не похоже на .$extension — проверьте, что выбран нужный файл")
         scanner.scan(bytes)
         val now = clock.instant()
-        val document = ApplicationDocument(
+        val key = operationKey?.also { if (it.isBlank() || it.length > 128) throw BadRequestException("Некорректный ключ загрузки") }
+        val id = if (key != null) {
+            uploadId(application, claims, context, key)
+        } else {
+            UUID.randomUUID()
+        }
+        val bytesHash = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        val requestHash = ru.creditcabinet.documents.sha256(
+            com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().writeValueAsBytes(
+                listOf(
+                    "credit-upload-v1",
+                    application.company.id,
+                    application.id,
+                    claims.userId,
+                    context.name,
+                    type.name,
+                    fileName,
+                    size,
+                    privateToBank,
+                    bytesHash,
+                ),
+            ),
+        )
+        val operation = boundary?.reserveUpload(id, application.id, claims.userId, requestHash, store.writeBackend, now)
+        boundary?.lockUpload(id)
+        replay(application, claims, type, originalName, size, { bytes }, context, privateToBank, operationKey)?.let { return it }
+        var document = ApplicationDocument(
+            id = id,
             applicationId = application.id,
             type = type,
             fileName = fileName,
-            storedName = "${UUID.randomUUID()}.$extension",
+            storedName = "$id.$extension",
             sizeBytes = bytes.size.toLong(),
             uploadedBy = claims.userId,
-            uploadedAt = now,
+            uploadedAt = operation?.at ?: now.truncatedTo(java.time.temporal.ChronoUnit.MICROS),
             context = context,
-            storageBackend = store.writeBackend,
-            checksumSha256 = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) },
+            storageBackend = operation?.backend ?: store.writeBackend,
+            checksumSha256 = bytesHash,
+            privateToBank = privateToBank,
         )
-        store.put(document.storedName, bytes.inputStream(), document.sizeBytes)
-        documents.save(document)
-        if (context == DocumentContext.BUSINESS) {
+        val newlyCommitted = if (boundary?.remote == true) {
+            document = boundary.put(document, bytes)
+            boundary.commitReference(document)
+        } else {
+            store.put(document.storedName, bytes.inputStream(), document.sizeBytes, document.storageBackend)
+            documents.save(document)
+            true
+        }
+        if (newlyCommitted && context == DocumentContext.BUSINESS) {
             journal.append(
                 application.note(
-                    JournalNote.DOCUMENT_ADDED,
+                    if (privateToBank) JournalNote.PRIVATE_DOCUMENT_ADDED else JournalNote.DOCUMENT_ADDED,
                     claims.toActor()!!,
                     now,
-                    mapOf(
-                        "documentId" to document.id,
-                        "type" to type.name,
-                        "fileName" to fileName,
-                    ),
+                    if (privateToBank) {
+                        emptyMap()
+                    } else {
+                        mapOf(
+                            "documentId" to document.id,
+                            "type" to type.name,
+                            "fileName" to fileName,
+                        )
+                    },
                 ),
             )
         }
         return document
     }
 
+    private fun uploadId(application: LoanApplication, caller: TokenClaims, context: DocumentContext, key: String): UUID =
+        UUID.nameUUIDFromBytes("credit-document-v1:${application.company.id}:${application.id}:${caller.userId}:$context:$key".toByteArray())
+
+    /** Called only after read/mandate authorization; a committed success survives later submit. */
+    private fun replay(
+        application: LoanApplication,
+        caller: TokenClaims,
+        type: DocumentType,
+        originalName: String?,
+        size: Long,
+        content: () -> ByteArray,
+        context: DocumentContext,
+        privateToBank: Boolean,
+        key: String?,
+    ): ApplicationDocument? {
+        if (key == null || boundary == null) return null
+        if (key.isBlank() || key.length > 128) throw BadRequestException("Некорректный ключ загрузки")
+        val previous = boundary.committedUpload(application.id, uploadId(application, caller, context, key)) ?: return null
+        if (size <= 0 || size > maxSizeBytes) throw ConflictException("Ключ загрузки уже использован для другого файла")
+        val fileName = originalName?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }?.take(MAX_NAME) ?: "document"
+        val bytes = content()
+        val checksum = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        if (previous.uploadedBy != caller.userId ||
+            previous.type != type ||
+            previous.context != context ||
+            previous.privateToBank != privateToBank ||
+            previous.fileName != fileName ||
+            previous.sizeBytes != size ||
+            bytes.size.toLong() != size ||
+            previous.checksumSha256 != checksum
+        ) {
+            throw ConflictException("Ключ загрузки уже использован для другого файла")
+        }
+        return previous
+    }
+
     /** Only from a draft: once sent, what the bank received stays in the application. */
     @Transactional
     override fun delete(applicationId: UUID, documentId: UUID) {
-        val (claims, application) = applications.own(applicationId)
+        val (claims, application) = ownForDocumentWrite(applicationId, forUpdate = true)
         deleteInternal(application, claims, documentId)
+    }
+
+    private fun ownForDocumentWrite(applicationId: UUID, forUpdate: Boolean = false): Pair<TokenClaims, LoanApplication> {
+        val (claims, application) = applications.own(applicationId, forUpdate)
+        if (application.status == ApplicationStatus.DRAFT && application.activeAgentId != null) {
+            throw NotFoundException("Заявка не найдена")
+        }
+        return claims to application
     }
 
     /** An agent deletes a document from their own mandate-verified draft. */
@@ -147,9 +267,10 @@ class DocumentService(
     private fun deleteInternal(application: LoanApplication, claims: TokenClaims, documentId: UUID) {
         if (application.status != ApplicationStatus.DRAFT) throw ConflictException("Отправленные документы удалить нельзя — загрузите новую версию")
         val document = documents.find(application.id, documentId) ?: throw NotFoundException("Документ не найден")
+        if (document.privateToBank) throw NotFoundException("Документ не найден")
         if (documents.isChatAttached(documentId)) throw ConflictException("Вложение отправленного сообщения изменить или удалить нельзя")
         val now = clock.instant()
-        documents.markDeleted(document.id, now)
+        documents.markDeleted(application.id, document.id, now)
         journal.append(
             application.note(
                 JournalNote.DOCUMENT_REMOVED,
@@ -165,13 +286,36 @@ class DocumentService(
 
     override fun open(applicationId: UUID, documentId: UUID): Pair<ApplicationDocument, StoredFile> {
         val application = applications.get(applicationId)
-        val document = documents.find(application.id, documentId) ?: throw NotFoundException("Документ не найден")
-        if (document.context == DocumentContext.CHAT && document.uploadedBy != CurrentCaller.claims().userId && !documents.isChatAttached(documentId)) {
-            throw NotFoundException("Документ не найден")
-        }
-        val file = store.get(document.storedName, document.storageBackend) ?: throw NotFoundException("Файл документа не найден в хранилище")
+        val document = readableDocument(application, documentId, CurrentCaller.claims())
+        val file =
+            (if (boundary?.remote == true) boundary.bytes(document) else store.get(document.storedName, document.storageBackend))
+                ?: throw NotFoundException("Файл документа не найден в хранилище")
         return document to file
     }
+
+    internal fun chatAttachment(application: LoanApplication, documentId: UUID, caller: TokenClaims): ApplicationDocument =
+        readableDocument(application, documentId, caller, attachToChat = true)
+
+    private fun readableDocument(
+        application: LoanApplication,
+        documentId: UUID,
+        caller: TokenClaims,
+        attachToChat: Boolean = false,
+    ): ApplicationDocument {
+        val current = documents.find(application.id, documentId)
+        if (attachToChat && (current == null || current.privateToBank)) throw NotFoundException("Документ не найден")
+        val readable = when {
+            current?.context == DocumentContext.CHAT -> current.takeIf { it.uploadedBy == caller.userId || documents.isChatAttached(it.id) }
+            caller.isAgent -> current
+            else -> documents.listForPacket(application.id, application.submittedAt, documentId).singleOrNull()
+        }
+        return readable?.takeIf { it.visibleTo(caller, application) } ?: throw NotFoundException("Документ не найден")
+    }
+
+    private fun ApplicationDocument.visibleTo(caller: TokenClaims, application: LoanApplication): Boolean =
+        !privateToBank ||
+            (caller.isClient && caller.companyId == application.company.id) ||
+            (caller.isBankStaff && application.submittedAt != null)
 
     private companion object {
         val UPLOADABLE = setOf(ApplicationStatus.DRAFT, ApplicationStatus.INFO_REQUESTED)

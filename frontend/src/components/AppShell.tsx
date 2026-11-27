@@ -19,7 +19,8 @@ const bankSections = [
 
 const clientSections = [
   { path: '/client', label: 'Заявки' },
-  { path: '/client/employees', label: 'Сотрудники' }
+  { path: '/client/employees', label: 'Сотрудники' },
+  { path: '/client/agent-mandates', label: 'Агенты' }
 ];
 
 const agentSections = [

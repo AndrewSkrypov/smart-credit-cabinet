@@ -141,4 +141,4 @@ networks:
 volumes:
   alpha-kafka-data:
   alpha-analytics-data:
-    name: cabinet-dev-alpha-analytics-${CABINET_ALPHA_DEV_GENERATION:?Нужно поколение Alpha}
+    name: ${CABINET_ALPHA_DEV_ANALYTICS_VOLUME:-cabinet-dev-alpha-analytics-${CABINET_ALPHA_DEV_GENERATION:?Нужно поколение Alpha}}

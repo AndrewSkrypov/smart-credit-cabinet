@@ -8,7 +8,11 @@
 
 ## Попробовать сразу
 
-Демо-стенд: **https://cabinet.193-141-230-160.sslip.io** — на странице входа кнопки
+Технический Dev-стенд проекта: **https://dev.credit-cabinet.ru**. Фактически
+проверенный выпуск и открытые критерии указаны в
+[реестре технической приёмки](docs/plans/alpha-technical-remaining.md).
+
+Исторический демо-стенд: **https://cabinet.193-141-230-160.sslip.io** — на странице входа кнопки
 демо-доступа, пароль всех учётных записей `Demo2026` (список и сценарии —
 [ниже](#тестовые-учётные-записи)). Сценарий показа на 7 минут — [docs/demo.md](docs/demo.md),
 ручная проверка и автотесты — [docs/test-scenarios.md](docs/test-scenarios.md).
@@ -59,10 +63,22 @@ outbox + JSON-логи в Loki/Alloy с маскированием ПДн); `COM
 
 ## Архитектура
 
-Четыре сервиса на Kotlin + Spring Boot (identity, credit, engagement, external-sim), React-фронтенд,
-шлюз nginx и PostgreSQL с отдельной базой на сервис; Valkey, ClamAV и S3-хранилище; Ollama —
-отдельным профилем. Схемы, взаимодействие и последовательности — [docs/architecture.md](docs/architecture.md),
-решения с альтернативами — [docs/adr/](docs/adr/).
+Интеграционная ветка содержит восемь основных JVM-сервисов: identity, credit,
+engagement, external-sim, catalog-grpc, assessment, servicing и documents. У Analytics
+отдельный теневой профиль. Catalog, Servicing и Documents доступны Credit через
+gRPC/mTLS; Assessment и Analytics используют Kafka и собственные хранилища.
+Credit сохраняет автомат заявки, решения, предложения, подписанные снимки и
+бизнес-правила доступа. Ядра выделенных сервисов отделены от JDBC и транспорта,
+контракты и клиенты вынесены в библиотеки. Режимы local/remote переключаются
+через проверяемую передачу единственного владельца данных.
+
+Быстрый базовый Compose-запуск сохраняет локальные адаптеры в четырёх исходных
+сервисах. Полный контур включается явными режимами неизменяемого manifest;
+фактическая готовность Dev учитывается отдельно от локальной сборки.
+[Схемы и взаимодействие](docs/architecture.md) ·
+[Поставка](docs/plans/alpha-services-delivery.md) ·
+[Шаблон сервиса](templates/backend-service/README.md) ·
+[Приёмка](docs/plans/alpha-hexagonal-acceptance.md).
 
 ## Документы
 

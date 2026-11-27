@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -57,7 +58,11 @@ class DiagnosticsTest(unittest.TestCase):
         self.manifest = self.root / "release.json"
         self.manifest.write_text(json.dumps(self.request))
         self.lock = self.state / "deploy.lock"
+        self.lock.touch(mode=0o600)
         self.lock.write_bytes(b"existing lock\n")
+        self.lock.chmod(0o600)
+        self.meminfo = self.releases / "meminfo"
+        self.meminfo.write_bytes(b"MemTotal: 32768000 kB\nMemAvailable: 16384000 kB\n")
         self.current = {"revision": diagnostics.TARGET_REVISION, "manifest_sha256": self.target_hash,
                         "alpha_dev": {"generation": "g" + "a" * 16, "read_enabled": False,
                                       "password": SECRET}, "token": SECRET}
@@ -82,6 +87,10 @@ class DiagnosticsTest(unittest.TestCase):
         ]
 
     def local_docker(self, kind, operation, *args):
+        if kind == "system":
+            self.assertEqual(operation, "info")
+            self.assertEqual(args, ("--format", diagnostics.DOCKER_ROOT_FORMAT))
+            return json.dumps(str(self.releases)).encode()
         if operation == "ls":
             self.assertIn("label=com.docker.compose.project=cabinet-dev", args)
             self.assertIn("--no-trunc", args)
@@ -114,6 +123,7 @@ class DiagnosticsTest(unittest.TestCase):
             stack.enter_context(patch.object(sys, "argv", argv))
             stack.enter_context(patch.object(dev_release, "ROOT", self.root))
             stack.enter_context(patch.object(diagnostics, "STATE_DIR", self.state))
+            stack.enter_context(patch.object(diagnostics, "MEMINFO", self.meminfo))
             stack.enter_context(patch.object(diagnostics, "TARGET_MANIFEST_SHA256", self.target_hash))
             forbidden = [stack.enter_context(patch.object(dev_release, name,
                          side_effect=AssertionError(f"deployment function called: {name}"))) for name in self.forbidden]
@@ -141,11 +151,17 @@ class DiagnosticsTest(unittest.TestCase):
                     path.unlink()
                 stdout, stderr, invocation = self.execute()
                 self.assertEqual(stderr, "")
-                self.assertEqual(invocation.call_count, 5)
+                self.assertEqual(invocation.call_count, 6)
                 report = json.loads(stdout)
                 self.assertEqual(report["current"]["revision"], diagnostics.TARGET_REVISION)
                 self.assertEqual(report["pending"]["present"], pending)
                 self.assertFalse(report["current"]["alpha_dev"]["read_enabled"])
+                resources = report["resources"]
+                self.assertTrue(diagnostics.valid_resources(resources))
+                self.assertEqual(resources["memory"], {"total_bytes": 32768000 * 1024,
+                                                       "available_bytes": 16384000 * 1024})
+                self.assertEqual(resources["filesystems"]["docker"]["group"], resources["filesystems"]["releases"]["group"])
+                self.assertNotIn(str(self.releases), stdout)
                 container, = report["containers"]
                 self.assertEqual(container["registry_ref"], REF)
                 self.assertEqual(container["oci_revision"], diagnostics.TARGET_REVISION)
@@ -275,6 +291,8 @@ class DockerBoundariesTest(unittest.TestCase):
         with patch.object(subprocess, "Popen") as process:
             with self.assertRaisesRegex(ValueError, "^Неподдерживаемая операция диагностики Docker$"):
                 diagnostics.docker_read("container", "restart", SECRET)
+            with self.assertRaisesRegex(ValueError, "^Неподдерживаемая операция диагностики Docker$"):
+                diagnostics.docker_read("system", "info", "--format", "{{json .}}")
             process.assert_not_called()
 
     def test_real_subprocess_streams_are_bounded_and_deadlined(self):
@@ -285,6 +303,45 @@ class DockerBoundariesTest(unittest.TestCase):
         with patch.object(subprocess, "Popen", side_effect=FileNotFoundError()):
             with self.assertRaisesRegex(RuntimeError, "^Docker container.ls: docker_unavailable$"):
                 diagnostics.docker_read("container", "ls")
+
+
+class HostCapacityTest(unittest.TestCase):
+    def test_meminfo_reads_only_kernel_byte_counts(self):
+        happy = b"MemTotal:     8000 kB\nMemAvailable:\t6000 kB\nExtra: " + SECRET.encode()
+        with patch.object(diagnostics, "bounded_file", return_value=happy) as source:
+            self.assertEqual(diagnostics.host_memory(), {"total_bytes": 8192000, "available_bytes": 6144000})
+            source.assert_called_once_with(Path("/proc/meminfo"), 16 * 1024)
+        for raw in (b"MemTotal: 8000 kB\n", happy.replace(b"6000", b"9000"),
+                    happy.replace(b"6000 kB", b"6000 MB"), happy + b"\nMemTotal: 7500 kB\n"):
+            with self.subTest(raw=raw), patch.object(diagnostics, "bounded_file", return_value=raw):
+                self.assertIsNone(diagnostics.host_memory())
+
+    def test_disk_uses_unprivileged_available_bytes_and_groups_shared_filesystems(self):
+        root, state, releases, docker = map(Path, ("/", "/fixture/state", "/fixture/releases", "/fixture/docker"))
+        devices = {root: 17, state: 20, releases: 20, docker: 21}
+        stats = SimpleNamespace(f_frsize=4096, f_blocks=1000, f_bavail=200, f_bfree=350)
+        with patch.object(diagnostics, "docker_read", return_value=json.dumps(str(docker)).encode()), patch.object(
+            diagnostics, "host_memory", return_value=None
+        ), patch.object(Path, "stat", autospec=True, side_effect=lambda path: SimpleNamespace(st_dev=devices[path])), patch.object(
+            os, "statvfs", return_value=stats
+        ):
+            report = diagnostics.resource_summary(releases, state)
+        self.assertTrue(diagnostics.valid_resources(report))
+        self.assertEqual(report["filesystems"]["state"],
+                         {"total_bytes": 4096000, "available_bytes": 819200, "group": 1})
+        self.assertEqual(report["filesystems"]["state"], report["filesystems"]["releases"])
+        self.assertNotEqual(report["filesystems"]["state"]["group"], report["filesystems"]["docker"]["group"])
+        self.assertNotIn("fixture", json.dumps(report))
+
+    def test_missing_measurements_remain_explicitly_unknown(self):
+        with patch.object(diagnostics, "docker_read", side_effect=RuntimeError(SECRET)), patch.object(
+            diagnostics, "bounded_file", side_effect=OSError(SECRET)
+        ), patch.object(os, "statvfs", side_effect=PermissionError(SECRET)):
+            report = diagnostics.resource_summary(Path("/fixture/releases"), Path("/fixture/state"))
+        self.assertTrue(diagnostics.valid_resources(report))
+        self.assertIsNone(report["memory"])
+        self.assertEqual(report["filesystems"], dict.fromkeys(diagnostics.CAPACITY_FILESYSTEMS))
+        self.assertNotIn(SECRET, json.dumps(report))
 
 
 class DiagnosticJobTest(unittest.TestCase):
@@ -390,9 +447,16 @@ else:
     assert request["target_revision"] == "3e434c0adee63917d2fe088e8939207de5b84452"
     assert request["target_manifest_sha256"] == "07df658356bbc5e3501b0b00321f0177b6f72f6727e36ba624dfd44b0557791a"
     report = {**request, **dict(current={}, pending={}, containers=[], networks=[], error_counts={})}
+    report["resources"] = {"source": "dev-host", "memory": {"total_bytes": 4096, "available_bytes": 2048},
+                           "filesystems": dict.fromkeys(("root", "state", "releases", "docker"))}
+    if os.environ.get("INVALID_RESOURCES") == "1":
+        report["resources"]["filesystems"]["docker"] = {"path": "/private/dummy"}
     if os.environ.get("WRONG_REVISION") == "1":
         report["revision"] = "0" * 40
-    print(json.dumps(report))
+    if os.environ.get("DUPLICATE_RESOURCES") == "1":
+        print('{"resources":{"path":"/private/dummy"},' + json.dumps(report)[1:])
+    else:
+        print(json.dumps(report))
 """)
         mock.chmod(0o700)
         env = {**os.environ, "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
@@ -417,6 +481,7 @@ else:
             self.assertEqual((root / "ssh-calls.txt").read_text().splitlines(), [f"stage {parent}", f"deploy {parent}"])
             artifact = root / "dev-diagnostics.json"
             self.assertEqual(json.loads(artifact.read_text())["revision"], parent)
+            self.assertEqual(json.loads(artifact.read_text())["resources"]["memory"]["available_bytes"], 2048)
             parent_manifest = (remote / parent / "release.json").read_bytes()
             self.assertFalse((remote / head).exists())
 
@@ -434,6 +499,11 @@ else:
             wrong = self.diagnostic_job(root, {**env, "WRONG_REVISION": "1"})
             self.assertNotEqual(wrong.returncode, 0)
             self.assertFalse(artifact.exists())
+            for case in ("INVALID_RESOURCES", "DUPLICATE_RESOURCES"):
+                invalid = self.diagnostic_job(root, {**env, case: "1"})
+                self.assertNotEqual(invalid.returncode, 0)
+                self.assertFalse(artifact.exists())
+                self.assertNotIn("/private/dummy", invalid.stdout + invalid.stderr)
             (root / "ssh-calls.txt").unlink()
             unprotected = self.diagnostic_job(root, {**env, "CI_COMMIT_REF_PROTECTED": "false"})
             self.assertNotEqual(unprotected.returncode, 0)
@@ -481,6 +551,36 @@ else:
             self.assertNotIn(SECRET, result.stdout + result.stderr)
             self.assertFalse((detached / "ssh-calls.txt").exists())
             self.assertEqual(list(remote.iterdir()), [])
+
+
+class RuntimeTopologyTest(unittest.TestCase):
+    def test_report_covers_the_actual_runtime_overlays_and_their_network_count(self):
+        services, networks = set(), set()
+        for name in ("catalog", "assessment", "servicing", "documents", "dev-alpha"):
+            overlay = yaml.safe_load((ROOT / "deploy" / f"compose.{name}.yaml").read_text())
+            services.update(overlay.get("services", {}))
+            networks.update(overlay.get("networks", {}))
+        self.assertLessEqual(services, diagnostics.SERVICES)
+        self.assertLessEqual(networks, diagnostics.NETWORKS)
+        self.assertGreaterEqual(diagnostics.MAX_NETWORKS, len(diagnostics.NETWORKS))
+        self.assertLessEqual({"catalog-grpc", "assessment", "servicing", "documents"}, diagnostics.IMAGE_COMPONENTS)
+
+    def test_state_reports_only_allowlisted_runtime_modes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "current.json"
+            record = {"revision": "a" * 40, "manifest_sha256": "b" * 64}
+            for name in ("catalog", "assessment", "servicing", "documents"):
+                record[name] = {"mode": "remote", "password": SECRET}
+            path.write_text(json.dumps(record))
+            summary = diagnostics.state_summary(path)
+            for name in ("catalog", "assessment", "servicing", "documents"):
+                self.assertEqual(summary[name], {"mode": "remote"})
+            self.assertNotIn(SECRET, json.dumps(summary))
+            for mode in ("disabled", SECRET, None, [], {}, False):
+                record["documents"]["mode"] = mode
+                path.write_text(json.dumps(record))
+                with self.assertRaisesRegex(ValueError, "^Повреждено состояние режима сервиса$"):
+                    diagnostics.state_summary(path)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,85 @@
+name: Documents runtime
+
+on:
+  pull_request:
+    paths:
+      - 'services/documents/**'
+      - 'services/credit/src/main/kotlin/ru/creditcabinet/document/**'
+      - 'services/credit/src/main/resources/db/migration/V26__*'
+      - 'libs/documents-*/**'
+      - 'libs/loan-math/**'
+      - 'contracts/proto/documents/**'
+      - 'scripts/*documents*'
+      - '.github/workflows/documents-runtime.yml'
+      - 'settings.gradle.kts'
+      - 'build-logic/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  own-database-mtls-credit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare private native fixtures
+        timeout-minutes: 4
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-16 postgresql-client-16
+          python3 scripts/prepare-documents-s3-native.py --output-dir "$RUNNER_TEMP/documents-s3"
+          python3 - "$RUNNER_TEMP/documents-s3/manifest.json" "$GITHUB_ENV" <<'PY'
+          import json,sys
+          manifest=json.load(open(sys.argv[1]))
+          with open(sys.argv[2],'a') as output:
+              output.write('DOCUMENTS_TEST_S3_BINARY='+manifest['binary']+'\n')
+              output.write('DOCUMENTS_TEST_S3_BINARY_SHA256='+manifest['binarySha256']+'\n')
+          PY
+      - name: Build source-bound standalone JARs
+        timeout-minutes: 12
+        run: |
+          ./gradlew --no-daemon --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process \
+            :services:documents:bootJar :services:credit:bootJar :services:documents:testClasses
+      - name: Verify native PostgreSQL startup cancellation
+        timeout-minutes: 2
+        run: |
+          python3 scripts/check-documents-startup-cancel.py --pg-bin /usr/lib/postgresql/16/bin \
+            --report-dir ci-artifacts/documents-startup-cancel
+      - name: Run required LOCAL and S3 profiles
+        timeout-minutes: 18
+        run: |
+          timeout --signal=TERM 8m python3 scripts/check-documents-runtime.py \
+            --pg-bin /usr/lib/postgresql/16/bin --skip-build \
+            --report-dir ci-artifacts/documents-r3
+          timeout --signal=TERM 8m python3 scripts/check-documents-runtime.py \
+            --pg-bin /usr/lib/postgresql/16/bin --skip-build --storage-backend s3 \
+            --report-dir ci-artifacts/documents-r3-s3
+      - name: Clean only recorded fixture processes
+        timeout-minutes: 3
+        if: always()
+        run: |
+          python3 - "$GITHUB_SHA" <<'PY'
+          import json,subprocess,sys
+          from pathlib import Path
+          ledgers=[*Path('ci-artifacts').glob('documents-r3*/native-processes.json'),Path('ci-artifacts/documents-startup-cancel/native-processes.json')]
+          for path in ledgers:
+              if not path.is_file(): continue
+              ledger=json.loads(path.read_text())
+              subprocess.run(['python3','scripts/documents-fixture-cleanup.py',str(path),'--scope',ledger['scope'],'--source',sys.argv[1]],check=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: documents-runtime-evidence
+          path: |
+            ci-artifacts/documents-r3/
+            ci-artifacts/documents-r3-s3/
+            ci-artifacts/documents-startup-cancel/
+            services/documents/build/test-results/documentsRuntimeTest/

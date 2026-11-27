@@ -21,8 +21,38 @@ class BackupArchiveTest(unittest.TestCase):
         self.assertIn("union all select storage_backend from generated_artifacts", deployment.sql.call_args.args[1])
         manifest = self.manifest()
         manifest["storage"]["backends"] = counts
-        with self.assertRaises(AssertionError):
+        with self.assertRaisesRegex(RuntimeError, "Нет копии S3"):
             module.backup_archives(manifest)
+
+    def test_credit_ledgers_require_s3_even_when_documents_hook_is_disabled(self):
+        deployment = Mock(documents=None)
+        for column, expected_source in (
+            ("document_upload_operations.requested_backend", "from public.document_upload_operations"),
+            ("document_artifact_inputs.requested_backend\ndocument_artifact_inputs.delivered_at",
+             "from public.document_artifact_inputs where delivered_at is null"),
+        ):
+            with self.subTest(column=column):
+                deployment.sql.side_effect = [column, "S3"]
+                backends = module.storage_intent_backends(deployment)
+                self.assertEqual(backends, {"S3"})
+                self.assertIn(expected_source, deployment.sql.call_args.args[1])
+                archive = self.manifest()
+                archive["storage"]["requested_backends"] = sorted(backends)
+                self.assertNotIn("documents_runtime", archive)
+                self.assertTrue(module.backup_needs_s3(archive))
+                with self.assertRaisesRegex(RuntimeError, "Нет копии S3"):
+                    module.backup_archives(archive)
+
+    def test_legacy_schema_does_not_query_missing_ledgers_or_columns(self):
+        for columns in ("", "document_artifact_inputs.delivered_at"):
+            with self.subTest(columns=columns):
+                deployment = Mock(documents=None)
+                deployment.sql.return_value = columns
+                self.assertEqual(module.storage_intent_backends(deployment), set())
+                deployment.sql.assert_called_once()
+                query = deployment.sql.call_args.args[1]
+                self.assertIn("information_schema.columns", query)
+                self.assertNotIn("from public.document_", query)
 
     def test_inactive_storage_volume_is_resolved_without_starting_it(self):
         deployment = Mock(project="cabinet-prod-test")
@@ -36,7 +66,8 @@ class BackupArchiveTest(unittest.TestCase):
 
     def manifest(self, version=2, s3=False):
         files = {name: {} for name in ["identity.dump", "credit.dump", "engagement.dump", "documents.tar.gz"]}
-        result = {"format_version": version, "backup_complete": True, "documents": {"old.pdf": {}}, "files": files}
+        result = {"format_version": version, "backup_complete": True, "documents": {"old.pdf": {}}, "files": files,
+                  "databases": {name: {} for name in module.DATABASES}}
         if version == 2:
             result["storage"] = {"backends": {"LOCAL": 1, "S3": int(s3)}, "s3_volume_included": s3}
             if s3:
@@ -57,7 +88,7 @@ class BackupArchiveTest(unittest.TestCase):
     def test_s3_rows_cannot_claim_local_only_backup(self):
         manifest = self.manifest()
         manifest["storage"]["backends"]["S3"] = 1
-        with self.assertRaises(AssertionError):
+        with self.assertRaisesRegex(RuntimeError, "Нет копии S3"):
             module.backup_archives(manifest)
 
     def test_unexpected_archive_path_is_rejected(self):

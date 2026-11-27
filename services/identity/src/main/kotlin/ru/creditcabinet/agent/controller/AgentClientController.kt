@@ -26,6 +26,7 @@ data class AgentClientSummary(
 data class AgentAccessResponse(
     val allowed: Boolean,
     val company: CompanyResponse?,
+    val mandateId: UUID? = null,
 )
 
 @Tag(name = "Агентский канал")
@@ -62,10 +63,12 @@ class InternalAgentClientController(
 
     @GetMapping("/{agentId}/companies/{companyId}/access")
     fun access(@PathVariable agentId: UUID, @PathVariable companyId: UUID): AgentAccessResponse {
-        val company = service.checkAccess(agentId, companyId)
-        return if (company != null) {
+        val access = service.checkAccess(agentId, companyId)
+        return if (access != null) {
+            val company = access.company
             AgentAccessResponse(
                 allowed = true,
+                mandateId = access.mandate.id,
                 company = CompanyResponse(
                     id = company.id,
                     inn = company.inn,

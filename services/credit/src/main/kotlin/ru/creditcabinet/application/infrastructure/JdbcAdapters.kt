@@ -103,7 +103,7 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
                 limit :limit
                 for update skip locked
             )
-            returning id, application_id, step, attempts
+            returning id, application_id, step, attempts, locked_until, business_failures
             """.trimIndent(),
             mapOf("now" to Timestamp.from(now), "leaseUntil" to Timestamp.from(leaseUntil), "limit" to limit),
         ) { rs, _ ->
@@ -112,6 +112,8 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
                 applicationId = rs.getObject("application_id", UUID::class.java),
                 step = PipelineStep.valueOf(rs.getString("step")),
                 attempts = rs.getInt("attempts"),
+                leaseUntil = rs.getTimestamp("locked_until").toInstant(),
+                businessFailures = rs.getInt("business_failures"),
             )
         }
 
@@ -130,6 +132,69 @@ class JdbcPipelineJobs(private val jdbc: NamedParameterJdbcTemplate) : PipelineJ
             """.trimIndent(),
             mapOf("id" to id, "runAt" to Timestamp.from(runAt), "error" to error?.take(2000)),
         )
+    }
+
+    override fun retryClaim(job: PipelineJob, now: Instant, runAt: Instant, error: String?) {
+        if (job.leaseUntil == null) return
+        updateClaim(
+            job,
+            """
+            update pipeline_jobs set status='PENDING', business_failures=business_failures+1, run_at=:runAt, locked_until=null, last_error=:error, updated_at=clock_timestamp()
+            where id=:id and status='RUNNING' and attempts=:attempt and locked_until=:lease and locked_until>clock_timestamp()
+            """.trimIndent(),
+            mapOf(
+                "id" to job.id,
+                "attempt" to job.attempts,
+                "lease" to Timestamp.from(job.leaseUntil),
+                "now" to Timestamp.from(now),
+                "runAt" to Timestamp.from(runAt),
+                "error" to error?.take(2000),
+            ),
+        )
+    }
+
+    override fun failClaim(job: PipelineJob, now: Instant, error: String?) {
+        if (job.leaseUntil == null) return
+        updateClaim(
+            job,
+            """
+            update pipeline_jobs set status='FAILED', business_failures=business_failures+1, locked_until=null, last_error=:error, updated_at=clock_timestamp()
+            where id=:id and status='RUNNING' and attempts=:attempt and locked_until=:lease and locked_until>clock_timestamp()
+            """.trimIndent(),
+            mapOf(
+                "id" to job.id,
+                "attempt" to job.attempts,
+                "lease" to Timestamp.from(job.leaseUntil),
+                "now" to Timestamp.from(now),
+                "error" to error?.take(2000),
+            ),
+        )
+    }
+
+    override fun retryDocumentsUnavailable(job: PipelineJob, now: Instant) {
+        require(job.step == PipelineStep.DATA_CHECK && job.leaseUntil != null)
+        updateClaim(
+            job,
+            """
+            update pipeline_jobs set status='PENDING',
+              run_at=cast(:now as timestamptz) + least(300,5*power(2,least(documents_outages,6))) * interval '1 second',
+              documents_outages=least(documents_outages+1,7), locked_until=null,
+              last_error='Documents temporarily unavailable', updated_at=clock_timestamp()
+            where id=:id and status='RUNNING' and attempts=:attempt and step='DATA_CHECK'
+              and locked_until=:lease and locked_until>clock_timestamp()
+            """.trimIndent(),
+            mapOf("id" to job.id, "attempt" to job.attempts, "lease" to Timestamp.from(job.leaseUntil), "now" to Timestamp.from(now)),
+        )
+    }
+
+    private fun updateClaim(job: PipelineJob, sql: String, parameters: Map<String, Any?>) {
+        val source = jdbc.jdbcTemplate.dataSource!!
+        org.springframework.transaction.support.TransactionTemplate(
+            org.springframework.jdbc.datasource.DataSourceTransactionManager(source),
+        ).executeWithoutResult {
+            jdbc.query("select id from pipeline_jobs where id=:id for update", mapOf("id" to job.id)) { _, _ -> true }
+            jdbc.update(sql, parameters)
+        }
     }
 
     override fun fail(id: UUID, error: String?) {

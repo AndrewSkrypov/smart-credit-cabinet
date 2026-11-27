@@ -7,7 +7,7 @@ import java.sql.DriverManager
 object SchemaMigration {
     fun runIfRequested(database: String, environment: Map<String, String> = System.getenv()): Boolean {
         if (environment["MIGRATION_ONLY"] != "true") return false
-        require(database in setOf("identity", "credit", "engagement", "analytics"))
+        require(database in setOf("identity", "credit", "engagement", "analytics", "servicing"))
         require(environment["DB_NAME"] == database && environment["DB_USER"] == "${database}_owner") {
             "Migration requires the dedicated owner of its database"
         }

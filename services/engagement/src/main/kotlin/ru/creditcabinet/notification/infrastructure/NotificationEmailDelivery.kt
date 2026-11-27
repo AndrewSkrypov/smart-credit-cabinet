@@ -15,6 +15,7 @@ import ru.creditcabinet.common.outbox.DurableOutbox
 import ru.creditcabinet.notification.application.NotificationEmailPort
 import ru.creditcabinet.notification.application.NotificationPreferences
 import ru.creditcabinet.notification.domain.Notification
+import ru.creditcabinet.notification.domain.isAgentApplicationLink
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
@@ -32,6 +33,7 @@ class NotificationEmailDelivery(
     private val mapper: ObjectMapper,
 ) : NotificationEmailPort {
     override fun enqueue(notification: Notification, content: NotificationEmail?) {
+        if (notification.link.isAgentApplicationLink()) return
         if (content == null || notification.link == null || !preferences.get(notification.recipientId).emailEnabled) return
         val key = eventKey(notification.dedupKey!!, notification.recipientId)
         val job = NotificationMailJob(notification.recipientId, content, notification.link, key)
@@ -77,6 +79,8 @@ class NotificationMailHandler(
 
     override fun deliver(payload: String) {
         val job = mapper.readValue(payload, NotificationMailJob::class.java)
+        // An agent link must be authorized using the user token, which the mail worker does not hold.
+        if (job.link.isAgentApplicationLink()) return
         require(job.link.matches(Regex("^/(client|bank)/applications/[0-9a-fA-F-]{36}$"))) { "Notification mail requires an application link" }
         if (!preferences.get(job.recipientId).emailEnabled) return
         val recipient = recipients.email(job.recipientId) ?: return

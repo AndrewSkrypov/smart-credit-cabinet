@@ -1,0 +1,638 @@
+#!/usr/bin/env python3
+"""Source-bound own-DB, LOCAL migration, mTLS and Credit HTTP gate; no skipped tests."""
+import argparse
+import base64
+import hmac
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import urllib.request
+from contextlib import closing
+from datetime import datetime, timezone
+import hashlib
+import json
+import importlib.util
+import os
+from pathlib import Path
+import secrets
+import shutil
+import socket
+import signal
+import sys
+import re
+import subprocess
+import threading
+import time
+import uuid
+import xml.etree.ElementTree as ET
+from documents_runtime_context import RuntimeContext, start_ci_container
+
+ROOT = Path(__file__).resolve().parents[1]
+
+def free_port():
+    with closing(socket.socket()) as sock:
+        sock.bind(('127.0.0.1', 0))
+        return sock.getsockname()[1]
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--pg-bin', default=os.environ.get('DOCUMENTS_TEST_PG_BIN', '/usr/lib/postgresql/16/bin'))
+    parser.add_argument('--pg-share', default=os.environ.get('DOCUMENTS_TEST_PG_SHARE'))
+    parser.add_argument('--postgres-image', default=os.environ.get('DOCUMENTS_TEST_POSTGRES_IMAGE'))
+    parser.add_argument('--report-dir', default='ci-artifacts/documents-r3')
+    parser.add_argument('--skip-build', action='store_true')
+    parser.add_argument('--verify-startup-cancellation',action='store_true')
+    parser.add_argument('--storage-backend', choices=('local','s3'), default='local')
+    parser.add_argument('--s3-binary', default=os.environ.get('DOCUMENTS_TEST_S3_BINARY'))
+    parser.add_argument('--s3-sha256', default=os.environ.get('DOCUMENTS_TEST_S3_BINARY_SHA256'))
+    parser.add_argument('--s3-image', default=os.environ.get('DOCUMENTS_TEST_S3_IMAGE'))
+    args = parser.parse_args()
+    if args.verify_startup_cancellation and (args.postgres_image or args.storage_backend!='local'):
+        parser.error('Startup cancellation probe requires the private native LOCAL fixture')
+    report = (ROOT / args.report_dir).resolve()
+    report.mkdir(parents=True, exist_ok=True)
+    source_sha=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()
+    context = RuntimeContext(ROOT, source_sha)
+    scratch = context.create_scratch()
+    job_id=os.environ.get('CI_JOB_ID','')
+    project_id=os.environ.get('CI_PROJECT_ID','')
+    profile=args.storage_backend
+    scope=f'cabinet-documents-{project_id}-{job_id}-{profile}' if job_id else f'cabinet-documents-native-{uuid.uuid4().hex}'
+    ledger = context.initialize_ledger(scratch, report, scope, native_s3=profile=='s3' and not args.s3_image)
+    ledger_path=report/'native-processes.json'
+    processes = []
+    identity_server = None
+    handles = []
+    container = None
+    startup_unconfirmed = False
+    pg_started = False
+    pg_process = None
+    spawning_process = False
+    deferred_signal = None
+    s3 = None
+    scanner_stop = threading.Event()
+    admin = 'documents_it_admin'
+    admin_password = secrets.token_hex(24)
+    credit_password = secrets.token_hex(24)
+    credit_app_password = secrets.token_hex(24)
+    own_password = secrets.token_hex(24)
+    own_app_password = secrets.token_hex(24)
+    jwt = secrets.token_hex(32)
+    pg_port, grpc_port, http_port, scanner_port = [free_port() for _ in range(4)]
+    pg_bin = Path(args.pg_bin)
+    # Only toolchain locations/locales survive. Ambient Spring, database, JVM agent,
+    # migration flags, tokens and application secrets cannot reach a synthetic JAR.
+    base_env = {name:os.environ[name] for name in ('PATH','HOME','JAVA_HOME','GRADLE_USER_HOME','GRADLE_RO_DEP_CACHE','TMPDIR','LD_LIBRARY_PATH','LANG','LC_ALL') if name in os.environ}
+    base_env['GRADLE_OPTS']='-Xmx256m'
+    docker_env=None
+    labels={'cabinet.fixture':'documents-r3','cabinet.ci.job':job_id,'cabinet.ci.project':project_id,'cabinet.source':source_sha,'cabinet.profile':profile}
+    if args.postgres_image or args.s3_image:
+        endpoint=os.environ.get('CABINET_CI_DOCKER_HOST','')
+        if not job_id.isdigit() or not project_id.isdigit() or not re.fullmatch('unix:///[^\x00]+',endpoint) or 'cabinet-ci' not in os.environ.get('CI_RUNNER_TAGS',''):
+            raise ValueError('Docker fixture requires job/project-bound cabinet-ci isolated endpoint')
+        if os.environ.get('CI_COMMIT_SHA') != source_sha: raise ValueError('CI fixture source mismatch')
+        docker_env=base_env|{'DOCKER_HOST':endpoint}
+        daemon_labels=subprocess.check_output(['docker','info','--format','{{json .Labels}}'],env=docker_env)
+        if 'cabinet-ci=true' not in json.loads(daemon_labels): raise ValueError('Fixture daemon label mismatch')
+    def publish_ledger():
+        temporary=ledger_path.with_suffix('.new')
+        with temporary.open('w') as output:
+            output.write(json.dumps(ledger)+'\n'); output.flush(); os.fsync(output.fileno())
+        temporary.replace(ledger_path)
+        descriptor=os.open(ledger_path.parent,os.O_RDONLY|os.O_DIRECTORY)
+        try: os.fsync(descriptor)
+        finally: os.close(descriptor)
+    def register(process,marker):
+        if isinstance(process,int): pid=process
+        else: pid=process.pid
+        start=Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()[19]
+        ledger['processes'].append({'pid':pid,'start':start,'marker':marker})
+        publish_ledger()
+    def terminate(signum,frame):
+        nonlocal deferred_signal
+        if spawning_process:
+            deferred_signal=signum
+        else:
+            raise SystemExit(128+signum)
+    signal.signal(signal.SIGTERM,terminate)
+    signal.signal(signal.SIGINT,terminate)
+    java = str(Path(os.environ['JAVA_HOME']) / 'bin/java')
+    gradle = os.environ.get('DOCUMENTS_TEST_GRADLE', './gradlew')
+    def run(command, name, *, env=None, data=None):
+        with (report / f'{name}.log').open('ab') as output:
+            subprocess.run(command, cwd=ROOT, env=env or base_env, input=data, stdout=output, stderr=subprocess.STDOUT, check=True)
+    def sql(db, statement, *, user=admin, password=admin_password, name='schema'):
+        env = base_env | {'PGPASSWORD': password}
+        run([str(pg_bin / 'psql'), '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-h', '127.0.0.1', '-p', str(pg_port), '-U', user, '-d', db], name, env=env, data=statement.encode())
+    def start(command, name, env):
+        nonlocal spawning_process, startup_unconfirmed
+        marker=f'-Dcabinet.documents.fixture.scope={scope}'
+        command=[command[0],marker,*command[1:]]
+        handle = (report / f'{name}.log').open('ab')
+        handles.append(handle)
+        ledger['pendingJvmStart']=True
+        publish_ledger()
+        startup_unconfirmed=True
+        spawning_process=True
+        try:
+            process = subprocess.Popen(command, cwd=ROOT, env=env, stdout=handle, stderr=subprocess.STDOUT)
+            processes.append(process)
+            register(process,marker)
+            ledger['pendingJvmStart']=False
+            publish_ledger()
+            startup_unconfirmed=False
+        finally:
+            spawning_process=False
+        if deferred_signal is not None: raise SystemExit(128+deferred_signal)
+        return process
+    def wait_port(port, process=None):
+        deadline = time.monotonic() + 100
+        while time.monotonic() < deadline:
+            if process and process.poll() is not None:
+                raise RuntimeError('Runtime exited before readiness; see bounded receipt logs')
+            try:
+                with socket.create_connection(('127.0.0.1', port), timeout=.2):
+                    return
+            except OSError:
+                time.sleep(.2)
+        raise RuntimeError('Runtime readiness deadline exceeded')
+    def stop(process):
+        if process.poll() is None:
+            process.terminate()
+            try: process.wait(timeout=15)
+            except subprocess.TimeoutExpired: process.kill(); process.wait(timeout=5)
+    def object_inventory(identity, db, committed_only=False):
+        if not s3: return []
+        if db == 'documents': query = "select json_build_object('storedName',metadata->>'storedName','sizeBytes',metadata->'sizeBytes','checksum',metadata->>'checksum','backend',metadata->>'backend') from document_records union all select json_build_object('storedName',metadata->>'storedName','sizeBytes',metadata->'sizeBytes','checksum',metadata->>'checksum','backend',metadata->>'backend') from artifact_records where status='READY'"
+        else: query = "select json_build_object('storedName',stored_name,'sizeBytes',size_bytes,'checksum',checksum_sha256,'backend',storage_backend) from documents union all select json_build_object('storedName',stored_name,'sizeBytes',size_bytes,'checksum',checksum,'backend',storage_backend) from generated_artifacts where status='READY'"
+        output = subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d',db,'-c',query],env=base_env|{'PGPASSWORD':admin_password})
+        records=[json.loads(line) for line in output.splitlines() if line]
+        if committed_only and db=='documents':
+            ref_output=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','credit','-c',"select document_id from document_references"],env=base_env|{'PGPASSWORD':admin_password})
+            refs={line.decode() for line in ref_output.splitlines() if line}
+            metadata_output=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','documents','-c',"select metadata from document_records"],env=base_env|{'PGPASSWORD':admin_password})
+            orphan_names={item['storedName'] for line in metadata_output.splitlines() if line for item in [json.loads(line)] if item['id'] not in refs}
+            reference_output=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','credit','-c',"select application_id||':'||offer_id||':'||phase||':'||input_hash from document_artifact_references"],env=base_env|{'PGPASSWORD':admin_password})
+            artifact_refs={line.decode() for line in reference_output.splitlines() if line}
+            artifact_output=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','documents','-c',"select metadata from artifact_records"],env=base_env|{'PGPASSWORD':admin_password})
+            orphan_names|={item['storedName'] for line in artifact_output.splitlines() if line for item in [json.loads(line)] if ':'.join((item['scope']['applicationId'],item['offerId'],item['phase'],item['inputHash'])) not in artifact_refs}
+            records=[item for item in records if item['storedName'] not in orphan_names]
+        for record in records:
+            assert record['backend']=='S3'
+            s3.verify(identity,record['storedName'],record['sizeBytes'],record['checksum'])
+        return records
+    try:
+        if args.storage_backend == 's3':
+            startup_unconfirmed = True
+            spec=importlib.util.spec_from_file_location('documents_s3_fixture',ROOT/'scripts/documents-s3-fixture.py')
+            module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+            s3=module.S3Fixture.__new__(module.S3Fixture)
+            s3.__init__(scratch,report,free_port,binary=args.s3_binary,binary_sha256=args.s3_sha256,image=args.s3_image,docker_env=docker_env,scope=scope,labels=labels,environment=base_env,register=register)
+            startup_unconfirmed = False
+        if not args.skip_build:
+            run([gradle, '--no-daemon', '--max-workers=1', ':services:documents:bootJar', ':services:credit:bootJar', ':services:documents:testClasses'], 'build')
+        if args.postgres_image:
+            startup_unconfirmed = True
+            pg_labels=labels|{'cabinet.resource':'postgres'}
+            container, pg_port = start_ci_container(['docker', 'run', '-d', '--name', f'{scope}-postgres', *[part for key,value in pg_labels.items() for part in ('--label',f'{key}={value}')], '-p', '127.0.0.1::5432', '-e', 'POSTGRES_PASSWORD', '-e', f'POSTGRES_USER={admin}', '-e', 'POSTGRES_DB=postgres', args.postgres_image], docker_env | {'POSTGRES_PASSWORD': admin_password}, name=f'{scope}-postgres',image=args.postgres_image,labels=pg_labels,container_port=5432)
+            startup_unconfirmed = False
+            wait_port(pg_port)
+            # Use host psql for the isolated, verified image.
+        else:
+            (scratch / 'password').write_text(admin_password)
+            command = [str(pg_bin / 'initdb'), '-D', str(scratch / 'db'), '--username', admin, '--no-locale', '--encoding=UTF8', '--auth-local=trust', '--auth-host=scram-sha-256', f'--pwfile={scratch / "password"}']
+            if args.pg_share: command += ['-L', args.pg_share]
+            run(command, 'postgres')
+            pg_started = True
+            spawning_process = True
+            handle=(report/'postgres-server.log').open('ab')
+            handles.append(handle)
+            ledger['nativePg']={'directory':str(scratch/'db'),'binary':str(pg_bin/'postgres')}
+            publish_ledger()
+            try:
+                pg_process=subprocess.Popen([str(pg_bin/'postgres'),'-D',str(scratch/'db'),'-h','127.0.0.1','-p',str(pg_port),'-k',str(scratch)],env=base_env,stdout=handle,stderr=subprocess.STDOUT)
+                if args.verify_startup_cancellation: os.kill(os.getpid(),signal.SIGTERM)
+                register(pg_process,str(scratch/'db'))
+            finally:
+                spawning_process=False
+            if deferred_signal is not None: raise SystemExit(128+deferred_signal)
+            wait_port(pg_port,pg_process)
+        deadline = time.monotonic() + 60
+        while True:
+            try:
+                sql('postgres', 'select 1', name='database-ready')
+                break
+            except subprocess.CalledProcessError:
+                if time.monotonic() > deadline: raise
+                time.sleep(1)
+        sql('postgres', f"create role credit_owner login password '{credit_password}'; create role credit_app login password '{credit_app_password}'; create role documents_owner login password '{own_password}'; create role documents_app login password '{own_app_password}';")
+        sql('postgres', 'create database credit owner credit_owner; create database documents owner documents_owner; create database documents_lease owner documents_owner;')
+        for path in sorted((ROOT / 'services/credit/src/main/resources/db/migration').glob('V*.sql'), key=lambda p: int(p.name.split('__')[0][1:])):
+            sql('credit', path.read_text(), user='credit_owner', password=credit_password)
+        sql('documents', (ROOT / 'services/documents/src/main/resources/db/migration/V1__documents.sql').read_text(), user='documents_owner', password=own_password)
+        sql('documents_lease', (ROOT / 'services/documents/src/main/resources/db/migration/V1__documents.sql').read_text()+" update document_ownership set owner='DOCUMENTS';", user='documents_owner', password=own_password)
+        sql('documents_lease','revoke connect,temporary on database documents_lease from public;',user='documents_owner',password=own_password)
+        for db, owner, app, password in [('credit', 'credit_owner', 'credit_app', credit_password), ('documents', 'documents_owner', 'documents_app', own_password)]:
+            permissions = (ROOT / 'libs/platform-common/src/main/resources/cabinet/database-permissions.sql').read_text().replace('__OWNER__', owner).replace('__APP__', app)
+            sql(db, permissions, user=owner, password=password)
+            sql(db, f'revoke connect,temporary on database {db} from public; grant connect on database {db} to {app};', user=owner, password=password)
+        sql('credit', (ROOT / 'services/documents/cutover/credit-grants.sql').read_text(), user='credit_owner', password=credit_password)
+        sql('documents', (ROOT / 'services/documents/cutover/grants.sql').read_text(), user='documents_owner', password=own_password)
+        application, company, hidden, visible, private, revoked_agent = [str(uuid.uuid4()) for _ in range(6)]
+        credit_files = scratch / 'credit-files'
+        target_files = scratch / 'documents-files'
+        credit_files.mkdir(); target_files.mkdir()
+        body = b'%PDF-1.4\nMigration gate\n%%EOF'
+        checksum = hashlib.sha256(body).hexdigest()
+        for identity in (hidden, visible, private):
+            if s3: s3.request('source','PUT',f'{identity}.pdf',body)
+            else: (credit_files / f'{identity}.pdf').write_bytes(body)
+        sql('credit', f"""
+insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,submitted_at,status_changed_at,agent_id,client_handoff_at,client_managed,product_catalog_snapshot)
+ values('{application}','{company}','000100000004','Документы','ENTREPRENEUR','{uuid.uuid4()}','WORKING_CAPITAL','CASH_GAP',123456,6,'SUBMITTED',now()-interval '2 days',now(),now()-interval '1 hour',now(),'{revoked_agent}',now()-interval '1 day',true,'{{"WORKING_CAPITAL":1}}');
+insert into financing_scenario_revisions(application_id,revision,product_version,snapshot) values('{application}',1,1,'{{"revision":1,"status":"AWAITING_CLIENT","inputs":{{"openingBalance":0,"expectedReceiptAmount":200000,"expectedReceiptDate":"2026-12-20","paymentDate":"2026-12-21","delayDays":5,"alternativeTermMonths":9,"selectedTermMonths":6}},"loanAmount":123456,"annualRatePercent":12,"options":[]}}');
+insert into financing_scenario_publications(application_id,revision,status,document_ids,handed_terms) values('{application}',1,'AWAITING_CLIENT','["{visible}"]','{{"productCode":"WORKING_CAPITAL","purpose":"CASH_GAP","amount":123456,"termMonths":6,"bureauConsent":true}}');
+""", user='credit_owner', password=credit_password)
+        for identity in (hidden, visible, private):
+            private_flag = identity == private
+            uploaded = "now()" if private_flag else "now()-interval '1 day'"
+            sql('credit', f"insert into documents(id,application_id,type,file_name,stored_name,size_bytes,uploaded_by,uploaded_at,context,storage_backend,checksum_sha256,private_to_bank) values('{identity}','{application}','{'BANK_STATEMENT' if private_flag else 'OTHER'}','proof.pdf','{identity}.pdf',{len(body)},'{uuid.uuid4()}',{uploaded},'BUSINESS','{args.storage_backend.upper()}',{'null' if identity == hidden else chr(39)+checksum+chr(39)},{str(private_flag).lower()});", user='credit_owner', password=credit_password)
+        # Freeze the old writer before copying any bytes; migration itself cannot activate either writer.
+        sql('credit', "begin; update document_ownership set owner='FROZEN',epoch=2;"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;", user='credit_owner', password=credit_password)
+        sql('documents', 'update document_ownership set epoch=2;', user='documents_owner', password=own_password)
+        migration_env = base_env | {'DOCUMENTS_DATABASE_URL': f'jdbc:postgresql://127.0.0.1:{pg_port}/documents', 'DOCUMENTS_DATABASE_USER': 'documents_owner', 'DOCUMENTS_DATABASE_PASSWORD': own_password,
+            'DOCUMENTS_CREDIT_DATABASE_URL': f'jdbc:postgresql://127.0.0.1:{pg_port}/credit', 'DOCUMENTS_CREDIT_DATABASE_USER': 'credit_owner', 'DOCUMENTS_CREDIT_DATABASE_PASSWORD': credit_password,
+            'DOCUMENTS_CREDIT_LOCAL_DIR': str(credit_files), 'DOCUMENTS_MIGRATION_DIRECTION': 'forward', 'DOCUMENTS_TLS_CERTIFICATE': '', 'DOCUMENTS_TLS_KEY': '', 'DOCUMENTS_TLS_CA': ''}
+        if s3:
+            migration_env |= {'SPRING_APPLICATION_JSON':json.dumps({'cabinet':{'storage':{'s3':s3.configuration('target')}}})}
+            migration_env |= {'DOCUMENTS_CREDIT_S3_'+key.upper().replace('-','_'):value for key,value in s3.configuration('source').items()}
+        migration_command = [java, '-Xmx192m', '-jar', 'services/documents/build/libs/app.jar', '--spring.flyway.enabled=false', '--cabinet.documents.grpc.enabled=false', '--cabinet.documents.migration.enabled=true', f'--cabinet.storage.local-dir={target_files}']
+        run(migration_command, 'migration-forward', env=migration_env)
+        run(migration_command, 'migration-forward-repeat', env=migration_env)
+        certs = scratch / 'certs'; certs.mkdir()
+        run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','2','-subj','/CN=Documents Gate CA','-keyout',str(certs/'ca.key'),'-out',str(certs/'ca.crt')], 'certificates')
+        for name, san in [('server','DNS:localhost,IP:127.0.0.1'), ('credit','URI:spiffe://credit-cabinet/credit'), ('wrong','URI:spiffe://credit-cabinet/other')]:
+            run(['openssl','req','-newkey','rsa:2048','-nodes','-subj',f'/CN={name}','-keyout',str(certs/f'{name}.key'),'-out',str(certs/f'{name}.csr')], 'certificates')
+            (certs/f'{name}.ext').write_text(f'subjectAltName={san}\nextendedKeyUsage=serverAuth,clientAuth\n')
+            run(['openssl','x509','-req','-days','2','-in',str(certs/f'{name}.csr'),'-CA',str(certs/'ca.crt'),'-CAkey',str(certs/'ca.key'),'-CAcreateserial','-extfile',str(certs/f'{name}.ext'),'-out',str(certs/f'{name}.crt')], 'certificates')
+        def scanner():
+            with closing(socket.socket()) as server:
+                server.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1); server.bind(('127.0.0.1',scanner_port)); server.listen(4); server.settimeout(.2)
+                while not scanner_stop.is_set():
+                    try: connection,_ = server.accept()
+                    except socket.timeout: continue
+                    with connection:
+                        connection.settimeout(5)
+                        command = bytearray()
+                        while not command.endswith(b'\0'):
+                            chunk = connection.recv(1)
+                            if not chunk: break
+                            command.extend(chunk)
+                        if command == b'zVERSION\0': connection.sendall(('ClamAV gate/1/'+datetime.now(timezone.utc).strftime('%a %b %d %H:%M:%S %Y')+'\0').encode())
+                        elif command == b'zINSTREAM\0':
+                            content = bytearray()
+                            def read_exact(count):
+                                result=bytearray()
+                                while len(result)<count:
+                                    chunk=connection.recv(count-len(result))
+                                    if not chunk: raise RuntimeError('Incomplete synthetic scanner request')
+                                    result.extend(chunk)
+                                return result
+                            while True:
+                                count=int.from_bytes(read_exact(4),'big')
+                                if not count: break
+                                if len(content)+count > 21*1024*1024: raise RuntimeError('Scanner request limit exceeded')
+                                content.extend(read_exact(count))
+                            connection.sendall(b'stream: ERROR\0' if b'GATE-SCANNER-UNAVAILABLE' in content else (b'stream: Gate.EICAR FOUND\0' if b'EICAR' in content else b'stream: OK\0'))
+        threading.Thread(target=scanner, daemon=True).start()
+        sql('documents', "update document_ownership set owner='DOCUMENTS';", user='documents_owner', password=own_password)
+        sql('credit', "begin; update document_ownership set owner='REMOTE';"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;", user='credit_owner', password=credit_password)
+        regrant=(ROOT/'libs/platform-common/src/main/resources/cabinet/database-permissions.sql').read_text().replace('__OWNER__','credit_owner').replace('__APP__','credit_app')
+        sql('credit',regrant,user='credit_owner',password=credit_password,name='remote-regrant')
+        own_env = base_env | {'DOCUMENTS_DATABASE_URL': f'jdbc:postgresql://127.0.0.1:{pg_port}/documents', 'DOCUMENTS_DATABASE_USER':'documents_app','DOCUMENTS_DATABASE_PASSWORD':own_app_password,
+            'DOCUMENTS_GRPC_PORT':str(grpc_port),'DOCUMENTS_TLS_CERTIFICATE':str(certs/'server.crt'),'DOCUMENTS_TLS_KEY':str(certs/'server.key'),'DOCUMENTS_TLS_CA':str(certs/'ca.crt')}
+        if s3: own_env['SPRING_APPLICATION_JSON']=json.dumps({'cabinet':{'storage':{'s3':s3.configuration('target')}}})
+        class IdentityFixture(BaseHTTPRequestHandler):
+            def do_GET(self):
+                match=re.fullmatch(r'/internal/v1/companies/([a-f0-9-]{36})',self.path)
+                if re.fullmatch(r'/internal/v1/users/[a-f0-9-]{36}/credentials',self.path): body=b'{"credentialsVersion":0}'
+                elif match: body=json.dumps({'id':match[1],'inn':'000100000004','name':'Synthetic Documents company','legalForm':'ENTREPRENEUR'}).encode()
+                else: self.send_error(404); return
+                self.send_response(200); self.send_header('Content-Type','application/json'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
+            def log_message(self,*args): pass
+        identity_server=ThreadingHTTPServer(('127.0.0.1',0),IdentityFixture)
+        threading.Thread(target=identity_server.serve_forever,daemon=True).start()
+        credit_env = base_env | {'DB_HOST':'127.0.0.1','DB_PORT':str(pg_port),'DB_NAME':'credit','DB_USER':'credit_app','DB_PASSWORD':credit_app_password,'SERVER_PORT':str(http_port),'JWT_SECRET':jwt,'PIPELINE_ENABLED':'true','OUTBOX_WORKER_ENABLED':'false','IDENTITY_URL':f'http://127.0.0.1:{identity_server.server_address[1]}','ANTIVIRUS_ENABLED':'false','STORAGE_BACKEND':args.storage_backend,'UPLOAD_DIR':str(credit_files)}
+        credit = start([java,'-Xmx320m','-jar','services/credit/build/libs/app.jar','--spring.flyway.enabled=false','--server.address=127.0.0.1','--spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration','--cabinet.documents.deletions.enabled=false','--cabinet.pipeline.max-attempts=2','--cabinet.pipeline.poll-interval=PT0.2S','--cabinet.documents.grpc.deadline-ms=1500','--cabinet.documents.mode=remote','--cabinet.documents.epoch=2','--cabinet.documents.grpc.host=127.0.0.1',f'--cabinet.documents.grpc.port={grpc_port}',f'--cabinet.documents.grpc.certificate={certs/"credit.crt"}',f'--cabinet.documents.grpc.key={certs/"credit.key"}',f'--cabinet.documents.grpc.ca={certs/"ca.crt"}'], 'credit', credit_env)
+        wait_port(http_port, credit)
+        def synthetic_token(actor, company_id):
+            def b64(value): return base64.urlsafe_b64encode(value).decode().rstrip('=')
+            unsigned=b64(b'{"alg":"HS256"}')+'.'+b64(json.dumps({'sub':actor,'role':'CLIENT','cid':company_id,'name':'Synthetic Documents gate','exp':int(time.time())+300}).encode())
+            return unsigned+'.'+b64(hmac.new(jwt.encode(),unsigned.encode(),hashlib.sha256).digest())
+        draft_actor,draft_company=str(uuid.uuid4()),str(uuid.uuid4())
+        draft_token=synthetic_token(draft_actor,draft_company)
+        draft_request=urllib.request.Request(f'http://127.0.0.1:{http_port}/api/v1/applications',data=json.dumps({'productCode':'WORKING_CAPITAL','purpose':'CASH_GAP','amount':123456,'termMonths':6}).encode(),headers={'Authorization':'Bearer '+draft_token,'Content-Type':'application/json'},method='POST')
+        with urllib.request.urlopen(draft_request,timeout=10) as response:
+            assert response.status==201
+            created=json.load(response)
+            assert created['documents']==[]
+        (report/'create-while-documents-down.json').write_text(json.dumps({'status':201,'draftId':created['id'],'files':[],'documentsPortListening':False})+'\n')
+        own = start([java,'-Xmx256m','-jar','services/documents/build/libs/app.jar','--spring.flyway.enabled=false',f'--cabinet.storage.local-dir={target_files}',f'--cabinet.antivirus.port={scanner_port}',f'--cabinet.storage.mode={args.storage_backend}','--cabinet.documents.grpc.host=127.0.0.1'], 'documents', own_env)
+        wait_port(grpc_port, own)
+        replica_port = free_port()
+        replica = start([*own.args,f'--cabinet.documents.grpc.port={replica_port}'],'documents-replica',own_env)
+        wait_port(replica_port,replica)
+        def scalar(db,query):
+            return subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d',db,'-c',query],env=base_env|{'PGPASSWORD':admin_password}).decode().strip()
+        # Real Credit process death after remote commit but before its journal/transaction commit.
+        draft_id=created['id']; crash_key=str(uuid.uuid4())
+        crash_body=b'%PDF-1.4\nCredit crash replay\n%%EOF'
+        form_boundary='documents-crash-'+str(uuid.uuid4())
+        form=(f'--{form_boundary}\r\nContent-Disposition: form-data; name="file"; filename="crash-retry.pdf"\r\nContent-Type: application/pdf\r\n\r\n'.encode()+crash_body+f'\r\n--{form_boundary}--\r\n'.encode())
+        upload_request=urllib.request.Request(f'http://127.0.0.1:{http_port}/api/v1/applications/{draft_id}/documents?type=OTHER',data=form,headers={'Authorization':'Bearer '+draft_token,'Idempotency-Key':crash_key,'Content-Type':'multipart/form-data; boundary='+form_boundary},method='POST')
+        sql('credit',f"create function documents_gate_crash() returns trigger language plpgsql as $$ begin if new.application_id='{draft_id}' and new.payload->>'fileName'='crash-retry.pdf' then perform pg_sleep(30); end if; return new; end $$; create trigger documents_gate_crash before insert on application_events for each row execute function documents_gate_crash();",user='credit_owner',password=credit_password,name='crash-fixture')
+        def interrupted_upload():
+            try:
+                with urllib.request.urlopen(upload_request,timeout=10) as response: response.read()
+            except Exception: pass # The deliberate process death owns this connection failure.
+        upload_thread=threading.Thread(target=interrupted_upload,daemon=True); upload_thread.start()
+        deadline=time.monotonic()+15
+        while True:
+            original=scalar('documents',f"select metadata from document_records where application_id='{draft_id}' and metadata->>'fileName'='crash-retry.pdf'")
+            if original: break
+            if time.monotonic()>deadline: raise AssertionError('Remote upload never reached crash checkpoint')
+            time.sleep(.1)
+        original=json.loads(original)
+        credit.kill(); credit.wait(timeout=10); upload_thread.join(timeout=5)
+        sql('credit','drop trigger documents_gate_crash on application_events; drop function documents_gate_crash();',user='credit_owner',password=credit_password,name='crash-fixture')
+        assert scalar('credit',f"select count(*) from document_references where document_id='{original['id']}'")=='0'
+        credit=start([arg for arg in credit.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')],'credit-after-upload-crash',credit_env); wait_port(http_port,credit)
+        with urllib.request.urlopen(upload_request,timeout=10) as response:
+            replay=json.load(response); assert response.status==201
+        assert replay['id']==original['id'] and replay['uploadedAt']==original['uploadedAt']
+        assert scalar('credit',f"select count(*) from application_events where application_id='{draft_id}' and event='DOCUMENT_ADDED'")=='1'
+        (report/'upload-crash-recovery.json').write_text(json.dumps({'replayedId':replay['id'],'stableUploadedAt':True,'journalCount':1,'remoteCommittedCreditRolledBack':True})+'\n')
+        # A real DATA_CHECK port outage exceeds maxAttempts; each retry preserves its business count.
+        stop(own); stop(replica)
+        outage_job=str(uuid.uuid4())
+        sql('credit',f"insert into enrichment_results(application_id,source,payload,fetched_at) values('{application}','BANK','{{\"client\":true,\"settlementAccount\":null,\"monthlyInflows\":[]}}',now()); insert into pipeline_jobs(id,application_id,step,status,attempts,run_at,created_at,updated_at) values('{outage_job}','{application}','DATA_CHECK','PENDING',0,now(),now(),now());",user='credit_owner',password=credit_password,name='outage-fixture')
+        deadline=time.monotonic()+35
+        while True:
+            row=scalar('credit',f"select status||':'||business_failures||':'||documents_outages from pipeline_jobs where id='{outage_job}'")
+            status,attempts,outages=row.split(':')
+            assert status!='FAILED' and int(attempts)<=1,row
+            if int(outages)>=4: break
+            sql('credit',f"update pipeline_jobs set run_at=now() where id='{outage_job}' and status='PENDING';",user='credit_owner',password=credit_password,name='outage-clock')
+            if time.monotonic()>deadline: raise AssertionError('Durable Documents outage retry did not repeat beyond maxAttempts: '+row)
+            time.sleep(.25)
+        own=start([arg for arg in own.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')],'documents-after-outage',own_env); wait_port(grpc_port,own)
+        # Keep the next pipeline step waiting, so this gate only proves DATA_CHECK recovery.
+        sql('credit',"create function documents_gate_hold_enrichment() returns trigger language plpgsql as $$ begin if new.step='ENRICHMENT' then new.run_at=now()+interval '1 hour'; end if; return new; end $$; create trigger documents_gate_hold_enrichment before insert on pipeline_jobs for each row execute function documents_gate_hold_enrichment();",user='credit_owner',password=credit_password,name='outage-fixture')
+        sql('credit',f"update pipeline_jobs set run_at=now() where id='{outage_job}' and status='PENDING';",user='credit_owner',password=credit_password,name='outage-clock')
+        deadline=time.monotonic()+15
+        while scalar('credit',f"select status from pipeline_jobs where id='{outage_job}'")!='DONE':
+            # Advance the synthetic scheduler through reconnect backoff, as in the outage phase.
+            sql('credit',f"update pipeline_jobs set run_at=now() where id='{outage_job}' and status='PENDING';",user='credit_owner',password=credit_password,name='outage-recovery-clock')
+            if time.monotonic()>deadline: raise AssertionError('DATA_CHECK did not recover')
+            time.sleep(.2)
+        assert scalar('credit',f"select status from applications where id='{application}'")=='ENRICHMENT'
+        # Restore the submitted packet fixture without modifying its documents or history.
+        sql('credit',f"update applications set status='SUBMITTED' where id='{application}'; update pipeline_jobs set status='CANCELLED' where application_id='{application}' and status='PENDING'; drop trigger documents_gate_hold_enrichment on pipeline_jobs; drop function documents_gate_hold_enrichment();",user='credit_owner',password=credit_password,name='outage-fixture')
+        (report/'data-check-outage-recovery.json').write_text(json.dumps({'outageRetries':int(outages),'maxBusinessAttempts':2,'failed':False,'recoveredStatus':'DONE','businessAttemptsPreserved':True})+'\n')
+        replica=start([*own.args,f'--cabinet.documents.grpc.port={replica_port}'],'documents-replica-after-outage',own_env); wait_port(replica_port,replica)
+        stop(credit)
+        credit=start([*[arg for arg in credit.args if not arg.startswith(('-Dcabinet.documents.fixture.scope=','--cabinet.pipeline.poll-interval='))],'--cabinet.pipeline.poll-interval=PT1H'],'credit-runtime-assertions',credit_env); wait_port(http_port,credit)
+        test_env = base_env | {'DOCUMENTS_TEST_STORAGE_BACKEND':args.storage_backend.upper(),'DOCUMENTS_TEST_PROOF_DIR':str(report),'DOCUMENTS_TEST_CERTS':str(certs),'DOCUMENTS_TEST_GRPC_PORT':str(grpc_port),'DOCUMENTS_TEST_APPLICATION':application,'DOCUMENTS_TEST_COMPANY':company,'DOCUMENTS_TEST_HIDDEN':hidden,'DOCUMENTS_TEST_VISIBLE':visible,'DOCUMENTS_TEST_PRIVATE':private,'DOCUMENTS_TEST_REVOKED_AGENT':revoked_agent,
+            'DOCUMENTS_TEST_CREDIT_URL':f'http://127.0.0.1:{http_port}','DOCUMENTS_TEST_JWT_SECRET':jwt,'DOCUMENTS_TEST_DATABASE_BASE':f'jdbc:postgresql://127.0.0.1:{pg_port}','DOCUMENTS_TEST_ADMIN_USER':admin,'DOCUMENTS_TEST_ADMIN_PASSWORD':admin_password,'DOCUMENTS_TEST_CREDIT_APP_PASSWORD':credit_app_password,'DOCUMENTS_TEST_DOCUMENTS_APP_PASSWORD':own_app_password}
+        run([gradle,'--no-daemon','--max-workers=1','-Pkotlin.compiler.execution.strategy=in-process','-Dorg.gradle.jvmargs=-Xmx512m -XX:MaxMetaspaceSize=384m',':services:documents:documentsRuntimeTest',':services:credit:documentsClaimFenceRuntimeTest'], 'tests', env=test_env)
+        xml_paths = sorted((ROOT/'services/documents/build/test-results/documentsRuntimeTest').glob('TEST-*.xml')) + sorted((ROOT/'services/credit/build/test-results/documentsClaimFenceRuntimeTest').glob('TEST-*.xml'))
+        assert xml_paths
+        totals = {key: sum(int(ET.parse(path).getroot().get(key,0)) for path in xml_paths) for key in ('tests','failures','errors','skipped')}
+        assert totals['tests'] == 10 and all(totals[key] == 0 for key in ('failures','errors','skipped')), totals
+        for path in xml_paths: shutil.copy2(path, report/path.name)
+        concurrent_paths=json.loads((report/'concurrent-upload-paths.json').read_text())
+        if s3:
+            try: s3.request('target','HEAD',concurrent_paths['loser']); raise AssertionError('Conflicting extension created an extra S3 object')
+            except __import__('urllib.error',fromlist=['HTTPError']).HTTPError as failure: assert failure.code==404
+        else: assert not (target_files/concurrent_paths['loser']).exists()
+        # Committed tombstone must deny direct reads even while BOTH Documents servers are down.
+        stop(own); stop(replica)
+        deleted=json.loads(scalar('credit', "select json_build_object('document',i.document_id,'application',i.application_id,'company',a.company_id,'actor',a.created_by) from document_deletion_intents i join applications a on a.id=i.application_id order by i.document_id limit 1"))
+        removal_request=urllib.request.Request(f"http://127.0.0.1:{http_port}/api/v1/applications/{deleted['application']}/documents/{deleted['document']}",headers={'Authorization':'Bearer '+synthetic_token(deleted['actor'],deleted['company'])})
+        try: urllib.request.urlopen(removal_request,timeout=5); raise AssertionError('Committed tombstone visible while Documents down')
+        except __import__('urllib.error',fromlist=['HTTPError']).HTTPError as failure: assert failure.code==404
+        stop(credit)
+        sql('documents', "update artifact_records set lease_until=now()-interval '1 second',next_attempt_at=now() where template_version=2 and status<>'READY';", user='documents_owner', password=own_password, name='recovery')
+        own = start([arg for arg in own.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')], 'documents-restart', own_env)
+        wait_port(grpc_port, own)
+        credit = start([*[arg for arg in credit.args if not arg.startswith(('-Dcabinet.documents.fixture.scope=','--cabinet.documents.deletions.enabled='))],'--cabinet.documents.deletions.enabled=true'], 'credit-restart', credit_env)
+        wait_port(http_port, credit)
+        deadline=time.monotonic()+40
+        while True:
+            try:
+                sql('documents', "do $$ begin if exists(select 1 from artifact_records where template_version=2 and status<>'READY') then raise exception 'Recovery pending'; end if; if (select count(*) from artifact_outbox) <> (select count(*) from artifact_records where status='READY') then raise exception 'Outbox mismatch'; end if; end $$;", user='documents_owner', password=own_password, name='recovery')
+                break
+            except subprocess.CalledProcessError:
+                if time.monotonic()>deadline: raise
+                time.sleep(.3)
+        deadline=time.monotonic()+20
+        while scalar('credit',"select count(*) from document_deletion_intents where delivered_at is null and run_at<=now()")!='0':
+            if time.monotonic()>deadline: raise AssertionError('Committed deletion did not recover after restart')
+            time.sleep(.2)
+        assert scalar('credit',"select count(*) from document_deletion_intents where delivered_at is not null")=='1'
+        assert scalar('credit',"select count(*) from document_deletion_intents where delivered_at is null")=='1'
+        # A second restarted poll observes durable READY and must preserve one notice/outbox effect.
+        time.sleep(2)
+        sql('credit', "do $$ begin if (select count(*) from generated_artifact_notices)<>1 then raise exception 'Notice dedup failed'; end if; if (select count(*) from delivery_outbox where event_key like 'generated-files:%')<>1 then raise exception 'Outbox dedup failed'; end if; end $$;", user='credit_owner', password=credit_password, name='recovery')
+        physical_target_inventory = object_inventory('target','documents')
+        target_inventory = object_inventory('target','documents',committed_only=True)
+        confirmed_ids=set(scalar('credit',"select document_id from document_references").splitlines())
+        orphan_ids=set(scalar('documents',"select id from document_records").splitlines())-confirmed_ids
+        assert orphan_ids, 'Gate must retain at least one actual failed-upload orphan'
+        abandoned_orphan=scalar('documents',"select id from document_records where metadata->>'fileName'='abandoned-upload.pdf'")
+        assert abandoned_orphan in orphan_ids, 'Failed journal upload must remain a known uncommitted orphan'
+        (report/'expected-orphan-ids.json').write_text(json.dumps(sorted(orphan_ids))+'\n')
+        stop(credit); stop(own)
+        sql('documents', "update document_ownership set owner='FROZEN',epoch=3;", user='documents_owner', password=own_password)
+        sql('credit', "update document_ownership set owner='FROZEN',epoch=3;", user='credit_owner', password=credit_password)
+        # Prove current readers cannot return local data after remote ownership.
+        sql('credit', "do $$ begin if not exists(select 1 from document_ownership where owner='FROZEN') then raise exception 'Reader fence absent'; end if; end $$;", user='credit_owner', password=credit_password)
+        def expected_conflict(name):
+            try:
+                run(migration_command,name,env=migration_env|{'DOCUMENTS_MIGRATION_DIRECTION':'reverse'})
+            except subprocess.CalledProcessError:
+                sql('credit',"do $$ begin if not exists(select 1 from document_ownership where owner='FROZEN' and epoch=3) then raise exception 'Credit writer unfenced'; end if; end $$;",user='credit_owner',password=credit_password,name='conflict-verification')
+                sql('documents',"do $$ begin if not exists(select 1 from document_ownership where owner='FROZEN' and epoch=3) then raise exception 'Documents writer unfenced'; end if; end $$;",user='documents_owner',password=own_password,name='conflict-verification')
+                return
+            raise AssertionError('Conflicting reverse import unexpectedly succeeded')
+        # Conflict must be detected before writing bytes or silently keeping stale metadata.
+        sql('credit',f"alter table documents disable trigger documents_owner_fence; update documents set file_name='conflicting-source.pdf' where id='{hidden}'; alter table documents enable trigger documents_owner_fence;",user='credit_owner',password=credit_password,name='conflict-fixture')
+        expected_conflict('reverse-document-conflict')
+        sql('credit',f"do $$ begin if not exists(select 1 from documents where id='{hidden}' and file_name='conflicting-source.pdf') then raise exception 'Document conflict overwritten'; end if; end $$;",user='credit_owner',password=credit_password,name='conflict-verification')
+        if s3: s3.verify('source',f'{hidden}.pdf',len(body),checksum)
+        else: assert (credit_files/f'{hidden}.pdf').read_bytes()==body
+        sql('credit',f"alter table documents disable trigger documents_owner_fence; update documents set file_name='proof.pdf' where id='{hidden}'; alter table documents enable trigger documents_owner_fence;",user='credit_owner',password=credit_password,name='conflict-fixture')
+        confirmed_hash=scalar('credit',"select input_hash from document_artifact_inputs where phase='FINAL' order by created_at limit 1")
+        raw_artifact=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','documents','-c',f"select metadata from artifact_records where status='READY' and input_hash='{confirmed_hash}' order by id limit 1"],env=base_env|{'PGPASSWORD':admin_password})
+        artifact=json.loads(raw_artifact)
+        conflict_name=f"reverse-conflict-{artifact['id']}.pdf"
+        conflict_bytes=b'Original source conflict bytes'
+        if s3: s3.request('source','PUT',conflict_name,conflict_bytes)
+        else: (credit_files/conflict_name).write_bytes(conflict_bytes)
+        def quoted(value): return "'"+str(value).replace("'","''")+"'"
+        input_conflict=json.loads(artifact['inputJson']); input_conflict['companyName']='Conflicting source input'
+        values=[artifact['id'],artifact['scope']['applicationId'],artifact['offerId'],artifact['kind'],artifact['phase']]
+        sql('credit',"alter table generated_artifacts disable trigger artifacts_owner_fence; insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,status,next_attempt_at,created_at,updated_at) values("+','.join(quoted(value) for value in values)+f",{artifact['templateVersion']},"+quoted(artifact['inputHash'])+','+quoted(json.dumps(input_conflict))+"::jsonb,"+','.join(quoted(artifact[key]) for key in ('title','fileName','contentType'))+','+quoted(conflict_name)+','+quoted(artifact['backend'])+",'PENDING',now(),"+quoted(artifact['createdAt'])+",now()); alter table generated_artifacts enable trigger artifacts_owner_fence;",user='credit_owner',password=credit_password,name='conflict-fixture')
+        actual_name=artifact['storedName']
+        def source_snapshot(name):
+            if not s3:
+                path=credit_files/name
+                return path.read_bytes() if path.is_file() else None
+            try: return s3.request('source','GET',name)[1]
+            except __import__('urllib.error',fromlist=['HTTPError']).HTTPError as failure:
+                if failure.code==404: return None
+                raise
+        actual_before=source_snapshot(actual_name)
+        expected_conflict('reverse-artifact-conflict')
+        assert source_snapshot(actual_name)==actual_before, 'Rejected reverse copied or changed actual artifact storedName'
+
+        sql('credit',f"do $$ begin if not exists(select 1 from generated_artifacts where id='{artifact['id']}' and stored_name='{conflict_name}' and input_json->>'companyName'='Conflicting source input') then raise exception 'Artifact conflict overwritten'; end if; end $$;",user='credit_owner',password=credit_password,name='conflict-verification')
+        if s3: s3.verify('source',conflict_name,len(conflict_bytes),hashlib.sha256(conflict_bytes).hexdigest())
+        else: assert (credit_files/conflict_name).read_bytes()==conflict_bytes
+        sql('credit',f"alter table generated_artifacts disable trigger artifacts_owner_fence; delete from generated_artifacts where id='{artifact['id']}'; alter table generated_artifacts enable trigger artifacts_owner_fence;",user='credit_owner',password=credit_password,name='conflict-fixture')
+        # An immutable committed FINAL intent with no first Prepare RPC must survive reverse.
+        pending_application,pending_company,pending_actor,pending_offer=[str(uuid.uuid4()) for _ in range(4)]
+        sql('credit',f"insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,status_changed_at,product_catalog_snapshot) values('{pending_application}','{pending_company}','000100000004','Pending frozen transfer','ENTREPRENEUR','{pending_actor}','WORKING_CAPITAL','CASH_GAP',999999,6,'DRAFT',now(),now(),now(),jsonb_build_object('WORKING_CAPITAL',1)); insert into offers(id,application_id,decision_id,kind,product_code,amount,term_months,rate,monthly_payment,total_payment,valid_until,status,created_at,product_version) select '{pending_offer}','{pending_application}',decision_id,kind,product_code,amount,term_months,rate,monthly_payment,total_payment,valid_until,status,created_at,product_version from offers where id='{artifact['offerId']}';",user='credit_owner',password=credit_password,name='pending-input-fixture')
+        # Modify only known versioned JSON identity fields; preserve every numeric scale and contract byte.
+        pending_json=artifact['inputJson'].replace('"applicationId":"'+application+'"','"applicationId":"'+pending_application+'"').replace('"offerId":"'+artifact['offerId']+'"','"offerId":"'+pending_offer+'"')
+        pending_number=scalar('credit',f"select number from applications where id='{pending_application}'")
+        pending_json=re.sub(r'"applicationNumber":\d+','"applicationNumber":'+pending_number,pending_json)
+        pending_hash=hashlib.sha256(pending_json.encode()).hexdigest()
+        assert '"rate":12.00' in pending_json
+        sql('credit',"insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json,requested_backend) values("+','.join(quoted(value) for value in (pending_application,pending_offer,'FINAL',pending_hash))+','+quoted(pending_json)+"::jsonb,"+quoted(args.storage_backend.upper())+");",user='credit_owner',password=credit_password,name='pending-input-fixture')
+        assert scalar('documents',f"select count(*) from artifact_records where application_id='{pending_application}'")=='0'
+        run(migration_command, 'migration-reverse', env=migration_env | {'DOCUMENTS_MIGRATION_DIRECTION':'reverse'})
+        run(migration_command, 'migration-reverse-repeat', env=migration_env | {'DOCUMENTS_MIGRATION_DIRECTION':'reverse'})
+        sql('credit', "do $$ begin if exists(select 1 from documents d left join document_references r on r.document_id=d.id and r.application_id=d.application_id where r.document_id is null) then raise exception 'Uncommitted orphan imported'; end if; end $$;", user='credit_owner',password=credit_password,name='orphan-reverse-invisibility')
+        for orphan_id in orphan_ids:
+            assert scalar('credit',f"select count(*) from documents where id='{uuid.UUID(orphan_id)}'")=='0', 'Reverse imported a known uncommitted upload'
+        source_inventory = object_inventory('source','credit')
+        assert not s3 or sorted(source_inventory,key=lambda row:row['storedName']) == sorted(target_inventory,key=lambda row:row['storedName'])
+        # Retry the actual failed remote upload under LOCAL ownership, then cut forward again.
+        sql('credit', "begin; update document_ownership set owner='LOCAL';"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;", user='credit_owner', password=credit_password)
+        assert scalar('credit',f"select count(*) from generated_artifacts where application_id='{pending_application}' and phase='FINAL' and input_hash='{pending_hash}' and status='PENDING'")=='3'
+        assert scalar('credit',f"select count(*) from generated_artifacts where application_id='{pending_application}' and input_hash<>'{pending_hash}'")=='0'
+        local_env=dict(credit_env)
+        if s3: local_env['SPRING_APPLICATION_JSON']=json.dumps({'cabinet':{'storage':{'s3':s3.configuration('source')}}})
+        local_args=[arg for arg in credit.args if not arg.startswith(('-Dcabinet.documents.fixture.scope=','--cabinet.documents.mode=','--cabinet.documents.epoch='))]
+        credit=start([*local_args,'--cabinet.documents.mode=local','--cabinet.documents.epoch=3'],'credit-local-retry',local_env); wait_port(http_port,credit)
+        operation=json.loads((report/'abandoned-upload-operation.json').read_text())
+        original_operation=operation['record']; retry_body=base64.b64decode(operation['content'])
+        retry_auth=synthetic_token(original_operation['uploadedBy'],original_operation['scope']['companyId'])
+        retry_boundary='local-operation-'+str(uuid.uuid4())
+        retry_form=(f'--{retry_boundary}\r\nContent-Disposition: form-data; name="file"; filename="{original_operation["fileName"]}"\r\nContent-Type: application/pdf\r\n\r\n'.encode()+retry_body+f'\r\n--{retry_boundary}--\r\n'.encode())
+        retry_request=urllib.request.Request(f'http://127.0.0.1:{http_port}/api/v1/applications/{original_operation["scope"]["applicationId"]}/documents?type=OTHER',data=retry_form,headers={'Authorization':'Bearer '+retry_auth,'Idempotency-Key':operation['key'],'Content-Type':'multipart/form-data; boundary='+retry_boundary},method='POST')
+        with urllib.request.urlopen(retry_request,timeout=10) as response: local_first=response.read(); assert response.status==201
+        with urllib.request.urlopen(retry_request,timeout=10) as response: local_replay=response.read(); assert response.status==201
+        assert local_first==local_replay
+        local_record=json.loads(local_first)
+        assert local_record['id']==original_operation['id'] and local_record['uploadedAt']==original_operation['uploadedAt']
+        sql('credit',f"do $$ begin if not exists(select 1 from documents where id='{original_operation['id']}' and stored_name={quoted(original_operation['storedName'])} and storage_backend={quoted(original_operation['backend'])}) then raise exception 'LOCAL retry changed frozen operation placement'; end if; end $$;",user='credit_owner',password=credit_password,name='local-operation-proof')
+        if s3: s3.verify('source',original_operation['storedName'],original_operation['sizeBytes'],original_operation['checksum'])
+        else: assert (credit_files/original_operation['storedName']).read_bytes()==retry_body
+        # Listing a pending reversed FINAL input must use its exact snapshot rather than current 999999 terms.
+        pending_auth=synthetic_token(pending_actor,pending_company)
+        pending_list=urllib.request.Request(f'http://127.0.0.1:{http_port}/api/v1/applications/{pending_application}/artifacts',headers={'Authorization':'Bearer '+pending_auth})
+        with urllib.request.urlopen(pending_list,timeout=10) as response:
+            pending_views=json.load(response); assert len(pending_views)==3 and all(item['phase']=='FINAL' for item in pending_views)
+        deadline=time.monotonic()+40
+        while scalar('credit',f"select count(*) from generated_artifacts where application_id='{pending_application}' and status='READY'")!='3':
+            if time.monotonic()>deadline: raise AssertionError('Reversed frozen FINAL jobs did not render under LOCAL')
+            time.sleep(.2)
+        sql('credit',f"do $$ begin if exists(select 1 from generated_artifacts where application_id='{pending_application}' and (input_hash<>'{pending_hash}' or input_json->'calculation'->>'rate'<>'12.00' or input_json->>'amount'<>'123456')) then raise exception 'Frozen FINAL input was recomputed'; end if; end $$;",user='credit_owner',password=credit_password,name='pending-final-proof')
+        published=json.loads(scalar('credit',f"select row_to_json(g) from (select id,stored_name,checksum,size_bytes from generated_artifacts where application_id='{pending_application}' and status='READY' order by id limit 1) g"))
+        original_published_bytes=source_snapshot(published['stored_name'])
+        assert hashlib.sha256(original_published_bytes).hexdigest()==published['checksum']
+        if s3: s3.request('source','PUT',published['stored_name'],b'Synthetic corrupted object')
+        else: (credit_files/published['stored_name']).write_bytes(b'Synthetic corrupted object')
+        try:
+            bad_download=urllib.request.Request(f'http://127.0.0.1:{http_port}/api/v1/applications/{pending_application}/artifacts/{published["id"]}/download',headers={'Authorization':'Bearer '+pending_auth})
+            try: urllib.request.urlopen(bad_download,timeout=10); raise AssertionError('Corrupt published file was served')
+            except __import__('urllib.error',fromlist=['HTTPError']).HTTPError as failure: assert failure.code==503
+            assert scalar('credit',f"select status||':'||checksum from generated_artifacts where id='{published['id']}'")=='READY:'+published['checksum']
+            retry_published=urllib.request.Request(f'http://127.0.0.1:{http_port}/api/v1/applications/{pending_application}/artifacts/{published["id"]}/retry',data=b'',headers={'Authorization':'Bearer '+pending_auth},method='POST')
+            with urllib.request.urlopen(retry_published,timeout=10) as response:
+                kept=json.load(response); assert kept['id']==str(published['id']) and kept['status']=='READY' and kept['checksum']==published['checksum']
+        finally:
+            if s3: s3.request('source','PUT',published['stored_name'],original_published_bytes)
+            else: (credit_files/published['stored_name']).write_bytes(original_published_bytes)
+        (report/'published-read-failure.json').write_text(json.dumps({'artifactId':published['id'],'readStatus':503,'metadata':'READY unchanged','retry':'same READY checksum','restore':'exact original bytes'})+'\n')
+        stop(credit)
+        sql('credit',"begin; update document_ownership set owner='FROZEN',epoch=4;"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;",user='credit_owner',password=credit_password)
+        sql('documents',"update document_ownership set epoch=4;",user='documents_owner',password=own_password)
+        run(migration_command,'migration-forward-after-local-retry',env=migration_env)
+        run(migration_command,'migration-forward-after-local-repeat',env=migration_env)
+        sql('documents',"update document_ownership set owner='DOCUMENTS';",user='documents_owner',password=own_password)
+        sql('credit',"begin; update document_ownership set owner='REMOTE';"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;",user='credit_owner',password=credit_password)
+        own=start([arg for arg in own.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')],'documents-second-cutover',own_env); wait_port(grpc_port,own)
+        credit=start([*local_args,'--cabinet.documents.mode=remote','--cabinet.documents.epoch=4'],'credit-second-cutover',credit_env); wait_port(http_port,credit)
+        download_retry=urllib.request.Request(f'http://127.0.0.1:{http_port}/api/v1/applications/{original_operation["scope"]["applicationId"]}/documents/{original_operation["id"]}',headers={'Authorization':'Bearer '+retry_auth})
+        with urllib.request.urlopen(download_retry,timeout=10) as response: assert response.status==200 and response.read()==retry_body
+        with urllib.request.urlopen(retry_request,timeout=10) as response: remote_replay=response.read(); assert response.status==201
+        assert remote_replay==local_first
+        assert scalar('credit',f"select count(*) from application_events where application_id='{original_operation['scope']['applicationId']}' and event='DOCUMENT_ADDED' and payload->>'documentId'='{original_operation['id']}'")=='1'
+        stop(credit); stop(own)
+        sql('credit',"begin; update document_ownership set owner='FROZEN',epoch=5;"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;",user='credit_owner',password=credit_password)
+        sql('documents',"update document_ownership set owner='FROZEN',epoch=5;",user='documents_owner',password=own_password)
+        run(migration_command,'migration-reverse-final',env=migration_env|{'DOCUMENTS_MIGRATION_DIRECTION':'reverse'})
+        run(migration_command,'migration-reverse-final-repeat',env=migration_env|{'DOCUMENTS_MIGRATION_DIRECTION':'reverse'})
+        physical_target_inventory=object_inventory('target','documents')
+        target_inventory=object_inventory('target','documents',committed_only=True)
+        source_inventory=object_inventory('source','credit')
+        assert not s3 or sorted(source_inventory,key=lambda item:item['storedName'])==sorted(target_inventory,key=lambda item:item['storedName'])
+        (report/'cross-mode-operation-replay.json').write_text(json.dumps({'documentId':original_operation['id'],'requestedAtPreserved':True,'backend':original_operation['backend'],'journalCount':1,'sequence':['REMOTE-rollback','reverse-orphan-excluded','LOCAL-retry','LOCAL-replay','forward','REMOTE-read+replay','reverse-final']})+'\n')
+        (report/'unsent-final-reverse.json').write_text(json.dumps({'applicationId':pending_application,'inputHash':pending_hash,'localJobs':3,'rateScale':'12.00','frozenAmount':123456,'currentAmount':999999,'status':'READY-with-original-snapshot'})+'\n')
+        sql('credit', "begin; update document_ownership set owner='LOCAL';"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;", user='credit_owner', password=credit_password)
+
+        sql('credit', (ROOT/'db/rollback/credit/U26__documents_boundary.sql').read_text(), user='credit_owner', password=credit_password, name='rollback-compatibility')
+        sql('credit',"do $$ begin if exists(select 1 from document_deletion_intents i left join documents d on d.id=i.document_id where d.id is null or d.deleted_at is distinct from i.deleted_at) then raise exception 'Committed deletion lost on reverse'; end if; end $$;",user='credit_owner',password=credit_password,name='deletion-reverse-intents')
+        # V26 remains additive: all pre-existing metadata and attachment references survive.
+        sql('credit', f"do $$ begin if (select count(*) from documents where application_id='{application}') < 4 then raise exception 'Reverse import lost rows'; end if; end $$;", user='credit_owner', password=credit_password, name='rollback-compatibility')
+        revision = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()
+        tree = subprocess.check_output(['git','rev-parse','HEAD^{tree}'],cwd=ROOT).decode().strip()
+        jars = {service:hashlib.sha256((ROOT/f'services/{service}/build/libs/app.jar').read_bytes()).hexdigest() for service in ('documents','credit')}
+        (report/'receipt.json').write_text(json.dumps({'sourceSha':revision,'sourceTree':tree,'jars':jars,'tests':totals,'migration':['forward','repeat','reverse','U26-data-preserving','document+artifact-immutable-conflicts-fail-FROZEN-with-original-bytes'],'recovery':['two-competing-Documents-workers','expired-lease-after-two-JAR-restart','durable-READY','single-Credit-notice-and-notification-outbox'],'storageBackend':args.storage_backend,'s3':({'provenance':s3.provenance,'targetPerFile':target_inventory,'physicalTargetIncludingOrphans':physical_target_inventory,'reversePerFile':source_inventory} if s3 else {'status':'not-tested-in-LOCAL-profile'}),'scanner':'synthetic fresh clamd protocol; clean+reject; not AV efficacy evidence','environment':'native private PostgreSQL + actual standalone Documents/Credit JARs + mTLS'},ensure_ascii=False,indent=2)+'\n')
+    finally:
+        if identity_server: identity_server.shutdown(); identity_server.server_close()
+        scanner_stop.set()
+        if s3:
+            try:
+                if not s3.close(): startup_unconfirmed = True
+            except (OSError, subprocess.SubprocessError):
+                startup_unconfirmed = True
+        for process in reversed(processes): stop(process)
+        for handle in handles: handle.close()
+        if container:
+            try:
+                removed=subprocess.run(['docker','rm','-fv',container],env=docker_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=45)
+                if removed.returncode: startup_unconfirmed = True
+            except (OSError, subprocess.SubprocessError):
+                startup_unconfirmed = True
+        elif pg_started and pg_process is not None:
+            if pg_process.poll() is None:
+                stopped=subprocess.run([str(pg_bin/'pg_ctl'),'-D',str(scratch/'db'),'-m','fast','-t','20','-w','stop'],env=base_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=25)
+                if stopped.returncode!=0 and pg_process.poll() is None:
+                    # postmaster.pid may not exist yet; its direct Popen identity is already owned.
+                    pg_process.send_signal(signal.SIGINT)
+            try: pg_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                # Keep the directory and ownership ledger for guarded after_script cleanup.
+                raise RuntimeError('Owned PostgreSQL did not stop; fixture directory retained')
+        if startup_unconfirmed:
+            # An interrupted native/CI start or removal may leave a live bind consumer.
+            # Ownership-aware cleanup must resolve it before any fixture data removal.
+            (report/'cleanup-retained.json').write_text(json.dumps({'scope':scope,'source':source_sha,'scratch':str(scratch),'reason':'Fixture startup/removal unconfirmed; guarded cleanup required'})+'\n')
+            if sys.exc_info()[0] is None:
+                raise RuntimeError('Fixture cleanup unconfirmed; owned data retained')
+        elif pg_process is None or pg_process.poll() is not None:
+            shutil.rmtree(scratch)
+
+if __name__ == '__main__': main()

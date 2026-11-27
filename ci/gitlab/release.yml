@@ -10,6 +10,7 @@ release-images:
   tags: [cabinet-release]
   dependencies: [backend, frontend]
   script:
+    - python3 -B ci/gitlab/backend-packages.py download
     - bash ci/gitlab/publish-images.sh
   artifacts:
     when: always

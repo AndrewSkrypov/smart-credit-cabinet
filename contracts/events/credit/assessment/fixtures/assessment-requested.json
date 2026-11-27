@@ -1,0 +1,137 @@
+{
+  "protocolVersion": 1,
+  "cycle": {
+    "generation": "alpha-r2-fixture",
+    "cycleId": "f162f60c-c301-4a74-b829-f0444985ad47",
+    "applicationId": "a4fd57ac-6182-4647-bdd2-176221bab0c2",
+    "applicationVersion": 9,
+    "ruleSetVersion": 12,
+    "selectedProduct": {
+      "code": "WORKING_CAPITAL",
+      "version": 7
+    },
+    "catalog": [
+      {
+        "code": "WORKING_CAPITAL",
+        "version": 7
+      },
+      {
+        "code": "OVERDRAFT",
+        "version": 3
+      }
+    ],
+    "candidatePreApprovalId": "7d65bf7b-9fed-49a1-b77c-82d51cd822db"
+  },
+  "inn": "000000000000",
+  "terms": {
+    "productCode": "WORKING_CAPITAL",
+    "amount": 1000000,
+    "termMonths": 12,
+    "declaredRevenue12m": 14400000
+  },
+  "selectedProduct": {
+    "ref": {
+      "code": "WORKING_CAPITAL",
+      "version": 7
+    },
+    "name": "Оборотный",
+    "minAmount": 100000,
+    "maxAmount": 20000000,
+    "minTermMonths": 3,
+    "maxTermMonths": 36,
+    "baseRate": 18.0,
+    "autoApprovalLimit": 3000000,
+    "revolving": false
+  },
+  "catalog": [
+    {
+      "ref": {
+        "code": "WORKING_CAPITAL",
+        "version": 7
+      },
+      "name": "Оборотный",
+      "minAmount": 100000,
+      "maxAmount": 20000000,
+      "minTermMonths": 3,
+      "maxTermMonths": 36,
+      "baseRate": 18.0,
+      "autoApprovalLimit": 3000000,
+      "revolving": false
+    },
+    {
+      "ref": {
+        "code": "OVERDRAFT",
+        "version": 3
+      },
+      "name": "Овердрафт",
+      "minAmount": 50000,
+      "maxAmount": 2000000,
+      "minTermMonths": 3,
+      "maxTermMonths": 12,
+      "baseRate": 18.0,
+      "autoApprovalLimit": 3000000,
+      "revolving": true
+    }
+  ],
+  "rules": {
+    "version": 12,
+    "maxLoad": 0.35,
+    "revenueMismatch": 0.25,
+    "ratingCutoffs": {
+      "A": 80,
+      "B": 65,
+      "C": 50,
+      "D": 35
+    },
+    "ratingMargins": {
+      "A": 0.0,
+      "B": 2.0,
+      "C": 4.0,
+      "D": 6.0
+    },
+    "lowRiskOkved": [
+      "62"
+    ],
+    "highRiskOkved": [
+      "41"
+    ],
+    "weakAmountShare": 0.6,
+    "weakRevenueShare": 0.2
+  },
+  "candidatePreApproval": {
+    "id": "7d65bf7b-9fed-49a1-b77c-82d51cd822db",
+    "applicationId": "a4fd57ac-6182-4647-bdd2-176221bab0c2",
+    "productCode": "WORKING_CAPITAL",
+    "maxAmount": 1500000,
+    "minTermMonths": 6,
+    "maxTermMonths": 18,
+    "rate": 15.0,
+    "validUntil": "2026-11-27T12:00:00Z"
+  },
+  "bureauConsent": {
+    "applicationId": "a4fd57ac-6182-4647-bdd2-176221bab0c2"
+  },
+  "bankPrefetch": {
+    "fact": {
+      "client": true,
+      "settlementAccount": null,
+      "monthlyInflows": [
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000
+      ]
+    },
+    "receivedAt": "2026-11-26T11:59:59Z"
+  },
+  "startsAt": "2026-11-26T12:00:00Z",
+  "deadline": "2026-11-26T12:02:00Z"
+}

@@ -35,7 +35,7 @@ jobs:
         env:
           PGPASSWORD: cabinet
         run: |
-          for db in identity credit engagement common_test; do
+          for db in identity credit engagement assessment common_test; do
             psql -h localhost -U cabinet -d cabinet -c "create database $db"
           done
       - name: Start the real scanner for infected-file integration tests
@@ -84,7 +84,19 @@ jobs:
       - name: Build, ktlint and tests
         env:
           OUTBOX_WORKER_ENABLED: "false"
+          ASSESSMENT_DB_URL: jdbc:postgresql://127.0.0.1:5432/assessment
+          ASSESSMENT_DB_USER: cabinet
+          ASSESSMENT_DB_PASSWORD: cabinet
         run: ./gradlew build --no-daemon
+      - name: Verify Catalog cutover and Credit submission over mutual TLS
+        env:
+          CATALOG_TEST_POSTGRES_IMAGE: cabinet/postgres:16.15-alpine-su-exec-0.3
+          CATALOG_TEST_POSTGRES_NAME: cabinet-ci-catalog-postgres
+        run: GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}" bash scripts/check-catalog-integration.sh --no-daemon
+      - name: Verify Assessment with real Kafka and separate PostgreSQL databases
+        env:
+          PGPASSWORD: cabinet
+        run: bash e2e/alpha-assessment/check-ci.sh "$(pg_config --bindir)" 5432
       - name: Reapply schema comments after rollback on PostgreSQL 16
         env:
           PGPASSWORD: cabinet
@@ -108,13 +120,14 @@ jobs:
           path: |
             **/build/reports/tests/
             **/build/reports/jacoco/
+            **/build/test-results/catalogIntegrationTest/
+            ci-artifacts/catalog-r1/
             ci-artifacts/schema-rollback.json
             ci-artifacts/migration-restore.json
+            ci-artifacts/assessment/
+            services/assessment/build/test-results/assessmentKafkaTest/
       - name: Hash the tested service jars
-        run: |
-          mkdir -p ci-artifacts
-          test "$(find services -path '*/build/libs/app.jar' | wc -l)" -eq 4
-          sha256sum services/*/build/libs/app.jar > ci-artifacts/backend.sha256
+        run: bash ci/gitlab/quality/backend-artifacts.sh
       - name: Publish the tested service jars
         uses: actions/upload-artifact@v4
         with:
@@ -124,7 +137,9 @@ jobs:
             ci-artifacts/backend.sha256
       - name: Stop the isolated database
         if: always()
-        run: docker rm -f cabinet-ci-postgres cabinet-ci-clamav cabinet-ci-seaweedfs
+        run: |
+          docker rm -f -v cabinet-ci-catalog-postgres >/dev/null 2>&1 || true
+          docker rm -f cabinet-ci-postgres cabinet-ci-clamav cabinet-ci-seaweedfs
 
   frontend:
     runs-on: ubuntu-24.04
@@ -214,7 +229,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [identity, credit, engagement, external-sim, frontend]
+        service: [assessment, catalog-grpc, identity, credit, documents, engagement, external-sim, servicing, frontend]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4

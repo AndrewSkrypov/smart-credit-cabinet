@@ -23,9 +23,10 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import RadioButtonUncheckedRoundedIcon from '@mui/icons-material/RadioButtonUncheckedRounded';
-import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
+import { BusinessUploadButton } from '../../components/BusinessUploadButton';
+import { businessUploadScope } from '../../shared/businessUpload';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 import { agentApi, productsApi } from '../../api/client';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingBlock } from '../../components/LoadingBlock';
@@ -42,10 +43,10 @@ import { commissionStatusLabels } from '../../shared/labels';
 import { Application, ApplicationInput, DocumentType } from '../../types';
 import { HistoryBlock } from '../client/application/HistoryBlock';
 import { StageStepper } from '../client/application/StageStepper';
+import { FinancingScenarioEditor } from './FinancingScenarioEditor';
 
 const FAST_REFRESH_MS = 2000;
 const SLOW_REFRESH_MS = 15000;
-const ACCEPT = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx';
 
 function AgentUploadButton({
   applicationId,
@@ -62,36 +63,10 @@ function AgentUploadButton({
   label?: string;
   variant?: 'outlined' | 'text';
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <>
-      <Button variant={variant} startIcon={<UploadFileRoundedIcon />} disabled={busy} onClick={() => inputRef.current?.click()}>
-        {busy ? 'Загружаем…' : label}
-      </Button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ACCEPT}
-        hidden
-        onChange={async (event) => {
-          const file = event.target.files?.[0];
-          event.target.value = '';
-          if (!file) return;
-          setBusy(true);
-          try {
-            await agentApi.uploadDocument(applicationId, documentType, file);
-            onUploaded();
-          } catch (nextError) {
-            onError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить файл');
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
-    </>
-  );
+  return <BusinessUploadButton
+    scope={() => businessUploadScope('agent', applicationId, documentType)}
+    upload={(file, key) => agentApi.uploadDocument(applicationId, documentType, file, key)}
+    onUploaded={onUploaded} onError={onError} variant={variant}>{label}</BusinessUploadButton>;
 }
 
 function Fact({ label, value }: { label: string; value: string }) {
@@ -122,6 +97,7 @@ export function AgentApplicationPage() {
 }
 
 function AgentApplicationCard({ id }: { id: string }) {
+  const { hash } = useLocation();
   const products = useApi(productsApi.list);
   const [application, setApplication] = useState<Application | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +105,7 @@ function AgentApplicationCard({ id }: { id: string }) {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [infoAnswer, setInfoAnswer] = useState('');
+  const [scenarioDirty, setScenarioDirty] = useState(false);
 
   // Draft editor local state
   const [amount, setAmount] = useState<number>(0);
@@ -140,6 +117,7 @@ function AgentApplicationCard({ id }: { id: string }) {
   const draftSynced = useRef(false);
   const mounted = useRef(false);
   const inFlight = useRef(false);
+  const requestSequence = useRef(0);
 
   const syncDraftFields = useCallback((app: Application) => {
     setAmount(app.amount);
@@ -152,6 +130,7 @@ function AgentApplicationCard({ id }: { id: string }) {
 
   const apply = useCallback((next: Application) => {
     if (!mounted.current || next.id !== id) return;
+    requestSequence.current += 1;
     setApplication(next);
     setError(null);
   }, [id]);
@@ -159,14 +138,16 @@ function AgentApplicationCard({ id }: { id: string }) {
   const load = useCallback(async () => {
     if (!mounted.current || inFlight.current) return;
     inFlight.current = true;
+    const sequence = ++requestSequence.current;
     try {
       const next = await agentApi.getApplication(id);
-      if (!mounted.current || next.id !== id) return;
+      if (!mounted.current || sequence !== requestSequence.current || next.id !== id) return;
       setApplication(next);
       setError(null);
       if (!draftSynced.current) syncDraftFields(next);
     } catch (nextError) {
-      if (!mounted.current) return;
+      if (!mounted.current || sequence !== requestSequence.current) return;
+      setApplication(null);
       setError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить заявку');
     } finally {
       inFlight.current = false;
@@ -182,21 +163,28 @@ function AgentApplicationCard({ id }: { id: string }) {
 
   const status = application?.status;
   useEffect(() => {
-    if (!status || status === 'DRAFT') return;
+    if (!status) return;
     const timer = window.setInterval(() => void load(), SYSTEM_STATUSES.includes(status) ? FAST_REFRESH_MS : SLOW_REFRESH_MS);
     return () => window.clearInterval(timer);
   }, [status, load]);
+
+  useEffect(() => {
+    if (status && hash) document.getElementById(hash.slice(1))?.scrollIntoView?.({ block: 'start' });
+  }, [hash, status]);
 
   if (error && !application) return <ErrorState message={error} onRetry={load} />;
   if (!application) return <LoadingBlock />;
 
   const tone = statusTone(application.status);
   const nextStep = agentNextAction(application.status);
+  const actionLabel = application.actionLabel ?? nextStep.label;
+  const actionRequiresAgent = application.actionOwner === undefined ? nextStep.requiresAgent : application.actionOwner === 'AGENT';
   const waitingBanner = clientWaitingMessage(application.status);
   const product = application.currentProduct ?? products.data?.find((item) => item.code === application.product.code);
   const canRequestConfirmation = application.allowedActions.includes('REQUEST_CLIENT_CONFIRMATION');
   const canCancel = application.allowedActions.includes('AGENT_CANCEL');
-  const canProvideInfo = application.status === 'INFO_REQUESTED' && application.allowedActions.includes('INFO_PROVIDED') && !!application.process.infoRequest;
+  const canProvideInfo = application.status === 'INFO_REQUESTED' && application.allowedActions.includes('INFO_PROVIDED') &&
+    application.actionOwner !== 'CLIENT' && !!application.process.infoRequest;
   const isDraft = application.status === 'DRAFT';
 
   const persistDraft = async (): Promise<Application | null> => {
@@ -230,6 +218,7 @@ function AgentApplicationCard({ id }: { id: string }) {
   };
 
   const handleRequestConfirmation = async () => {
+    if (scenarioDirty) return;
     setBusyAction('confirm-request');
     setError(null);
     try {
@@ -279,7 +268,7 @@ function AgentApplicationCard({ id }: { id: string }) {
     application.documents.some((doc) => doc.type === type && new Date(doc.uploadedAt).getTime() >= infoRequestedAt);
   const infoHasQuestions = infoRequest ? infoRequest.items.some((item) => item.question) : false;
   const infoReady = infoRequest
-    ? infoRequest.items.every((item) => !item.documentType || uploadedSinceRequest(item.documentType)) &&
+    ? infoRequest.items.every((item) => !item.documentType || (item.satisfied ?? uploadedSinceRequest(item.documentType))) &&
       (!infoHasQuestions || infoAnswer.trim().length > 0)
     : false;
 
@@ -302,7 +291,8 @@ function AgentApplicationCard({ id }: { id: string }) {
               <StageStepper status={application.status} />
               <Box sx={{ mt: 2 }}>
                 <Typography fontWeight={600}>Следующий шаг</Typography>
-                <Typography color={nextStep.requiresAgent ? 'warning.dark' : 'text.secondary'}>{nextStep.label}</Typography>
+                <Typography color={actionRequiresAgent ? 'warning.dark' : 'text.secondary'}>{actionLabel}</Typography>
+                {application.actionDeadline && <Typography variant="caption" color="text.secondary">До {formatDateTime(application.actionDeadline)}</Typography>}
               </Box>
             </Paper>
 
@@ -315,7 +305,7 @@ function AgentApplicationCard({ id }: { id: string }) {
             {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
             {isDraft && application.editable && (
-              <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
+              <Paper id="draft-financing" variant="outlined" sx={{ p: { xs: 2, md: 3 }, scrollMarginTop: 110 }}>
                 <Typography variant="h6" component="h2" gutterBottom>Параметры черновика</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   Заполните параметры заявки и приложите обязательные документы. Согласие на запрос в БКИ даст сам клиент на этапе подтверждения.
@@ -386,7 +376,7 @@ function AgentApplicationCard({ id }: { id: string }) {
                   {canRequestConfirmation && (
                     <Button
                       variant="contained"
-                      disabled={busyAction !== null}
+                      disabled={busyAction !== null || scenarioDirty}
                       onClick={() => void handleRequestConfirmation()}
                     >
                       {busyAction === 'confirm-request' ? 'Отправляем…' : 'Отправить клиенту на подтверждение'}
@@ -396,8 +386,13 @@ function AgentApplicationCard({ id }: { id: string }) {
               </Paper>
             )}
 
-            {canProvideInfo && infoRequest && (
-              <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main' }}>
+            {isDraft && application.editable && application.product.code === 'WORKING_CAPITAL' && (
+              <FinancingScenarioEditor application={application} amount={amount} baseTerm={termMonths}
+                savingDraft={busyAction !== null} saveDraft={saveDraft} onUncommittedChange={setScenarioDirty} />
+            )}
+
+            {infoRequest && application.status === 'INFO_REQUESTED' && (
+              <Paper id="application-info-request" variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main', scrollMarginTop: 110 }}>
                 <Typography variant="h6" component="h2">Банк запросил дополнительные документы</Typography>
                 <Typography color="text.secondary" sx={{ mb: 2 }}>
                   Ответить нужно до {formatDateTime(infoRequest.deadline)}.{infoRequest.comment ? ` ${infoRequest.comment}` : ''}
@@ -405,7 +400,7 @@ function AgentApplicationCard({ id }: { id: string }) {
                 <SensitiveDataNotice />
                 <Stack spacing={1.5}>
                   {infoRequest.items.map((item) => {
-                    const done = item.documentType ? uploadedSinceRequest(item.documentType) : false;
+                    const done = item.satisfied ?? (item.documentType ? uploadedSinceRequest(item.documentType) : false);
                     return (
                       <Stack key={item.title} direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: 'center' }}>
                         <Stack direction="row" spacing={1.5} alignItems="flex-start">
@@ -413,9 +408,10 @@ function AgentApplicationCard({ id }: { id: string }) {
                           <Box>
                             <Typography fontWeight={600}>{item.title}</Typography>
                             {item.reason && <Typography variant="body2" color="text.secondary">{item.reason}</Typography>}
+                            {done && <Typography variant="body2" color="success.main">Документ передан</Typography>}
                           </Box>
                         </Stack>
-                        {item.documentType && !done && (
+                        {canProvideInfo && item.documentType && !done && (
                           <AgentUploadButton
                             applicationId={application.id}
                             documentType={item.documentType}
@@ -427,7 +423,7 @@ function AgentApplicationCard({ id }: { id: string }) {
                     );
                   })}
                 </Stack>
-                {infoHasQuestions && (
+                {canProvideInfo && infoHasQuestions && (
                   <TextField
                     label="Ответ на вопросы банка"
                     fullWidth
@@ -439,15 +435,17 @@ function AgentApplicationCard({ id }: { id: string }) {
                     inputProps={{ maxLength: 2000 }}
                   />
                 )}
-                <Button
-                  variant="contained"
-                  size="large"
-                  sx={{ mt: 2 }}
-                  disabled={!infoReady || busyAction !== null}
-                  onClick={() => void handleProvideInfo()}
-                >
-                  {busyAction === 'info' ? 'Отправляем…' : 'Отправить догруженные документы'}
-                </Button>
+                {canProvideInfo ? (
+                  <Button
+                    variant="contained"
+                    size="large"
+                    sx={{ mt: 2 }}
+                    disabled={!infoReady || busyAction !== null}
+                    onClick={() => void handleProvideInfo()}
+                  >
+                    {busyAction === 'info' ? 'Отправляем…' : 'Отправить догруженные документы'}
+                  </Button>
+                ) : <Alert severity="info" sx={{ mt: 2 }}>На запрос ответит представитель компании.</Alert>}
               </Paper>
             )}
 
@@ -556,7 +554,7 @@ function AgentApplicationCard({ id }: { id: string }) {
             )}
 
             <MessagesBlock key={application.id} applicationId={application.id} status={application.status} />
-            <HistoryBlock applicationId={application.id} version={`${application.status}-${application.documents.length}`} />
+            <HistoryBlock agentScope applicationId={application.id} version={`${application.status}-${application.documents.length}`} />
           </Stack>
         </Grid>
 

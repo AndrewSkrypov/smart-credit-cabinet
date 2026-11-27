@@ -1,0 +1,29 @@
+{
+  "product": {
+    "ref": {
+      "code": "WORKING_CAPITAL",
+      "version": "2"
+    },
+    "name": "Кредит на пополнение оборота",
+    "description": "Закупка товара и сырья, подготовка к сезону, крупный заказ. Погашение равными платежами.",
+    "purposes": [
+      "FINANCING_PURPOSE_WORKING_CAPITAL",
+      "FINANCING_PURPOSE_CASH_GAP",
+      "FINANCING_PURPOSE_BUSINESS_DEVELOPMENT"
+    ],
+    "minAmountRub": "300000",
+    "maxAmountRub": "30000000",
+    "minTermMonths": 3,
+    "maxTermMonths": 36,
+    "baseRateBps": 2025,
+    "autoApprovalLimitRub": "5000000",
+    "lifecycleStatus": "PRODUCT_LIFECYCLE_STATUS_ACTIVE",
+    "effectiveFrom": "2026-11-26T10:00:00Z",
+    "effectiveTo": "2026-11-26T12:00:00Z",
+    "agentCommissionRateBps": 175,
+    "audit": {
+      "reason": "Синтетическая редакция",
+      "createdAt": "2026-11-25T10:00:00Z"
+    }
+  }
+}

@@ -39,6 +39,12 @@ import {
 import { ChatAudit, ChatFile, ChatMessage, ChatPage, ChatRead } from '../types';
 import { CompanyInvitation, Employees, InvitationPreview } from '../types';
 
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
 const baseURL = demoAccess.basename ? `${demoAccess.basename}/api/v1` : (import.meta.env.VITE_API_BASE_URL ?? '/api/v1');
 
 export const api = axios.create({
@@ -76,7 +82,7 @@ api.interceptors.response.use(
     }
     const backendMessage = responseData?.message;
     if (typeof backendMessage === 'string' && backendMessage.trim()) {
-      return Promise.reject(new Error(backendMessage));
+      return Promise.reject(new ApiError(backendMessage, error.response.status));
     }
     if (error?.response?.status === 401) {
       return Promise.reject(new Error('Сессия истекла — войдите заново'));
@@ -201,16 +207,16 @@ export const applicationsApi = {
   /** The key makes a repeated click or a retry after a timeout return the first result. */
   submit: async (id: string, idempotencyKey: string, acceptedProductVersion?: number) =>
     (await api.post<Application>(`/applications/${id}/submit`, { acceptedProductVersion }, { headers: { 'Idempotency-Key': idempotencyKey } })).data,
-  confirm: (id: string, bureauConsent: boolean, acceptedProductVersion?: number) =>
-    post<Application>(`/applications/${id}/confirm`, { bureauConsent, acceptedProductVersion }),
+  confirm: (id: string, bureauConsent: boolean, acceptedProductVersion?: number, acceptedScenarioRevision?: number) =>
+    post<Application>(`/applications/${id}/confirm`, { bureauConsent, acceptedProductVersion, acceptedScenarioRevision }),
   returnToAgent: (id: string, comment?: string) =>
     post<Application>(`/applications/${id}/return-to-agent`, { comment }),
   withdraw: (id: string, comment?: string) => post<Application>(`/applications/${id}/withdraw`, { comment }),
   events: (id: string) => get<JournalEntry[]>(`/applications/${id}/events`),
-  uploadDocument: async (id: string, type: DocumentType, file: File) => {
+  uploadDocument: async (id: string, type: DocumentType, file: File, privateToBank: boolean | undefined, key: string) => {
     const form = new FormData();
     form.append('file', file);
-    return (await api.post<ApplicationDocument>(`/applications/${id}/documents`, form, { params: { type }, headers: { 'Content-Type': 'multipart/form-data' } })).data;
+    return (await api.post<ApplicationDocument>(`/applications/${id}/documents`, form, { params: { type, privateToBank }, headers: { 'Idempotency-Key': key, 'Content-Type': 'multipart/form-data' } })).data;
   },
   deleteDocument: async (id: string, documentId: string) => {
     await api.delete(`/applications/${id}/documents/${documentId}`);
@@ -278,16 +284,17 @@ export const agentApi = {
     get<ApplicationSummary[]>('/agent/applications', status?.length ? { status: status.join(',') } : undefined),
   createApplication: (input: AgentCreateApplicationInput) => post<Application>('/agent/applications', input),
   getApplication: (id: string) => get<Application>(`/agent/applications/${id}`),
+  events: (id: string) => get<JournalEntry[]>(`/agent/applications/${id}/events`),
   getLoan: (id: string) => get<LoanAccount>(`/agent/applications/${id}/loan`),
   updateApplication: (id: string, input: ApplicationInput) => put<Application>(`/agent/applications/${id}`, input),
   requestConfirmation: (id: string) => post<Application>(`/agent/applications/${id}/request-confirmation`),
   cancelApplication: (id: string) => post<Application>(`/agent/applications/${id}/cancel`),
   provideInfo: (id: string, answer?: string) => post<Application>(`/agent/applications/${id}/info-provided`, { answer }),
   listDocuments: (id: string) => get<ApplicationDocument[]>(`/agent/applications/${id}/documents`),
-  uploadDocument: async (id: string, type: DocumentType, file: File) => {
+  uploadDocument: async (id: string, type: DocumentType, file: File, key: string) => {
     const form = new FormData();
     form.append('file', file);
-    return (await api.post<ApplicationDocument>(`/agent/applications/${id}/documents`, form, { params: { type }, headers: { 'Content-Type': 'multipart/form-data' } })).data;
+    return (await api.post<ApplicationDocument>(`/agent/applications/${id}/documents`, form, { params: { type }, headers: { 'Idempotency-Key': key, 'Content-Type': 'multipart/form-data' } })).data;
   },
   deleteDocument: async (id: string, documentId: string) => {
     await api.delete(`/agent/applications/${id}/documents/${documentId}`);

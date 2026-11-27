@@ -62,6 +62,7 @@ services:
     environment:
       <<: *prod-env
       DB_PASSWORD: ${CREDIT_DB_PASSWORD:?Задайте CREDIT_DB_PASSWORD}
+      DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-false}
       SIM_API_KEY: ${SIM_API_KEY:?Задайте SIM_API_KEY в deploy/.env}
       INFO_REQUEST_TTL: ${INFO_REQUEST_TTL:-P14D}
       OFFER_TTL: ${OFFER_TTL:-P5D}

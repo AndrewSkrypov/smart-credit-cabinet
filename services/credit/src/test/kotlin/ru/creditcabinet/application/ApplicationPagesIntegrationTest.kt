@@ -57,12 +57,13 @@ class ApplicationPagesIntegrationTest {
                 """
                 insert into applications (id, number, company_id, company_inn, company_name, legal_form, created_by,
                     product_code, purpose, amount, term_months, status, created_at, updated_at, status_changed_at,
-                    product_version, product_catalog_snapshot)
+                    product_version, product_catalog_snapshot, submitted_at)
                 select case when ? then ('a0000000-0000-4000-8000-' || lpad(s::text, 12, '0'))::uuid else md5(? || s::text)::uuid end,
                     case when ? then 8000000000000 + s else nextval('application_number_seq') end,
                     ?, '000000000000', ?, 'ENTREPRENEUR', ?, ?, 'WORKING_CAPITAL',
                     100000, 12, ?, '2026-10-25T00:00:00Z', '2026-10-25T00:00:00Z', '2026-10-25T00:00:00Z',
-                    1, '{"WORKING_CAPITAL":1}'::jsonb from generate_series(1, ?) s
+                    1, '{"WORKING_CAPITAL":1}'::jsonb, case when ? then '2026-10-25T00:00:00Z'::timestamptz end
+                    from generate_series(1, ?) s
                 """.trimIndent(),
                 fixedNumbers,
                 UUID.randomUUID().toString(),
@@ -72,6 +73,7 @@ class ApplicationPagesIntegrationTest {
                 user,
                 product,
                 status,
+                status != "DRAFT" && status != "PENDING_CLIENT_CONFIRMATION",
                 count,
             )
         }

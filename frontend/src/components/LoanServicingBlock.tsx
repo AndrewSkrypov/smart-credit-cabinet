@@ -21,6 +21,7 @@ import { formatDate, formatDateTime, months, percent, rub, rubExact } from '../s
 import { LoanAccount } from '../types';
 import { ErrorState } from './ErrorState';
 import { LoadingBlock } from './LoadingBlock';
+import { AgentPaymentReserveBlock, PaymentReserveBlock } from './PaymentReserveBlock';
 import { TableScrollRegion } from './TableScrollRegion';
 
 function Metric({ label, value }: { label: string; value: string }) {
@@ -184,6 +185,9 @@ export function LoanServicingBlock({
           </Grid>
         </Grid>
 
+        {loan.revolving && (agentScope
+          ? <AgentPaymentReserveBlock applicationId={applicationId} />
+          : !readOnly && <PaymentReserveBlock key={loan.id} loanId={loan.id} active={isActive} onDrawn={load} />)}
         <Divider />
 
         <Box>

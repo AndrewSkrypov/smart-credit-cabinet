@@ -99,15 +99,24 @@
 
 ## Маршруты финала
 
-Матрица проверяет роли на отсутствующих объектах. Сквозные положительные сценарии используют действующий мандат в Playwright.
+Матрица проверяет роли на отсутствующих объектах, выдачу и отзыв мандата у отдельных синтетических компаний. Сквозные сценарии с действующим мандатом и тестовыми кредитными линиями проверяет Playwright.
 
 | Сервис | Операция | Без токена | Клиент | Другой клиент | Менеджер | Андеррайтер | Риск-администратор | Агент | Другой агент |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | identity | `GET /api/v1/agent/clients` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
+| identity | `GET /api/v1/companies/me/agent-mandates` | 401 | 200 | 200 | 403 | 403 | 403 | 403 | 403 |
+| identity | `POST /api/v1/companies/me/agent-mandates` | 401 | 201 | 201 | 403 | 403 | 403 | 403 | 403 |
+| identity | `DELETE /api/v1/companies/me/agent-mandates/{id}` | 401 | 204 | 404 | 403 | 403 | 403 | 403 | 403 |
 | credit | `GET /api/v1/agent/applications` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
 | credit | `POST /api/v1/agent/applications` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `GET /api/v1/agent/applications/{id}` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `GET /api/v1/agent/applications/{id}/loan` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `GET /api/v1/agent/applications/{id}/events` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `GET /api/v1/agent/applications/{id}/notification-access` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `GET /api/v1/agent/applications/{id}/financing-scenario` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `PUT /api/v1/agent/applications/{id}/financing-scenario` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `POST /api/v1/agent/applications/{id}/invoice-extraction` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
+| credit | `GET /api/v1/agent/applications/{id}/payment-reserve` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `PUT /api/v1/agent/applications/{id}` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `POST /api/v1/agent/applications/{id}/cancel` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `GET /api/v1/agent/applications/{id}/documents` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
@@ -124,8 +133,14 @@
 | credit | `GET /api/v1/agent/pre-approved-offers` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
 | credit | `POST /api/v1/agent/pre-approved-offers/{id}/apply` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `POST /api/v1/applications/{id}/confirm` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
+| credit | `GET /api/v1/applications/{id}/financing-scenario` | 401 | 404 | 404 | 403 | 403 | 403 | 404 | 404 |
+| credit | `GET /api/v1/underwriting/applications/{id}/financing-scenario` | 401 | 403 | 403 | 404 | 404 | 404 | 403 | 403 |
 | credit | `POST /api/v1/applications/{id}/return-to-agent` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
 | credit | `GET /api/v1/applications/{id}/loan` | 401 | 404 | 404 | 404 | 404 | 404 | 404 | 404 |
+| credit | `GET /api/v1/loans/{loanId}/payment-reserve` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
+| credit | `PUT /api/v1/loans/{loanId}/payment-reserve` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
+| credit | `POST /api/v1/loans/{loanId}/payment-reserve/receipt-event` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
+| credit | `POST /api/v1/loans/{loanId}/payment-reserve/confirm-draw` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
 | credit | `POST /api/v1/loans/{loanId}/tranches` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
 | credit | `POST /api/v1/loans/{loanId}/payments/next` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
 | credit | `POST /api/v1/loans/{loanId}/repay-early` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |

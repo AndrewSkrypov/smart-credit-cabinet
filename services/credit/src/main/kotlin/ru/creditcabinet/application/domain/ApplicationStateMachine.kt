@@ -96,6 +96,8 @@ object ApplicationStateMachine {
         for (status in WITHDRAWABLE) put(status to ApplicationEvent.WITHDRAW, WITHDRAWN)
         // T22–T25: agent-assisted application workflow before bank submission.
         put(DRAFT to ApplicationEvent.REQUEST_CLIENT_CONFIRMATION, PENDING_CLIENT_CONFIRMATION)
+        // The service checks the first handoff and the revoked mandate before resuming a returned draft.
+        put(DRAFT to ApplicationEvent.CONFIRM_AND_SUBMIT, SUBMITTED)
         put(PENDING_CLIENT_CONFIRMATION to ApplicationEvent.CONFIRM_AND_SUBMIT, SUBMITTED)
         put(PENDING_CLIENT_CONFIRMATION to ApplicationEvent.RETURN_TO_AGENT, DRAFT)
         put(DRAFT to ApplicationEvent.AGENT_CANCEL, WITHDRAWN)

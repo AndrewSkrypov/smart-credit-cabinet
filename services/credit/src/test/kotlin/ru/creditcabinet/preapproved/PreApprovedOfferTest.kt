@@ -15,6 +15,8 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
+import ru.creditcabinet.agent.domain.AgentAccessDecision
+import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CommissionStatus
@@ -23,6 +25,7 @@ import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.assessment.domain.Assessment
+import ru.creditcabinet.assessment.domain.BankInfo
 import ru.creditcabinet.assessment.domain.CreditPolicy
 import ru.creditcabinet.assessment.domain.IndustryRisk
 import ru.creditcabinet.assessment.domain.PolicyDecision
@@ -34,6 +37,7 @@ import ru.creditcabinet.assessment.domain.StopFactor
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.TokenClaims
+import ru.creditcabinet.integration.CompanySources
 import ru.creditcabinet.preapproved.application.PreApprovedOfferService
 import ru.creditcabinet.preapproved.domain.PreApprovedOffer
 import ru.creditcabinet.preapproved.domain.PreApprovedOfferStatus
@@ -80,6 +84,12 @@ class PreApprovedOfferTest {
     @MockitoBean
     private lateinit var companies: CompanyDirectory
 
+    @MockitoBean
+    private lateinit var agentAccess: AgentAccessPort
+
+    @MockitoBean
+    private lateinit var sources: CompanySources
+
     private val companyId = UUID.randomUUID()
     private val otherCompanyId = UUID.randomUUID()
     private val client by lazy { token("CLIENT", companyId) }
@@ -91,6 +101,8 @@ class PreApprovedOfferTest {
         whenever(companies.find(any())).thenAnswer {
             CompanySnapshot(it.getArgument(0), "000100000004", "ИП Тест", LegalForm.ENTREPRENEUR)
         }
+        whenever(agentAccess.checkAccess(any(), any())).thenReturn(AgentAccessDecision(true))
+        whenever(sources.bank(any())).thenReturn(BankInfo(true, null, emptyList()))
     }
 
     @AfterTest

@@ -13,15 +13,17 @@ import java.util.UUID
 /** A source did not answer in time, answered with an error, or its circuit is open. The step is retried later. */
 class SourceUnavailableException(val source: String, message: String) : RuntimeException(message)
 
+fun interface BankDataPort {
+    fun bank(inn: String): BankInfo
+}
+
 /** The systems the pipeline asks about a company. */
-interface CompanySources {
+interface CompanySources : BankDataPort {
     fun registry(inn: String): RegistryInfo
     fun tax(inn: String): TaxInfo
 
     /** Only with the client's consent on record; [consentId] identifies it for the bureau. */
     fun bureau(inn: String, consentId: String): BureauInfo
-    fun bank(inn: String): BankInfo
-
     fun fetch(kind: SourceKind, inn: String, consentId: String): Any =
         when (kind) {
             SourceKind.REGISTRY -> registry(inn)

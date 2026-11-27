@@ -26,6 +26,11 @@ jacoco {
 val coverageModules = subprojects.filter { it.path.startsWith(":services:") || it.path.startsWith(":libs:") }
 val coverageClasses = files(coverageModules.map { it.layout.buildDirectory.dir("classes/kotlin/main") })
 val coverageExecutions = files(coverageModules.map { it.layout.buildDirectory.file("jacoco/test.exec") })
+val pureCorePaths = setOf(
+    ":libs:assessment-contracts", ":libs:assessment-engine", ":libs:catalog-model",
+    ":libs:documents-model", ":libs:loan-math", ":libs:servicing-model", ":libs:servicing-core",
+)
+val pureCoreClasses = files(coverageModules.filter { it.path in pureCorePaths }.map { it.layout.buildDirectory.dir("classes/kotlin/main") })
 val domainMinimum = providers.gradleProperty("domainCoverageMinimum").orElse("0.75").get().toBigDecimal()
 require(domainMinimum >= "0.75".toBigDecimal() && domainMinimum <= "1.0".toBigDecimal()) { "Порог domain должен быть от 0.75 до 1.0, получено $domainMinimum" }
 
@@ -45,10 +50,10 @@ tasks.register<JacocoReport>("jacocoAggregateReport") {
 
 tasks.register<JacocoCoverageVerification>("domainCoverage") {
     group = "verification"
-    description = "Проверить покрытие строк каждого пакета domain"
+    description = "Проверить покрытие строк доменных пакетов и всех чистых ядер"
     dependsOn("jacocoAggregateReport")
     executionData.setFrom(coverageExecutions)
-    classDirectories.setFrom(coverageClasses.asFileTree.matching { include("**/domain/**") })
+    classDirectories.setFrom(files(coverageClasses.asFileTree.matching { include("**/domain/**") }, pureCoreClasses).asFileTree)
     violationRules {
         rule {
             element = "PACKAGE"
@@ -61,10 +66,6 @@ tasks.register<JacocoCoverageVerification>("domainCoverage") {
     }
 }
 
-val pureCorePaths = setOf(
-    ":libs:assessment-contracts", ":libs:assessment-engine", ":libs:catalog-model",
-    ":libs:documents-model", ":libs:loan-math", ":libs:servicing-model", ":libs:servicing-core",
-)
 tasks.register("checkHexagonalDependencies") {
     group = "verification"
     description = "Reject infrastructure in resolved production dependencies of pure cores"

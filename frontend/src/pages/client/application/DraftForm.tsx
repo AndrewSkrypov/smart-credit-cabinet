@@ -41,6 +41,7 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
   const inFlight = useRef<Promise<Application | null> | null>(null);
   const mounted = useRef(true);
   const submitting = useRef(false);
+  const missingDocuments = (application.requiredDocuments ?? []).filter((document) => !document.uploaded);
   const callbacks = useRef({ onSaved, onSubmitted });
   callbacks.current = { onSaved, onSubmitted };
   // Document uploads can refresh validation/estimate without editing the form revision.
@@ -193,6 +194,11 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
         </Alert>
       )}
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+      {missingDocuments.length > 0 && (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          Не загружено: {missingDocuments.map((document) => document.title).join(', ')}. Заявку можно отправить и так, но банк сразу запросит эти документы — рассмотрение начнётся после ответа.
+        </Alert>
+      )}
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
         <Button variant="contained" size="large" onClick={submit} disabled={sending || (changed && acceptedVersion !== product?.version) || product?.active === false || (saveState === 'saved' && application.submissionProblems.length > 0)}>

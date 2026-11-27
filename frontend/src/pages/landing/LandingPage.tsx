@@ -338,7 +338,7 @@ export function LandingPage() {
           <BrandMark inverted compact />
           <Stack component="nav" aria-label="Разделы страницы" direction="row" spacing={3} sx={{ display: 'none', [wideHeader]: { display: 'flex' }, flexGrow: 1, ml: 2 }}>
             {[['Кредиты', '#products'], ['Расчёт', '#calculator'], ['Задачи', '#purposes'], ['Как получить', '#steps']].map(([label, href]) => (
-              <Typography key={href} component="a" href={href} sx={{ color: '#fff', textDecoration: 'none', fontWeight: 500, opacity: 0.88, '&:hover': { opacity: 1 } }}>{label}</Typography>
+              <Typography key={href} component="a" href={href} sx={{ color: '#fff', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap', opacity: 0.88, '&:hover': { opacity: 1 } }}>{label}</Typography>
             ))}
           </Stack>
           <Box sx={{ flexGrow: 1, [wideHeader]: { flexGrow: 0 } }} />

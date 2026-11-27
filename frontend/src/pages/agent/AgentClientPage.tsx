@@ -126,7 +126,7 @@ export function AgentClientPage() {
   };
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={3} useFlexGap>
       <Button component={RouterLink} to="/agent" startIcon={<ArrowBackRoundedIcon />} sx={{ alignSelf: 'flex-start' }}>
         Портфель агента
       </Button>
@@ -177,7 +177,7 @@ export function AgentClientPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Черновик создаётся от вашего имени. После заполнения и загрузки документов отправьте его клиенту на подтверждение и согласие БКИ.
             </Typography>
-            <Stack component="form" spacing={2} onSubmit={handleCreate}>
+            <Stack component="form" spacing={2} useFlexGap onSubmit={handleCreate}>
               <TextField
                 select
                 label="Кредитный продукт"

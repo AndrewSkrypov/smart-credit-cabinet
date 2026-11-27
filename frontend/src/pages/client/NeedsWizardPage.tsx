@@ -156,6 +156,11 @@ export function NeedsWizardPage() {
                         <Button variant="contained" disabled={!amountFits || busy} onClick={() => start(match)}>
                           {match.termMonths === termMonths ? 'Оформить заявку' : `Оформить на ${months(match.termMonths)}`}
                         </Button>
+                        {!amountFits && !!amount && (
+                          <Typography variant="body2" color="warning.dark" role="status" sx={{ textAlign: { md: 'right' } }}>
+                            {amount > match.product.maxAmount ? `Больше лимита продукта — уменьшите сумму до ${rub(match.product.maxAmount)}` : `Меньше минимума продукта — от ${rub(match.product.minAmount)}`}
+                          </Typography>
+                        )}
                       </Stack>
                     </Stack>
                   </Paper>

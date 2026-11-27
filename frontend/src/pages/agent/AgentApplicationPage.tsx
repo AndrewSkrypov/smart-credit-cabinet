@@ -39,6 +39,7 @@ import { SensitiveDataNotice } from '../../components/SensitiveDataNotice';
 import { useApi } from '../../hooks/useApi';
 import { agentNextAction, SYSTEM_STATUSES, statusTitle, statusTone } from '../../shared/applicationText';
 import { fileSize, formatDateTime, months, percent, rub, rubExact } from '../../shared/format';
+import { agreedTerms } from '../../shared/agreedTerms';
 import { commissionStatusLabels } from '../../shared/labels';
 import { transparentOutlineButtonSx } from '../../theme/theme';
 import { Application, ApplicationInput, DocumentType } from '../../types';
@@ -281,7 +282,7 @@ function AgentApplicationCard({ id }: { id: string }) {
 
       <PageHeader
         title={`Заявка${application.number ? ` № ${application.number}` : ''}`}
-        subtitle={`${application.company.name ?? `ИНН ${application.company.inn}`} · ${application.product.name} · ${rub(application.amount)}`}
+        subtitle={`${application.company.name ?? `ИНН ${application.company.inn}`} · ${application.product.name} · ${rub(agreedTerms(application).amount)}`}
         actions={<Chip label={statusTitle(application.status)} color={tone === 'default' ? 'default' : tone} sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }} />}
       />
 
@@ -562,8 +563,10 @@ function AgentApplicationCard({ id }: { id: string }) {
         <Grid item xs={12} md={4}>
           <Paper data-tour="agent-app-summary" variant="outlined" component="aside" aria-label="Сводка заявки" sx={{ p: { xs: 2, md: 3 }, position: { md: 'sticky' }, top: { md: 96 } }}>
             <Typography variant="body2" color="text.secondary">{application.product.name}</Typography>
-            <Typography variant="h5" component="p" sx={{ mt: 0.5 }}>{rub(application.amount)}</Typography>
-            <Typography color="text.secondary">на {months(application.termMonths)}</Typography>
+            {agreedTerms(application).label && <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 0.5 }}>{agreedTerms(application).label}</Typography>}
+            <Typography variant="h5" component="p" sx={{ mt: 0.5 }}>{rub(agreedTerms(application).amount)}</Typography>
+            <Typography color="text.secondary">на {months(agreedTerms(application).termMonths)}</Typography>
+            {agreedTerms(application).changed && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Запрашивали {rub(application.amount)} на {months(application.termMonths)}</Typography>}
 
             {application.estimate && !application.process.offer && (
               <Box sx={{ mt: 2, p: 2, borderRadius: '16px', bgcolor: 'background.default' }}>

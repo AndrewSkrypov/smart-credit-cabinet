@@ -19,7 +19,7 @@ import {
   DocumentType,
   FinancingPurpose,
   JournalEntry,
-  LoanAccount,
+  LoanAccount, LoanClosureCertificate,
   NotificationPage,
   NotificationSettings,
   PreApprovedApplicationView,
@@ -182,7 +182,8 @@ export const loanServicingApi = {
     (await api.post<LoanAccount>(`/loans/${loanId}/tranches`, { amount, purpose }, { headers: { 'Idempotency-Key': key } })).data,
   payNext: async (loanId: string, paymentId: string, key: string) =>
     (await api.post<LoanAccount>(`/loans/${loanId}/payments/next`, { paymentId }, { headers: { 'Idempotency-Key': key } })).data,
-  repayEarly: (loanId: string) => post<LoanAccount>(`/loans/${loanId}/repay-early`)
+  repayEarly: (loanId: string) => post<LoanAccount>(`/loans/${loanId}/repay-early`),
+  closureCertificate: (loanId: string) => get<LoanClosureCertificate>(`/loans/${loanId}/closure-certificate`),
 };
 
 export const chatApi = {

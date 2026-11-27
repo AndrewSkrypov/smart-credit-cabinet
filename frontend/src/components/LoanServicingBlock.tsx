@@ -24,7 +24,7 @@ import { agentApi, ApiError, loanServicingApi } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
 import { readSession } from '../auth/session';
 import { formatDate, formatDateTime, months, percent, rub, rubExact } from '../shared/format';
-import { LoanAccount, User } from '../types';
+import { LoanAccount, LoanClosureCertificate, User } from '../types';
 import { ErrorState } from './ErrorState';
 import { LoadingBlock } from './LoadingBlock';
 import { AgentPaymentReserveBlock, PaymentReserveBlock } from './PaymentReserveBlock';
@@ -95,6 +95,9 @@ function ScopedLoanServicingBlock({
   const [trancheAmount, setTrancheAmount] = useState('');
   const [tranchePurpose, setTranchePurpose] = useState('');
   const [confirmation, setConfirmation] = useState<LoanOperation | null>(null);
+  const [repayOpen, setRepayOpen] = useState(false);
+  const [certificate, setCertificate] = useState<LoanClosureCertificate | null>(null);
+  const [certificateError, setCertificateError] = useState<string | null>(null);
   const [pending, setPending] = useState(() => storageKey ? readPending(storageKey) : null);
   const inFlight = useRef(false);
 
@@ -195,7 +198,38 @@ function ScopedLoanServicingBlock({
     }
   };
 
+  const openCertificate = async () => {
+    setCertificateError(null);
+    try {
+      setCertificate(await loanServicingApi.closureCertificate(loan.id));
+    } catch (nextError) {
+      setCertificateError(nextError instanceof Error ? nextError.message : 'Не удалось получить справку');
+    }
+  };
+
+  const downloadCertificate = (issued: LoanClosureCertificate) => {
+    const text = [
+      `Справка № ${issued.certificateNumber}`,
+      `Договор ${issued.contractNumber}`,
+      `Выдано: ${rubExact(issued.totalDisbursed)} (${formatDate(issued.disbursedAt)})`,
+      `Погашено полностью: ${formatDate(issued.repaidAt)}`,
+      `Платежей внесено: ${issued.paidPaymentsCount}`,
+      `Остаток долга: ${rubExact(issued.outstandingPrincipal)}`,
+      '',
+      issued.statement,
+      '',
+      `Дата выдачи справки: ${formatDateTime(issued.issuedAt)}`,
+    ].join('\n');
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `spravka-${issued.contractNumber}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleRepayEarly = async () => {
+    setRepayOpen(false);
     if (!ownsCurrentSession()) return;
     setBusyAction('repay');
     setActionError(null);
@@ -221,11 +255,16 @@ function ScopedLoanServicingBlock({
               Договор {loan.contractNumber} · до {formatDate(loan.maturityDate)} ({months(loan.termMonths)})
             </Typography>
           </Box>
-          <Chip
-            label={isActive ? 'Активен' : 'Погашен'}
-            color={isActive ? 'success' : 'default'}
-            size="small"
-          />
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            {!isActive && storageKey !== null && (
+              <Button size="small" variant="outlined" onClick={() => void openCertificate()}>Справка о погашении</Button>
+            )}
+            <Chip
+              label={isActive ? 'Активен' : 'Погашен'}
+              color={isActive ? 'success' : 'default'}
+              size="small"
+            />
+          </Stack>
         </Stack>
 
         {readOnly && (
@@ -376,7 +415,7 @@ function ScopedLoanServicingBlock({
                   color="warning"
                   size="small"
                   disabled={locked}
-                  onClick={() => void handleRepayEarly()}
+                  onClick={() => setRepayOpen(true)}
                 >
                   {busyAction === 'repay' ? 'Погашаем…' : 'Досрочно погасить'}
                 </Button>
@@ -439,6 +478,42 @@ function ScopedLoanServicingBlock({
           <Button variant="contained" onClick={() => confirmation && void applyOperation({
             loanId: loan.id, key: crypto.randomUUID(), operation: confirmation,
           })}>Подтвердить</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={repayOpen} onClose={() => setRepayOpen(false)} fullWidth maxWidth="xs" aria-labelledby="loan-repay-title">
+        <DialogTitle id="loan-repay-title">Погасить кредит досрочно?</DialogTitle>
+        <DialogContent>
+          <Typography fontWeight={600}>{rubExact(loan.outstandingPrincipal)}</Typography>
+          <Typography color="text.secondary">
+            Остаток основного долга спишется целиком, график закроется, договор {loan.contractNumber} получит статус «Погашен». Отменить это нельзя.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRepayOpen(false)}>Назад</Button>
+          <Button variant="contained" color="warning" onClick={() => void handleRepayEarly()}>Погасить</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={certificate !== null || certificateError !== null} onClose={() => { setCertificate(null); setCertificateError(null); }}
+        fullWidth maxWidth="sm" aria-labelledby="loan-certificate-title">
+        <DialogTitle id="loan-certificate-title">{certificate ? `Справка № ${certificate.certificateNumber}` : 'Справка о погашении'}</DialogTitle>
+        <DialogContent>
+          {certificateError && <Alert severity="error">{certificateError}</Alert>}
+          {certificate && (
+            <Stack spacing={1.5}>
+              <Typography>Договор {certificate.contractNumber}</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+                <Metric label="Выдано" value={rubExact(certificate.totalDisbursed)} />
+                <Metric label="Остаток долга" value={rubExact(certificate.outstandingPrincipal)} />
+                <Metric label="Погашен" value={formatDate(certificate.repaidAt)} />
+                <Metric label="Платежей внесено" value={String(certificate.paidPaymentsCount)} />
+              </Box>
+              <Typography color="text.secondary">{certificate.statement}</Typography>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setCertificate(null); setCertificateError(null); }}>Закрыть</Button>
+          {certificate && <Button variant="contained" onClick={() => downloadCertificate(certificate)}>Скачать</Button>}
         </DialogActions>
       </Dialog>
     </Paper>

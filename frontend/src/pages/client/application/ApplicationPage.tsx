@@ -12,6 +12,7 @@ import { PageHeader } from '../../../components/PageHeader';
 import { MessagesBlock } from '../../../components/MessagesBlock';
 import { explainStatus, SYSTEM_STATUSES, statusTitle, statusTone } from '../../../shared/applicationText';
 import { formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
+import { agreedTerms } from '../../../shared/agreedTerms';
 import { transparentOutlineButtonSx } from '../../../theme/theme';
 import { Application } from '../../../types';
 import { DocumentsBlock } from './DocumentsBlock';
@@ -110,13 +111,14 @@ function ApplicationCard({ id }: { id: string }) {
   const outcome = application.process.outcome;
   const canResume = application.canResumeIndependently === true;
   const canWithdraw = application.allowedActions.includes('WITHDRAW');
+  const terms = agreedTerms(application);
 
   return (
     <>
       <Button component={RouterLink} to={typeof location.state?.listUrl === 'string' && /^\/client(?:\?|$)/.test(location.state.listUrl) ? location.state.listUrl : '/client'} state={{ restoreList: true }} startIcon={<ArrowBackRoundedIcon />} sx={{ mb: 1 }}>Все заявки</Button>
       <PageHeader
         title={`Заявка${application.number ? ` № ${application.number}` : ''}`}
-        subtitle={`${application.product.name} · ${rub(application.amount)} · ${months(application.termMonths)}`}
+        subtitle={`${application.product.name} · ${rub(terms.amount)} · ${months(terms.termMonths)}`}
         actions={<Chip label={statusTitle(application.status)} color={tone === 'default' ? 'default' : tone} sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }} />}
       />
       <Grid container spacing={3} sx={{ pb: 6 }}>
@@ -265,8 +267,10 @@ function ApplicationCard({ id }: { id: string }) {
         <Grid item xs={12} md={4}>
           <Paper variant="outlined" component="aside" aria-label="Параметры заявки" sx={{ p: { xs: 2, md: 3 }, position: { md: 'sticky' }, top: { md: 96 } }}>
             <Typography variant="body2" color="text.secondary">{application.product.name}</Typography>
-            <Typography variant="h5" component="p" sx={{ mt: 0.5 }}>{rub(application.amount)}</Typography>
-            <Typography color="text.secondary">на {months(application.termMonths)}</Typography>
+            {terms.label && <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 0.5 }}>{terms.label}</Typography>}
+            <Typography variant="h5" component="p" sx={{ mt: 0.5 }}>{rub(terms.amount)}</Typography>
+            <Typography color="text.secondary">на {months(terms.termMonths)}</Typography>
+            {terms.changed && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Запрашивали {rub(application.amount)} на {months(application.termMonths)}</Typography>}
             {application.estimate && application.status !== 'DRAFT' && !application.process.offer && (
               <Box sx={{ mt: 2, p: 2, borderRadius: '16px', bgcolor: 'background.default' }}>
                 <Typography variant="body2" color="text.secondary">Платёж по базовой ставке {percent(application.estimate.rate)}</Typography>

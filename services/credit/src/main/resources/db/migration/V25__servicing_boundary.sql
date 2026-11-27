@@ -60,3 +60,21 @@ create trigger loan_payments_writer_fence before insert or update or delete on l
 create trigger payment_reserves_writer_fence before insert or update or delete on payment_reserves for each row execute function enforce_servicing_writer();
 create trigger payment_reserve_receipt_events_writer_fence before insert or update or delete on payment_reserve_receipt_events for each row execute function enforce_servicing_writer();
 create trigger servicing_opened_commands_writer_fence before insert or update or delete on servicing_opened_commands for each row execute function enforce_servicing_writer();
+
+comment on table servicing_open_outbox is 'Неизменяемая команда открытия счёта после подтверждённой выдачи АБС';
+comment on column servicing_open_outbox.command_id is 'Идемпотентный идентификатор команды открытия';
+comment on column servicing_open_outbox.cycle_id is 'Цикл подписанного предложения';
+comment on column servicing_open_outbox.application_version is 'Версия заявки, ожидающая подтверждения открытия';
+comment on column servicing_open_outbox.payload_sha256 is 'Контрольная сумма закреплённой команды';
+comment on column servicing_open_outbox.command_json is 'Контракт открытия с подписанным снимком договора';
+comment on column servicing_open_outbox.booked_loan_json is 'Подтверждённый результат АБС для повторов без новой выдачи';
+comment on column servicing_open_outbox.receipt_json is 'Подтверждение единственного владельца финансового счёта';
+comment on column servicing_open_outbox.state is 'Ожидание, подтверждение или конфликт команды';
+comment on table servicing_opened_commands is 'Применённые локальным владельцем команды открытия счёта';
+comment on column servicing_opened_commands.command_id is 'Идентификатор единственного применения команды';
+comment on column servicing_opened_commands.account_id is 'Открытый финансовый агрегат';
+comment on column servicing_opened_commands.payload_sha256 is 'Контрольная сумма принятой команды';
+comment on table servicing_writer_fence is 'Единственный владелец финансовых таблиц при передаче обслуживания';
+comment on column servicing_writer_fence.writer is 'LOCAL, REMOTE или FENCED во время передачи';
+comment on column servicing_writer_fence.epoch is 'Монотонное поколение передачи владения';
+comment on column servicing_writer_fence.manifest_sha256 is 'Контрольная сумма подтверждённого переноса';

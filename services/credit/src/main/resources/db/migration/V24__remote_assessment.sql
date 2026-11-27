@@ -37,3 +37,19 @@ create table assessment_exchange_outbox (
     check ((claim_token is null) = (locked_until is null))
 );
 create index assessment_exchange_outbox_due on assessment_exchange_outbox (stream, available_at) where sent_at is null;
+
+comment on table credit_assessment_cycle is 'Закреплённый цикл локальной или удалённой оценки заявки';
+comment on column credit_assessment_cycle.cycle_id is 'Идентификатор исходной задачи оценки';
+comment on column credit_assessment_cycle.application_version is 'Версия заявки при закреплении входных данных';
+comment on column credit_assessment_cycle.stream is 'Поколение Kafka; NULL сохраняет локальный исполнитель старого цикла';
+comment on column credit_assessment_cycle.request is 'Неизменяемый запрос с версиями фактов, правил, каталога и согласий';
+comment on column credit_assessment_cycle.result is 'Принятый результат того же цикла и поколения';
+comment on column credit_assessment_cycle.accept_until is 'Крайний срок приёма результата удалённой оценки';
+comment on column credit_assessment_cycle.score_version is 'Версия заявки, для которой разрешено применение рекомендации';
+comment on column credit_assessment_cycle.closed_at is 'Момент закрытия цикла без повторного применения результата';
+comment on table assessment_exchange_outbox is 'Транзакционная доставка запросов оценки с повтором и арендой';
+comment on column assessment_exchange_outbox.stream is 'Поколение обмена, закреплённое в запросе';
+comment on column assessment_exchange_outbox.payload is 'Неизменяемое тело контракта запроса оценки';
+comment on column assessment_exchange_outbox.claim_token is 'Уникальный маркер текущей аренды публикации';
+comment on column assessment_exchange_outbox.locked_until is 'Срок действия текущей аренды публикации';
+comment on column assessment_exchange_outbox.sent_at is 'Подтверждение доставки брокером Kafka';

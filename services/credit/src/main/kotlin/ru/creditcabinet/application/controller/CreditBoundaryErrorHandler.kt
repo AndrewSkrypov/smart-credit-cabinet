@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import ru.creditcabinet.agent.application.AgentClientStatusUnavailable
 import ru.creditcabinet.agent.domain.AgentAccessUnavailable
+import ru.creditcabinet.application.application.CreditFailure
 import ru.creditcabinet.common.dto.ErrorResponse
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.GlobalExceptionHandler
@@ -21,6 +22,18 @@ import ru.creditcabinet.offer.application.SigningUnavailable
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice
 class CreditBoundaryErrorHandler(private val errors: GlobalExceptionHandler) {
+    @ExceptionHandler(CreditFailure::class)
+    fun applicationFailure(failure: CreditFailure, request: HttpServletRequest): ResponseEntity<ErrorResponse> {
+        val status = when (failure) {
+            is CreditFailure.InvalidInput -> HttpStatus.BAD_REQUEST
+            is CreditFailure.Unauthenticated -> HttpStatus.UNAUTHORIZED
+            is CreditFailure.Forbidden -> HttpStatus.FORBIDDEN
+            is CreditFailure.NotFound -> HttpStatus.NOT_FOUND
+            is CreditFailure.Conflict -> HttpStatus.CONFLICT
+        }
+        return errors.handleApiException(ApiException(status, failure.message), request)
+    }
+
     @ExceptionHandler(
         AgentAccessUnavailable::class,
         AgentClientStatusUnavailable::class,

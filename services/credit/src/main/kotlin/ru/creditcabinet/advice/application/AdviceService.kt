@@ -5,6 +5,7 @@ import ru.creditcabinet.advice.domain.AdviceKind
 import ru.creditcabinet.advice.domain.P
 import ru.creditcabinet.advice.domain.UnderwritingAdviceModel
 import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.Conflict
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
@@ -21,7 +22,6 @@ import ru.creditcabinet.assessment.domain.RuleSets
 import ru.creditcabinet.assessment.domain.Scorecard
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.assessment.domain.TaxInfo
-import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.forApplication
 import java.time.Clock
@@ -71,12 +71,12 @@ class AdviceService(
     fun manualReviewAdvice(id: UUID, eventId: UUID): AdviceView {
         val application = applications.find(id)
             ?.takeIf { it.status == ApplicationStatus.MANUAL_REVIEW }
-            ?: throw ConflictException("Заявка не находится на ручном рассмотрении")
+            ?: throw Conflict("Заявка не находится на ручном рассмотрении")
         val latestManualReview = checkNotNull(journal) { "ApplicationJournal is required for manualReviewAdvice" }
             .list(application.id)
             .lastOrNull { it.toStatus == ApplicationStatus.MANUAL_REVIEW && it.fromStatus != ApplicationStatus.MANUAL_REVIEW }
         if (latestManualReview == null || latestManualReview.id != eventId) {
-            throw ConflictException("Событие перехода в ручное рассмотрение устарело")
+            throw Conflict("Событие перехода в ручное рассмотрение устарело")
         }
         return buildAdvice(application)
     }

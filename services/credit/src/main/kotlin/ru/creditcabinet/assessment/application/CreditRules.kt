@@ -2,10 +2,10 @@ package ru.creditcabinet.assessment.application
 
 import org.springframework.stereotype.Service
 import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.assessment.domain.RuleSet
 import ru.creditcabinet.assessment.domain.RuleSetVersion
 import ru.creditcabinet.assessment.domain.RuleSets
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.Roles
 
 data class RuleHistory(val rule: RuleSet, val versions: List<RuleSetVersion>)
@@ -30,7 +30,7 @@ class CreditRuleAdministration(
 
     override fun version(version: Int): Pair<RuleSet, RuleSetVersion> {
         callerContext.requireBankStaff()
-        val rules = ruleSets.find(version) ?: throw NotFoundException("Версия правил не найдена")
+        val rules = ruleSets.find(version) ?: throw NotFound("Версия правил не найдена")
         return rules to ruleSets.history().first { it.version == version }
     }
 

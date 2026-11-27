@@ -60,7 +60,6 @@ import ru.creditcabinet.offer.OfferRepository
 import ru.creditcabinet.offer.OfferStatus
 import ru.creditcabinet.offer.SigningSessions
 import ru.creditcabinet.offer.application.OfferIssuance
-import ru.creditcabinet.pipeline.PipelineSettings
 import ru.creditcabinet.preapproved.domain.PreApprovedOfferStore
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog

@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import ru.creditcabinet.document.generated.application.GeneratedArtifacts
-import ru.creditcabinet.pipeline.PipelineSettings
+import ru.creditcabinet.pipeline.application.PipelineSettings
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 

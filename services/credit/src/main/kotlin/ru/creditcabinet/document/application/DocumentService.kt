@@ -4,6 +4,9 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.application.application.ApplicationAccess
 import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.InvalidInput
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.InfoRequest
@@ -12,9 +15,6 @@ import ru.creditcabinet.application.domain.JournalNote
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.toActor
 import ru.creditcabinet.chat.domain.ChatUpload
-import ru.creditcabinet.common.exception.BadRequestException
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.document.domain.ApplicationDocument
 import ru.creditcabinet.document.domain.DocumentContext
@@ -69,14 +69,14 @@ class DocumentService(
     override fun upload(applicationId: UUID, type: DocumentType, file: DocumentUpload, privateToBank: Boolean): ApplicationDocument {
         val (claims, application) = applications.own(applicationId, forUpdate = privateToBank)
         replay(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, privateToBank, file.operationKey)?.let { return it }
-        if (application.status == ApplicationStatus.DRAFT && application.activeAgentId != null) throw NotFoundException("Заявка не найдена")
-        if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
+        if (application.status == ApplicationStatus.DRAFT && application.activeAgentId != null) throw NotFound("Заявка не найдена")
+        if (application.status !in UPLOADABLE) throw Conflict("Документы добавляются в черновик или по запросу банка")
         if (privateToBank) {
-            if (type != DocumentType.BANK_STATEMENT) throw BadRequestException("Приватная загрузка доступна для выписки по счёту")
+            if (type != DocumentType.BANK_STATEMENT) throw InvalidInput("Приватная загрузка доступна для выписки по счёту")
             val requested = application.status == ApplicationStatus.INFO_REQUESTED &&
                 application.submittedAt != null &&
                 infoRequests.open(application.id)?.items?.any { it.documentType == type } == true
-            if (!requested) throw ConflictException("Банк сейчас не запрашивает выписку по счёту")
+            if (!requested) throw Conflict("Банк сейчас не запрашивает выписку по счёту")
         }
         return persist(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, privateToBank, file.operationKey)
     }
@@ -90,7 +90,7 @@ class DocumentService(
         file: DocumentUpload,
     ): ApplicationDocument {
         replay(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, false, file.operationKey)?.let { return it }
-        if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
+        if (application.status !in UPLOADABLE) throw Conflict("Документы добавляются в черновик или по запросу банка")
         return persist(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, operationKey = file.operationKey)
     }
 
@@ -116,19 +116,19 @@ class DocumentService(
             throw DocumentUploadsDisabled()
         }
         throttle.acquire(claims.userId)
-        if (size <= 0) throw BadRequestException("Файл пустой")
-        if (size > settings.maxSizeBytes) throw BadRequestException("Файл больше ${settings.maxSizeBytes / (1024 * 1024)} МБ")
+        if (size <= 0) throw InvalidInput("Файл пустой")
+        if (size > settings.maxSizeBytes) throw InvalidInput("Файл больше ${settings.maxSizeBytes / (1024 * 1024)} МБ")
         val fileName = originalName?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }?.take(MAX_NAME) ?: "document"
-        if ('\u0000' in fileName) throw BadRequestException("Имя файла содержит нулевой символ")
+        if ('\u0000' in fileName) throw InvalidInput("Имя файла содержит нулевой символ")
         val extension = fileName.substringAfterLast('.', missingDelimiterValue = "").lowercase()
-        if (privateToBank && extension != "pdf") throw BadRequestException("Приватную выписку загрузите в PDF")
-        if (extension !in ALLOWED_EXTENSIONS) throw BadRequestException("Подходят PDF, JPG, PNG, Word и Excel, а это .$extension")
+        if (privateToBank && extension != "pdf") throw InvalidInput("Приватную выписку загрузите в PDF")
+        if (extension !in ALLOWED_EXTENSIONS) throw InvalidInput("Подходят PDF, JPG, PNG, Word и Excel, а это .$extension")
         val bytes = content()
-        if (bytes.size.toLong() != size) throw BadRequestException("Размер файла изменился при загрузке — выберите файл заново")
-        if (!FileContent.matches(extension, bytes)) throw BadRequestException("Содержимое файла не похоже на .$extension — проверьте, что выбран нужный файл")
+        if (bytes.size.toLong() != size) throw InvalidInput("Размер файла изменился при загрузке — выберите файл заново")
+        if (!FileContent.matches(extension, bytes)) throw InvalidInput("Содержимое файла не похоже на .$extension — проверьте, что выбран нужный файл")
         scanner.scan(bytes)
         val now = clock.instant()
-        val key = operationKey?.also { if (it.isBlank() || it.length > 128) throw BadRequestException("Некорректный ключ загрузки") }
+        val key = operationKey?.also { if (it.isBlank() || it.length > 128) throw InvalidInput("Некорректный ключ загрузки") }
         val id = if (key != null) {
             uploadId(application, claims, context, key)
         } else {
@@ -202,9 +202,9 @@ class DocumentService(
         key: String?,
     ): ApplicationDocument? {
         if (key == null || boundary == null) return null
-        if (key.isBlank() || key.length > 128) throw BadRequestException("Некорректный ключ загрузки")
+        if (key.isBlank() || key.length > 128) throw InvalidInput("Некорректный ключ загрузки")
         val previous = boundary.committedUpload(application.id, uploadId(application, caller, context, key)) ?: return null
-        if (size <= 0 || size > settings.maxSizeBytes) throw ConflictException("Ключ загрузки уже использован для другого файла")
+        if (size <= 0 || size > settings.maxSizeBytes) throw Conflict("Ключ загрузки уже использован для другого файла")
         val fileName = originalName?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }?.take(MAX_NAME) ?: "document"
         val bytes = content()
         val checksum = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
@@ -217,7 +217,7 @@ class DocumentService(
             bytes.size.toLong() != size ||
             previous.checksumSha256 != checksum
         ) {
-            throw ConflictException("Ключ загрузки уже использован для другого файла")
+            throw Conflict("Ключ загрузки уже использован для другого файла")
         }
         return previous
     }
@@ -232,7 +232,7 @@ class DocumentService(
     private fun ownForDocumentWrite(applicationId: UUID, forUpdate: Boolean = false): Pair<TokenClaims, LoanApplication> {
         val (claims, application) = applications.own(applicationId, forUpdate)
         if (application.status == ApplicationStatus.DRAFT && application.activeAgentId != null) {
-            throw NotFoundException("Заявка не найдена")
+            throw NotFound("Заявка не найдена")
         }
         return claims to application
     }
@@ -244,10 +244,10 @@ class DocumentService(
     }
 
     private fun deleteInternal(application: LoanApplication, claims: TokenClaims, documentId: UUID) {
-        if (application.status != ApplicationStatus.DRAFT) throw ConflictException("Отправленные документы удалить нельзя — загрузите новую версию")
-        val document = documents.find(application.id, documentId) ?: throw NotFoundException("Документ не найден")
-        if (document.privateToBank) throw NotFoundException("Документ не найден")
-        if (documents.isChatAttached(documentId)) throw ConflictException("Вложение отправленного сообщения изменить или удалить нельзя")
+        if (application.status != ApplicationStatus.DRAFT) throw Conflict("Отправленные документы удалить нельзя — загрузите новую версию")
+        val document = documents.find(application.id, documentId) ?: throw NotFound("Документ не найден")
+        if (document.privateToBank) throw NotFound("Документ не найден")
+        if (documents.isChatAttached(documentId)) throw Conflict("Вложение отправленного сообщения изменить или удалить нельзя")
         val now = clock.instant()
         documents.markDeleted(application.id, document.id, now)
         journal.append(
@@ -268,7 +268,7 @@ class DocumentService(
         val document = readableDocument(application, documentId, callerIdentity.claims())
         val file =
             (if (boundary?.remote == true) boundary.bytes(document) else store.get(document.storedName, document.storageBackend))
-                ?: throw NotFoundException("Файл документа не найден в хранилище")
+                ?: throw NotFound("Файл документа не найден в хранилище")
         return document to file
     }
 
@@ -282,13 +282,13 @@ class DocumentService(
         attachToChat: Boolean = false,
     ): ApplicationDocument {
         val current = documents.find(application.id, documentId)
-        if (attachToChat && (current == null || current.privateToBank)) throw NotFoundException("Документ не найден")
+        if (attachToChat && (current == null || current.privateToBank)) throw NotFound("Документ не найден")
         val readable = when {
             current?.context == DocumentContext.CHAT -> current.takeIf { it.uploadedBy == caller.userId || documents.isChatAttached(it.id) }
             caller.isAgent -> current
             else -> documents.listForPacket(application.id, application.submittedAt, documentId).singleOrNull()
         }
-        return readable?.takeIf { it.visibleTo(caller, application) } ?: throw NotFoundException("Документ не найден")
+        return readable?.takeIf { it.visibleTo(caller, application) } ?: throw NotFound("Документ не найден")
     }
 
     private fun ApplicationDocument.visibleTo(caller: TokenClaims, application: LoanApplication): Boolean =

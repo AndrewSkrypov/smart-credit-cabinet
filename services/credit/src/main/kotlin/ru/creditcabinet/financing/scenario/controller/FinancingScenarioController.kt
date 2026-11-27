@@ -3,7 +3,6 @@ package ru.creditcabinet.financing.scenario.controller
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
-import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PutMapping
@@ -34,11 +33,8 @@ class FinancingScenarioController(
 
     @Operation(summary = "Сравнить два срока и сохранить редакцию сценария")
     @PutMapping("/api/v1/agent/applications/{id}/financing-scenario")
-    @Transactional
-    fun agentPut(@PathVariable id: UUID, @RequestBody inputs: FinancingScenarioInputs): FinancingScenarioSnapshot {
-        val (_, application) = agents.ownAgentApplication(id, forUpdate = true)
-        return scenarios.saveDraft(application, inputs.toDomain()).toContract()
-    }
+    fun agentPut(@PathVariable id: UUID, @RequestBody inputs: FinancingScenarioInputs): FinancingScenarioSnapshot =
+        agents.saveFinancingScenario(id, inputs.toDomain()).toContract()
 
     @Operation(summary = "Последний переданный клиенту пакет")
     @GetMapping("/api/v1/applications/{id}/financing-scenario")

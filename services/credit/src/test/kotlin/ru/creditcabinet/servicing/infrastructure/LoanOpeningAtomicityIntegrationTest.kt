@@ -339,7 +339,7 @@ class LoanOpeningAtomicityIntegrationTest {
                 ru.creditcabinet.pipeline.infrastructure.PipelineWorker(
                     jobs,
                     handler,
-                    ru.creditcabinet.pipeline.PipelineSettings(enabled = false, maxAttempts = maxAttempts),
+                    ru.creditcabinet.pipeline.application.PipelineSettings(enabled = false, maxAttempts = maxAttempts),
                     clock,
                     context.getBean(ru.creditcabinet.observability.PipelineMetrics::class.java),
                 )

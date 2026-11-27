@@ -4,6 +4,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.Forbidden
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.chat.domain.ChatAction
@@ -19,8 +21,6 @@ import ru.creditcabinet.chat.domain.ChatSide
 import ru.creditcabinet.chat.domain.ChatState
 import ru.creditcabinet.chat.domain.ChatUpload
 import ru.creditcabinet.chat.domain.UploadReceipt
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.notifications.PlatformNotification
 import ru.creditcabinet.common.notifications.PlatformNotifications
 import ru.creditcabinet.common.security.Roles
@@ -65,10 +65,10 @@ class ChatService(
         ChatRules.validate(text, documents)
         val hash = ChatRules.messageHash(text, documents)
         data.previousMessage(id, caller.userId, key)?.let { previous ->
-            if (previous.payloadHash != hash) throw ConflictException("Этот ключ уже использован для другого сообщения")
+            if (previous.payloadHash != hash) throw Conflict("Этот ключ уже использован для другого сообщения")
             return previous
         }
-        ChatRules.readOnlyReason(status)?.let { throw ConflictException(it) }
+        ChatRules.readOnlyReason(status)?.let { throw Conflict(it) }
         limits.acquire(caller.userId)
         val attachments = documents.map { files.find(application, it, caller) }
         val now = clock.instant()
@@ -131,10 +131,10 @@ class ChatService(
         data.lockState(id)
         val hash = ChatRules.uploadHash(upload)
         data.previousUpload(id, caller.userId, key)?.let { previous ->
-            if (previous.hash != hash) throw ConflictException("Этот ключ уже использован для другого файла")
+            if (previous.hash != hash) throw Conflict("Этот ключ уже использован для другого файла")
             return files.find(application, previous.documentId, caller)
         }
-        ChatRules.readOnlyReason(status)?.let { throw ConflictException(it) }
+        ChatRules.readOnlyReason(status)?.let { throw Conflict(it) }
         val stored = files.upload(application, caller, upload.copy(operationKey = key.toString()))
         val now = clock.instant()
         data.recordUpload(id, caller.userId, key, UploadReceipt(hash, stored.id), now)
@@ -202,11 +202,11 @@ class ChatService(
         notifications.send(notices)
     }
 
-    private fun role(caller: TokenClaims): String = caller.role ?: throw ForbiddenException(CreditCaller.FORBIDDEN)
+    private fun role(caller: TokenClaims): String = caller.role ?: throw Forbidden(CreditCaller.FORBIDDEN)
 
     private fun side(caller: TokenClaims): ChatSide = when {
         caller.isClient || caller.isAgent -> ChatSide.COMPANY
         caller.isBankStaff -> ChatSide.BANK
-        else -> throw ForbiddenException(CreditCaller.FORBIDDEN)
+        else -> throw Forbidden(CreditCaller.FORBIDDEN)
     }
 }

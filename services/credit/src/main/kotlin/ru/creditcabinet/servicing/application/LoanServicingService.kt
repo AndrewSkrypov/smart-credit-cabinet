@@ -1,10 +1,10 @@
 package ru.creditcabinet.servicing.application
 
 import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.ApplicationService
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.offer.Loan
 import ru.creditcabinet.servicing.contract.v1.DrawCommand
 import ru.creditcabinet.servicing.contract.v1.PayNextCommand
@@ -24,7 +24,7 @@ class LoanServicingService(
     fun getByApplicationId(applicationId: UUID): LoanAccount {
         val application = applications.get(applicationId)
         if (application.status != ApplicationStatus.DISBURSED) throw missing()
-        return operations.byApplication(applicationId) ?: throw NotFoundException("Кредитный счёт по заявке не найден")
+        return operations.byApplication(applicationId) ?: throw NotFound("Кредитный счёт по заявке не найден")
     }
     fun drawTranche(loanId: UUID, key: UUID, amount: Long, purpose: String?): LoanAccount =
         operations.draw(loanId, DrawCommand(readyActor(loanId), amount, purpose, operationKey = key))
@@ -37,7 +37,7 @@ class LoanServicingService(
         if (applications.get(account.applicationId).status != ApplicationStatus.DISBURSED) throw missing()
         return actor
     }
-    private fun missing() = NotFoundException("Кредитный счёт по заявке не найден")
+    private fun missing() = NotFound("Кредитный счёт по заявке не найден")
     private fun actor(): ServicingActor {
         val (caller, companyId) = callerContext.requireClient()
         return ServicingActor(caller.userId, companyId)

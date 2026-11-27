@@ -1,13 +1,11 @@
-package ru.creditcabinet.pipeline
+package ru.creditcabinet.pipeline.application
 
-import org.springframework.boot.context.properties.ConfigurationProperties
 import java.time.Duration
 
 /**
  * Timings of the pipeline (docs/process-model.md, section 8). Production values by default; the
  * demo in docker compose shortens them so a whole scenario fits into minutes.
  */
-@ConfigurationProperties("cabinet.pipeline")
 data class PipelineSettings(
     /** false: no background worker (tests run the jobs themselves). */
     val enabled: Boolean = true,

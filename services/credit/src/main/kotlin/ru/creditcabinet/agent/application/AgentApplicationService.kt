@@ -8,6 +8,8 @@ import ru.creditcabinet.agent.domain.AgentPortfolioCalculator
 import ru.creditcabinet.agent.domain.AgentPortfolioSummary
 import ru.creditcabinet.application.application.CommitTransition
 import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationCreationConflict
@@ -24,8 +26,6 @@ import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
 import ru.creditcabinet.application.service.notFound
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.document.application.AgentDocuments
@@ -35,6 +35,8 @@ import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.document.domain.StoredFile
 import ru.creditcabinet.financing.scenario.application.FinancingScenarios
+import ru.creditcabinet.financing.scenario.domain.ScenarioInputs
+import ru.creditcabinet.financing.scenario.domain.ScenarioSnapshot
 import ru.creditcabinet.offer.OfferRepository
 import ru.creditcabinet.preapproved.application.PreApprovedOfferService
 import ru.creditcabinet.preapproved.domain.PreApprovedOffer
@@ -64,7 +66,13 @@ class AgentApplicationService(
     private val scenarios: FinancingScenarios,
     private val offers: OfferRepository,
 ) {
-    private fun draftProduct(code: String): Product = products.forDraft(code) ?: throw NotFoundException("Продукт не найден")
+    private fun draftProduct(code: String): Product = products.forDraft(code) ?: throw NotFound("Продукт не найден")
+
+    @Transactional
+    fun saveFinancingScenario(id: UUID, inputs: ScenarioInputs): ScenarioSnapshot {
+        val (_, application) = ownAgentApplication(id, forUpdate = true)
+        return scenarios.saveDraft(application, inputs)
+    }
 
     fun portfolio(): AgentPortfolioSummary {
         val caller = callerIdentity.requireRole(Roles.AGENT)
@@ -207,10 +215,10 @@ class AgentApplicationService(
     @Transactional
     fun provideInfo(id: UUID, answer: String?): LoanApplication {
         val (caller, application) = ownAgentApplication(id, forUpdate = true)
-        val request = infoRequests.open(application.id) ?: throw ConflictException("Банк сейчас ничего не запрашивал")
+        val request = infoRequests.open(application.id) ?: throw Conflict("Банк сейчас ничего не запрашивал")
         val submitted = documentRepository.list(application.id).filter { !it.uploadedAt.isBefore(request.createdAt) }
         if (submitted.any { file -> file.privateToBank && request.items.any { it.documentType == file.type } }) {
-            throw ConflictException("Завершить запрос по приватной выписке может клиент")
+            throw Conflict("Завершить запрос по приватной выписке может клиент")
         }
         val fresh = submitted.map { it.type }.toSet()
         val missing = request.items.mapNotNull { it.documentType }.filter { it !in fresh }
@@ -254,7 +262,9 @@ class AgentApplicationService(
      * 2) agentAccess.checkAccess(caller.userId, application.company.id).allowed == true
      * Any violation returns 404 Not Found without leaking existence.
      */
-    fun ownAgentApplication(id: UUID, forUpdate: Boolean = false): Pair<TokenClaims, LoanApplication> {
+    fun ownAgentApplication(id: UUID): Pair<TokenClaims, LoanApplication> = ownAgentApplication(id, forUpdate = false)
+
+    private fun ownAgentApplication(id: UUID, forUpdate: Boolean): Pair<TokenClaims, LoanApplication> {
         val caller = callerIdentity.requireRole(Roles.AGENT)
         val application = (if (forUpdate) applications.findForUpdate(id) else applications.find(id)) ?: throw notFound()
         if (application.activeAgentId != caller.userId) throw notFound()
@@ -264,7 +274,7 @@ class AgentApplicationService(
     }
 
     private fun activeExists(product: Product) =
-        ConflictException("По продукту «${product.name}» у компании уже есть заявка в работе — продолжите её или отзовите")
+        Conflict("По продукту «${product.name}» у компании уже есть заявка в работе — продолжите её или отзовите")
 
     private companion object {
         const val MAX_COMMENT = 2000

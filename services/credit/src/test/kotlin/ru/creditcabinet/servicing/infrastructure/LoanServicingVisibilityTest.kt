@@ -5,13 +5,13 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.ApplicationService
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.servicing.application.LoanServicingService
 import ru.creditcabinet.servicing.contract.v1.ServicingOperations
@@ -36,7 +36,7 @@ class LoanServicingVisibilityTest {
         val applications = mock<ApplicationService>()
         whenever(applications.get(app.id)).thenReturn(app)
         val facade = LoanServicingService(operations, applications, mock<CreditCaller>()) { _, _ -> error("unused") }
-        assertFailsWith<NotFoundException> { facade.getByApplicationId(app.id) }
+        assertFailsWith<NotFound> { facade.getByApplicationId(app.id) }
         verifyNoInteractions(operations)
         val account = LoanAccount.open(
             app.id, app.company.id, "C-1", 1_000_000, 12, BigDecimal("20.00"), true,

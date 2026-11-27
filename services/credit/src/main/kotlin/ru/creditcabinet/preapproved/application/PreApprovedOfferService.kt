@@ -5,6 +5,8 @@ import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.agent.application.AgentClientEligibility
 import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationCreationConflict
@@ -16,8 +18,6 @@ import ru.creditcabinet.application.domain.CompanyDirectory
 import ru.creditcabinet.application.domain.JournalNote
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.toActor
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.preapproved.domain.PreApprovedOffer
 import ru.creditcabinet.preapproved.domain.PreApprovedOfferStore
 import ru.creditcabinet.product.domain.Product
@@ -47,11 +47,11 @@ class PreApprovedOfferService(
     fun applyForClient(offerId: UUID): LoanApplication {
         val (claims, companyId) = callerContext.requireClient()
         val offer = store.find(offerId)?.takeIf { it.companyId == companyId }
-            ?: throw NotFoundException("Предодобренное предложение не найдено")
+            ?: throw NotFound("Предодобренное предложение не найдено")
         return createFromOffer(
             offer = offer,
             createdBy = claims.userId,
-            actor = claims.toActor() ?: throw ConflictException("Это действие недоступно для вашей роли"),
+            actor = claims.toActor() ?: throw Conflict("Это действие недоступно для вашей роли"),
             agentId = null,
             agentName = null,
         )
@@ -65,8 +65,8 @@ class PreApprovedOfferService(
         agentName: String? = null,
     ): LoanApplication {
         val offer = store.find(offerId)?.takeIf { it.companyId in companyIds }
-            ?: throw NotFoundException("Предодобренное предложение не найдено")
-        if (!agentAccess.checkAccess(agentId, offer.companyId).allowed) throw NotFoundException("Предодобренное предложение не найдено")
+            ?: throw NotFound("Предодобренное предложение не найдено")
+        if (!agentAccess.checkAccess(agentId, offer.companyId).allowed) throw NotFound("Предодобренное предложение не найдено")
         return createFromOffer(
             offer = offer,
             createdBy = agentId,
@@ -106,19 +106,19 @@ class PreApprovedOfferService(
     ): LoanApplication {
         val now = clock.instant()
         if (!offer.isAvailable(now)) {
-            throw ConflictException("Предодобренное предложение уже использовано или истекло")
+            throw Conflict("Предодобренное предложение уже использовано или истекло")
         }
         val product = products.forDraft(offer.productCode)
-            ?: throw ConflictException("Продукт по предложению недоступен")
+            ?: throw Conflict("Продукт по предложению недоступен")
         val amount = minOf(offer.maxAmount, product.maxAmount)
         val term = minOf(offer.maxTermMonths, product.maxTermMonths)
         if (amount < product.minAmount || term < maxOf(offer.minTermMonths, product.minTermMonths)) {
-            throw ConflictException("Предодобренное предложение не подходит под текущие условия продукта")
+            throw Conflict("Предодобренное предложение не подходит под текущие условия продукта")
         }
         if (applications.hasActive(offer.companyId, product.code)) {
             throw activeExists(product)
         }
-        val company = companies.find(offer.companyId) ?: throw NotFoundException("Компания не найдена")
+        val company = companies.find(offer.companyId) ?: throw NotFound("Компания не найдена")
         if (agentId != null) agentEligibility.requireEligible(company)
         val defaultPurpose = product.purposes.minBy { it.ordinal }
         val terms = ApplicationTerms(
@@ -149,12 +149,12 @@ class PreApprovedOfferService(
             throw activeExists(product)
         }
         if (!store.markUsed(offer.id, saved.id, now)) {
-            throw ConflictException("Предодобренное предложение уже использовано или истекло")
+            throw Conflict("Предодобренное предложение уже использовано или истекло")
         }
         journal.append(saved.note(JournalNote.CREATED, actor, now, mapOf("preApprovedOfferId" to offer.id.toString())))
         return saved
     }
 
     private fun activeExists(product: Product) =
-        ConflictException("По продукту «${product.name}» у компании уже есть заявка в работе — продолжите её или отзовите")
+        Conflict("По продукту «${product.name}» у компании уже есть заявка в работе — продолжите её или отзовите")
 }

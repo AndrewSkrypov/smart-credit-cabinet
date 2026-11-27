@@ -3,9 +3,9 @@ package ru.creditcabinet.financing.scenario.application
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
+import ru.creditcabinet.application.application.CreditFailure.Conflict
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.document.domain.DocumentContext
 import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.FileStore
@@ -47,10 +47,10 @@ class FinancingScenarios(
     @Transactional(propagation = Propagation.MANDATORY)
     fun saveDraft(application: LoanApplication, inputs: ScenarioInputs): ScenarioSnapshot {
         if (application.status != ApplicationStatus.DRAFT) {
-            throw ConflictException("Сценарий можно изменить только в черновике")
+            throw Conflict("Сценарий можно изменить только в черновике")
         }
         val product = products.find(application.terms.productCode)
-            ?: throw ConflictException("Продукт заявки выключен из каталога")
+            ?: throw Conflict("Продукт заявки выключен из каталога")
         val revision = (store.latest(application.id)?.snapshot?.revision ?: 0L) + 1
         val snapshot = FinancingScenarioCalculation.draft(revision, inputs, application.terms, product)
         verifyInvoiceSource(application.id, inputs)
@@ -72,7 +72,7 @@ class FinancingScenarios(
             application.terms.amount != snapshot.loanAmount ||
             product.version != latest.productVersion
         ) {
-            throw ConflictException("Условия заявки изменились — пересчитайте сценарий перед передачей")
+            throw Conflict("Условия заявки изменились — пересчитайте сценарий перед передачей")
         }
         // A new handoff after a return can carry new document versions, even when the terms were kept.
         snapshot.inputs.source?.documentId?.let { requireInvoiceDocument(application.id, it) }
@@ -129,7 +129,7 @@ class FinancingScenarios(
         val documentId = source.documentId ?: return
         val document = requireInvoiceDocument(applicationId, documentId)
         val file = (if (content == null) files.get(document.storedName, document.storageBackend) else content.open(document))
-            ?: throw ConflictException("Счёт недоступен — приложите его заново")
+            ?: throw Conflict("Счёт недоступен — приложите его заново")
         val bytes = file.content.use { it.readNBytes(InvoiceTextReader.MAX_FILE_BYTES.toInt() + 1) }
         require(bytes.size <= InvoiceTextReader.MAX_FILE_BYTES) { "Счёт превышает допустимый размер" }
         val evidence = InvoiceEvidence.from(invoiceText.read(bytes))
@@ -147,7 +147,7 @@ class FinancingScenarios(
             it.context == DocumentContext.BUSINESS &&
                 !it.privateToBank &&
                 it.sizeBytes in 1..InvoiceTextReader.MAX_FILE_BYTES
-        } ?: throw ConflictException("Счёт должен быть приложен к этой заявке")
+        } ?: throw Conflict("Счёт должен быть приложен к этой заявке")
 
-    private fun staleScenario() = ConflictException("Пакет финансирования изменился — откройте переданную версию и подтвердите её")
+    private fun staleScenario() = Conflict("Пакет финансирования изменился — откройте переданную версию и подтвердите её")
 }

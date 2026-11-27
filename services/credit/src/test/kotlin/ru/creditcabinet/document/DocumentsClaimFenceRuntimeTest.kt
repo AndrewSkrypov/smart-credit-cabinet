@@ -7,8 +7,8 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource
 import ru.creditcabinet.application.domain.PipelineJob
 import ru.creditcabinet.application.infrastructure.JdbcPipelineJobs
 import ru.creditcabinet.observability.PipelineMetrics
-import ru.creditcabinet.pipeline.PipelineSettings
 import ru.creditcabinet.pipeline.application.PipelineJobHandler
+import ru.creditcabinet.pipeline.application.PipelineSettings
 import ru.creditcabinet.pipeline.infrastructure.PipelineWorker
 import java.sql.Timestamp
 import java.time.Clock

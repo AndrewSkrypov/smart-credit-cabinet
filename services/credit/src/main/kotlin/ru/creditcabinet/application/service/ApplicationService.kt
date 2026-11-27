@@ -7,6 +7,8 @@ import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.application.application.ApplicationOperations
 import ru.creditcabinet.application.application.CommitTransition
 import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.ApplicationCreationConflict
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationJournal
@@ -21,8 +23,6 @@ import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
 import ru.creditcabinet.application.domain.Transition
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.financing.scenario.application.FinancingScenarios
 import ru.creditcabinet.preapproved.application.PreApprovedOfferService
@@ -59,7 +59,7 @@ class ApplicationService(
         val product = product(terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
         if (applications.hasActive(companyId, product.code)) throw activeExists(product)
-        val company = companies.find(companyId) ?: throw NotFoundException("Компания не найдена")
+        val company = companies.find(companyId) ?: throw NotFound("Компания не найдена")
         val now = clock.instant()
         val saved = try {
             applications.create(LoanApplication(company = company, createdBy = claims.userId, terms = terms, createdAt = now, productVersion = product.version))
@@ -76,7 +76,7 @@ class ApplicationService(
         val (_, application) = own(id)
         if (application.status == ApplicationStatus.DRAFT && application.activeAgentId != null) throw notFound()
         if (application.agentId != null) {
-            throw ConflictException("Черновик агентской заявки может редактировать только агент")
+            throw Conflict("Черновик агентской заявки может редактировать только агент")
         }
         val product = product(application.terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
@@ -92,12 +92,12 @@ class ApplicationService(
     override fun submit(id: UUID, idempotencyKey: String?, acceptedProductVersion: Long?): LoanApplication {
         val (claims, application) = own(id)
         if (application.agentId != null) {
-            throw ConflictException("Агентскую заявку нельзя отправить напрямую — сначала требуется подтверждение клиента")
+            throw Conflict("Агентскую заявку нельзя отправить напрямую — сначала требуется подтверждение клиента")
         }
         if (idempotencyKey != null) {
             val previous = idempotencyKeys.find(claims.userId, idempotencyKey, SUBMIT)
             if (previous == id) return application
-            if (previous != null) throw ConflictException("Этот Idempotency-Key уже использован для другой заявки")
+            if (previous != null) throw Conflict("Этот Idempotency-Key уже использован для другой заявки")
         }
         val snapshot = submissionSnapshot(application, acceptedProductVersion)
         val selected = snapshot.selected
@@ -119,7 +119,7 @@ class ApplicationService(
     ): LoanApplication {
         val (claims, current) = own(id, forUpdate = true)
         val application = if (current.status == ApplicationStatus.DRAFT) {
-            if (!canResumeIndependently(current)) throw ConflictException("Заявка ожидает повторной передачи агентом")
+            if (!canResumeIndependently(current)) throw Conflict("Заявка ожидает повторной передачи агентом")
             scenarios.restoreHandoff(current).copy(clientManaged = true)
         } else {
             current
@@ -128,7 +128,7 @@ class ApplicationService(
         val snapshot = submissionSnapshot(application, acceptedProductVersion)
         val selected = snapshot.selected
         if (acceptedScenarioRevision != null && selected.version != application.productVersion) {
-            throw ConflictException("Условия продукта изменились — обновите заявку, проверьте новые условия и подтвердите их перед отправкой")
+            throw Conflict("Условия продукта изменились — обновите заявку, проверьте новые условия и подтвердите их перед отправкой")
         }
         val commissionRateBps = if (application.agentId != null) selected.agentCommissionRateBps else application.agentCommissionRateBps
         val commissionAmount = if (application.agentId != null && commissionRateBps != null) {
@@ -181,7 +181,7 @@ class ApplicationService(
     @Transactional
     override fun provideInfo(id: UUID, answer: String?): LoanApplication {
         val (claims, application) = own(id, forUpdate = true)
-        val request = infoRequests.open(application.id) ?: throw ConflictException("Банк сейчас ничего не запрашивал")
+        val request = infoRequests.open(application.id) ?: throw Conflict("Банк сейчас ничего не запрашивал")
         val fresh = documents.list(application.id).filter { !it.uploadedAt.isBefore(request.createdAt) }.map { it.type }.toSet()
         val missing = request.items.mapNotNull { it.documentType }.filter { it !in fresh }
         require(missing.isEmpty()) { "Загрузите: ${missing.joinToString(", ") { it.title.lowercase() }}" }
@@ -231,7 +231,7 @@ class ApplicationService(
         }
     }
 
-    fun product(code: String): Product = products.forDraft(code) ?: throw NotFoundException("Продукт не найден")
+    fun product(code: String): Product = products.forDraft(code) ?: throw NotFound("Продукт не найден")
 
     /** The application of the caller's company, for changing it: clients only (hiding private agent drafts). */
     override fun own(id: UUID, forUpdate: Boolean): Pair<TokenClaims, LoanApplication> {
@@ -259,17 +259,17 @@ class ApplicationService(
 
     private fun submissionSnapshot(application: LoanApplication, acceptedVersion: Long?): SubmissionProductSnapshot {
         val snapshot = submissionCatalog.snapshotForSubmission(application.terms.productCode)
-            ?: throw ConflictException("Продукт выключен из каталога — выберите другой продукт и создайте новую заявку")
+            ?: throw Conflict("Продукт выключен из каталога — выберите другой продукт и создайте новую заявку")
         if ((acceptedVersion ?: application.productVersion) != snapshot.selected.version) {
-            throw ConflictException("Условия продукта изменились — обновите заявку, проверьте новые условия и подтвердите их перед отправкой")
+            throw Conflict("Условия продукта изменились — обновите заявку, проверьте новые условия и подтвердите их перед отправкой")
         }
         return snapshot
     }
 
-    private fun actorOf(claims: TokenClaims) = claims.toActor() ?: throw ConflictException("Это действие недоступно для вашей роли")
+    private fun actorOf(claims: TokenClaims) = claims.toActor() ?: throw Conflict("Это действие недоступно для вашей роли")
 
     private fun activeExists(product: Product) =
-        ConflictException("По продукту «${product.name}» у компании уже есть заявка в работе — продолжите её или отзовите")
+        Conflict("По продукту «${product.name}» у компании уже есть заявка в работе — продолжите её или отзовите")
 
     private companion object {
         const val SUBMIT = "SUBMIT"

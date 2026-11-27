@@ -5,6 +5,7 @@ import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CompanySnapshot
@@ -12,7 +13,6 @@ import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.infrastructure.SpringCreditCaller
 import ru.creditcabinet.application.service.ApplicationService
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.document.application.DocumentService
@@ -66,8 +66,8 @@ class DocumentAccessTest {
         whenever(documents.isChatAttached(document.id)).thenReturn(true)
         for (caller in listOf(client, bank)) {
             authenticate(caller)
-            assertFailsWith<NotFoundException> { service.chatAttachment(application, document.id, caller) }
-            assertFailsWith<NotFoundException> { service.open(application.id, document.id) }
+            assertFailsWith<NotFound> { service.chatAttachment(application, document.id, caller) }
+            assertFailsWith<NotFound> { service.open(application.id, document.id) }
         }
         verifyNoInteractions(store)
     }
@@ -91,7 +91,7 @@ class DocumentAccessTest {
         whenever(documents.listForPacket(application.id, application.submittedAt, document.id)).thenReturn(listOf(document))
         for (caller in listOf(client, bank)) {
             authenticate(caller)
-            assertFailsWith<NotFoundException> { service.chatAttachment(application, document.id, caller) }
+            assertFailsWith<NotFound> { service.chatAttachment(application, document.id, caller) }
             assertEquals(document, service.open(application.id, document.id).first)
         }
     }
@@ -104,8 +104,8 @@ class DocumentAccessTest {
         assertEquals(document, service.chatAttachment(application, document.id, client))
         assertEquals(document, service.open(application.id, document.id).first)
         authenticate(bank)
-        assertFailsWith<NotFoundException> { service.chatAttachment(application, document.id, bank) }
-        assertFailsWith<NotFoundException> { service.open(application.id, document.id) }
+        assertFailsWith<NotFound> { service.chatAttachment(application, document.id, bank) }
+        assertFailsWith<NotFound> { service.open(application.id, document.id) }
 
         whenever(documents.isChatAttached(document.id)).thenReturn(true)
         assertEquals(document, service.chatAttachment(application, document.id, bank))

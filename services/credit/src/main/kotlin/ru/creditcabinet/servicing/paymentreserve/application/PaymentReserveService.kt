@@ -4,9 +4,9 @@ package ru.creditcabinet.servicing.paymentreserve.application
 
 import ru.creditcabinet.agent.application.AgentApplicationService
 import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.servicing.contract.v1.*
 import ru.creditcabinet.servicing.domain.LoanAccount
 import ru.creditcabinet.servicing.paymentreserve.domain.*
@@ -52,5 +52,5 @@ class PaymentReserveService(
     private fun requireDemo() {
         if (!demoAccounts) throw missing()
     }
-    private fun missing() = NotFoundException("Резерв к платежу не найден")
+    private fun missing() = NotFound("Резерв к платежу не найден")
 }

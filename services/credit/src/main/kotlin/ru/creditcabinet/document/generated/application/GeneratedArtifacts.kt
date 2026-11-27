@@ -3,11 +3,11 @@ package ru.creditcabinet.document.generated.application
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.application.application.ApplicationAccess
+import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.application.CreditTransactions
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.notifications.NotificationEmail
 import ru.creditcabinet.common.notifications.NotificationEmailKind
 import ru.creditcabinet.common.notifications.PlatformNotification
@@ -58,7 +58,7 @@ class GeneratedArtifacts(
     private fun prepare(application: LoanApplication): List<ArtifactView> {
         val frozen = records.frozenFinal(application.id)
         if (frozen != null) return if (boundary.remote) prepareRemote(application, frozen) else prepareLocal(application, frozen)
-        val offer = offers.current(application.id) ?: throw NotFoundException("Банк ещё не сделал предложение")
+        val offer = offers.current(application.id) ?: throw NotFound("Банк ещё не сделал предложение")
         val loan = loans.find(application.id)
         val product = products.version(offer.productCode, offer.productVersion)!!
         val phase = if (loan == null) ArtifactPhase.PREVIEW else ArtifactPhase.FINAL
@@ -160,7 +160,7 @@ class GeneratedArtifacts(
     private fun publishPendingRemote() {
         records.pendingInputs().forEach { (id, input, backend) ->
             runCatching {
-                val application = repository.find(id) ?: throw NotFoundException("Заявка не найдена")
+                val application = repository.find(id) ?: throw NotFound("Заявка не найдена")
                 val json = codec.encode(input)
                 val hash = checksum(json.toByteArray())
                 val key = ArtifactInputKey(id, input.offerId, input.phase, hash)
@@ -178,13 +178,13 @@ class GeneratedArtifacts(
     fun prepareFinalLoans() {
         if (boundary.remote) {
             records.loansWithoutRemoteArtifacts().forEach { id ->
-                runCatching { prepare(repository.find(id) ?: throw NotFoundException("Заявка не найдена")) }
+                runCatching { prepare(repository.find(id) ?: throw NotFound("Заявка не найдена")) }
             }
             publishPendingRemote()
             return
         }
         records.loansWithoutLocalArtifacts(renderer.templateVersion).forEach { id ->
-            runCatching { tx.executeWithoutResult { prepare(repository.find(id) ?: throw NotFoundException("Заявка не найдена")) } }
+            runCatching { tx.executeWithoutResult { prepare(repository.find(id) ?: throw NotFound("Заявка не найдена")) } }
                 .onFailure { failures.preparation(id, it) }
         }
     }
@@ -216,7 +216,7 @@ class GeneratedArtifacts(
     private fun claimAndNotify(key: ArtifactInputKey): Boolean {
         if (!records.claimNotice(key, renderer.templateVersion, clock.instant())) return false
         val id = key.applicationId
-        val application = repository.find(id) ?: throw NotFoundException("Заявка не найдена")
+        val application = repository.find(id) ?: throw NotFound("Заявка не найдена")
         notifications.send(
             listOf(
                 PlatformNotification(
@@ -259,14 +259,14 @@ class GeneratedArtifacts(
         applications.get(applicationId)
         if (boundary.remote) {
             val scope = boundary.scope(applicationId)
-            val record = boundary.list(scope).firstOrNull { it.id == artifactId && confirmed(it) } ?: throw NotFoundException("Файл не найден")
+            val record = boundary.list(scope).firstOrNull { it.id == artifactId && confirmed(it) } ?: throw NotFound("Файл не найден")
             return boundary.retry(scope, record.id)
         }
-        val record = records.findLocal(applicationId, artifactId, lock = true) ?: throw NotFoundException("Файл не найден")
+        val record = records.findLocal(applicationId, artifactId, lock = true) ?: throw NotFound("Файл не найден")
         if (record.status == ArtifactStatus.READY) return record
         val version = records.templateVersion(artifactId)
         if (version == renderer.templateVersion && (record.readyAt != null || record.checksum != null)) {
-            throw ConflictException("Опубликованный файл требует восстановления исходного объекта")
+            throw Conflict("Опубликованный файл требует восстановления исходного объекта")
         }
         if (version != renderer.templateVersion) {
             // Copy the old frozen input, including PREVIEW files after disbursement. Old READY links
@@ -291,12 +291,12 @@ class GeneratedArtifacts(
             val scope = boundary.scope(applicationId)
             val record = boundary.list(scope).firstOrNull {
                 it.id == artifactId && confirmed(it)
-            } ?: throw NotFoundException("Файл не найден")
-            if (record.status != "READY") throw ConflictException("Файл ещё не готов")
+            } ?: throw NotFound("Файл не найден")
+            if (record.status != "READY") throw Conflict("Файл ещё не готов")
             return boundary.read(scope, record)
         }
-        val metadata = records.findLocal(applicationId, artifactId) ?: throw NotFoundException("Файл не найден")
-        if (metadata.status != ArtifactStatus.READY) throw ConflictException("Файл ещё не готов")
+        val metadata = records.findLocal(applicationId, artifactId) ?: throw NotFound("Файл не найден")
+        if (metadata.status != ArtifactStatus.READY) throw Conflict("Файл ещё не готов")
         val storage = records.file(artifactId)
         try {
             val file = files.get(storage.storedName, storage.backend) ?: throw java.io.IOException("Generated file missing")

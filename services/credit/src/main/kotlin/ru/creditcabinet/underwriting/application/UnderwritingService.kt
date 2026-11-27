@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.application.application.CommitTransition
 import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.Conflict
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
@@ -23,12 +24,11 @@ import ru.creditcabinet.assessment.domain.OfferTerms
 import ru.creditcabinet.assessment.domain.RejectReason
 import ru.creditcabinet.assessment.domain.RuleSet
 import ru.creditcabinet.assessment.domain.RuleSets
-import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.offer.OfferKind
 import ru.creditcabinet.offer.application.OfferIssuance
-import ru.creditcabinet.pipeline.PipelineSettings
+import ru.creditcabinet.pipeline.application.PipelineSettings
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.ProductMatcher.rubles
 import ru.creditcabinet.product.domain.forApplication
@@ -156,12 +156,12 @@ class UnderwritingService(
     private fun reviewed(id: UUID, vararg roles: String): Reviewed {
         val claims = callerContext.requireRole(*roles)
         val application = applications.find(id)?.takeIf { it.visibleToBank } ?: throw notFound()
-        if (application.status != ApplicationStatus.MANUAL_REVIEW) throw ConflictException("Заявка не на ручном рассмотрении")
+        if (application.status != ApplicationStatus.MANUAL_REVIEW) throw Conflict("Заявка не на ручном рассмотрении")
         val automatic = decisions.latestAutomatic(application.id)
         val rules = if (automatic == null) {
             ruleSets.current()
         } else {
-            ruleSets.find(automatic.ruleSetVersion) ?: throw ConflictException("Не найдена сохранённая версия правил оценки; решение не сохранено")
+            ruleSets.find(automatic.ruleSetVersion) ?: throw Conflict("Не найдена сохранённая версия правил оценки; решение не сохранено")
         }
         return Reviewed(claims, application, automatic, rules)
     }

@@ -3,8 +3,8 @@ package ru.creditcabinet.product.application
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.application.application.CreditCaller
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.NotFoundException
+import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
@@ -28,7 +28,7 @@ class ProductEditor(
 
     fun history(code: String): List<ProductRevision> {
         callerContext.requireBankStaff()
-        if (catalog.latest(code) == null) throw NotFoundException("Продукт не найден")
+        if (catalog.latest(code) == null) throw NotFound("Продукт не найден")
         return versions.history(code)
     }
 
@@ -101,9 +101,9 @@ class ProductEditor(
         val actor = callerContext.requireRole(Roles.RISK_ADMIN)
         require(expectedVersion > 0) { "Укажите текущую версию продукта" }
         require(reason.isNotBlank() && reason.length <= 1000) { "Опишите причину изменения — до 1000 символов" }
-        val current = catalog.latest(code) ?: throw NotFoundException("Продукт не найден")
+        val current = catalog.latest(code) ?: throw NotFound("Продукт не найден")
         if (current.version != expectedVersion) {
-            throw ConflictException("Условия только что изменил другой администратор — обновите карточку и проверьте изменения")
+            throw Conflict("Условия только что изменил другой администратор — обновите карточку и проверьте изменения")
         }
         require(current.lifecycleStatus in allowedFrom) { invalidMessage }
         val updated = current.copy(lifecycleStatus = target)

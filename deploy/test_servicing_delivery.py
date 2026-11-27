@@ -2,6 +2,7 @@ from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import replace
 from importlib.util import module_from_spec, spec_from_file_location
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from tempfile import TemporaryDirectory
@@ -95,6 +96,39 @@ class TransferFixture:
 
 
 class ServicingDeliveryTest(unittest.TestCase):
+    def test_previous_v26_v1_release_can_be_snapshotted_before_operation_migrations(self):
+        data = {table: [] for table in TRANSFER.TABLES}
+        with patch.object(TRANSFER, "sql", side_effect=["f", json.dumps(data)]) as sql:
+            self.assertEqual(TRANSFER.snapshot("credit"), data)
+        statement = sql.call_args.args[1]
+        self.assertIn("'loan_operations','[]'::jsonb", statement)
+        self.assertNotIn("from loan_operations", statement)
+        self.assertIn("read only", statement)
+
+    def test_operation_receipts_are_in_snapshot_checksum_import_and_retired_grants(self):
+        receipt = {"loan_account_id": "loan", "operation_key": "operation", "fingerprint": "a" * 64,
+                   "result": '{"disbursedAmount":510000.00,"rate":20.00,"precision":12345678901234567890.123456789}'}
+        self.assertEqual(TRANSFER.TABLES["loan_operations"], ["loan_account_id", "operation_key"])
+        self.assertIn("loan_operations", TRANSFER.query_snapshot())
+        data = {table: [] for table in TRANSFER.TABLES}
+        data["loan_operations"] = [receipt]
+        prior = TRANSFER.checksum(data)
+        data["loan_operations"][0]["result"] = receipt["result"].replace("510000.00", "510000.0")
+        self.assertNotEqual(prior, TRANSFER.checksum(data))
+        with patch.object(TRANSFER, "sql", return_value="credit") as sql:
+            self.assertIn("public.loan_operations", TRANSFER.finance_grants("credit", False))
+            TRANSFER.import_snapshot("servicing", data)
+        statement = sql.call_args.args[1]
+        self.assertIn("lock table loan_operations in access exclusive mode", statement)
+        self.assertIn("insert into loan_operations", statement)
+        self.assertIn("on conflict (loan_account_id,operation_key)", statement)
+        self.assertIn("jsonb_build_object('result',t.result::text)", TRANSFER.query_snapshot())
+        self.assertIn("(result #>> '{}')::jsonb", statement)
+        self.assertIn("12345678901234567890.123456789", statement)
+        data["loan_operations"][0]["result"] = {"rate": 20.0}
+        with self.assertRaisesRegex(SystemExit, "exact PostgreSQL JSON text"):
+            TRANSFER.import_snapshot("servicing", data)
+
     def setUp(self):
         temporary = TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

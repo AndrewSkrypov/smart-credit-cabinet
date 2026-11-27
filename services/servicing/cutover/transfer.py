@@ -20,6 +20,7 @@ TABLES = {
     "payment_reserves": ["loan_id"],
     "payment_reserve_receipt_events": ["loan_id", "event_id"],
     "servicing_opened_commands": ["application_id"],
+    "loan_operations": ["loan_account_id", "operation_key"],
 }
 
 
@@ -41,15 +42,23 @@ def literal(value):
     return "'" + value.replace("'", "''") + "'"
 
 
-def query_snapshot():
-    return "select jsonb_build_object(" + ",".join(
-        f"'{table}',coalesce((select jsonb_agg(to_jsonb(t) order by {','.join(keys)}) from {table} t),'[]'::jsonb)"
-        for table, keys in TABLES.items()
-    ) + ");"
+def query_snapshot(operations_exist=True):
+    fields = []
+    for table, keys in TABLES.items():
+        if table == "loan_operations" and not operations_exist:
+            fields.append("'loan_operations','[]'::jsonb")
+            continue
+        row = "to_jsonb(t) || jsonb_build_object('result',t.result::text)" if table == "loan_operations" else "to_jsonb(t)"
+        fields.append(f"'{table}',coalesce((select jsonb_agg({row} order by {','.join(keys)}) from {table} t),'[]'::jsonb)")
+    return "select jsonb_build_object(" + ",".join(fields) + ");"
 
 
 def snapshot(service):
-    return json.loads(sql(service, "begin isolation level repeatable read read only; set local timezone='UTC';\n" + query_snapshot() + "\ncommit;"))
+    # A previous V26/V1 release must still be backed up before B migrations run.
+    # No operation could exist before its table was introduced. Import/activation
+    # still require all current tables and their fences/grants to exist.
+    operations_exist = sql(service, "select to_regclass('public.loan_operations') is not null;") == "t"
+    return json.loads(sql(service, "begin isolation level repeatable read read only; set local timezone='UTC';\n" + query_snapshot(operations_exist) + "\ncommit;"))
 
 
 def checksum(data):
@@ -99,6 +108,10 @@ def activate(service, writer, digest):
 
 
 def import_snapshot(service, data):
+    # The first response contains BigDecimal values: keep PostgreSQL's exact JSON
+    # text opaque to Python float decoding, including scale and arbitrary precision.
+    if any(not isinstance(row.get("result"), str) for row in data["loan_operations"]):
+        raise SystemExit("Operation receipt result must be exact PostgreSQL JSON text")
     statements = ["begin; set local lock_timeout='30s'; select writer from servicing_writer_fence where singleton for update;",
                   guard("(select writer='FENCED' from servicing_writer_fence where singleton)", "Target is not fenced")]
     incoming = data["loan_accounts"]
@@ -127,7 +140,8 @@ def import_snapshot(service, data):
                 raise SystemExit("Invalid snapshot column")
             updates = ",".join(f"{col}=excluded.{col}" for col in columns if col not in keys)
             document = literal(json.dumps(rows, ensure_ascii=False))
-            statements.append(f"insert into {table} select * from jsonb_populate_recordset(null::{table},{document}::jsonb) "
+            selection = ",".join("(result #>> '{}')::jsonb" if table == "loan_operations" and column == "result" else column for column in columns)
+            statements.append(f"insert into {table} ({','.join(columns)}) select {selection} from jsonb_populate_recordset(null::{table},{document}::jsonb) "
                               f"on conflict ({','.join(keys)}) do update set {updates};")
     for table in TABLES:
         statements.append(f"alter table {table} enable trigger user;")

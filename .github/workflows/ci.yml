@@ -21,6 +21,10 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Verify source dependencies across backend layers
+        run: |
+          python3 -B scripts/check-hexagonal-boundaries.py
+          python3 -B -m unittest discover -s scripts/tests -p test_hexagonal_boundaries.py
       - name: Build and verify the patched database image
         run: |
           docker build -f docker/postgres/Dockerfile -t cabinet/postgres:16.15-alpine-su-exec-0.3 .
@@ -116,6 +120,8 @@ jobs:
           ./gradlew build --no-daemon -PcabinetKotlinCentralMirror=true
           # Keep the repository choice for the Catalog integration Gradle invocations.
           printf '%s\n' 'ORG_GRADLE_PROJECT_cabinetKotlinCentralMirror=true' >> "$GITHUB_ENV"
+      - name: Verify compiled backend dependencies
+        run: python3 -B scripts/check-hexagonal-boundaries.py --jdeps "$JAVA_HOME/bin/jdeps"
       - name: Verify Catalog cutover and Credit submission over mutual TLS
         env:
           CATALOG_TEST_POSTGRES_IMAGE: cabinet/postgres:16.15-alpine-su-exec-0.3

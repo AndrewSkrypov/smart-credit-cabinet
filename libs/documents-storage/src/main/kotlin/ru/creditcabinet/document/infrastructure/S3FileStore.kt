@@ -2,9 +2,7 @@ package ru.creditcabinet.document.infrastructure
 
 import jakarta.annotation.PreDestroy
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
-import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.domain.StorageBackend
 import ru.creditcabinet.document.domain.StoredFile
@@ -32,7 +30,9 @@ class S3FileStore(
     @Value("\${cabinet.storage.s3.bucket:cabinet-documents}") private val bucket: String,
     @Value("\${cabinet.storage.s3.access-key:dev-cabinet-storage}") private val accessKey: String,
     @Value("\${cabinet.storage.s3.secret-key:dev-storage-secret-change-me}") private val secretKey: String,
+    errors: DocumentStorageErrors? = null,
 ) : FileStore, AutoCloseable {
+    private val errors = errors ?: HttpDocumentStorageErrors
     private val endpointUri = URI.create(endpoint)
     override val writeBackend = StorageBackend.S3
 
@@ -102,5 +102,5 @@ class S3FileStore(
         return "documents/$name"
     }
 
-    private fun unavailable(): Nothing = throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Хранилище документов временно недоступно. Попробуйте позже")
+    private fun unavailable(): Nothing = throw errors.unavailable("Хранилище документов временно недоступно. Попробуйте позже")
 }

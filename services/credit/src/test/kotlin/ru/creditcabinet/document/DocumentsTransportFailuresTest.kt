@@ -3,11 +3,13 @@ package ru.creditcabinet.document
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.grpc.Status
 import org.mockito.kotlin.mock
-import org.springframework.http.HttpStatus
-import ru.creditcabinet.common.exception.ApiException
-import ru.creditcabinet.common.exception.BadRequestException
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.NotFoundException
+import org.springframework.mock.web.MockHttpServletRequest
+import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.DependencyFailure
+import ru.creditcabinet.application.application.CreditFailure.InvalidInput
+import ru.creditcabinet.application.application.CreditFailure.NotFound
+import ru.creditcabinet.application.controller.CreditBoundaryErrorHandler
+import ru.creditcabinet.common.exception.GlobalExceptionHandler
 import ru.creditcabinet.document.application.DocumentsUnavailable
 import ru.creditcabinet.document.infrastructure.DocumentsBoundary
 import javax.net.ssl.SSLHandshakeException
@@ -24,16 +26,21 @@ class DocumentsTransportFailuresTest {
             boundary.rpc { throw Status.UNAVAILABLE.withCause(java.io.IOException("Synthetic refused connection")).asRuntimeException() }
         }
         val failure =
-            assertFailsWith<ApiException> {
+            assertFailsWith<DependencyFailure> {
                 boundary.rpc { throw Status.UNAVAILABLE.withCause(SSLHandshakeException("Synthetic certificate rejection")).asRuntimeException() }
             }
-        assertEquals(HttpStatus.BAD_GATEWAY, failure.httpStatus)
+        val request = MockHttpServletRequest("GET", "/api/v1/applications/id/documents/id")
+        val response = CreditBoundaryErrorHandler(GlobalExceptionHandler()).applicationFailure(failure, request)
+        assertEquals(502, response.statusCode.value())
+        val body = checkNotNull(response.body)
+        assertEquals("Ошибка доверия сервиса документов", body.message)
+        assertEquals(request.requestURI, body.path)
     }
 
     @Test
     fun `authorization invalid payload and idempotency conflict do not become transient outages`() {
-        assertFailsWith<NotFoundException> { boundary.rpc { throw Status.PERMISSION_DENIED.asRuntimeException() } }
-        assertFailsWith<BadRequestException> { boundary.rpc { throw Status.INVALID_ARGUMENT.asRuntimeException() } }
-        assertFailsWith<ConflictException> { boundary.rpc { throw Status.ALREADY_EXISTS.asRuntimeException() } }
+        assertFailsWith<NotFound> { boundary.rpc { throw Status.PERMISSION_DENIED.asRuntimeException() } }
+        assertFailsWith<InvalidInput> { boundary.rpc { throw Status.INVALID_ARGUMENT.asRuntimeException() } }
+        assertFailsWith<Conflict> { boundary.rpc { throw Status.ALREADY_EXISTS.asRuntimeException() } }
     }
 }

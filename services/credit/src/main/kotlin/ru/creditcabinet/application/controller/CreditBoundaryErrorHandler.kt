@@ -13,6 +13,7 @@ import ru.creditcabinet.application.application.CreditFailure
 import ru.creditcabinet.common.dto.ErrorResponse
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.GlobalExceptionHandler
+import ru.creditcabinet.common.limits.SharedLimitExceeded
 import ru.creditcabinet.document.application.DocumentUploadsDisabled
 import ru.creditcabinet.document.application.DocumentsUnavailable
 import ru.creditcabinet.document.generated.application.GeneratedOriginalUnavailable
@@ -24,12 +25,18 @@ import ru.creditcabinet.offer.application.SigningUnavailable
 class CreditBoundaryErrorHandler(private val errors: GlobalExceptionHandler) {
     @ExceptionHandler(CreditFailure::class)
     fun applicationFailure(failure: CreditFailure, request: HttpServletRequest): ResponseEntity<ErrorResponse> {
+        if (failure is CreditFailure.RateLimited && failure.retryAfterSeconds != null) {
+            return errors.handleApiException(SharedLimitExceeded(failure.message, failure.retryAfterSeconds), request)
+        }
         val status = when (failure) {
             is CreditFailure.InvalidInput -> HttpStatus.BAD_REQUEST
             is CreditFailure.Unauthenticated -> HttpStatus.UNAUTHORIZED
             is CreditFailure.Forbidden -> HttpStatus.FORBIDDEN
             is CreditFailure.NotFound -> HttpStatus.NOT_FOUND
             is CreditFailure.Conflict -> HttpStatus.CONFLICT
+            is CreditFailure.RateLimited -> HttpStatus.TOO_MANY_REQUESTS
+            is CreditFailure.DependencyFailure -> HttpStatus.BAD_GATEWAY
+            is CreditFailure.DependencyUnavailable -> HttpStatus.SERVICE_UNAVAILABLE
         }
         return errors.handleApiException(ApiException(status, failure.message), request)
     }

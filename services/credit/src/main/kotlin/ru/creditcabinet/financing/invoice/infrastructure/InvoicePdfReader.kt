@@ -3,7 +3,7 @@ package ru.creditcabinet.financing.invoice.infrastructure
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.text.PDFTextStripper
 import org.springframework.stereotype.Component
-import ru.creditcabinet.common.exception.BadRequestException
+import ru.creditcabinet.application.application.CreditFailure.InvalidInput
 import ru.creditcabinet.financing.invoice.application.InvoicePdfTooLarge
 import ru.creditcabinet.financing.invoice.application.InvoiceTextReader
 import ru.creditcabinet.financing.invoice.domain.InvoicePdfLine
@@ -13,10 +13,10 @@ import java.io.Writer
 @Component
 internal class InvoicePdfReader : InvoiceTextReader {
     override fun read(bytes: ByteArray): List<InvoicePdfLine> {
-        if (!hasPdfHeader(bytes)) throw BadRequestException("Выберите корректный PDF-счёт")
+        if (!hasPdfHeader(bytes)) throw InvalidInput("Выберите корректный PDF-счёт")
         try {
             return Loader.loadPDF(bytes).use { document ->
-                if (document.isEncrypted) throw BadRequestException("Счёт защищён паролем — выберите открытый PDF")
+                if (document.isEncrypted) throw InvalidInput("Счёт защищён паролем — выберите открытый PDF")
                 if (document.numberOfPages !in 1..MAX_PAGES) throw tooLarge()
                 val stripper = PDFTextStripper().apply { sortByPosition = true }
                 var charactersLeft = MAX_TEXT_CHARS
@@ -34,7 +34,7 @@ internal class InvoicePdfReader : InvoiceTextReader {
         } catch (_: TextTooLarge) {
             throw tooLarge()
         } catch (_: IOException) {
-            throw BadRequestException("Не удалось прочитать PDF-счёт. Проверьте файл и попробуйте ещё раз")
+            throw InvalidInput("Не удалось прочитать PDF-счёт. Проверьте файл и попробуйте ещё раз")
         }
     }
 

@@ -10,4 +10,10 @@ sealed class CreditFailure(override val message: String) : RuntimeException(mess
     class NotFound(message: String) : CreditFailure(message)
 
     class Conflict(message: String) : CreditFailure(message)
+
+    class RateLimited(message: String, val retryAfterSeconds: Long? = null) : CreditFailure(message)
+
+    class DependencyFailure(message: String) : CreditFailure(message)
+
+    class DependencyUnavailable(message: String) : CreditFailure(message)
 }

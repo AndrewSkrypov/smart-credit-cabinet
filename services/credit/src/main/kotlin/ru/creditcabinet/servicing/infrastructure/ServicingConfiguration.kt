@@ -16,6 +16,7 @@ import org.springframework.web.context.request.ServletRequestAttributes
 import ru.creditcabinet.agent.application.AgentApplicationService
 import ru.creditcabinet.application.application.CreditCaller
 import ru.creditcabinet.application.domain.ApplicationRepository
+import ru.creditcabinet.application.infrastructure.creditPortFailure
 import ru.creditcabinet.application.service.ApplicationService
 import ru.creditcabinet.servicing.application.LoanServicingService
 import ru.creditcabinet.servicing.contract.v1.ServicingOperations
@@ -67,7 +68,7 @@ class ServicingConfiguration {
         require(accepted == true) { "Remote Servicing requires accepted fenced migration" }
         return ServicingGrpcClient(servicingTlsChannel(host, port, File(certificate), File(key), File(ca)), mapper, {
             (RequestContextHolder.getRequestAttributes() as? ServletRequestAttributes)?.request?.getHeader("Authorization")
-        })
+        }, authorizationFailure = ::creditPortFailure)
     }
 
     @Bean fun loanServicingService(

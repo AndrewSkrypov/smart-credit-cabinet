@@ -5,7 +5,7 @@ import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
 import org.apache.pdfbox.pdmodel.font.PDType1Font
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts
-import ru.creditcabinet.common.exception.BadRequestException
+import ru.creditcabinet.application.application.CreditFailure.InvalidInput
 import ru.creditcabinet.financing.invoice.application.InvoiceExtraction
 import ru.creditcabinet.financing.invoice.application.InvoiceExtractionMode
 import ru.creditcabinet.financing.invoice.application.InvoiceModel
@@ -84,7 +84,7 @@ class InvoiceExtractionTest {
         assertNull(result.amount)
         assertTrue(result.dates.isEmpty())
 
-        assertFailsWith<BadRequestException> { extraction.extract("%PDF- not a PDF".toByteArray(), AUTHORIZATION) }
+        assertFailsWith<InvalidInput> { extraction.extract("%PDF- not a PDF".toByteArray(), AUTHORIZATION) }
         val tooManyPages = pdf(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
         assertFailsWith<InvoicePdfTooLarge> { extraction.extract(tooManyPages, AUTHORIZATION) }
     }

@@ -1,12 +1,12 @@
 package ru.creditcabinet.chat.infrastructure
 
-import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
+import ru.creditcabinet.application.application.CreditFailure.RateLimited
+import ru.creditcabinet.application.infrastructure.creditPortCall
 import ru.creditcabinet.chat.domain.ChatLimits
-import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.limits.LimitWindow
 import ru.creditcabinet.common.limits.SharedLimits
 import java.sql.Timestamp
@@ -21,10 +21,12 @@ class ChatThrottle(private val jdbc: JdbcTemplate, private val clock: Clock, pri
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     override fun acquire(actorId: UUID) {
         if (shared.enabled) {
-            shared.acquire(
-                "Слишком много сообщений подряд. Можно отправить 30 сообщений за минуту.",
-                LimitWindow("chat", actorId.toString(), 30, Duration.ofMinutes(1)),
-            )
+            creditPortCall {
+                shared.acquire(
+                    "Слишком много сообщений подряд. Можно отправить 30 сообщений за минуту.",
+                    LimitWindow("chat", actorId.toString(), 30, Duration.ofMinutes(1)),
+                )
+            }
             return
         }
         val start = Timestamp.from(Instant.ofEpochSecond(clock.instant().epochSecond / 60 * 60))
@@ -38,6 +40,6 @@ class ChatThrottle(private val jdbc: JdbcTemplate, private val clock: Clock, pri
             actorId,
             start,
         ).isNotEmpty()
-        if (!accepted) throw ApiException(HttpStatus.TOO_MANY_REQUESTS, "Слишком много сообщений подряд. Можно отправить 30 сообщений за минуту.")
+        if (!accepted) throw RateLimited("Слишком много сообщений подряд. Можно отправить 30 сообщений за минуту.")
     }
 }

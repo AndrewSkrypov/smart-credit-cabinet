@@ -7,10 +7,12 @@ import io.grpc.ManagedChannel
 import jakarta.annotation.PreDestroy
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Primary
-import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
-import ru.creditcabinet.common.exception.ApiException
+import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.DependencyFailure
+import ru.creditcabinet.application.application.CreditFailure.InvalidInput
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.document.application.DocumentTransfer
 import ru.creditcabinet.document.application.DocumentUploadIntent
 import ru.creditcabinet.document.application.UploadOperation
@@ -129,7 +131,7 @@ class DocumentsBoundary(
                 operation["actor_id"] != actor ||
                 operation["request_hash"] != requestHash
             ) {
-                throw ru.creditcabinet.common.exception.ConflictException("Ключ загрузки уже использован для другого файла")
+                throw Conflict("Ключ загрузки уже использован для другого файла")
             }
             UploadOperation((operation["requested_at"] as java.sql.Timestamp).toInstant(), StorageBackend.valueOf(operation["requested_backend"] as String))
         }!!
@@ -147,7 +149,7 @@ class DocumentsBoundary(
         )!!
         if (!committed) return null
         val existing = if (remote) all(applicationId).singleOrNull { it.id == id && it.deletedAt == null }?.document() else local.find(applicationId, id)
-        return existing ?: throw ru.creditcabinet.common.exception.ConflictException("Документ с этим ключом уже удалён")
+        return existing ?: throw Conflict("Документ с этим ключом уже удалён")
     }
     override fun commitReference(document: ApplicationDocument): Boolean {
         check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
@@ -229,7 +231,7 @@ class DocumentsBoundary(
             local.markDeleted(documentId, at)
             return
         }
-        val document = find(applicationId, documentId) ?: throw ru.creditcabinet.common.exception.NotFoundException("Документ не найден")
+        val document = find(applicationId, documentId) ?: throw NotFound("Документ не найден")
         check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
         jdbc.update(
             "insert into document_deletion_intents(document_id,application_id,deleted_at) values(?,?,?) on conflict do nothing",
@@ -249,22 +251,22 @@ class DocumentsBoundary(
     } catch (failure: io.grpc.StatusRuntimeException) {
         val causes = generateSequence(failure.status.cause ?: failure.cause) { it.cause }.take(12)
         if (causes.any { it is javax.net.ssl.SSLException || it is java.security.cert.CertificateException }) {
-            throw ApiException(HttpStatus.BAD_GATEWAY, "Ошибка доверия сервиса документов")
+            throw DependencyFailure("Ошибка доверия сервиса документов")
         }
         when (failure.status.code) {
             io.grpc.Status.Code.NOT_FOUND, io.grpc.Status.Code.PERMISSION_DENIED, io.grpc.Status.Code.UNAUTHENTICATED ->
-                throw ru.creditcabinet.common.exception.NotFoundException("Файл не найден")
-            io.grpc.Status.Code.ALREADY_EXISTS -> throw ru.creditcabinet.common.exception.ConflictException("Ключ загрузки уже использован для другого файла")
-            io.grpc.Status.Code.INVALID_ARGUMENT -> throw ru.creditcabinet.common.exception.BadRequestException("Некорректные данные документа")
+                throw NotFound("Файл не найден")
+            io.grpc.Status.Code.ALREADY_EXISTS -> throw Conflict("Ключ загрузки уже использован для другого файла")
+            io.grpc.Status.Code.INVALID_ARGUMENT -> throw InvalidInput("Некорректные данные документа")
             io.grpc.Status.Code.UNAVAILABLE,
             io.grpc.Status.Code.DEADLINE_EXCEEDED,
             io.grpc.Status.Code.RESOURCE_EXHAUSTED,
             io.grpc.Status.Code.CANCELLED,
             -> unavailable()
-            else -> throw ApiException(HttpStatus.BAD_GATEWAY, "Ошибка обработки документа")
+            else -> throw DependencyFailure("Ошибка обработки документа")
         }
     } catch (_: IllegalArgumentException) {
-        throw ApiException(HttpStatus.BAD_GATEWAY, "Некорректный ответ сервиса документов")
+        throw DependencyFailure("Некорректный ответ сервиса документов")
     }
     private fun unavailable(): Nothing = throw ru.creditcabinet.document.application.DocumentsUnavailable()
 

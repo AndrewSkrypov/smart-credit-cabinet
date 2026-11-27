@@ -21,6 +21,11 @@ kotlin {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+}
+
+// The default report depends on the default suite. A fixture-backed custom Test
+// owns its own execution graph and must not implicitly run another database suite.
+tasks.named<Test>("test") {
     finalizedBy("jacocoTestReport")
 }
 

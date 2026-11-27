@@ -23,7 +23,8 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import RadioButtonUncheckedRoundedIcon from '@mui/icons-material/RadioButtonUncheckedRounded';
-import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
+import { BusinessUploadButton } from '../../components/BusinessUploadButton';
+import { businessUploadScope } from '../../shared/businessUpload';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 import { agentApi, productsApi } from '../../api/client';
@@ -46,7 +47,6 @@ import { FinancingScenarioEditor } from './FinancingScenarioEditor';
 
 const FAST_REFRESH_MS = 2000;
 const SLOW_REFRESH_MS = 15000;
-const ACCEPT = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx';
 
 function AgentUploadButton({
   applicationId,
@@ -63,36 +63,10 @@ function AgentUploadButton({
   label?: string;
   variant?: 'outlined' | 'text';
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <>
-      <Button variant={variant} startIcon={<UploadFileRoundedIcon />} disabled={busy} onClick={() => inputRef.current?.click()}>
-        {busy ? 'Загружаем…' : label}
-      </Button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ACCEPT}
-        hidden
-        onChange={async (event) => {
-          const file = event.target.files?.[0];
-          event.target.value = '';
-          if (!file) return;
-          setBusy(true);
-          try {
-            await agentApi.uploadDocument(applicationId, documentType, file);
-            onUploaded();
-          } catch (nextError) {
-            onError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить файл');
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
-    </>
-  );
+  return <BusinessUploadButton
+    scope={businessUploadScope('agent', applicationId, documentType)}
+    upload={(file, key) => agentApi.uploadDocument(applicationId, documentType, file, key)}
+    onUploaded={onUploaded} onError={onError} variant={variant}>{label}</BusinessUploadButton>;
 }
 
 function Fact({ label, value }: { label: string; value: string }) {

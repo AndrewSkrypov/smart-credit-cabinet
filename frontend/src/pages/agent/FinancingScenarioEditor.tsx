@@ -6,6 +6,7 @@ import { FinancingComparison } from '../../components/FinancingScenarioView';
 import { MoneyField } from '../../components/MoneyField';
 import { formatDate, months, rub } from '../../shared/format';
 import { Application } from '../../types';
+import { BusinessUploadOperation, businessUploadScope, createBusinessUpload } from '../../shared/businessUpload';
 
 interface Props {
   application: Application;
@@ -40,7 +41,7 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
   const fileInput = useRef<HTMLInputElement>(null);
   const [scenario, setScenario] = useState<FinancingScenario | null>(null);
   const [form, setForm] = useState<ScenarioForm>(() => defaultInputs(baseTerm));
-  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const invoiceUpload = useRef<BusinessUploadOperation | null>(null);
   const [invoiceDocumentId, setInvoiceDocumentId] = useState<string | null>(null);
   const [extraction, setExtraction] = useState<InvoiceExtraction | null>(null);
   const [selectedSourceDate, setSelectedSourceDate] = useState('');
@@ -57,6 +58,8 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
 
   useEffect(() => {
     let active = true;
+    invoiceUpload.current = null;
+    setInvoiceDocumentId(null);
     void financingApi.agent(id).then((previous) => {
       if (!active || !previous || previous.status === 'CONFIRMED') return;
       setScenario(previous);
@@ -93,7 +96,7 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
     setBusy('extract');
     setError(null);
     setExtraction(null);
-    setInvoiceFile(file);
+    invoiceUpload.current = createBusinessUpload(file, businessUploadScope('invoice', id));
     setInvoiceDocumentId(null);
     setSelectedSourceDate('');
     setUseSourceAmount(false);
@@ -140,8 +143,14 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
       const selectedTermMonths = form.selectedTermMonths === form.alternativeTermMonths ? form.selectedTermMonths : saved.termMonths;
       const verified = verifiedSource();
       let source: FinancingInputs['source'] = !extraction && !sourceManuallyEdited ? scenario?.inputs.source : undefined;
-      if (verified && invoiceFile) {
-        const documentId = invoiceDocumentId ?? (await agentApi.uploadDocument(id, 'OTHER', invoiceFile)).id;
+      if (verified && invoiceUpload.current) {
+        const scope = businessUploadScope('invoice', id);
+        const sameScope = invoiceUpload.current.scope === scope;
+        if (!sameScope) {
+          invoiceUpload.current = createBusinessUpload(invoiceUpload.current.file, scope);
+        }
+        const { file, key } = invoiceUpload.current;
+        const documentId = (sameScope ? invoiceDocumentId : null) ?? (await agentApi.uploadDocument(id, 'OTHER', file, key)).id;
         setInvoiceDocumentId(documentId);
         source = { ...verified, documentId };
       }
@@ -224,7 +233,7 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
           {dirty && <Button disabled={fieldDisabled} onClick={() => {
             setForm(scenario?.inputs ?? defaultInputs(baseTerm));
             setExtraction(null);
-            setInvoiceFile(null);
+            invoiceUpload.current = null;
             setInvoiceDocumentId(null);
             setSelectedSourceDate('');
             setUseSourceAmount(false);

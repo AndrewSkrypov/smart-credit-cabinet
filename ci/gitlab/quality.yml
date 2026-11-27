@@ -70,6 +70,7 @@ backend:
       - '**/build/reports/jacoco/'
       - ci-artifacts/schema-rollback.json
       - ci-artifacts/migration-restore.json
+      - ci-artifacts/documents-rollback.json
       - ci-artifacts/catalog-r1/
       - ci-artifacts/assessment/
       - security/reports/postgres-image.json

@@ -204,7 +204,7 @@ Source-проверка не подменяет компиляцию и runtime-
 | A12-08 | P2 | Подтверждать удаление файла и журнал одной Credit-транзакцией, доставлять удаление после commit. | Documents | В работе |
 | A12-09 | P2 | Публиковать артефакты после commit входа; сохранять исторические hash/JSON и отсекать orphan во всех reader/notice/reverse. | Documents | В работе |
 | A12-10 | P2 | Запоздалый RetryArtifact не переводит READY обратно в PENDING. | Documents | В работе |
-| A12-11 | P2 | Сохранить composite FK чата к committed document_references, включая remote-only metadata и U26. | Credit regression + QA | `79ad2d3`, реальный PG-прогон в работе |
+| A12-11 | P2 | Сохранить composite FK чата к committed document_references, включая remote-only metadata и U26. | Credit regression + QA | `640c43e`: target 27 PG/AV тестов PASS; атомарный U26 проверен на `7ad03bd`; CI открыт |
 
 Для финансовых гонок PostgreSQL-тесты двух worker и запоздавшего ответа
 прошли на `9e4679b`. Test-only `967a546` дополнительно воспроизводит generic
@@ -323,6 +323,20 @@ Documentation #1790 обнаружил неполный локальный repor
 Forward/reverse, cross-mode replay, исходный FINAL, orphan isolation и U26
 прошли; все собственные процессы остановлены. Итоговая квитанция и manifest
 132 файлов указаны в [реестре Documents](alpha-documents-service.md).
+
+`640c43e` повторил три отказавших Credit-класса целиком: 27 тестов, 0 ошибок и
+пропусков, реальные PostgreSQL 16.15 и ClamAV 1.5.4. Дополнительный QA-проход
+нашёл неатомарный U26. `691c813` добавил транзакцию, `7ad03bd` проверил настоящий
+psql stdin: missing legacy FK оставляет все три business FK, триггеры, функции
+и строки неизменными. После добавления legacy строки откат успешен. Тот же
+скрипт без BEGIN/COMMIT не проходит отрицательный контроль. Этот gate обязателен
+в backend CI, квитанция сохраняется в artifacts.
+
+D03 получил source-fix `b23712f`: восемь tested JAR передаются через Generic
+Package Registry, а отчёты, JUnit, SHA-256 и package receipt остаются в job artifacts.
+Потребители проверяют project/pipeline/revision и байты всех восьми JAR перед
+Docker. Независимое ревью, 8 transport- и 18 rollout-тестов прошли. Фактический
+upload/download из CI и повтор всего исправленного pipeline ещё открыты.
 
 ## Повтор общей выкладки
 

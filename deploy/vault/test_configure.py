@@ -1,7 +1,10 @@
 import argparse
+from pathlib import Path
 import unittest
 
-from configure import AUDIT_PATH, KUBERNETES_SECRETS, VaultError, configure, dev_approle_source, gitlab_role, policies
+from configure import (
+    AUDIT_PATH, KUBERNETES_SECRETS, VaultError, configure, dev_approle_source, gitlab_role, policies, render_policy,
+)
 
 
 ORIGIN = "https://vault.pump.internal:8200"
@@ -82,6 +85,14 @@ class ConfigureTest(unittest.TestCase):
         self.assertNotIn("sys/storage/raft/snapshot-force", rules["pump-raft-snapshot"])
         self.assertFalse(any("*" in path or "list" in actions or "delete" in actions
                              for policy in rules.values() for path, actions in policy.items()))
+
+    def test_standalone_ci_policy_matches_provisioned_policy(self):
+        directory = Path(__file__).resolve().parents[2] / "ci" / "gitlab" / "vault"
+        rules = policies()
+        for name, profile in (("pump-ci-dev", "dev"), ("pump-ci-prod", "production")):
+            with self.subTest(profile=profile):
+                standalone = (directory / f"{profile}.hcl").read_text()
+                self.assertEqual(standalone.split(), render_policy(rules[name]).split())
 
     def test_dev_approle_pins_one_egress_and_accepts_equivalent_readback(self):
         vault = FakeVault()

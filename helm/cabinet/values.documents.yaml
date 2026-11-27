@@ -1,0 +1,20 @@
+# Private Helm candidate. Use the signed release's images.documents digest and JAR SHA-256.
+images:
+  documents: ""
+documents:
+  enabled: false
+  devMode: local
+  jarSha256: ""
+  databaseSecret: cabinet-documents-db
+  serverTlsSecret: cabinet-documents-server-tls
+  clientTlsSecret: cabinet-documents-credit-tls
+  s3:
+    bucket: documents-runtime
+    appSecret: cabinet-documents-s3-app
+    operatorSecret: cabinet-documents-s3-operator
+    storage: 8Gi
+  dbStorage: 4Gi
+  localStorage: 4Gi
+  dns:
+    namespace: kube-system
+    podLabels: {k8s-app: kube-dns}

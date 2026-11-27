@@ -13,7 +13,12 @@ interface ApplicationOperations : ApplicationAccess {
 
     fun submit(id: UUID, idempotencyKey: String?, acceptedProductVersion: Long? = null): LoanApplication
 
-    fun confirmByClient(id: UUID, bureauConsent: Boolean, acceptedProductVersion: Long? = null): LoanApplication
+    fun confirmByClient(
+        id: UUID,
+        bureauConsent: Boolean,
+        acceptedProductVersion: Long? = null,
+        acceptedScenarioRevision: Long? = null,
+    ): LoanApplication
 
     fun returnToAgentByClient(id: UUID, comment: String?): LoanApplication
 
@@ -24,4 +29,8 @@ interface ApplicationOperations : ApplicationAccess {
     fun list(statuses: Set<ApplicationStatus>?): List<LoanApplication>
 
     fun journal(id: UUID): List<JournalEntry>
+
+    fun canResumeIndependently(application: LoanApplication): Boolean
+
+    fun clientReadView(application: LoanApplication): LoanApplication
 }

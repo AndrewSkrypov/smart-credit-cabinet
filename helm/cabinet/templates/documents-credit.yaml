@@ -1,0 +1,23 @@
+{{- define "cabinet.documents.creditEnv" -}}
+{{- if (.Values.documents | default dict).enabled }}
+- {name: CABINET_DOCUMENTS_MODE, value: "local"}
+- {name: CABINET_DOCUMENTS_EPOCH, value: "1"}
+- {name: CABINET_DOCUMENTS_GRPC_HOST, value: documents}
+- {name: CABINET_DOCUMENTS_GRPC_PORT, value: "9096"}
+- {name: CABINET_DOCUMENTS_GRPC_CA, value: /run/documents-tls/ca.crt}
+- {name: CABINET_DOCUMENTS_GRPC_CERTIFICATE, value: /run/documents-tls/tls.crt}
+- {name: CABINET_DOCUMENTS_GRPC_KEY, value: /run/documents-tls/tls.key}
+{{- end }}
+{{- end }}
+{{- define "cabinet.documents.creditMounts" -}}
+{{- if (.Values.documents | default dict).enabled }}
+- {name: documents-client-tls, mountPath: /run/documents-tls, readOnly: true}
+{{- end }}
+{{- end }}
+{{- define "cabinet.documents.creditVolumes" -}}
+{{- $settings := .Values.documents | default dict -}}
+{{- if $settings.enabled }}
+- name: documents-client-tls
+  secret: {secretName: {{ $settings.clientTlsSecret | quote }}, defaultMode: 0444}
+{{- end }}
+{{- end }}

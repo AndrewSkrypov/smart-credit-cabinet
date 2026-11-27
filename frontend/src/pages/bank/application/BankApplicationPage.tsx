@@ -3,6 +3,9 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useParams, useLocation } from 'react-router-dom';
+import { financingApi } from '../../../api/financing';
+import { FinancingScenarioView } from '../../../components/FinancingScenarioView';
+import { useApi } from '../../../hooks/useApi';
 import { applicationsApi, underwritingApi } from '../../../api/client';
 import { ErrorState } from '../../../components/ErrorState';
 import { LoadingBlock } from '../../../components/LoadingBlock';
@@ -69,6 +72,10 @@ function BankApplicationCard({ id }: { id: string }) {
     return () => { mounted.current = false; window.clearInterval(timer); };
   }, [load]);
 
+  const scenario = useApi(
+    () => application?.agentId ? financingApi.bank(id) : Promise.resolve(null),
+    [id, application?.agentId, application?.status, application?.version]
+  );
   if (error && !application) return <ErrorState message={error} onRetry={load} />;
   if (!application || !assessment) return <LoadingBlock />;
 
@@ -102,6 +109,8 @@ function BankApplicationCard({ id }: { id: string }) {
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
       {error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => void load()}>Повторить</Button>}>{error}. Показаны последние полученные данные; действия появятся после обновления.</Alert>}
       <Box data-tour="bank-app-summary"><BankSummary application={application} assessment={assessment} stale={Boolean(error)} /></Box>
+      {scenario.data && !scenario.error && <Box sx={{ mb: 3 }}><FinancingScenarioView applicationId={id} scenario={scenario.data} /></Box>}
+      {scenario.error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => void scenario.reload()}>Повторить</Button>}>{scenario.error}</Alert>}
       <Grid container spacing={3}>
         <Grid item xs={12} lg={7}>
           <Stack spacing={3}>

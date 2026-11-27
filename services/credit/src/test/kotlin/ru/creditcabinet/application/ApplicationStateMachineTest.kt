@@ -84,6 +84,7 @@ class ApplicationStateMachineTest {
         Triple(DISBURSING, DISBURSEMENT_FAILED, DISBURSING), // T19
         Triple(DISBURSING, DISBURSED, DISBURSED_STATUS), // T20
         Triple(DRAFT, REQUEST_CLIENT_CONFIRMATION, PENDING_CLIENT_CONFIRMATION), // T22
+        Triple(DRAFT, CONFIRM_AND_SUBMIT, SUBMITTED), // Returned application after mandate revocation
         Triple(PENDING_CLIENT_CONFIRMATION, CONFIRM_AND_SUBMIT, SUBMITTED), // T23
         Triple(PENDING_CLIENT_CONFIRMATION, RETURN_TO_AGENT, DRAFT), // T24
         Triple(DRAFT, AGENT_CANCEL, WITHDRAWN), // T25
@@ -168,7 +169,7 @@ class ApplicationStateMachineTest {
 
     @Test
     fun `the buttons of each role follow the table`() {
-        assertEquals(listOf(SUBMIT, WITHDRAW), ApplicationStateMachine.eventsFrom(DRAFT, ActorType.CLIENT))
+        assertEquals(listOf(SUBMIT, CONFIRM_AND_SUBMIT, WITHDRAW), ApplicationStateMachine.eventsFrom(DRAFT, ActorType.CLIENT))
         assertEquals(listOf(REQUEST_CLIENT_CONFIRMATION, AGENT_CANCEL), ApplicationStateMachine.eventsFrom(DRAFT, ActorType.AGENT))
         assertEquals(listOf(CONFIRM_AND_SUBMIT, RETURN_TO_AGENT, WITHDRAW), ApplicationStateMachine.eventsFrom(PENDING_CLIENT_CONFIRMATION, ActorType.CLIENT))
         assertEquals(listOf(AGENT_CANCEL), ApplicationStateMachine.eventsFrom(PENDING_CLIENT_CONFIRMATION, ActorType.AGENT))

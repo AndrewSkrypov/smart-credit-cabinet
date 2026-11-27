@@ -1,0 +1,13 @@
+# Dev candidate only. Authority changes use the protected Compose cutover.
+images:
+  servicing: ""
+servicing:
+  enabled: false
+  devMode: local
+  jarSha256: ""
+  databaseSecret: cabinet-servicing-postgres
+  serverTlsSecret: cabinet-servicing-server-tls
+  storage: 5Gi
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 384Mi}

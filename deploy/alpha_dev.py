@@ -6,9 +6,6 @@ import re
 import subprocess
 import tempfile
 
-from registry_release import KAFKA_IMAGE
-
-
 PROJECT = "cabinet-dev"
 PARTITIONS = 3
 SERVICES = ("analytics", "analytics-db", "analytics-kafka")
@@ -20,7 +17,6 @@ SECRET_KEYS = (
     "CABINET_ALPHA_DEV_JWT_SECRET",
 )
 OPS_DIR = Path(__file__).resolve().parents[1] / "services/analytics/ops"
-KAFKA_IMAGE_FILE = Path(__file__).resolve().parents[1] / "ci/alpha/kafka-image.txt"
 
 
 @dataclass(frozen=True)
@@ -30,6 +26,10 @@ class AlphaDev:
 
     @classmethod
     def from_config(cls, project, local, values, release):
+        if (project == PROJECT and not local and release and release.alpha_dev
+                and "CABINET_ALPHA_DEV_ENABLED" not in values
+                and any(key.startswith("CABINET_ALPHA_DEV_") for key in values)):
+            raise ValueError("При заданных настройках Analytics укажите CABINET_ALPHA_DEV_ENABLED=true или false")
         enabled = values.get("CABINET_ALPHA_DEV_ENABLED", "false")
         read = values.get("CABINET_ALPHA_DEV_READ_ENABLED", "false")
         if enabled not in {"true", "false"} or read not in {"true", "false"}:
@@ -38,11 +38,13 @@ class AlphaDev:
             if read == "true":
                 raise ValueError("Чтение из Analytics требует CABINET_ALPHA_DEV_ENABLED=true")
             return None
-        if local or project != PROJECT:
+        if local or (project != PROJECT and not project.startswith("cabinet-dev-restore-")):
             raise ValueError("Пилот Analytics допускается только в защищённом cabinet-dev")
         # Previous manifests can still be used to back up the base stack.
         if not release or not release.alpha_dev:
             return None
+        if release.legacy_alpha:
+            raise ValueError("Для пилота Dev нужен manifest с образом Kafka из проекта Registry выпуска")
         generation = values.get("CABINET_ALPHA_DEV_GENERATION", "")
         if not re.fullmatch(r"g[0-9a-f]{16}", generation):
             raise ValueError("Поколение Dev требует g и 16 строчных шестнадцатеричных символов")
@@ -69,18 +71,10 @@ class AlphaDev:
     def group(self):
         return f"alpha-dev-analytics-{self.generation}"
 
-    @property
-    def kafka_image(self):
-        image = KAFKA_IMAGE_FILE.read_text(encoding="utf-8").strip()
-        if not KAFKA_IMAGE.fullmatch(image):
-            raise ValueError("Требуется закреплённый образ Apache Kafka")
-        return image
-
-    def environment(self, release):
-        if release.alpha_dev["kafka_image"] != self.kafka_image:
-            raise ValueError("Digest Kafka из manifest не совпадает с закреплённым в ревизии")
+    def environment(self, release, project=PROJECT):
         return {
-            "CABINET_ALPHA_DEV_KAFKA_IMAGE": self.kafka_image,
+            "CABINET_ALPHA_DEV_KAFKA_IMAGE": release.kafka_image,
+            "CABINET_ALPHA_DEV_ANALYTICS_VOLUME": f"{project}-alpha-analytics-{self.generation}",
             "CABINET_ALPHA_DEV_TOPIC": self.topic,
             "CABINET_ALPHA_DEV_GROUP": self.group,
             "CABINET_ALPHA_DEV_DLQ_TOPIC": self.dlq,
@@ -115,20 +109,34 @@ def analytics_owner(deployment, *args, stdin=None):
     return result.stdout.decode("utf-8").strip()
 
 
-def prepare(deployment, up):
+def prepare(deployment, up, expected_marker=None, *, storage_ready=False):
     """Migrate the private database and verify topic existence before pausing Credit."""
     alpha = deployment.alpha_dev
     for file in ("export-status-snapshot.sql", "import-status-snapshot.sql"):
         if not (OPS_DIR / file).is_file():
             raise ValueError("В выпуске отсутствуют SQL-файлы bootstrap Analytics")
-    deployment.compose("stop", "analytics")
-    deployment.compose(*up, "analytics-db", "analytics-kafka")
+    if not storage_ready:
+        deployment.compose("stop", "analytics")
+        deployment.compose(*up, "analytics-db", "analytics-kafka")
+    # Existing Alpha volumes predate the template0 CONNECT revocation. Apply
+    # only this narrower ACL before the restricted runtime is started.
+    deployment.compose(
+        "exec", "-T", "analytics-db", "sh", "-eu", "-c",
+        'export PGPASSWORD="$POSTGRES_PASSWORD"; '
+        "exec psql -X -w -h 127.0.0.1 -U postgres -d analytics -v ON_ERROR_STOP=1 "
+        "-c 'REVOKE CONNECT ON DATABASE template0 FROM PUBLIC'",
+    )
     deployment.compose("run", "--rm", "--no-deps", "analytics-migrate")
     marker = analytics_owner(deployment, "-qtA", "-c",
                              "SELECT generation FROM application_status_generation WHERE singleton")
     if marker and marker != alpha.topic:
         raise RuntimeError("База Analytics привязана к другому поколению")
 
+    if expected_marker is not None:
+        observed = analytics_owner(deployment, "-qtA", "-c",
+                                   "SELECT generation || ' ' || snapshot_sha256 FROM application_status_generation WHERE singleton")
+        if observed != expected_marker or marker != alpha.topic:
+            raise RuntimeError("Не допускается пересоздание snapshot уже работающего поколения Alpha")
     topics = set(kafka(deployment, "kafka-topics", "--list").splitlines())
     for topic in (alpha.topic, alpha.dlq):
         if topic not in topics:
@@ -145,6 +153,15 @@ def prepare(deployment, up):
             if set(offsets.splitlines()) != expected:
                 raise RuntimeError("Для bootstrap нужны пустые topic нового поколения")
     return not marker
+
+
+def verify_credit_mode(deployment):
+    alpha = deployment.alpha_dev
+    deployment.compose("exec", "-T", "credit", "sh", "-ec",
+                       'test "$ANALYTICS_STATUS_READ_ENABLED" = "$1" && '
+                       'test "$APPLICATION_STATUS_KAFKA_TOPIC" = "$2"',
+                       "alpha-mode", str(alpha.read_enabled).lower(), alpha.topic)
+    return "analytics-with-sql-fallback" if alpha.read_enabled else "sql"
 
 
 def bootstrap(deployment, up):

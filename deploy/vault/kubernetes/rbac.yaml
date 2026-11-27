@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cabinet-prod-vault-sync
+  namespace: cabinet-prod
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cabinet-prod-vault-reader
+  namespace: cabinet-prod
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cabinet-prod-vault-sync
+  namespace: cabinet-prod
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames:
+      - cabinet-secrets
+      - cabinet-s3-app
+      - cabinet-s3-admin
+      - cabinet-prod-registry
+      - engagement-ollama-ssh
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cabinet-prod-vault-patch
+  namespace: cabinet-prod
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames:
+      - cabinet-secrets
+      - cabinet-s3-app
+      - cabinet-s3-admin
+      - cabinet-prod-registry
+      - engagement-ollama-ssh
+    verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cabinet-prod-vault-sync
+  namespace: cabinet-prod
+subjects:
+  - kind: ServiceAccount
+    name: cabinet-prod-vault-sync
+    namespace: cabinet-prod
+  - kind: ServiceAccount
+    name: cabinet-prod-vault-reader
+    namespace: cabinet-prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cabinet-prod-vault-sync
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cabinet-prod-vault-patch
+  namespace: cabinet-prod
+subjects:
+  - kind: ServiceAccount
+    name: cabinet-prod-vault-sync
+    namespace: cabinet-prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cabinet-prod-vault-patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cabinet-prod-vault-sync-namespace-uid
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    resourceNames: [cabinet-prod]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cabinet-prod-vault-sync-namespace-uid
+subjects:
+  - kind: ServiceAccount
+    name: cabinet-prod-vault-sync
+    namespace: cabinet-prod
+  - kind: ServiceAccount
+    name: cabinet-prod-vault-reader
+    namespace: cabinet-prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cabinet-prod-vault-sync-namespace-uid

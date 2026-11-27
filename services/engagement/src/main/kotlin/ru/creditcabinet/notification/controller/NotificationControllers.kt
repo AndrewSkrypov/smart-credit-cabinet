@@ -3,9 +3,11 @@ package ru.creditcabinet.notification.controller
 import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -29,20 +31,24 @@ import java.util.UUID
 class NotificationController(private val service: NotificationUseCases) {
     @Operation(summary = "Мои уведомления, новые сверху")
     @GetMapping
-    fun list(@RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int): NotificationPage = service.page(page, size)
+    fun list(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+        request: HttpServletRequest,
+    ): NotificationPage = service.page(page, size, request.getHeader(HttpHeaders.AUTHORIZATION))
 
     @Operation(summary = "Число непрочитанных уведомлений текущего пользователя")
     @GetMapping("/unread-count")
-    fun unread(): Map<String, Int> = mapOf("unread" to service.unread())
+    fun unread(request: HttpServletRequest): Map<String, Int> = mapOf("unread" to service.unread(request.getHeader(HttpHeaders.AUTHORIZATION)))
 
     @Operation(summary = "Отметить своё уведомление прочитанным; чужое возвращает 404")
     @PostMapping("/{id}/read")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun read(@PathVariable id: UUID) = service.markRead(id)
+    fun read(@PathVariable id: UUID, request: HttpServletRequest) = service.markRead(id, request.getHeader(HttpHeaders.AUTHORIZATION))
 
     @Operation(summary = "Отметить все свои уведомления прочитанными")
     @PostMapping("/read-all")
-    fun readAll(): Map<String, Int> = mapOf("updated" to service.markAllRead())
+    fun readAll(request: HttpServletRequest): Map<String, Int> = mapOf("updated" to service.markAllRead(request.getHeader(HttpHeaders.AUTHORIZATION)))
 }
 
 data class InternalNotificationRequest(@field:Valid @field:Size(min = 1, max = 100) val items: List<Item>) {

@@ -1,0 +1,179 @@
+{
+  "protocolVersion": 1,
+  "cycle": {
+    "generation": "alpha-r2-fixture",
+    "cycleId": "f162f60c-c301-4a74-b829-f0444985ad47",
+    "applicationId": "a4fd57ac-6182-4647-bdd2-176221bab0c2",
+    "applicationVersion": 9,
+    "ruleSetVersion": 12,
+    "selectedProduct": {
+      "code": "WORKING_CAPITAL",
+      "version": 7
+    },
+    "catalog": [
+      {
+        "code": "WORKING_CAPITAL",
+        "version": 7
+      },
+      {
+        "code": "OVERDRAFT",
+        "version": 3
+      }
+    ],
+    "candidatePreApprovalId": "7d65bf7b-9fed-49a1-b77c-82d51cd822db"
+  },
+  "receipts": {
+    "BANK": "2026-11-26T11:59:59Z",
+    "REGISTRY": "2026-11-26T12:00:00Z",
+    "TAX": "2026-11-26T12:00:00Z",
+    "BUREAU": "2026-11-26T12:00:00Z"
+  },
+  "facts": {
+    "registry": {
+      "inn": "000000000000",
+      "ogrn": "000000000000000",
+      "fullName": "ИП Пример",
+      "shortName": "Пример",
+      "status": "ACTIVE",
+      "statusTitle": "Действует",
+      "registrationDate": "2021-05-26",
+      "okvedCode": "62.01",
+      "okvedName": "Тестовая разработка",
+      "directorName": "Синтетический пример",
+      "address": "Синтетический адрес",
+      "unreliableAddress": false,
+      "unreliableDirector": false
+    },
+    "tax": {
+      "hasReports": true,
+      "reportingYear": 2025,
+      "revenue": 14400000,
+      "expenses": 12600000,
+      "taxDebt": 0,
+      "averageHeadcount": 6,
+      "taxRegime": "USN",
+      "massAddress": false
+    },
+    "bureau": {
+      "obligations": [],
+      "monthlyPaymentsTotal": 30000,
+      "currentOverdueDaysMax": 0,
+      "worstOverdueDays24m": 0,
+      "inquiries30d": 1
+    },
+    "bank": {
+      "client": true,
+      "settlementAccount": null,
+      "monthlyInflows": [
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000,
+        1200000
+      ]
+    }
+  },
+  "outcome": "ASSESSED",
+  "missingSources": [],
+  "completedAt": "2026-11-26T12:00:01Z",
+  "assessment": {
+    "stopFactors": [],
+    "factors": [
+      {
+        "factor": "AGE",
+        "title": "Возраст бизнеса",
+        "value": "5 г. 6 мес.",
+        "points": 18,
+        "maxPoints": 18,
+        "hint": null
+      },
+      {
+        "factor": "TURNOVER_STABILITY",
+        "title": "Стабильность оборотов",
+        "value": "колебания выручки ±0%",
+        "points": 12,
+        "maxPoints": 12,
+        "hint": null
+      },
+      {
+        "factor": "DEBT_LOAD",
+        "title": "Долговая нагрузка",
+        "value": "платежи по кредитам — 10% месячной выручки",
+        "points": 14,
+        "maxPoints": 20,
+        "hint": "Уменьшите сумму, увеличьте срок или погасите часть текущих кредитов"
+      },
+      {
+        "factor": "PAYMENT_DISCIPLINE",
+        "title": "Платёжная дисциплина",
+        "value": "просрочек за 2 года нет",
+        "points": 18,
+        "maxPoints": 18,
+        "hint": null
+      },
+      {
+        "factor": "CREDIT_ACTIVITY",
+        "title": "Кредитная активность",
+        "value": "запросов кредитной истории за 30 дней: 1",
+        "points": 6,
+        "maxPoints": 6,
+        "hint": null
+      },
+      {
+        "factor": "TAX_DISCIPLINE",
+        "title": "Налоговая дисциплина",
+        "value": "задолженности по налогам нет",
+        "points": 8,
+        "maxPoints": 8,
+        "hint": null
+      },
+      {
+        "factor": "INDUSTRY_RISK",
+        "title": "Отраслевой риск",
+        "value": "ОКВЭД 62.01, риск низкий",
+        "points": 8,
+        "maxPoints": 8,
+        "hint": null
+      },
+      {
+        "factor": "REQUEST_SIZE",
+        "title": "Размер запроса",
+        "value": "сумма — 7% годовой выручки",
+        "points": 10,
+        "maxPoints": 10,
+        "hint": null
+      }
+    ],
+    "score": 94,
+    "rating": "A",
+    "annualRevenue": 14400000,
+    "revenueSource": "TAX",
+    "existingMonthlyPayments": 30000,
+    "businessAgeMonths": 66,
+    "industryRisk": "LOW",
+    "registryStatusTitle": "Действует"
+  },
+  "policy": {
+    "kind": "APPROVE",
+    "terms": {
+      "productCode": "WORKING_CAPITAL",
+      "amount": 1000000,
+      "termMonths": 12,
+      "rate": 15.0,
+      "monthlyPayment": 90258.31,
+      "totalPayment": 1083099.74
+    },
+    "rejectReason": null,
+    "notes": [],
+    "manualReasons": [],
+    "recommendation": null
+  },
+  "appliedPreApprovalId": "7d65bf7b-9fed-49a1-b77c-82d51cd822db"
+}

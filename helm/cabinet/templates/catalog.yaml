@@ -1,0 +1,123 @@
+{{- if and .Values.app.enabled .Values.catalog.enabled }}
+{{- $root := . }}
+{{- $component := "catalog-grpc" }}
+{{- $revision := required "release.revision is required for Catalog" .Values.release.revision }}
+{{- $dbSecret := required "catalog.databaseSecret is required" .Values.catalog.databaseSecret }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-grpc
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cabinet.selector" (list $root $component) | nindent 4 }}
+  ports:
+    - {name: grpc, port: 9094, targetPort: grpc, protocol: TCP}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-grpc
+  annotations:
+    cabinet.release/revision: {{ $revision | quote }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      {{- include "cabinet.selector" (list $root $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list $root $component) | nindent 8 }}
+      annotations:
+        cabinet.release/revision: {{ $revision | quote }}
+    spec:
+      {{- include "cabinet.pod" $root | nindent 6 }}
+      containers:
+        - name: catalog-grpc
+          image: {{ include "cabinet.image" (list $root $component) | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities: {drop: [ALL]}
+          ports:
+            - {name: grpc, containerPort: 9094, protocol: TCP}
+          startupProbe:
+            tcpSocket: {port: grpc}
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket: {port: grpc}
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: grpc}
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.catalog.resources | nindent 12 }}
+          env:
+            - {name: SPRING_PROFILES_ACTIVE, value: prod}
+            - {name: CABINET_CATALOG_GRPC_DATABASE_URL, value: "jdbc:postgresql://postgres:5432/catalog"}
+            - {name: CABINET_CATALOG_GRPC_DATABASE_USER, value: catalog_app}
+            {{- include "cabinet.secretFrom" (list $dbSecret "CABINET_CATALOG_GRPC_DATABASE_PASSWORD" "CATALOG_DB_PASSWORD") | nindent 12 }}
+            {{- include "cabinet.secret" (list $root "JWT_SECRET" "JWT_SECRET") | nindent 12 }}
+            - {name: CABINET_CATALOG_GRPC_SERVER_HOST, value: "0.0.0.0"}
+            - {name: CABINET_CATALOG_GRPC_SERVER_PORT, value: "9094"}
+            - {name: CABINET_CATALOG_GRPC_SERVER_CERTIFICATE, value: /run/catalog-tls/tls.crt}
+            - {name: CABINET_CATALOG_GRPC_SERVER_KEY, value: /run/catalog-tls/tls.key}
+            - {name: CABINET_CATALOG_GRPC_SERVER_CLIENT_CA, value: /run/catalog-tls/ca.crt}
+          volumeMounts:
+            - {name: catalog-server-tls, mountPath: /run/catalog-tls, readOnly: true}
+      volumes:
+        - name: catalog-server-tls
+          secret:
+            secretName: {{ required "catalog.serverTLSSecret is required" .Values.catalog.serverTLSSecret | quote }}
+            defaultMode: 0444
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cabinet-catalog-migrate
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 420
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list $root "db-maintenance") | nindent 8 }}
+    spec:
+      {{- include "cabinet.pod" $root | nindent 6 }}
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: {{ include "cabinet.image" (list $root "postgres") | quote }}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              umask 077
+              cd /tmp
+              {{- range $file := list "roles.sql" "V1__product_history.sql" "grants.sql" "credit-fence.sql" "fence-check.sql" }}
+              cat > {{ $file }} <<'CATALOG_SQL'
+              {{- $root.Files.Get (printf "files/catalog/%s" $file) | replace "$$" "$$$$" | trimSuffix "\n" | nindent 14 }}
+              CATALOG_SQL
+              {{- end }}
+              {{- $root.Files.Get "files/catalog/migrate.sh" | trimSuffix "\n" | nindent 14 }}
+          env:
+            - {name: PGHOST, value: postgres}
+            - {name: CATALOG_MODE, value: {{ .Values.catalog.creditMode | quote }}}
+            {{- include "cabinet.secret" (list $root "PGPASSWORD" "POSTGRES_PASSWORD") | nindent 12 }}
+            {{- include "cabinet.secret" (list $root "CREDIT_MIGRATION_PASSWORD" "CREDIT_MIGRATION_PASSWORD") | nindent 12 }}
+            {{- include "cabinet.secret" (list $root "CREDIT_DB_PASSWORD" "CREDIT_DB_PASSWORD") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $dbSecret "CATALOG_DB_PASSWORD" "CATALOG_DB_PASSWORD") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list $dbSecret "CATALOG_MIGRATION_PASSWORD" "CATALOG_MIGRATION_PASSWORD") | nindent 12 }}
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 250m, memory: 192Mi}
+{{- end }}

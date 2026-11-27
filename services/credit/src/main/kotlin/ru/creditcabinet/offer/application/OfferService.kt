@@ -110,6 +110,15 @@ class OfferService(
         return when (result) {
             is SigningResult.Refused -> throw BadRequestException(result.message)
             is SigningResult.Signed -> transactions.execute {
+                val current = applications.own(id, forUpdate = true).second
+                if (current.status == ApplicationStatus.DISBURSING || current.status == ApplicationStatus.DISBURSED) return@execute current
+                if (current.status != ApplicationStatus.SIGNING ||
+                    current.version != application.version ||
+                    offers.current(id)?.id != session.offerId ||
+                    sessions.latest(id)?.id != session.id
+                ) {
+                    throw ConflictException("Цикл подписания изменился — обновите договор")
+                }
                 val now = clock.instant()
                 sessions.markSigned(session.id, result.signatureId, result.signedAt, claims.userId)
                 val saved = transitions.commit(
@@ -127,7 +136,7 @@ class OfferService(
         val application = applications.get(id)
         val offer = offers.current(id) ?: throw ru.creditcabinet.common.exception.NotFoundException("Текста пока нет: банк ещё не сделал предложение")
         val snapshot = contracts.find(offer.id)
-        val session = sessions.latest(id)?.takeIf { it.offerId == offer.id }
+        val session = sessions.signedFor(id, offer.id) ?: sessions.latest(id)?.takeIf { it.offerId == offer.id }
         val legacy = snapshot == null && application.status != ApplicationStatus.OFFER_ISSUED
         val text = snapshot?.text ?: contracts.render(application, offer, products.version(offer.productCode, offer.productVersion)!!)
         return ContractTextView(
@@ -166,7 +175,17 @@ class OfferService(
             createdAt = clock.instant(),
             contractSnapshotId = snapshot.id,
         )
-        sessions.save(record)
-        return record
+        return transactions.execute {
+            val current = applications.own(application.id, forUpdate = true).second
+            if (current.status != ApplicationStatus.SIGNING ||
+                current.version != application.version ||
+                offers.current(application.id)?.let { it.id == offer.id && it.status == OfferStatus.ACCEPTED } != true ||
+                sessions.signedFor(application.id, offer.id) != null
+            ) {
+                throw ConflictException("Цикл подписания уже завершён или изменился")
+            }
+            sessions.save(record)
+            record
+        }
     }
 }

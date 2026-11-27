@@ -21,6 +21,7 @@
       artifacts: true
   before_script:
     - !reference [.quality, before_script]
+    - python3 -B ci/gitlab/backend-packages.py download
     - sha256sum -c ci-artifacts/backend.sha256
     - sha256sum -c ci-artifacts/frontend.sha256
 .extended:
@@ -40,13 +41,26 @@
     - export COMPOSE_FILE="docker-compose.yml:ci/compose.yaml:ci/gitlab/quality/compose.yaml"
   after_script:
     - bash ci/gitlab/quality/cleanup.sh
+dev-diagnostics-docker:
+  extends: .quality
+  stage: quality
+  timeout: 5 minutes
+  dependencies: []
+  script:
+    - python3 -B ci/gitlab/quality/dev-diagnostics-docker.py
 backend:
   stage: quality
   extends: .quality
   timeout: 45 minutes
+  variables:
+    RUNNER_SCRIPT_TIMEOUT: 40m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 5m
   script:
+    - python3 -B -m unittest discover -s ci/gitlab -p test_backend_packages.py
     - bash ci/gitlab/quality/backend.sh
+    - python3 -B ci/gitlab/backend-packages.py upload
   after_script:
+    - bash ci/gitlab/quality/documents-cleanup.sh
     - bash ci/gitlab/quality/cleanup.sh
   artifacts:
     when: always
@@ -56,12 +70,38 @@ backend:
       - '**/build/reports/jacoco/'
       - ci-artifacts/schema-rollback.json
       - ci-artifacts/migration-restore.json
+      - ci-artifacts/documents-rollback.json
+      - ci-artifacts/catalog-r1/
+      - ci-artifacts/assessment/
       - security/reports/postgres-image.json
-      - services/*/build/libs/app.jar
       - ci-artifacts/backend.sha256
+      - ci-artifacts/backend-package.json
+      - ci-artifacts/documents-r3/
+      - ci-artifacts/documents-r3-s3/
     reports:
       junit:
         - '**/build/test-results/test/TEST-*.xml'
+        - 'services/assessment/build/test-results/assessmentKafkaTest/TEST-*.xml'
+        - '**/build/test-results/catalogIntegrationTest/TEST-*.xml'
+        - 'ci-artifacts/documents-r3/TEST-*.xml'
+        - 'ci-artifacts/documents-r3-s3/TEST-*.xml'
+
+backend-template:
+  stage: quality
+  extends: .quality
+  timeout: 12 minutes
+  before_script:
+    - test "$(uname -s)" = Linux
+  script:
+    - bash ci/gitlab/quality/backend-template.sh "$CI_COMMIT_SHA" ci-artifacts/backend-template
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - ci-artifacts/backend-template/
+    reports:
+      junit: ci-artifacts/backend-template/junit/TEST-*.xml
+
 frontend:
   stage: quality
   extends: .quality
@@ -158,10 +198,14 @@ image-security:
   parallel:
     matrix:
       - SERVICE:
+          - servicing
+          - catalog-grpc
           - identity
           - credit
+          - assessment
           - engagement
           - external-sim
+          - documents
           - frontend
           - ssh-bridge
   script:
@@ -286,10 +330,10 @@ e2e:
         cp security/reports/final-access-matrix.json security/reports/early-final-access-matrix.json
       fi
       early_access_status="$status"
-    - browser_status=0; npm test --prefix e2e -- --trace off || browser_status=$?
+    - browser_status=0; CABINET_FINAL_FINANCING_E2E=0 npm test --prefix e2e -- --trace off || browser_status=$?
     - python3 scripts/assistant-eval.py --base "$CABINET_URL" --mode rules --project "$COMPOSE_PROJECT_NAME" --report-name ci-rules
     - python3 scripts/assistant-final-eval.py --base "$CABINET_URL" --output scripts/assistant-eval-reports/ci-agent-rules.json
-    - (cd contracts/postman && npm test)
+    - (cd contracts/postman && NEWMAN_REPORT_NAME=newman npm test)
     - (cd contracts/postman && npm run test:agent)
     - (cd contracts/postman && npm run test:recovery)
     - (cd contracts/postman && npm run test:keepalive)
@@ -305,6 +349,7 @@ e2e:
       printf 'Credit restart count and OOMKilled: %s\n' "$credit_runtime"
       test "$credit_runtime" = '0 false'
     - test "$early_access_status:$browser_status:$full_access_status" = 0:0:0
+    - bash ci/gitlab/quality/financing.sh
   artifacts:
     when: always
     expire_in: 14 days
@@ -321,8 +366,12 @@ e2e:
       - monitoring/reports/*.json
     reports:
       junit:
-        - contracts/postman/reports/*.xml
+        # Intentional failure XML remains in the downloadable recovery artifacts.
+        - contracts/postman/reports/newman.xml
+        - contracts/postman/reports/newman-agent.xml
+        - contracts/postman/reports/keepalive.xml
         - e2e/test-results/default/junit.xml
+        - e2e/test-results/final-financing/junit.xml
 reliability:
   stage: extended
   extends: *compose-extended
@@ -392,3 +441,28 @@ helm-chart:
   extends: .quality
   script:
     - sh helm/cabinet/test-chart.sh
+    - python3 -B -m unittest discover -s deploy -p 'test_*delivery*.py'
+    - python3 -B -m unittest discover -s ci/gitlab -p test_catalog_prod_guard.py
+    - python3 -B ci/alpha/test_dev_rollout.py
+
+# Mandatory R3 gate: a fresh job-owned PostgreSQL container, mTLS and a separate runtime.
+servicing-integration:
+  stage: quality
+  extends: .quality
+  resource_group: cabinet-ci-servicing-acceptance
+  timeout: 30 minutes
+  script:
+    - bash ci/gitlab/quality/servicing.sh
+  after_script:
+    - python3 ci/gitlab/quality/servicing-cleanup.py
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - ci-artifacts/servicing/receipt.json
+      - ci-artifacts/servicing/results/
+      - ci-artifacts/servicing/*.log
+      - ci-artifacts/servicing/ci-resource.json
+    reports:
+      junit:
+        - ci-artifacts/servicing/results/**/TEST-*.xml

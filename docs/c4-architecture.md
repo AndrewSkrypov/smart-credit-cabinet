@@ -78,8 +78,8 @@ flowchart LR
     AgentUse["AgentApplicationService"]
     AppUse["ApplicationService"]
     AppRead["ApplicationDetails, ApplicationProcesses<br/>и ApplicationPages"]
-    DocUse["DocumentApplication"]
-    ArtifactUse["GeneratedArtifactOperations<br/>и GeneratedArtifactJobs"]
+    DocUse["DocumentService"]
+    ArtifactUse["GeneratedArtifacts"]
     BankUse["UnderwritingService"]
     BankRead["UnderwritingAssessment"]
     Steps["PipelineSteps"]
@@ -94,10 +94,9 @@ flowchart LR
   subgraph Port["Выходные порты"]
     Store["ApplicationRepository, ApplicationJournal, PipelineJobs"]
     Mandate["AgentAccessPort"]
-    Doc["DocumentRepository, FileStore"]
-    ArtifactStore["GeneratedArtifactStore"]
+    Doc["DocumentRepository, DocumentsBoundary"]
     Offers["OfferRepository, Loans, ContractTextStore"]
-    Accounts["DisbursedLoanAccounts"]
+    Accounts["LoanOpening"]
     Tx["CreditTransactions"]
     Source["Внешние источники, ПЭП и АБС"]
     Notices["PlatformNotifications"]
@@ -118,20 +117,19 @@ flowchart LR
   BankRead --> Risk
   Steps --> Risk & Source & OfferUse & Commit & Tx & Accounts
   OfferUse --> Offers & Commit & Tx
-  ArtifactUse --> ArtifactStore & Doc & Notices & Tx
+  ArtifactUse --> Doc & Notices & Tx
   Commit --> Store & Notices
   Store --> Postgres[(PostgreSQL)]
   Mandate --> Identity["identity, внутренний HTTP"]
-  Doc --> Files["JDBC, S3 или локальное хранилище"]
+  Doc --> Files["Сервис documents по gRPC<br/>или локальное хранилище"]
   Offers --> Postgres
-  ArtifactStore --> Postgres
-  Accounts -->|LoanServicingAdapter| Postgres
+  Accounts -->|outbox открытия счёта| Servicing["Сервис servicing"]
   Tx --> Postgres
   Source --> Sim["external-sim"]
   Notices --> Outbox[(delivery_outbox)]
 ```
 
-Конвейер и андеррайтинг используют один порт выпуска оффера. Переход, журнал, следующая задача и событие уведомления сохраняются одной транзакцией в БД credit. Вызовы к источникам и АБС идут вне этой транзакции. После подтверждения выдачи кредитный счёт открывается в транзакции записи выдачи. Обработка задач использует аренду и повтор. Идемпотентность операции АБС привязана к заявке.
+Конвейер и андеррайтинг используют один порт выпуска оффера. Переход, журнал, следующая задача и событие уведомления сохраняются одной транзакцией в БД credit. Вызовы к источникам и АБС идут вне этой транзакции. После подтверждения выдачи команда открытия счёта записывается в outbox в транзакции выдачи, а сервис servicing подтверждает её квитанцией. Обработка задач использует аренду и повтор. Идемпотентность операции АБС привязана к заявке.
 
 ## C4. Целевая эволюция credit
 

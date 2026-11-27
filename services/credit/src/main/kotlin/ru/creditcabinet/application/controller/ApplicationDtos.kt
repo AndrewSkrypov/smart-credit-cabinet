@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.PositiveOrZero
 import jakarta.validation.constraints.Size
+import ru.creditcabinet.agent.domain.ActionOwner
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationStatus
@@ -63,6 +64,7 @@ data class SubmitRequest(val acceptedProductVersion: Long? = null)
 data class ConfirmApplicationRequest(
     val bureauConsent: Boolean = false,
     val acceptedProductVersion: Long? = null,
+    val acceptedScenarioRevision: Long? = null,
 )
 
 data class ReturnToAgentRequest(
@@ -120,6 +122,11 @@ data class ApplicationResponse(
     val agentCommissionRateBps: Int? = null,
     val agentCommissionAmount: Long? = null,
     val agentCommissionStatus: CommissionStatus = CommissionStatus.NONE,
+    val canResumeIndependently: Boolean = false,
+    val clientManaged: Boolean = false,
+    val actionOwner: ActionOwner? = null,
+    val actionDeadline: Instant? = null,
+    val actionLabel: String? = null,
 )
 
 data class ApplicationSummary(
@@ -140,6 +147,9 @@ data class ApplicationSummary(
     val agentName: String? = null,
     val agentCommissionAmount: Long? = null,
     val agentCommissionStatus: CommissionStatus = CommissionStatus.NONE,
+    val actionOwner: ActionOwner? = null,
+    val actionDeadline: Instant? = null,
+    val actionLabel: String? = null,
 )
 
 data class JournalEntryView(

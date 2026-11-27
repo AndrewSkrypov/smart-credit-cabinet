@@ -1,7 +1,5 @@
 package ru.creditcabinet.servicing
 
-import ru.creditcabinet.common.exception.BadRequestException
-import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.servicing.domain.LoanAccount
 import ru.creditcabinet.servicing.domain.LoanAccountStatus
 import ru.creditcabinet.servicing.domain.LoanPaymentStatus
@@ -15,6 +13,8 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import ru.creditcabinet.servicing.domain.ServicingBadRequest as BadRequestException
+import ru.creditcabinet.servicing.domain.ServicingConflict as ConflictException
 
 class LoanAccountDomainTest {
     private val appId = UUID.randomUUID()
@@ -81,7 +81,7 @@ class LoanAccountDomainTest {
             maturityDate = baseDate.plusMonths(6),
             firstPaymentBaseDate = baseDate,
         )
-        val afterPay1 = opened.payNext(disbursedAt.plusSeconds(86400))
+        val afterPay1 = opened.payNext(opened.payments.first().id, disbursedAt.plusSeconds(86400))
         val remainingBefore = afterPay1.outstandingPrincipal
         val afterTranche2 = afterPay1.drawTranche(
             amount = 500_000L,
@@ -104,6 +104,33 @@ class LoanAccountDomainTest {
         val sumScheduledPrincipal = scheduled.fold(BigDecimal.ZERO) { acc, p -> acc.add(p.principalAmount) }
         assertEquals(afterTranche2.outstandingPrincipal, sumScheduledPrincipal)
         assertEquals(BigDecimal("0.00"), scheduled.last().remainingBalance)
+    }
+
+    @Test
+    fun `drawTranche preserves due amounts and refuses the maturity boundary`() {
+        val loan = LoanAccount.open(
+            applicationId = appId,
+            companyId = companyId,
+            contractNumber = "KD-2026-0007",
+            approvedLimit = 2_000_000L,
+            termMonths = 12,
+            rate = BigDecimal("18.00"),
+            revolving = true,
+            disbursedAt = disbursedAt,
+            maturityDate = maturityDate,
+            firstPaymentBaseDate = baseDate,
+        )
+        val today = baseDate.plusMonths(2)
+        val now = disbursedAt.plusSeconds(60L * 86400)
+        val updated = loan.drawTranche(250_000L, null, now, today)
+        assertEquals(loan.payments.take(2), updated.payments.take(2))
+        assertEquals(loan.payments.map { it.dueDate }, updated.payments.map { it.dueDate })
+        assertEquals(updated.outstandingPrincipal, updated.payments.sumOf { it.principalAmount })
+        assertTrue(updated.payments[2].interestAmount > loan.payments[2].interestAmount)
+        assertEquals(2, loan.drawTranche(1L, null, now, maturityDate.minusDays(1)).tranches.size)
+        for (day in listOf(maturityDate, maturityDate.plusDays(1))) {
+            assertFailsWith<ConflictException> { loan.drawTranche(1L, null, now, day) }
+        }
     }
 
     @Test
@@ -169,23 +196,25 @@ class LoanAccountDomainTest {
             firstPaymentBaseDate = baseDate,
         )
 
-        account = account.payNext(disbursedAt.plusSeconds(10))
+        val first = account.payments[0].id
+        account = account.payNext(first, disbursedAt.plusSeconds(10))
         assertEquals(LoanAccountStatus.ACTIVE, account.status)
         assertNull(account.repaidAt)
         assertEquals(1, account.payments.count { it.status == LoanPaymentStatus.PAID })
 
-        account = account.payNext(disbursedAt.plusSeconds(20))
+        assertFailsWith<ConflictException> { account.payNext(first, disbursedAt.plusSeconds(20)) }
+        account = account.payNext(account.payments[1].id, disbursedAt.plusSeconds(20))
         assertEquals(LoanAccountStatus.ACTIVE, account.status)
         assertEquals(2, account.payments.count { it.status == LoanPaymentStatus.PAID })
 
-        account = account.payNext(disbursedAt.plusSeconds(30))
+        account = account.payNext(account.payments[2].id, disbursedAt.plusSeconds(30))
         assertEquals(LoanAccountStatus.REPAID, account.status)
         assertNotNull(account.repaidAt)
         assertEquals(BigDecimal("0.00"), account.outstandingPrincipal)
         assertEquals(3, account.payments.count { it.status == LoanPaymentStatus.PAID })
 
         assertFailsWith<ConflictException> {
-            account.payNext(disbursedAt.plusSeconds(40))
+            account.payNext(first, disbursedAt.plusSeconds(40))
         }
         assertFailsWith<ConflictException> {
             account.repayEarly(disbursedAt.plusSeconds(40), baseDate)

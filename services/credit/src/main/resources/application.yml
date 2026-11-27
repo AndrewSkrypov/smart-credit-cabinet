@@ -41,6 +41,22 @@ springdoc:
     path: /swagger-ui.html
 
 cabinet:
+  assessment:
+    kafka:
+      enabled: ${CABINET_ASSESSMENT_KAFKA_ENABLED:false}
+      bootstrap-servers: ${CABINET_ASSESSMENT_KAFKA_BOOTSTRAP_SERVERS:}
+      environment: ${CABINET_ASSESSMENT_KAFKA_ENVIRONMENT:}
+      generation: ${CABINET_ASSESSMENT_KAFKA_GENERATION:}
+      result-grace: ${CABINET_ASSESSMENT_KAFKA_RESULT_GRACE:PT30S}
+  servicing:
+    worker-enabled: ${SERVICING_WORKER_ENABLED:true}
+    mode: ${SERVICING_MODE:local}
+    grpc:
+      host: ${SERVICING_GRPC_HOST:}
+      port: ${SERVICING_GRPC_PORT:9095}
+      certificate: ${SERVICING_CLIENT_CERTIFICATE:}
+      key: ${SERVICING_CLIENT_KEY:}
+      server-ca: ${SERVICING_SERVER_CA:}
   outbox:
     enabled: true
     worker-enabled: ${OUTBOX_WORKER_ENABLED:true}
@@ -99,3 +115,5 @@ cabinet:
     info-request-ttl: ${INFO_REQUEST_TTL:P14D}
     offer-ttl: ${OFFER_TTL:P5D}
     source-timeout: ${SOURCE_TIMEOUT:PT1H}
+
+# Local remains the default until the fenced migration has been accepted.

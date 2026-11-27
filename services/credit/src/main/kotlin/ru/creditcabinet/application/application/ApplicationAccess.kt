@@ -7,5 +7,5 @@ import java.util.UUID
 interface ApplicationAccess {
     fun get(id: UUID): LoanApplication
 
-    fun own(id: UUID): Pair<TokenClaims, LoanApplication>
+    fun own(id: UUID, forUpdate: Boolean = false): Pair<TokenClaims, LoanApplication>
 }

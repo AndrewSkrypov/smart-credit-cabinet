@@ -17,7 +17,7 @@ export function InfoRequestBlock({ application, onChanged, onSent }: { applicati
   const requestedAt = new Date(request.requestedAt).getTime();
   const uploadedSince = (type: string) => application.documents.some((document) => document.type === type && new Date(document.uploadedAt).getTime() >= requestedAt);
   const hasQuestions = request.items.some((item) => item.question);
-  const ready = request.items.every((item) => !item.documentType || uploadedSince(item.documentType)) && (!hasQuestions || answer.trim().length > 0);
+  const ready = request.items.every((item) => !item.documentType || (item.satisfied ?? uploadedSince(item.documentType))) && (!hasQuestions || answer.trim().length > 0);
 
   const send = async () => {
     setSending(true);
@@ -39,7 +39,7 @@ export function InfoRequestBlock({ application, onChanged, onSent }: { applicati
       <SensitiveDataNotice />
       <Stack spacing={1.5}>
         {request.items.map((item) => {
-          const done = item.documentType ? uploadedSince(item.documentType) : false;
+          const done = item.satisfied ?? (item.documentType ? uploadedSince(item.documentType) : false);
           return (
             <Stack key={item.title} direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: 'center' }}>
               <Stack direction="row" spacing={1.5} alignItems="flex-start">
@@ -50,7 +50,9 @@ export function InfoRequestBlock({ application, onChanged, onSent }: { applicati
                 </Box>
               </Stack>
               {item.documentType && !done && (
-                <UploadButton applicationId={application.id} documentType={item.documentType} onUploaded={onChanged} onError={setError} />
+                <UploadButton applicationId={application.id} documentType={item.documentType} privateToBank={item.documentType === 'BANK_STATEMENT' && !!application.agentId} onUploaded={onChanged} onError={setError}>
+                  {item.documentType === 'BANK_STATEMENT' && application.agentId ? 'Передать выписку банку' : 'Загрузить'}
+                </UploadButton>
               )}
             </Stack>
           );

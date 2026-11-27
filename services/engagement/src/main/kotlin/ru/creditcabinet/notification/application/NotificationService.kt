@@ -5,8 +5,11 @@ import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.notifications.NotificationEmail
 import ru.creditcabinet.common.security.CurrentCaller
+import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.notification.domain.Notification
 import ru.creditcabinet.notification.domain.NotificationType
+import ru.creditcabinet.notification.domain.agentApplicationId
+import ru.creditcabinet.notification.domain.isAgentApplicationLink
 import java.time.Clock
 import java.util.UUID
 
@@ -59,6 +62,7 @@ class NotificationService(
     private val clock: Clock,
     private val receipts: NotificationReceipts,
     private val emailDelivery: NotificationEmailPort,
+    private val agentAccess: AgentNotificationAccessPort,
 ) : NotificationUseCases {
     /** Turns each address into people and stores one row per person; a repeated delivery is stored once. */
     @Transactional
@@ -89,23 +93,59 @@ class NotificationService(
         }
     }
 
-    override fun page(page: Int, size: Int): NotificationPage {
-        val me = CurrentCaller.claims().userId
+    override fun page(page: Int, size: Int, authorization: String?): NotificationPage {
+        val caller = CurrentCaller.claims()
+        val links = accessibleAgentLinks(caller, authorization, unreadOnly = false)
         val index = page.coerceAtLeast(0)
         val limit = size.coerceIn(1, MAX_PAGE)
-        return NotificationPage(store.page(me, index * limit, limit).map(NotificationView::of), index, limit, store.total(me), store.unread(me))
+        return NotificationPage(
+            store.page(caller.userId, index.toLong() * limit, limit, links).map(NotificationView::of),
+            index,
+            limit,
+            store.total(caller.userId, links),
+            store.unread(caller.userId, links),
+        )
     }
 
-    override fun unread(): Int = store.unread(CurrentCaller.claims().userId)
-
-    /** Another person's notification is "not found", like any id one cannot see. */
-    override fun markRead(id: UUID) {
-        val me = CurrentCaller.claims().userId
-        val notification = store.find(id)?.takeIf { it.recipientId == me } ?: throw NotFoundException("Уведомление не найдено")
-        store.markRead(notification.id, me, clock.instant())
+    override fun unread(authorization: String?): Int {
+        val caller = CurrentCaller.claims()
+        return store.unread(caller.userId, accessibleAgentLinks(caller, authorization, unreadOnly = true))
     }
 
-    override fun markAllRead(): Int = store.markAllRead(CurrentCaller.claims().userId, clock.instant())
+    /** An inaccessible notification is indistinguishable from an unknown ID. */
+    override fun markRead(id: UUID, authorization: String?) {
+        val caller = CurrentCaller.claims()
+        val notification = store.find(id)?.takeIf { it.recipientId == caller.userId } ?: notFound()
+        if (notification.link.isAgentApplicationLink()) {
+            if (!caller.isAgent || authorization == null) notFound()
+            val application = notification.link?.agentApplicationId() ?: notFound()
+            if (agentAccess.check(application, authorization) != AgentNotificationAccess.ALLOWED) notFound()
+        }
+        store.markRead(notification.id, caller.userId, clock.instant())
+    }
+
+    override fun markAllRead(authorization: String?): Int {
+        val caller = CurrentCaller.claims()
+        val links = accessibleAgentLinks(caller, authorization, unreadOnly = true)
+        return store.markAllRead(caller.userId, clock.instant(), links)
+    }
+
+    private fun accessibleAgentLinks(caller: TokenClaims, authorization: String?, unreadOnly: Boolean): Set<String> {
+        if (!caller.isAgent || authorization == null) return emptySet()
+        val checked = mutableMapOf<UUID, AgentNotificationAccess>()
+        val allowed = mutableSetOf<String>()
+        for (link in store.agentApplicationLinks(caller.userId, unreadOnly)) {
+            val application = link.agentApplicationId() ?: continue
+            when (checked.getOrPut(application) { agentAccess.check(application, authorization) }) {
+                AgentNotificationAccess.ALLOWED -> allowed.add(link)
+                AgentNotificationAccess.DENIED -> Unit
+                AgentNotificationAccess.UNAVAILABLE -> return emptySet()
+            }
+        }
+        return allowed
+    }
+
+    private fun notFound(): Nothing = throw NotFoundException("Уведомление не найдено")
 
     private companion object {
         const val MAX_PAGE = 50

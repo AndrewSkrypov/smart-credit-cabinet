@@ -29,6 +29,11 @@ export const tokens = {
   tilePink: '#ffd3d3'
 } as const;
 
+export const transparentOutlineButtonSx = {
+  bgcolor: 'transparent',
+  '&:hover': { bgcolor: 'transparent' },
+};
+
 // The dark band of the landing and the cabinets: soft red and purple light on near-black.
 export const nightGlow = [
   'radial-gradient(640px 420px at 12% 0%, rgba(239, 49, 36, 0.32), transparent 65%)',

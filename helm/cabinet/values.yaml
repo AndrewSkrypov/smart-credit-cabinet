@@ -4,9 +4,18 @@ app:
   demoAccounts: false
   simControlEnabled: false
   otlpEndpoint: ""
+catalog:
+  enabled: false
+  creditMode: local
+  maintenance: false
+  databaseSecret: ""
+  serverTLSSecret: ""
+  creditTLSSecret: ""
+  resources: {requests: {cpu: 100m, memory: 192Mi}, limits: {cpu: "1", memory: 384Mi}}
 images:
   identity: ""
   credit: ""
+  catalog-grpc: ""
   engagement: ""
   external-sim: ""
   frontend: ""

@@ -16,10 +16,11 @@ object UnderwritingDiscrepancies {
 
     fun compare(terms: ApplicationTerms, tax: TaxInfo?, bureau: BureauInfo?, registry: RegistryInfo?): List<Discrepancy> = buildList {
         val declaredRevenue = terms.declaredRevenue12m
-        if (declaredRevenue != null && tax?.revenue != null && tax.revenue > 0) {
-            val difference = abs(declaredRevenue - tax.revenue).toDouble() / tax.revenue
+        val taxRevenue = tax?.revenue
+        if (declaredRevenue != null && taxRevenue != null && taxRevenue > 0) {
+            val difference = abs(declaredRevenue - taxRevenue).toDouble() / taxRevenue
             if (difference > REVENUE_TOLERANCE) {
-                add(Discrepancy("Выручка за год", rubles(declaredRevenue), "ФНС", rubles(tax.revenue), (difference * 100).roundToInt()))
+                add(Discrepancy("Выручка за год", rubles(declaredRevenue), "ФНС", rubles(taxRevenue), (difference * 100).roundToInt()))
             }
         }
         val declaredDebt = terms.declaredMonthlyDebtPayments

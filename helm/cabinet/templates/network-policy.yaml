@@ -1,8 +1,11 @@
 {{- $root := . }}
 {{- $allowed := dict
-  "postgres" (dict "port" 5432 "sources" (list "identity" "credit" "engagement" "db-maintenance"))
+  "postgres" (dict "port" 5432 "sources" (list "identity" "credit" "engagement" "db-maintenance" "catalog-grpc"))
   "valkey" (dict "port" 6379 "sources" (list "identity" "credit" "engagement" "external-sim" "db-maintenance"))
   "clamav" (dict "port" 3310 "sources" (list "credit")) }}
+{{- if and .Values.app.enabled .Values.catalog.enabled }}
+{{- $_ := set $allowed "catalog-grpc" (dict "port" 9094 "sources" (list "credit")) }}
+{{- end }}
 {{- if .Values.app.enabled }}
 {{- $_ := set $allowed "frontend" (dict "port" 8080 "sources" (list "gateway")) }}
 {{- $_ := set $allowed "swagger-ui" (dict "port" 8080 "sources" (list "gateway")) }}

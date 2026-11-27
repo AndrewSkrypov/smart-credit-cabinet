@@ -1,13 +1,22 @@
 """Shared scoped deployment configuration; never print the expanded compose environment."""
+from contextlib import contextmanager
+import fcntl
 import ipaddress
 import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
+import tempfile
 from urllib.parse import urlparse
 
 from alpha_dev import AlphaDev
+from assessment_dev import AssessmentDev, OVERLAY as ASSESSMENT_OVERLAY
+from documents_dev import DocumentsDev
+from servicing_dev import ServicingDev, OVERLAY as SERVICING_OVERLAY
+from catalog import requested_mode, state_path, validate_secrets
+from dev_diagnostics import error_category
 from registry_release import RegistryRelease
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -16,14 +25,17 @@ DEMO_DOMAIN = "demo.dev.credit-cabinet.ru"
 
 
 class Deployment:
-    def __init__(self, project, env_file="deploy/.env", local=False, release_manifest=None):
+    def __init__(self, project, env_file="deploy/.env", local=False, release_manifest=None, *,
+                 env_contents=None, open_hooks=True, historical_backup=False):
         if not re.fullmatch(r"cabinet-(?:dev|prod)[a-z0-9-]{0,50}", project):
             raise ValueError("Имя проекта должно начинаться с cabinet-dev или cabinet-prod")
         self.project = project
         self.local = local
         self.path = Path(env_file).resolve()
         self.values = {}
-        for line in self.path.read_text(encoding="utf-8").splitlines():
+        if env_contents is None:
+            env_contents = self.path.read_bytes()
+        for line in env_contents.decode("utf-8").splitlines():
             if not line.strip() or line.lstrip().startswith("#"):
                 continue
             match = re.fullmatch(r"([A-Z_][A-Z_0-9]*)=([^\r\n]*)", line)
@@ -126,6 +138,13 @@ class Deployment:
             raise ValueError("Gateway должен иметь другой адрес внутри EDGE_SUBNET")
         if local and self.values["CABINET_DOMAIN"] != "localhost":
             raise ValueError("Локальная проверка допускает только localhost и внутренний CA")
+        self.catalog_mode = requested_mode(project, local, self.release)
+        self.catalog_enabled = self.catalog_mode != "disabled"
+        self.catalog_state = state_path(self.path, project)
+        if self.catalog_enabled:
+            validate_secrets(self.values)
+        elif open_hooks and project == "cabinet-dev" and (self.catalog_state / "authority.json").exists():
+            raise RuntimeError("После ввода Catalog нужен manifest с режимом local или remote")
         self.alpha_dev = AlphaDev.from_config(project, local, self.values, self.release)
         self.environment = {**os.environ, **self.values, "COMPOSE_PROFILES": ""}
         if "ai" in self.profiles:
@@ -142,8 +161,34 @@ class Deployment:
             self.environment.update(self.release.environment())
             self.command.extend(["-f", str(ROOT / "deploy/compose.registry.yaml")])
         if self.alpha_dev:
-            self.environment.update(self.alpha_dev.environment(self.release))
+            self.environment.update(self.alpha_dev.environment(self.release, project))
             self.command.extend(["-f", str(ROOT / "deploy/compose.dev-alpha.yaml")])
+        if self.catalog_enabled:
+            self.environment.update(
+                CABINET_CATALOG_MODE="local",
+                CABINET_CATALOG_TLS_DIR=str(self.catalog_state / "tls"),
+            )
+            self.command.extend(["-f", str(ROOT / "deploy/compose.catalog.yaml")])
+        for name, hook in (("assessment", AssessmentDev), ("servicing", ServicingDev), ("documents", DocumentsDev)):
+            descriptor = getattr(self.release, name, None)
+            bound_to_source = descriptor is not None and descriptor["dev_mode"] != "disabled"
+            setattr(self, name, hook.open(self) if open_hooks and (bound_to_source or not historical_backup) else None)
+        for hook, overlay in (
+            (self.assessment, ASSESSMENT_OVERLAY),
+            (self.servicing, SERVICING_OVERLAY),
+            (self.documents, ROOT / "deploy/compose.documents.yaml"),
+        ):
+            if hook is not None:
+                self.environment.update(hook.compose_environment())
+                self.command.extend(["-f", str(overlay)])
+        self.runtime_modes = {"catalog": self.catalog_mode} if self.catalog_enabled else {}
+        if self.release and not local and (project == "cabinet-dev" or project.startswith("cabinet-dev-restore-")):
+            for name in ("assessment", "servicing", "documents"):
+                descriptor = getattr(self.release, name)
+                if descriptor is not None and descriptor["dev_mode"] != "disabled":
+                    if open_hooks and getattr(self, name) is None:
+                        raise RuntimeError(f"Отсутствует hook включённого runtime {name}")
+                    self.runtime_modes[name] = descriptor["dev_mode"]
         if local:
             self.command.extend(["-f", str(ROOT / "deploy/compose.local.yaml")])
         if "monitoring" in self.profiles:
@@ -166,7 +211,8 @@ class Deployment:
                                 text=True, encoding="utf-8", capture_output=capture or self.release is not None)
         if result.returncode:
             # Expanded configuration and command errors can contain credentials, so callers get only the stage.
-            raise RuntimeError(f"Compose {arguments[0]} не завершён, код {result.returncode}")
+            category = error_category(result.stderr)
+            raise RuntimeError(f"Compose {arguments[0]} не завершён, код {result.returncode}, категория {category}")
         return result.stdout if capture else None
 
     def container(self, service, include_stopped=False):
@@ -205,3 +251,59 @@ class Deployment:
                 where lower(email) like '%@demo.test' and status <> 'BLOCKED' returning id)
             select count(*) from blocked;
         """))
+
+@contextmanager
+def deploy_lock(env_file, project):
+    """Share the protected project lock with subprocesses started by dev-release."""
+    if project != "cabinet-dev" and not project.startswith("cabinet-dev-restore-"):
+        yield None
+        return
+    lock_name = "deploy.lock" if project == "cabinet-dev" else project + ".lock"
+    path = Path(env_file).absolute().parent / lock_name
+    inherited = os.environ.get("CABINET_DEPLOY_LOCK_FD")
+    if inherited is not None:
+        fd = int(inherited)
+        if not os.path.samestat(path.lstat(), os.fstat(fd)):
+            raise RuntimeError("Дочерний процесс утратил блокировку проекта Dev")
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield fd
+        return
+    descriptor = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, "r+") as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o600 or info.st_uid != os.getuid():
+            raise ValueError("Блокировка проекта Dev должна принадлежать оператору и иметь права 0600")
+        fcntl.flock(stream, fcntl.LOCK_EX)
+        yield stream.fileno()
+
+
+def lock_environment(fd):
+    if fd is None:
+        return {}
+    return {"pass_fds": (fd,), "env": {**os.environ, "CABINET_DEPLOY_LOCK_FD": str(fd)}}
+
+
+def replace_env(path, original, contents):
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".cabinet.env.", delete=False) as stream:
+            temporary = Path(stream.name)
+            created = os.fstat(stream.fileno())
+            if (created.st_uid, created.st_gid) != (original.st_uid, original.st_gid):
+                os.fchown(stream.fileno(), original.st_uid, original.st_gid)
+            os.fchmod(stream.fileno(), stat.S_IMODE(original.st_mode))
+            stream.write(contents)
+            stream.flush()
+            os.fsync(stream.fileno())
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            current = path.lstat()
+            if not os.path.samestat(current, original) or current.st_ctime_ns != original.st_ctime_ns:
+                raise RuntimeError("cabinet.env изменился во время выкладки. Повторите запуск.")
+            temporary.replace(path)
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)

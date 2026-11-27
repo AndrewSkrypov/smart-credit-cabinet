@@ -71,7 +71,10 @@ class DocumentsStore(
 
     fun delete(scope: DocumentScope, id: UUID, context: String, at: Instant) {
         val record = document(scope, id, context)
-        require(record.deletedAt == null)
+        if (record.deletedAt != null) {
+            if (record.deletedAt != at) throw DocumentConflict()
+            return
+        }
         jdbc.update("update document_records set metadata=?::jsonb where id=?", mapper.writeValueAsString(record.copy(deletedAt = at)), id)
     }
 
@@ -107,7 +110,12 @@ class DocumentsStore(
     }
 
     fun retry(scope: DocumentScope, id: UUID): ArtifactRecord {
-        val record = artifacts(scope).firstOrNull { it.id == id } ?: throw NoSuchElementException()
+        verifyScope(scope)
+        val record =
+            jdbc.query("select metadata from artifact_records where id=? and company_id=? and application_id=? for update", { rs, _ ->
+                mapper.readValue<ArtifactRecord>(rs.getString(1))
+            }, id, scope.companyId, scope.applicationId).firstOrNull()
+                ?: throw NoSuchElementException()
         if (record.status == "READY") return record
         if (record.templateVersion != ArtifactRenderer.TEMPLATE_VERSION) {
             require(record.templateVersion < ArtifactRenderer.TEMPLATE_VERSION)
@@ -126,7 +134,7 @@ class DocumentsStore(
         }
         check(
             jdbc.update(
-                "update artifact_records set status='PENDING',attempts=0,next_attempt_at=now(),metadata=?::jsonb where id=? and (lease_until is null or lease_until < now())",
+                "update artifact_records set status='PENDING',attempts=0,next_attempt_at=now(),metadata=?::jsonb where id=? and status<>'READY' and (lease_until is null or lease_until < clock_timestamp())",
 
                 mapper.writeValueAsString(record.copy(status = "PENDING")),
                 id,

@@ -27,7 +27,14 @@ interface ApplicationJournal {
 /** Steps of the credit pipeline, written in the transaction of the transition that needs them. */
 enum class PipelineStep { DATA_CHECK, ENRICHMENT, SCORING, DISBURSEMENT, EXPIRE_INFO_REQUEST, EXPIRE_OFFER }
 
-data class PipelineJob(val id: UUID, val applicationId: UUID, val step: PipelineStep, val attempts: Int, val leaseUntil: Instant? = null)
+data class PipelineJob(
+    val id: UUID,
+    val applicationId: UUID,
+    val step: PipelineStep,
+    val attempts: Int,
+    val leaseUntil: Instant? = null,
+    val businessFailures: Int = 0,
+)
 
 interface PipelineJobs {
     /** Adds a step; a step already pending or running for the application is not added twice. */
@@ -44,6 +51,11 @@ interface PipelineJobs {
     fun complete(id: UUID)
     fun retry(id: UUID, runAt: Instant, error: String?)
     fun fail(id: UUID, error: String?)
+
+    /** A port outage keeps business attempts and uses durable, capped transport backoff. */
+    fun retryDocumentsUnavailable(job: PipelineJob, now: Instant)
+    fun retryClaim(job: PipelineJob, now: Instant, runAt: Instant, error: String?)
+    fun failClaim(job: PipelineJob, now: Instant, error: String?)
 }
 
 interface IdempotencyKeys {

@@ -85,7 +85,7 @@ class ApplicationController(
     @Operation(summary = "Создать черновик заявки")
     @PostMapping
     @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
-    fun create(@Valid @RequestBody request: ApplicationRequest): ApplicationResponse = detail(service.create(request.toTerms()))
+    fun create(@Valid @RequestBody request: ApplicationRequest): ApplicationResponse = detail(service.create(request.toTerms()), newDraft = true)
 
     @Operation(summary = "Карточка своей заявки с состоянием конвейера, решением и документами")
     @GetMapping("/{id}")
@@ -168,7 +168,8 @@ class ApplicationController(
         @RequestParam type: DocumentType,
         @RequestParam(defaultValue = "false") privateToBank: Boolean,
         @RequestPart file: MultipartFile,
-    ): DocumentView = DocumentView.of(documents.upload(id, type, file.toDocumentUpload(), privateToBank))
+        @RequestHeader("Idempotency-Key", required = false) operationKey: String?,
+    ): DocumentView = DocumentView.of(documents.upload(id, type, file.toDocumentUpload().copy(operationKey = operationKey), privateToBank))
 
     @Operation(summary = "Удалить свой документ из редактируемого черновика")
     @DeleteMapping("/{id}/documents/{documentId}")
@@ -226,7 +227,7 @@ class ApplicationController(
         )
     }
 
-    private fun detail(original: LoanApplication): ApplicationResponse {
+    private fun detail(original: LoanApplication, newDraft: Boolean = false): ApplicationResponse {
         val claims = CurrentCaller.claims()
         val application = if (claims.isClient) service.clientReadView(original) else original
         val product = service.product(application)
@@ -242,7 +243,7 @@ class ApplicationController(
         }
         val currentProduct = catalogPreview.getOrNull()
         val terms = application.terms
-        val uploaded = documents.list(application)
+        val uploaded = if (newDraft) emptyList() else documents.list(application)
         val isOwnClient = claims.isClient && claims.companyId == application.company.id
         val isOwnAgent = claims.isAgent && application.activeAgentId == claims.userId
         val canResume = isOwnClient &&

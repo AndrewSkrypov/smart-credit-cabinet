@@ -73,8 +73,11 @@ class GeneratedArtifacts(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Transactional
-    fun list(applicationId: UUID): List<ArtifactView> = prepare(applications.get(applicationId))
+    fun list(applicationId: UUID): List<ArtifactView> = if (boundary?.remote == true) {
+        prepare(applications.get(applicationId))
+    } else {
+        tx.execute { prepare(applications.get(applicationId)) }!!
+    }
 
     private fun prepare(application: LoanApplication): List<ArtifactView> {
         if (boundary?.remote == true) {
@@ -151,51 +154,101 @@ class GeneratedArtifacts(
         val remote = boundary!!
         val canonical = mapper.writeValueAsString(input)
         val hash = checksum(canonical.toByteArray())
-        // Credit owns the immutable terms and durable command intent, never remote file metadata.
-        jdbc.update(
-            "insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json) values(?,?,?,?,?::jsonb) on conflict do nothing",
-            application.id,
-            input.offerId,
-            input.phase.name,
-            hash,
-            canonical,
-        )
-        val frozen = if (input.phase == ArtifactPhase.FINAL) {
-            jdbc.queryForObject(
-                "select input_json from document_artifact_inputs where application_id=? and offer_id=? and phase='FINAL'",
-                String::class.java,
-                application.id,
-                input.offerId,
-            )!!
-        } else {
-            jdbc.queryForObject(
-                "select input_json from document_artifact_inputs where application_id=? and offer_id=? and phase=? and input_hash=?",
-                String::class.java,
+        // REQUIRED participates in a signing/business transaction without self-deadlocking
+        // on its application FK. Only the durable publisher may send after that outer commit.
+        val outerTransaction = org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+        val frozen = tx.execute {
+            // Credit owns the immutable terms and durable command intent, never remote file metadata.
+            jdbc.update(
+                "insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json) values(?,?,?,?,?::jsonb) on conflict do nothing",
                 application.id,
                 input.offerId,
                 input.phase.name,
                 hash,
-            )!!
-        }
+                canonical,
+            )
+            if (input.phase == ArtifactPhase.FINAL) {
+                jdbc.queryForObject(
+                    "select input_json from document_artifact_inputs where application_id=? and offer_id=? and phase='FINAL'",
+                    String::class.java,
+                    application.id,
+                    input.offerId,
+                )!!
+            } else {
+                jdbc.queryForObject(
+                    "select input_json from document_artifact_inputs where application_id=? and offer_id=? and phase=? and input_hash=?",
+                    String::class.java,
+                    application.id,
+                    input.offerId,
+                    input.phase.name,
+                    hash,
+                )!!
+            }
+        }!!
         val stableInput = mapper.readValue<ArtifactInput>(frozen)
         val stableJson = mapper.writeValueAsString(stableInput)
         val stableHash = checksum(stableJson.toByteArray())
-        val scope = remote.scope(application.id)
-        val kinds = ArtifactKind.entries.filter { input.phase == ArtifactPhase.FINAL || it != ArtifactKind.CONTRACT_PDF }
-        return remote.rpc {
-            kinds.map { kind ->
-                val id = UUID.randomUUID()
-                remote.client().prepare(
-                    ru.creditcabinet.documents.ArtifactRecord(
-                        id, scope, input.offerId, kind.name, input.phase.name, ArtifactRenderer.TEMPLATE_VERSION,
-                        stableHash, stableJson, renderer.title(kind, stableInput),
-                        "application-${application.number}-${kind.name.lowercase()}.${kind.extension}", kind.contentType,
-                        "generated-$id.${kind.extension}", files.writeBackend.name, clock.instant(),
-                    ),
-                ).remoteView()
+        val records = remoteRecords(application, stableInput, stableJson, stableHash)
+        if (outerTransaction) return records.map { it.remoteView() }
+        return publishRemote(application.id, records)
+    }
+
+    private fun remoteRecords(application: LoanApplication, input: ArtifactInput, json: String, hash: String): List<ru.creditcabinet.documents.ArtifactRecord> {
+        val scope = boundary!!.scope(application.id)
+        return ArtifactKind.entries.filter { input.phase == ArtifactPhase.FINAL || it != ArtifactKind.CONTRACT_PDF }.map { kind ->
+            val id = UUID.nameUUIDFromBytes(
+                "credit-artifact-v1:${application.id}:${input.offerId}:${kind.name}:${input.phase}:${ArtifactRenderer.TEMPLATE_VERSION}:$hash".toByteArray(),
+            )
+            ru.creditcabinet.documents.ArtifactRecord(
+                id, scope, input.offerId, kind.name, input.phase.name, ArtifactRenderer.TEMPLATE_VERSION,
+                hash, json, renderer.title(kind, input),
+                "application-${application.number}-${kind.name.lowercase()}.${kind.extension}", kind.contentType,
+                "generated-$id.${kind.extension}", files.writeBackend.name, clock.instant(),
+            )
+        }
+    }
+
+    private fun publishRemote(applicationId: UUID, records: List<ru.creditcabinet.documents.ArtifactRecord>): List<ArtifactView> {
+        check(!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+        val remote = boundary!!
+        val result = remote.rpc { records.map { remote.client().prepare(it).remoteView() } }
+        val first = records.first()
+        tx.executeWithoutResult {
+            jdbc.update(
+                "update document_artifact_inputs set delivered_at=now() where application_id=? and offer_id=? and phase=? and input_hash=? and delivered_at is null",
+                applicationId,
+                first.offerId,
+                first.phase,
+                first.inputHash,
+            )
+        }
+        return result
+    }
+
+    private fun publishPendingRemote() {
+        val pending = jdbc.query("select application_id,input_json from document_artifact_inputs where delivered_at is null order by created_at limit 5", {
+                rs,
+                _,
+            ->
+            rs.getObject(1, UUID::class.java) to mapper.readValue<ArtifactInput>(rs.getString(2))
+        })
+        pending.forEach { (id, input) ->
+            runCatching {
+                val application = repository.find(id) ?: throw NotFoundException("Заявка не найдена")
+                val json = mapper.writeValueAsString(input)
+                publishRemote(id, remoteRecords(application, input, json, checksum(json.toByteArray())))
             }
         }
     }
+
+    private fun confirmed(record: ru.creditcabinet.documents.ArtifactRecord): Boolean = jdbc.queryForObject(
+        "select exists(select 1 from document_artifact_references where application_id=? and offer_id=? and phase=? and input_hash=?)",
+        Boolean::class.java,
+        record.scope.applicationId,
+        record.offerId,
+        record.phase,
+        record.inputHash,
+    )!!
 
     private fun ru.creditcabinet.documents.ArtifactRecord.remoteView(): ArtifactView = ArtifactView(
         id, ArtifactKind.valueOf(kind), ArtifactPhase.valueOf(phase), title, fileName, contentType,
@@ -218,8 +271,8 @@ class GeneratedArtifacts(
             )
             ids.forEach { id ->
                 runCatching {
+                    prepare(repository.find(id) ?: throw NotFoundException("Заявка не найдена"))
                     tx.executeWithoutResult {
-                        prepare(repository.find(id) ?: throw NotFoundException("Заявка не найдена"))
                         jdbc.update(
                             "update document_artifact_inputs set delivered_at=now() where application_id=? and phase='FINAL' and delivered_at is null",
                             id,
@@ -227,6 +280,7 @@ class GeneratedArtifacts(
                     }
                 }
             }
+            publishPendingRemote()
             return
         }
         val ids = jdbc.query(
@@ -317,11 +371,20 @@ class GeneratedArtifacts(
         )
         return ids.count { id ->
             val groups = remote.rpc { remote.client().artifacts(remote.scope(id)) }.filter {
-                it.phase == "FINAL" &&
+                confirmed(it) &&
+                    it.phase == "FINAL" &&
                     it.templateVersion == ArtifactRenderer.TEMPLATE_VERSION
             }.groupBy { it.offerId to it.inputHash }
             groups.any { (key, artifacts) ->
                 if (artifacts.size != 3 || artifacts.any { it.status != "READY" }) return@any false
+                val delivered = jdbc.queryForObject(
+                    "select exists(select 1 from document_artifact_inputs where application_id=? and offer_id=? and phase='FINAL' and input_hash=? and delivered_at is not null)",
+                    Boolean::class.java,
+                    id,
+                    key.first,
+                    key.second,
+                )!!
+                if (!delivered) return@any false
                 tx.execute {
                     val claimed = jdbc.update(
                         "insert into generated_artifact_notices(application_id,offer_id,template_version,input_hash,queued_at) values(?,?,?,?,?) on conflict do nothing",
@@ -397,7 +460,14 @@ class GeneratedArtifacts(
     @Transactional
     fun retry(applicationId: UUID, artifactId: UUID): ArtifactView {
         applications.get(applicationId)
-        if (boundary?.remote == true) return boundary.rpc { boundary.client().retry(boundary.scope(applicationId), artifactId).remoteView() }
+        if (boundary?.remote == true) {
+            return boundary.rpc {
+                val scope = boundary.scope(applicationId)
+                val record =
+                    boundary.client().artifacts(scope).firstOrNull { it.id == artifactId && confirmed(it) } ?: throw NotFoundException("Файл не найден")
+                boundary.client().retry(scope, record.id).remoteView()
+            }
+        }
         val record =
             jdbc.query("select * from generated_artifacts where application_id=? and id=? for update", { rs, _ ->
                 view(rs)
@@ -469,7 +539,8 @@ class GeneratedArtifacts(
         if (boundary?.remote == true) {
             return boundary.rpc {
                 val scope = boundary.scope(applicationId)
-                val record = boundary.client().artifacts(scope).firstOrNull { it.id == artifactId } ?: throw NotFoundException("Файл не найден")
+                val record =
+                    boundary.client().artifacts(scope).firstOrNull { it.id == artifactId && confirmed(it) } ?: throw NotFoundException("Файл не найден")
                 if (record.status != "READY") throw ConflictException("Файл ещё не готов")
                 val bytes = boundary.client().artifactBytes(scope, artifactId)
                 require(bytes.size.toLong() == record.sizeBytes && checksum(bytes) == record.checksum)

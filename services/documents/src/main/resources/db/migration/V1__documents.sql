@@ -36,3 +36,13 @@ create table artifact_outbox (
  artifact_id uuid primary key references artifact_records(id),
  occurred_at timestamptz not null default now()
 );
+
+comment on table document_ownership is 'Административная ограда единственного Documents writer и его эпохи';
+comment on table document_application_scopes is 'Проверенная принадлежность заявки компании для внутренних mTLS запросов Credit';
+comment on table document_records is 'Авторитетные метаданные загруженных файлов; видимость подтверждает бизнес-ссылка Credit';
+comment on column document_records.metadata is 'Версионированная неизменяемая идентичность файла, backend, размер, checksum и отметка удаления';
+comment on table artifact_records is 'Авторитетные задания и метаданные неизменяемых сгенерированных артефактов';
+comment on column artifact_records.input_hash is 'SHA-256 зафиксированного входа, сохраняемого при повторах';
+comment on column artifact_records.lease_token is 'Точный токен текущего worker для ограждения запоздалого результата';
+comment on column artifact_records.lease_until is 'Граница действительности аренды текущего worker';
+comment on table artifact_outbox is 'Долговечная готовность артефактов для повторяемого опроса Credit';

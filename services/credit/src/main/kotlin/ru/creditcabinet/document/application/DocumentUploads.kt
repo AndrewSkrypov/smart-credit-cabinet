@@ -7,7 +7,7 @@ import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.document.domain.StoredFile
 import java.util.UUID
 
-data class DocumentUpload(val fileName: String?, val size: Long, val read: () -> ByteArray)
+data class DocumentUpload(val fileName: String?, val size: Long, val operationKey: String? = null, val read: () -> ByteArray)
 
 interface ApplicationDocuments {
     fun list(applicationId: UUID): List<ApplicationDocument>

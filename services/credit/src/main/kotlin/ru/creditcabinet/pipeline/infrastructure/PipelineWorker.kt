@@ -7,8 +7,6 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import ru.creditcabinet.application.domain.PipelineJob
 import ru.creditcabinet.application.domain.PipelineJobs
-import ru.creditcabinet.application.domain.PipelineStep
-import ru.creditcabinet.assessment.application.CreditAssessmentStore
 import ru.creditcabinet.observability.PipelineMetrics
 import ru.creditcabinet.pipeline.PipelineSettings
 import ru.creditcabinet.pipeline.application.PipelineJobHandler
@@ -30,7 +28,6 @@ class PipelineWorker(
     private val settings: PipelineSettings,
     private val clock: Clock,
     private val metrics: PipelineMetrics,
-    private val assessmentStore: CreditAssessmentStore? = null,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -56,19 +53,29 @@ class PipelineWorker(
         var failed = false
         try {
             steps.run(job)
+        } catch (exception: ru.creditcabinet.document.application.DocumentsUnavailable) {
+            failed = true
+            if (job.step == ru.creditcabinet.application.domain.PipelineStep.DATA_CHECK) {
+                jobs.retryDocumentsUnavailable(job, clock.instant())
+                log.warn("Pipeline DATA_CHECK waiting for Documents for application {}", job.applicationId)
+            } else {
+                unexpectedFailure(job, exception)
+            }
         } catch (exception: Exception) {
             failed = true
-            log.error("Pipeline step {} of application {} failed (attempt {})", job.step, job.applicationId, job.attempts, exception)
-            val fenced = assessmentStore?.takeIf { job.step == PipelineStep.ENRICHMENT || job.step == PipelineStep.SCORING }
-            if (job.attempts >= settings.maxAttempts) {
-                if (fenced == null) jobs.fail(job.id, exception.message) else fenced.failJob(job, exception.javaClass.simpleName)
-            } else {
-                val pause = Duration.ofSeconds(10).multipliedBy(1L shl (job.attempts - 1).coerceIn(0, 5))
-                val next = clock.instant().plus(pause)
-                if (fenced == null) jobs.retry(job.id, next, exception.message) else fenced.reschedule(job, next, exception.javaClass.simpleName)
-            }
+            unexpectedFailure(job, exception)
         } finally {
             metrics.step(job.step, startedNanos, failed)
+        }
+    }
+
+    private fun unexpectedFailure(job: PipelineJob, exception: Exception) {
+        log.error("Pipeline step {} of application {} failed (attempt {})", job.step, job.applicationId, job.attempts, exception)
+        if (job.businessFailures + 1 >= settings.maxAttempts) {
+            jobs.failClaim(job, clock.instant(), exception.message)
+        } else {
+            val pause = Duration.ofSeconds(10).multipliedBy(1L shl job.businessFailures.coerceIn(0, 5))
+            jobs.retryClaim(job, clock.instant(), clock.instant().plus(pause), exception.message)
         }
     }
 

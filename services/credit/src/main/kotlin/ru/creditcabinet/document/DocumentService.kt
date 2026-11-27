@@ -72,7 +72,9 @@ class DocumentService(
     /** A client adds documents while preparing the application or when the bank asked for them. */
     @Transactional
     override fun upload(applicationId: UUID, type: DocumentType, file: DocumentUpload, privateToBank: Boolean): ApplicationDocument {
-        val (claims, application) = ownForDocumentWrite(applicationId, forUpdate = privateToBank)
+        val (claims, application) = applications.own(applicationId, forUpdate = privateToBank)
+        replay(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, privateToBank, file.operationKey)?.let { return it }
+        if (application.status == ApplicationStatus.DRAFT && application.activeAgentId != null) throw NotFoundException("Заявка не найдена")
         if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
         if (privateToBank) {
             if (type != DocumentType.BANK_STATEMENT) throw BadRequestException("Приватная загрузка доступна для выписки по счёту")
@@ -81,21 +83,30 @@ class DocumentService(
                 infoRequests.open(application.id)?.items?.any { it.documentType == type } == true
             if (!requested) throw ConflictException("Банк сейчас не запрашивает выписку по счёту")
         }
-        return persist(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, privateToBank)
+        return persist(application, claims, type, file.fileName, file.size, file.read, DocumentContext.BUSINESS, privateToBank, file.operationKey)
     }
 
     /** An agent adds documents to their own mandate-verified application in DRAFT or INFO_REQUESTED. */
     @Transactional
-    fun uploadForAgent(application: LoanApplication, claims: TokenClaims, type: DocumentType, file: MultipartFile): ApplicationDocument {
+    fun uploadForAgent(
+        application: LoanApplication,
+        claims: TokenClaims,
+        type: DocumentType,
+        file: MultipartFile,
+        operationKey: String? = null,
+    ): ApplicationDocument {
+        replay(application, claims, type, file.originalFilename, file.size, { file.bytes }, DocumentContext.BUSINESS, false, operationKey)?.let { return it }
         if (application.status !in UPLOADABLE) throw ConflictException("Документы добавляются в черновик или по запросу банка")
         val upload = DocumentUpload(file.originalFilename, file.size) { file.bytes }
-        return persist(application, claims, type, upload.fileName, upload.size, upload.read, DocumentContext.BUSINESS)
+        return persist(application, claims, type, upload.fileName, upload.size, upload.read, DocumentContext.BUSINESS, operationKey = operationKey)
     }
 
     /** Chat shares validation and storage, but its files cannot satisfy financial requirements or add process events. */
     @Transactional
     fun uploadChat(application: LoanApplication, caller: TokenClaims, upload: ChatUpload): ApplicationDocument =
-        persist(application, caller, DocumentType.OTHER, upload.fileName, upload.bytes.size.toLong(), { upload.bytes }, DocumentContext.CHAT)
+        persist(application, caller, DocumentType.OTHER, upload.fileName, upload.bytes.size.toLong(), {
+            upload.bytes
+        }, DocumentContext.CHAT, operationKey = upload.operationKey)
 
     private fun persist(
         application: LoanApplication,
@@ -106,6 +117,7 @@ class DocumentService(
         content: () -> ByteArray,
         context: DocumentContext,
         privateToBank: Boolean = false,
+        operationKey: String? = null,
     ): ApplicationDocument {
         if (!uploadsEnabled) {
             throw ru.creditcabinet.common.exception.ApiException(
@@ -126,11 +138,20 @@ class DocumentService(
         if (!FileContent.matches(extension, bytes)) throw BadRequestException("Содержимое файла не похоже на .$extension — проверьте, что выбран нужный файл")
         scanner.scan(bytes)
         val now = clock.instant()
-        val document = ApplicationDocument(
+        val key = operationKey?.also { if (it.isBlank() || it.length > 128) throw BadRequestException("Некорректный ключ загрузки") }
+        val id = if (key != null) {
+            uploadId(application, claims, context, key)
+        } else {
+            UUID.randomUUID()
+        }
+        boundary?.lockUpload(id)
+        replay(application, claims, type, originalName, size, { bytes }, context, privateToBank, operationKey)?.let { return it }
+        var document = ApplicationDocument(
+            id = id,
             applicationId = application.id,
             type = type,
             fileName = fileName,
-            storedName = "${UUID.randomUUID()}.$extension",
+            storedName = "$id.$extension",
             sizeBytes = bytes.size.toLong(),
             uploadedBy = claims.userId,
             uploadedAt = now,
@@ -139,13 +160,15 @@ class DocumentService(
             checksumSha256 = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) },
             privateToBank = privateToBank,
         )
-        if (boundary?.remote == true) {
-            boundary.put(document, bytes)
+        val newlyCommitted = if (boundary?.remote == true) {
+            document = boundary.put(document, bytes)
+            boundary.commitReference(document)
         } else {
             store.put(document.storedName, bytes.inputStream(), document.sizeBytes)
             documents.save(document)
+            true
         }
-        if (context == DocumentContext.BUSINESS) {
+        if (newlyCommitted && context == DocumentContext.BUSINESS) {
             journal.append(
                 application.note(
                     if (privateToBank) JournalNote.PRIVATE_DOCUMENT_ADDED else JournalNote.DOCUMENT_ADDED,
@@ -164,6 +187,42 @@ class DocumentService(
             )
         }
         return document
+    }
+
+    private fun uploadId(application: LoanApplication, caller: TokenClaims, context: DocumentContext, key: String): UUID =
+        UUID.nameUUIDFromBytes("credit-document-v1:${application.company.id}:${application.id}:${caller.userId}:$context:$key".toByteArray())
+
+    /** Called only after read/mandate authorization; a committed success survives later submit. */
+    private fun replay(
+        application: LoanApplication,
+        caller: TokenClaims,
+        type: DocumentType,
+        originalName: String?,
+        size: Long,
+        content: () -> ByteArray,
+        context: DocumentContext,
+        privateToBank: Boolean,
+        key: String?,
+    ): ApplicationDocument? {
+        if (key == null || boundary == null) return null
+        if (key.isBlank() || key.length > 128) throw BadRequestException("Некорректный ключ загрузки")
+        val previous = boundary.committedUpload(application.id, uploadId(application, caller, context, key)) ?: return null
+        if (size <= 0 || size > maxSizeBytes) throw ConflictException("Ключ загрузки уже использован для другого файла")
+        val fileName = originalName?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }?.take(MAX_NAME) ?: "document"
+        val bytes = content()
+        val checksum = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        if (previous.uploadedBy != caller.userId ||
+            previous.type != type ||
+            previous.context != context ||
+            previous.privateToBank != privateToBank ||
+            previous.fileName != fileName ||
+            previous.sizeBytes != size ||
+            bytes.size.toLong() != size ||
+            previous.checksumSha256 != checksum
+        ) {
+            throw ConflictException("Ключ загрузки уже использован для другого файла")
+        }
+        return previous
     }
 
     /** Only from a draft: once sent, what the bank received stays in the application. */

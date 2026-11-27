@@ -61,6 +61,20 @@ class DocumentsRpc(private val store: DocumentsStore, private val mapper: Object
             }
             observer.onNext(result)
             observer.onCompleted()
+        } catch (_: DocumentConflict) {
+            observer.onError(Status.ALREADY_EXISTS.asRuntimeException())
+        } catch (failure: ru.creditcabinet.common.exception.ApiException) {
+            observer.onError(
+                (
+                    if (failure.httpStatus ==
+                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE
+                    ) {
+                        Status.UNAVAILABLE
+                    } else {
+                        Status.INVALID_ARGUMENT
+                    }
+                    ).asRuntimeException(),
+            )
         } catch (
             _: IllegalArgumentException,
         ) {
@@ -69,8 +83,12 @@ class DocumentsRpc(private val store: DocumentsStore, private val mapper: Object
             _: NoSuchElementException,
         ) {
             observer.onError(Status.NOT_FOUND.asRuntimeException())
-        } catch (_: Exception) {
-            observer.onError(Status.FAILED_PRECONDITION.asRuntimeException())
+        } catch (failure: Exception) {
+            val databaseUnavailable = generateSequence<Throwable>(failure) { it.cause }.take(12).filterIsInstance<java.sql.SQLException>().any {
+                it.sqlState?.take(2) in
+                    setOf("08", "53")
+            }
+            observer.onError((if (databaseUnavailable) Status.UNAVAILABLE else Status.FAILED_PRECONDITION).asRuntimeException())
         }
     }
     private fun content(bytes: ByteArray): Content = Content.newBuilder().setContent(ByteString.copyFrom(bytes)).setSha256(sha256(bytes)).build()

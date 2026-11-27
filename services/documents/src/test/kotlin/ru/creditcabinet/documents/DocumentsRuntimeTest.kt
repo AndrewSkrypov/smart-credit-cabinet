@@ -8,6 +8,7 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import ru.creditcabinet.contracts.documents.v1.DocumentsServiceGrpc
 import ru.creditcabinet.contracts.documents.v1.Scope
 import ru.creditcabinet.document.generated.ArtifactInput
+import ru.creditcabinet.document.generated.ArtifactKind
 import ru.creditcabinet.document.generated.ArtifactPhase
 import ru.creditcabinet.documentsgrpc.DocumentsGrpcClient
 import ru.creditcabinet.documentsgrpc.documentsTlsChannel
@@ -73,6 +74,40 @@ class DocumentsRuntimeTest {
             assertFailsWith<StatusRuntimeException> { remote.read(scope.copy(applicationId = UUID.randomUUID()), id, "BUSINESS") }
             assertFailsWith<StatusRuntimeException> { remote.read(scope, id, "CHAT") }
             assertFailsWith<StatusRuntimeException> { remote.put(record.copy(fileName = "changed.pdf"), bytes) }
+            val concurrentId = UUID.randomUUID()
+            val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
+            val start = java.util.concurrent.CountDownLatch(1)
+            try {
+                val results = listOf("pdf", "jpg").map { extension ->
+                    executor.submit<Status.Code> {
+                        check(start.await(5, TimeUnit.SECONDS))
+                        try {
+                            client {
+                                it.put(record.copy(id = concurrentId, fileName = "concurrent.$extension", storedName = "$concurrentId.$extension"), bytes)
+                            }
+                            Status.Code.OK
+                        } catch (failure: StatusRuntimeException) {
+                            failure.status.code
+                        }
+                    }
+                }
+                start.countDown()
+                assertEquals(setOf(Status.Code.OK, Status.Code.ALREADY_EXISTS), results.map { it.get(10, TimeUnit.SECONDS) }.toSet())
+                val winner = remote.list(scope).single { it.id == concurrentId }
+                val loser = "$concurrentId.${if (winner.storedName.endsWith(".pdf")) "jpg" else "pdf"}"
+                File(env("DOCUMENTS_TEST_PROOF_DIR"), "concurrent-upload-paths.json").writeText(
+                    mapper.writeValueAsString(
+                        mapOf(
+                            "id" to concurrentId,
+                            "winner" to winner.storedName,
+                            "loser" to loser,
+                        ),
+                    ),
+                )
+            } finally {
+                executor.shutdownNow()
+                executor.awaitTermination(5, TimeUnit.SECONDS)
+            }
             val infected = "EICAR-STANDARD-ANTIVIRUS-TEST-FILE".toByteArray()
             assertFailsWith<StatusRuntimeException> {
                 remote.put(
@@ -226,6 +261,61 @@ class DocumentsRuntimeTest {
             assertEquals(ready.checksum, sha256(bytes))
             assertEquals(ready, remote.retry(scope, ready.id))
             assertContentEquals(bytes, remote.artifactBytes(scope, ready.id))
+            // Real row-lock race: retry begins against ERROR while a worker commits READY.
+            val immutableReady = ready
+            db("documents") { connection ->
+                connection.prepareStatement(
+                    "update artifact_records set status='ERROR',metadata=?::jsonb,next_attempt_at=now()+interval '1 day',lease_until=null where id=?",
+                ).use { statement ->
+                    statement.setString(1, mapper.writeValueAsString(ready.copy(status = "ERROR", sizeBytes = null, checksum = null, readyAt = null)))
+                    statement.setObject(2, ready.id)
+                    statement.executeUpdate()
+                }
+            }
+            db("documents") { connection ->
+                connection.autoCommit = false
+                connection.prepareStatement("select id from artifact_records where id=? for update").use { statement ->
+                    statement.setObject(1, ready.id)
+                    statement.executeQuery().close()
+                }
+                val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+                try {
+                    val retry = executor.submit<ArtifactRecord> {
+                        var result: ArtifactRecord? = null
+                        client { result = it.retry(scope, immutableReady.id) }
+                        result!!
+                    }
+                    val deadlineForLock = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
+                    var waiting = false
+                    while (!waiting && System.nanoTime() < deadlineForLock) {
+                        db("documents") { observer ->
+                            observer.createStatement().use { statement ->
+                                statement.executeQuery(
+                                    "select exists(select 1 from pg_stat_activity where wait_event_type='Lock' and query like 'select metadata from artifact_records%for update%')",
+                                ).use { rs ->
+                                    rs.next()
+                                    waiting =
+                                        rs.getBoolean(1)
+                                }
+                            }
+                        }
+                        if (!waiting) Thread.sleep(25)
+                    }
+                    assertTrue(waiting, "Retry did not acquire the real row-lock checkpoint")
+                    connection.prepareStatement("update artifact_records set status='READY',metadata=?::jsonb,lease_until=null where id=?").use { statement ->
+                        statement.setString(1, mapper.writeValueAsString(immutableReady))
+                        statement.setObject(2, ready.id)
+                        statement.executeUpdate()
+                    }
+                    connection.commit()
+                    assertEquals(immutableReady, retry.get(5, TimeUnit.SECONDS))
+                    assertContentEquals(bytes, remote.artifactBytes(scope, ready.id))
+                } finally {
+                    connection.rollback()
+                    executor.shutdownNow()
+                    executor.awaitTermination(5, TimeUnit.SECONDS)
+                }
+            }
             assertEquals(frozen, ready.inputJson)
             assertTrue(ready.inputJson.contains("\"rate\":12.00"))
             assertEquals(input, mapper.readValue(ready.inputJson, ArtifactInput::class.java))
@@ -303,11 +393,38 @@ class DocumentsRuntimeTest {
                     statement.executeUpdate()
                 }
             }
+            registerArtifactReference(legacy)
             val replacement = remote.retry(scope, legacyId)
             assertTrue(replacement.id != legacyId)
             assertEquals(2, replacement.templateVersion)
             assertEquals(legacyJson, replacement.inputJson)
             assertEquals(legacy.inputHash, replacement.inputHash)
+            // An independently READY remote orphan cannot be downloaded/retried/notified or reversed.
+            val orphanJson = mapper.writeValueAsString(input.copy(companyName = "Uncommitted artifact"))
+            val orphanIds = ArtifactKind.entries.map { kind ->
+                val orphanId = UUID.randomUUID()
+                remote.prepare(
+                    record.copy(
+                        id = orphanId,
+                        kind = kind.name,
+                        inputJson = orphanJson,
+                        inputHash = sha256(orphanJson.toByteArray()),
+                        title = "Uncommitted artifact",
+                        fileName = "orphan.${kind.extension}",
+                        contentType = kind.contentType,
+                        storedName = "generated-$orphanId.${kind.extension}",
+                    ),
+                )
+                orphanId
+            }
+            val orphanDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(40)
+            while (remote.artifacts(scope).filter { it.id in orphanIds }.any { it.status != "READY" } && System.nanoTime() < orphanDeadline) Thread.sleep(200)
+            assertEquals(3, remote.artifacts(scope).count { it.id in orphanIds && it.status == "READY" })
+            val auth = token(UUID.randomUUID(), "CLIENT", scope.companyId)
+            orphanIds.forEach { orphanId ->
+                assertEquals(404, http("/api/v1/applications/${scope.applicationId}/artifacts/$orphanId/download", auth).statusCode())
+                assertEquals(404, http("/api/v1/applications/${scope.applicationId}/artifacts/$orphanId/retry", auth, "{}").statusCode())
+            }
             val recoveryJson = mapper.writeValueAsString(recoveryInput)
             val recovery = record.copy(
                 id = recoveryId,
@@ -316,6 +433,7 @@ class DocumentsRuntimeTest {
                 inputHash = sha256(recoveryJson.toByteArray()),
                 storedName = "generated-$recoveryId.pdf",
             )
+            registerArtifactReference(recovery)
             db("documents") { connection ->
                 connection.prepareStatement(
                     "insert into artifact_records(id,company_id,application_id,offer_id,kind,phase,template_version,input_hash,metadata,lease_token,lease_until,next_attempt_at) values(?,?,?,?,'CONTRACT_PDF','FINAL',2,?,?::jsonb,?,now()+interval '1 day',now()+interval '1 day')",
@@ -406,6 +524,21 @@ class DocumentsRuntimeTest {
             ).statusCode(),
         )
         assertEquals(404, http("/internal/documents/v1", client).statusCode())
+        val bank = token(UUID.randomUUID(), "UNDERWRITER", null)
+        assertEquals(200, http("/api/v1/applications", bank).statusCode())
+        assertEquals(200, http(base, bank).statusCode())
+        assertEquals(200, http("$base/financing-scenario", client).statusCode())
+        val uploaded = multipart("$base/messages/attachments", client, UUID.randomUUID().toString(), "chat.pdf", "%PDF-1.4\nchat\n%%EOF".toByteArray())
+        assertEquals(200, uploaded.statusCode(), String(uploaded.body()))
+        val chatId = mapper.readTree(uploaded.body())["id"].asText()
+        assertEquals(
+            200,
+            http("$base/messages", client, """{"idempotencyKey":"${UUID.randomUUID()}","text":"Remote attachment","documentIds":["$chatId"]}""").statusCode(),
+        )
+        val messages = http("$base/messages", bank)
+        assertEquals(200, messages.statusCode())
+        assertTrue(String(messages.body()).contains(chatId))
+        assertEquals(200, http("$base/documents/$chatId", bank).statusCode())
     }
 
     @Test
@@ -431,12 +564,185 @@ class DocumentsRuntimeTest {
             connection.createStatement().use { statement ->
                 val denied = assertFailsWith<java.sql.SQLException> { statement.executeUpdate("update document_ownership set epoch=epoch+1") }
                 assertEquals("42501", denied.sqlState)
+                for (table in listOf("documents", "generated_artifacts")) {
+                    val oldReader = assertFailsWith<java.sql.SQLException> { statement.executeQuery("select * from $table limit 1") }
+                    assertEquals("42501", oldReader.sqlState)
+                }
                 val fenced = assertFailsWith<java.sql.SQLException> { statement.executeQuery("select public.assert_local_documents_writer()") }
                 assertEquals("55000", fenced.sqlState)
             }
         }
         assertFailsWith<java.sql.SQLException> { DriverManager.getConnection("$base/credit", "documents_app", documentsPassword).close() }
         assertFailsWith<java.sql.SQLException> { DriverManager.getConnection("$base/documents", "credit_app", creditPassword).close() }
+    }
+
+    @Test
+    fun `Credit rollback and lost reply keep uploads invisible until committed reference and replay exact owner metadata`() {
+        val application = UUID.randomUUID()
+        val company = UUID.randomUUID()
+        val actor = UUID.randomUUID()
+        val auth = token(actor, "CLIENT", company)
+        val documentScope = DocumentScope(company, application)
+        val base = "/api/v1/applications/$application"
+        db("credit") { connection ->
+            connection.createStatement().use {
+                it.executeUpdate(
+                    "insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,status_changed_at,product_catalog_snapshot) values('$application','$company','000100000004','Upload rollback','ENTREPRENEUR','$actor','WORKING_CAPITAL','CASH_GAP',123456,6,'DRAFT',now(),now(),now(),'{\"WORKING_CAPITAL\":1}')",
+                )
+            }
+        }
+        for ((index, lostReply) in listOf(false, true, false).withIndex()) {
+            val key = UUID.randomUUID().toString()
+            val fileName = if (index == 2) {
+                "abandoned-upload.pdf"
+            } else if (lostReply) {
+                "timeout-rollback.pdf"
+            } else {
+                "journal-rollback.pdf"
+            }
+            val bytes = "%PDF-1.4\n$fileName\n%%EOF".toByteArray()
+            db("credit") { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute(
+                        "create function documents_gate_journal_failure() returns trigger language plpgsql as $$ begin if new.application_id='$application' and new.payload->>'fileName'='$fileName' then perform pg_sleep(${if (lostReply) 2 else 0}); raise exception 'Synthetic journal rollback'; end if; return new; end $$",
+                    )
+                    statement.execute(
+                        "create trigger documents_gate_journal_failure before insert on application_events for each row execute function documents_gate_journal_failure()",
+                    )
+                }
+            }
+            try {
+                if (lostReply) {
+                    assertFailsWith<java.net.http.HttpTimeoutException> { multipart("$base/documents?type=OTHER", auth, key, fileName, bytes, 300) }
+                    Thread.sleep(3000)
+                } else {
+                    assertEquals(500, multipart("$base/documents?type=OTHER", auth, key, fileName, bytes).statusCode())
+                }
+                var orphan: DocumentRecord? = null
+                client { remote -> orphan = remote.list(documentScope).single { it.fileName == fileName } }
+                val stored = orphan!!
+                assertEquals(404, http("$base/documents/${stored.id}", auth).statusCode())
+                val view = http(base, auth)
+                assertEquals(200, view.statusCode())
+                assertTrue(mapper.readTree(view.body())["documents"].none { it["id"].asText() == stored.id.toString() })
+                db("credit") { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.executeQuery("select count(*) from document_references where document_id='${stored.id}'").use { rs ->
+                            rs.next()
+                            assertEquals(0, rs.getInt(1))
+                        }
+                    }
+                }
+            } finally {
+                db("credit") { connection ->
+                    connection.createStatement().use {
+                        it.execute("drop trigger documents_gate_journal_failure on application_events; drop function documents_gate_journal_failure()")
+                    }
+                }
+            }
+            if (index == 2) continue
+            var before: DocumentRecord? = null
+            client { remote -> before = remote.list(documentScope).single { it.fileName == fileName } }
+            val retry = multipart("$base/documents?type=OTHER", auth, key, fileName, bytes)
+            assertEquals(201, retry.statusCode(), String(retry.body()))
+            val actual = mapper.readTree(retry.body())
+            assertEquals(before!!.id.toString(), actual["id"].asText())
+            assertEquals(before!!.uploadedAt, Instant.parse(actual["uploadedAt"].asText()))
+            db("credit") { connection ->
+                connection.createStatement().use { it.executeUpdate("update applications set status='SUBMITTED' where id='$application'") }
+            }
+            assertContentEquals(retry.body(), multipart("$base/documents?type=OTHER", auth, key, fileName, bytes).body())
+            db("credit") { connection ->
+                connection.createStatement().use { it.executeUpdate("update applications set status='DRAFT' where id='$application'") }
+            }
+            assertEquals(409, multipart("$base/documents?type=OTHER", auth, key, fileName, "%PDF-1.4\nchanged\n%%EOF".toByteArray()).statusCode())
+            client { remote -> assertEquals(before, remote.list(documentScope).single { it.fileName == fileName }) }
+            db("credit") { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery(
+                        "select count(*) from application_events where application_id='$application' and event='DOCUMENT_ADDED' and payload->>'documentId'='${before!!.id}'",
+                    ).use { rs ->
+                        rs.next()
+                        assertEquals(1, rs.getInt(1))
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `delete journal rollback preserves metadata and committed removal survives remote outage and reverse`() {
+        val application = UUID.randomUUID()
+        val company = UUID.randomUUID()
+        val actor = UUID.randomUUID()
+        val auth = token(actor, "CLIENT", company)
+        val base = "/api/v1/applications/$application"
+        db("credit") { connection ->
+            connection.createStatement().use {
+                it.executeUpdate(
+                    "insert into applications(id,company_id,company_inn,company_name,legal_form,created_by,product_code,purpose,amount,term_months,status,created_at,updated_at,status_changed_at,product_catalog_snapshot) values('$application','$company','000100000004','Deletion rollback','ENTREPRENEUR','$actor','WORKING_CAPITAL','CASH_GAP',123456,6,'DRAFT',now(),now(),now(),'{\"WORKING_CAPITAL\":1}')",
+                )
+            }
+        }
+        for (deferred in listOf(false, true)) {
+            val uploaded = multipart("$base/documents?type=OTHER", auth, UUID.randomUUID().toString(), "deletion.pdf", "%PDF-1.4\ndelete\n%%EOF".toByteArray())
+            assertEquals(201, uploaded.statusCode())
+            val id = UUID.fromString(mapper.readTree(uploaded.body())["id"].asText())
+            db("credit") { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute(
+                        "create function documents_gate_delete_rollback() returns trigger language plpgsql as $$ begin if new.application_id='$application' and new.event='DOCUMENT_REMOVED' then raise exception 'Synthetic delete journal rollback'; end if; return new; end $$; create trigger documents_gate_delete_rollback before insert on application_events for each row execute function documents_gate_delete_rollback()",
+                    )
+                }
+            }
+            try {
+                assertEquals(500, delete("$base/documents/$id", auth).statusCode())
+                assertEquals(200, http("$base/documents/$id", auth).statusCode())
+                client { remote -> assertEquals(null, remote.list(DocumentScope(company, application)).single { it.id == id }.deletedAt) }
+                db("credit") { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.executeQuery("select count(*) from document_deletion_intents where document_id='$id'").use { rs ->
+                            rs.next()
+                            assertEquals(0, rs.getInt(1))
+                        }
+                    }
+                }
+            } finally {
+                db("credit") { connection ->
+                    connection.createStatement().use {
+                        it.execute("drop trigger documents_gate_delete_rollback on application_events; drop function documents_gate_delete_rollback()")
+                    }
+                }
+            }
+            assertEquals(204, delete("$base/documents/$id", auth).statusCode())
+            assertEquals(404, http("$base/documents/$id", auth).statusCode())
+            client { remote -> assertEquals(null, remote.list(DocumentScope(company, application)).single { it.id == id }.deletedAt) }
+            if (deferred) {
+                db("credit") { connection ->
+                    connection.createStatement().use {
+                        it.executeUpdate("update document_deletion_intents set run_at=now()+interval '1 hour' where document_id='$id'")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun delete(path: String, token: String): HttpResponse<ByteArray> = HttpClient.newHttpClient().send(
+        HttpRequest.newBuilder(
+            URI.create(env("DOCUMENTS_TEST_CREDIT_URL") + path),
+        ).timeout(java.time.Duration.ofSeconds(5)).header("Authorization", "Bearer $token").DELETE().build(),
+        HttpResponse.BodyHandlers.ofByteArray(),
+    )
+
+    private fun multipart(path: String, token: String, key: String, name: String, bytes: ByteArray, timeoutMs: Long = 10000): HttpResponse<ByteArray> {
+        val boundary = "documents-runtime-${UUID.randomUUID()}"
+        val prefix = "--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"$name\"\r\nContent-Type: application/pdf\r\n\r\n".toByteArray()
+        val body = prefix + bytes + "\r\n--$boundary--\r\n".toByteArray()
+        val request = HttpRequest.newBuilder(URI.create(env("DOCUMENTS_TEST_CREDIT_URL") + path))
+            .timeout(java.time.Duration.ofMillis(timeoutMs)).header("Authorization", "Bearer $token")
+            .header("Idempotency-Key", key).header("Content-Type", "multipart/form-data; boundary=$boundary")
+            .POST(HttpRequest.BodyPublishers.ofByteArray(body)).build()
+        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofByteArray())
     }
 
     private fun http(path: String, token: String, body: String? = null): HttpResponse<ByteArray> {
@@ -471,6 +777,21 @@ class DocumentsRuntimeTest {
         val signature = Mac.getInstance("HmacSHA256").apply { init(SecretKeySpec(key, "HmacSHA256")) }.doFinal(unsigned.toByteArray())
         return "$unsigned.${encoded(signature)}"
     }
+    private fun registerArtifactReference(record: ArtifactRecord) {
+        db("credit") { connection ->
+            connection.prepareStatement(
+                "insert into document_artifact_references(application_id,offer_id,phase,input_hash,input_json) values(?,?,?,?,?::jsonb) on conflict do nothing",
+            ).use { statement ->
+                statement.setObject(1, record.scope.applicationId)
+                statement.setObject(2, record.offerId)
+                statement.setString(3, record.phase)
+                statement.setString(4, record.inputHash)
+                statement.setString(5, record.inputJson)
+                statement.executeUpdate()
+            }
+        }
+    }
+
     private fun db(name: String, action: (java.sql.Connection) -> Unit) {
         DriverManager.getConnection(
             env("DOCUMENTS_TEST_DATABASE_BASE") + "/$name",

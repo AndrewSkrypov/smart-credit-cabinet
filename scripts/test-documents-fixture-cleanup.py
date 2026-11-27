@@ -17,6 +17,7 @@ cleanup=importlib.util.module_from_spec(spec);spec.loader.exec_module(cleanup)
 
 
 class CleanupTest(unittest.TestCase):
+    @patch.dict('os.environ', {}, clear=True)
     def check_uncertain(self,unreadable):
         scope='cabinet-documents-native-'+uuid.uuid4().hex
         source='0'*40

@@ -66,6 +66,7 @@ class PreApprovedOfferService(
             throw BadRequestException("Некорректные параметры для расчёта предодобренного предложения")
         }
         val product = products.find(productCode.trim()) ?: throw NotFoundException("Продукт не найден")
+        companies.find(companyId) ?: throw NotFoundException("Компания не найдена")
         val now = clock.instant()
         store.listActiveByCompany(companyId, now).firstOrNull { it.productCode == product.code }?.let { return it }
         val offer = PreApprovedOffer.evaluate(

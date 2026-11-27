@@ -11,6 +11,7 @@ export interface TourStep {
 export interface RoleTourConfig {
   welcomeTitle: string;
   welcomeSubtitle: string;
+  readyStepId: string;
   steps: TourStep[];
 }
 
@@ -49,6 +50,7 @@ export function writeOnboardingState(userId: string, role: Role, state: Onboardi
 
 export const roleTours: Record<Role, RoleTourConfig> = {
   AGENT: {
+    readyStepId: 'agent-kpi',
     welcomeTitle: 'Впервые в кабинете агента?',
     welcomeSubtitle: 'За 30 секунд покажем портфель клиентов, предодобренные предложения, расчёт комиссий и границы полномочий.',
     steps: [
@@ -90,6 +92,7 @@ export const roleTours: Record<Role, RoleTourConfig> = {
     ]
   },
   CLIENT: {
+    readyStepId: 'client-applications',
     welcomeTitle: 'Впервые в кредитном кабинете?',
     welcomeSubtitle: 'За 30 секунд покажем, как подобрать кредит, подтвердить заявку от агента и отслеживать решение банка.',
     steps: [
@@ -131,6 +134,7 @@ export const roleTours: Record<Role, RoleTourConfig> = {
     ]
   },
   MANAGER: {
+    readyStepId: 'manager-queue',
     welcomeTitle: 'Гид по рабочему месту менеджера',
     welcomeSubtitle: 'Короткий обзор очереди заявок, агентских бейджей и инструментов дозапроса документов.',
     steps: [
@@ -158,6 +162,7 @@ export const roleTours: Record<Role, RoleTourConfig> = {
     ]
   },
   UNDERWRITER: {
+    readyStepId: 'uw-queue',
     welcomeTitle: 'Гид по рабочему месту андеррайтера',
     welcomeSubtitle: 'Покажем очередь ручного рассмотрения, SLA и доступ к скорингу и экспертной системе.',
     steps: [
@@ -185,6 +190,7 @@ export const roleTours: Record<Role, RoleTourConfig> = {
     ]
   },
   RISK_ADMIN: {
+    readyStepId: 'risk-queue',
     welcomeTitle: 'Гид риск-администратора',
     welcomeSubtitle: 'Быстрый обзор конструктора продуктов, правил кредитной политики и аналитики воронки.',
     steps: [
@@ -228,6 +234,7 @@ export interface PageTourConfig extends RoleTourConfig {
 export const pageTours: PageTourConfig[] = [
   {
     id: 'client-application',
+    readyStepId: 'app-status',
     roles: ['CLIENT'],
     path: /^\/client\/applications\/[^/]+\/?$/,
     welcomeTitle: 'Впервые в карточке заявки?',
@@ -300,6 +307,7 @@ export const pageTours: PageTourConfig[] = [
   },
   {
     id: 'agent-application',
+    readyStepId: 'agent-app-status',
     roles: ['AGENT'],
     path: /^\/agent\/applications\/[^/]+\/?$/,
     welcomeTitle: 'Как вести заявку клиента',
@@ -365,6 +373,7 @@ export const pageTours: PageTourConfig[] = [
   },
   {
     id: 'agent-client',
+    readyStepId: 'agent-client-applications',
     roles: ['AGENT'],
     path: /^\/agent\/clients\/[^/]+\/?$/,
     welcomeTitle: 'Карточка клиента',
@@ -395,6 +404,7 @@ export const pageTours: PageTourConfig[] = [
   },
   {
     id: 'bank-application',
+    readyStepId: 'bank-app-summary',
     roles: BANK_STAFF,
     path: /^\/bank\/applications\/[^/]+\/?$/,
     welcomeTitle: 'Как читать карточку оценки',
@@ -453,6 +463,7 @@ export const pageTours: PageTourConfig[] = [
   },
   {
     id: 'bank-products',
+    readyStepId: 'products-select',
     roles: BANK_STAFF,
     path: /^\/bank\/products\/?$/,
     welcomeTitle: 'Конструктор продуктов',

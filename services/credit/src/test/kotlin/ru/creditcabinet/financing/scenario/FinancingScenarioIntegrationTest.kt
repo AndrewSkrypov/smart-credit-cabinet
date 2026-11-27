@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.mock.web.MockHttpServletResponse
+import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
@@ -23,6 +24,7 @@ import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
 import ru.creditcabinet.agent.domain.AgentAccessDecision
 import ru.creditcabinet.agent.domain.AgentAccessPort
+import ru.creditcabinet.agent.domain.AgentAccessUnavailable
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationJournal
@@ -56,7 +58,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-@SpringBootTest(properties = ["cabinet.outbox.worker-enabled=false"])
+@SpringBootTest(properties = ["cabinet.outbox.worker-enabled=false", "server.address=127.0.0.1"])
+@ActiveProfiles("agent-mcp-local")
 @AutoConfigureMockMvc
 class FinancingScenarioIntegrationTest {
     @Autowired private lateinit var mvc: MockMvc
@@ -317,6 +320,90 @@ class FinancingScenarioIntegrationTest {
             document.save(output)
         }
         return output.toByteArray()
+    }
+
+    @Test
+    fun `MCP projections use live access and saved preview matches web without writing`() {
+        val application = draft()
+        val id = application.id
+        val path = agentPath(id)
+        val summaryPath = "/api/v1/agent/mcp/applications/$id/summary"
+        val prioritiesPath = "/api/v1/agent/mcp/priorities?limit=1"
+        val previewPath = "$path/financing-scenario/preview"
+        whenever(mandates.listCompanyIds(agentId)).thenReturn(listOf(company.id))
+
+        fun request(delay: Int) = """{"mode":"SAVED_SCENARIO","delayDays":$delay,"alternativeTermMonths":24}"""
+
+        assertEquals(409, post(previewPath, agent, request(5)).status)
+        assertEquals("PREVIEW_NOT_READY", mapper.readTree(post(previewPath, agent, request(5)).contentAsString)["code"].asText())
+        val first = snapshot(putScenario(path, delayDays = 5))
+        val summary = snapshot(get(summaryPath, agent))
+        val priority = snapshot(get(prioritiesPath, agent))["items"].single()
+        assertEquals(priority, summary["application"])
+        assertEquals("AGENT", priority["actionOwner"].asText())
+        assertEquals(application.version.toString(), summary["applicationVersion"].asText())
+
+        val before = stateOf(id)
+        val results = listOf(5, 6, 5).map { delay ->
+            val preview = snapshot(post(previewPath, agent, request(delay)))
+            assertTrue(preview["preview"].asBoolean())
+            assertEquals(first["revision"].asLong().toString(), preview["basis"]["savedScenarioRevision"].asText())
+            assertEquals(delay == 5, preview["inputsUsed"]["receiptIncludedByPayment"].asBoolean())
+            assertEquals(5, preview["inputsUsed"]["lastIncludedDelayDays"].asInt())
+            for ((web, trial) in first["options"].zip(preview["options"])) {
+                assertEquals(0, web["monthlyPayment"].decimalValue().compareTo(trial["monthlyPaymentRub"].asText().toBigDecimal()))
+                assertEquals(0, web["totalInterest"].decimalValue().compareTo(trial["totalInterestRub"].asText().toBigDecimal()))
+                val webBalance = web["balanceOnPaymentDate"].decimalValue()
+                val expected = if (delay == 6) webBalance - BigDecimal("140000") else webBalance
+                assertEquals(0, expected.compareTo(trial["balanceOnPaymentDateRub"].asText().toBigDecimal()))
+                assertTrue(trial["balanceOnPaymentDateRub"].isTextual)
+            }
+            assertEquals(before, stateOf(id))
+            preview["options"]
+        }
+        assertEquals(results.first(), results.last())
+
+        assertEquals(400, post(previewPath, agent, request(5).replace("5,", "5.0,")).status)
+        assertEquals(400, post(previewPath, agent, request(5).dropLast(1) + ""","companyId":"extra"}""").status)
+        assertEquals(400, post(previewPath, agent, request(5).replace("24", "12")).status)
+        assertEquals(403, get(summaryPath, bank).status)
+        val denied = get("/api/v1/agent/mcp/applications/${UUID.randomUUID()}/summary", agent)
+        assertEquals(404, denied.status)
+        assertEquals(denied.contentAsString, get(summaryPath, token(Roles.AGENT)).contentAsString)
+        whenever(mandates.checkAccess(agentId, company.id)).thenReturn(AgentAccessDecision(allowed = false, company = null))
+        whenever(mandates.listCompanyIds(agentId)).thenReturn(emptyList())
+        assertEquals(denied.contentAsString, get(summaryPath, agent).contentAsString)
+        assertEquals(denied.contentAsString, post(previewPath, agent, request(5)).contentAsString)
+        assertTrue(snapshot(get(prioritiesPath, agent))["items"].isEmpty)
+        whenever(mandates.checkAccess(agentId, company.id)).thenThrow(AgentAccessUnavailable())
+        val unavailable = get(summaryPath, agent)
+        assertEquals(503, unavailable.status)
+        assertEquals("DEPENDENCY_UNAVAILABLE", mapper.readTree(unavailable.contentAsString)["code"].asText())
+        assertEquals(before, stateOf(id))
+    }
+
+    private fun stateOf(id: UUID): List<List<String>> {
+        val scopedTables = listOf(
+            "financing_scenario_revisions",
+            "financing_scenario_publications",
+            "documents",
+            "application_events",
+            "assessment_exchange_outbox",
+            "servicing_open_outbox",
+        )
+        val application = jdbc.queryForList("select version::text from applications where id = ?", String::class.java, id)
+        val scoped = scopedTables.map { table ->
+            jdbc.queryForList("select to_jsonb(r)::text from $table r where application_id = ? order by 1", String::class.java, id)
+        }
+        val outbox = listOf("application_status_outbox", "delivery_outbox").map { table ->
+            jdbc.queryForList(
+                "select to_jsonb(r)::text from $table r where event_key like ? or payload::text like ? order by 1",
+                String::class.java,
+                "%$id%",
+                "%$id%",
+            )
+        }
+        return listOf(application) + scoped + outbox
     }
 
     private fun draft(): LoanApplication {

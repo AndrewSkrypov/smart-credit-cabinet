@@ -211,7 +211,7 @@ class Acceptance:
         self.receipt["checks"][label] = {"sha256": manifest["sha256"], "counts": {table: len(rows) for table, rows in manifest["tables"].items()}}
 
     def operation_receipts(self, database):
-        return json.loads(self.sql(database, database + "_owner", "set timezone='UTC'; select coalesce(jsonb_agg(to_jsonb(r) order by loan_account_id,operation_key),'[]'::jsonb) from loan_operations r;"))
+        return json.loads(self.sql(database, database + "_owner", "set timezone='UTC'; select coalesce(jsonb_agg(to_jsonb(r)||jsonb_build_object('result',r.result::text) order by loan_account_id,operation_key),'[]'::jsonb) from loan_operations r;"))
 
     def retired_receipts(self, database):
         permissions = (REPO / "libs/platform-common/src/main/resources/cabinet/database-permissions.sql").read_text().replace("__OWNER__", database + "_owner").replace("__APP__", database + "_app")

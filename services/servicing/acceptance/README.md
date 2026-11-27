@@ -39,3 +39,6 @@ LOCAL engine. В обоих направлениях возвращается п
 новые платежи и остатки сохраняются. Gate сравнивает все operation keys,
 fingerprints, results и timestamps и проверяет запрет чтения retired copies
 после общего regrant, в том числе на checkpoint отказавшего переноса.
+В snapshot поле `loan_operations.result` переносится как точный PostgreSQL
+`result::text`, импортируемый обратно явным cast в JSONB. Python не переводит
+денежные числа первого ответа в float: сохраняются scale и precision.

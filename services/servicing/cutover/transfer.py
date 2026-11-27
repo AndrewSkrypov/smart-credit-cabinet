@@ -43,10 +43,11 @@ def literal(value):
 
 
 def query_snapshot():
-    return "select jsonb_build_object(" + ",".join(
-        f"'{table}',coalesce((select jsonb_agg(to_jsonb(t) order by {','.join(keys)}) from {table} t),'[]'::jsonb)"
-        for table, keys in TABLES.items()
-    ) + ");"
+    fields = []
+    for table, keys in TABLES.items():
+        row = "to_jsonb(t) || jsonb_build_object('result',t.result::text)" if table == "loan_operations" else "to_jsonb(t)"
+        fields.append(f"'{table}',coalesce((select jsonb_agg({row} order by {','.join(keys)}) from {table} t),'[]'::jsonb)")
+    return "select jsonb_build_object(" + ",".join(fields) + ");"
 
 
 def snapshot(service):
@@ -100,6 +101,10 @@ def activate(service, writer, digest):
 
 
 def import_snapshot(service, data):
+    # The first response contains BigDecimal values: keep PostgreSQL's exact JSON
+    # text opaque to Python float decoding, including scale and arbitrary precision.
+    if any(not isinstance(row.get("result"), str) for row in data["loan_operations"]):
+        raise SystemExit("Operation receipt result must be exact PostgreSQL JSON text")
     statements = ["begin; set local lock_timeout='30s'; select writer from servicing_writer_fence where singleton for update;",
                   guard("(select writer='FENCED' from servicing_writer_fence where singleton)", "Target is not fenced")]
     incoming = data["loan_accounts"]
@@ -128,7 +133,8 @@ def import_snapshot(service, data):
                 raise SystemExit("Invalid snapshot column")
             updates = ",".join(f"{col}=excluded.{col}" for col in columns if col not in keys)
             document = literal(json.dumps(rows, ensure_ascii=False))
-            statements.append(f"insert into {table} select * from jsonb_populate_recordset(null::{table},{document}::jsonb) "
+            selection = ",".join("(result #>> '{}')::jsonb" if table == "loan_operations" and column == "result" else column for column in columns)
+            statements.append(f"insert into {table} ({','.join(columns)}) select {selection} from jsonb_populate_recordset(null::{table},{document}::jsonb) "
                               f"on conflict ({','.join(keys)}) do update set {updates};")
     for table in TABLES:
         statements.append(f"alter table {table} enable trigger user;")

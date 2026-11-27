@@ -26,7 +26,8 @@ iPhone: Safari → кабинет → «Поделиться» → «На экр
 ## Android
 
 `npm run android:apk` в каталоге `mobile/` собирает APK с отладочной подписью
-(`android/app/build/outputs/apk/debug/app-debug.apk`); нужен Android SDK (`ANDROID_HOME`).
+(`android/app/build/outputs/apk/debug/app-debug.apk`); нужны Android SDK (`ANDROID_HOME=~/Library/Android/sdk`)
+и JDK 21 (`JAVA_HOME=$(/usr/libexec/java_home -v 21)`): Java 25 из Android Studio Gradle 8.14 не поддерживает.
 APK передаётся файлом и ставится с разрешением «Установка из неизвестных источников».
 
 ## Как устроено

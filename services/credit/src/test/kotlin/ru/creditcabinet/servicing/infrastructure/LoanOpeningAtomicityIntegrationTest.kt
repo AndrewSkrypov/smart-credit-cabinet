@@ -304,6 +304,73 @@ class LoanOpeningAtomicityIntegrationTest {
         }
     }
 
+    /** Expected RED on 9e: combine with the Documents owner's fenced generic Worker catch before running. */
+    @Test fun `late generic core exception cannot retry or fail a newer running lease`() {
+        // Exercise both branches of the generic catch, independently of claim-attempt/business-failure accounting.
+        for (maxAttempts in listOf(1, 20)) {
+            val fixture = fixture()
+            val offer = Offer(
+                id = fixture.cycle, applicationId = fixture.app.id, decisionId = UUID.randomUUID(), kind = OfferKind.APPROVED,
+                productCode = "OVERDRAFT", amount = fixture.loan.amount, termMonths = 12, rate = fixture.loan.rate,
+                monthlyPayment = BigDecimal("100000.00"), totalPayment = BigDecimal("1200000.00"),
+                validUntil = clock.instant().plusSeconds(600), status = OfferStatus.ACCEPTED, createdAt = clock.instant(),
+            )
+            val offerStore = mock<OfferRepository> { on { current(fixture.app.id) } doReturn offer }
+            val sessions = mock<SigningSessions> { on { signedFor(fixture.app.id, fixture.cycle) } doReturn fixture.signed }
+            val entered = java.util.concurrent.CountDownLatch(1)
+            val release = java.util.concurrent.CountDownLatch(1)
+            val core = mock<ru.creditcabinet.integration.CoreBanking>()
+            whenever(core.disburse(any())).thenAnswer {
+                entered.countDown()
+                check(release.await(20, java.util.concurrent.TimeUnit.SECONDS))
+                throw IllegalStateException("Late CORE HTTP 400 from a superseded worker")
+            }
+            val steps = disbursementPipeline(context, fixture.outbox, core, offerStore, sessions, products)
+            jobs.enqueue(fixture.app.id, PipelineStep.DISBURSEMENT, clock.instant())
+            val id = jdbc.queryForObject("select id from pipeline_jobs where application_id=?", UUID::class.java, fixture.app.id)!!
+            val handler = ru.creditcabinet.pipeline.application.PipelineJobHandler { job ->
+                // Other completed test fixtures can leave due jobs in this isolated PG; only this fixture calls Core.
+                if (job.id == id) steps.run(job) else jobs.complete(job.id)
+            }
+            val worker =
+                ru.creditcabinet.pipeline.infrastructure.PipelineWorker(
+                    jobs,
+                    handler,
+                    ru.creditcabinet.pipeline.PipelineSettings(enabled = false, maxAttempts = maxAttempts),
+                    clock,
+                    context.getBean(ru.creditcabinet.observability.PipelineMetrics::class.java),
+                )
+            val pool = java.util.concurrent.Executors.newSingleThreadExecutor()
+            try {
+                val late = pool.submit<Int> { worker.runDue() }
+                assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                jdbc.update("update pipeline_jobs set locked_until=? where id=?", java.sql.Timestamp.from(clock.instant().minusSeconds(1)), id)
+                val next = jobs.claim(clock.instant(), clock.instant().plusSeconds(600), 1000).single { it.id == id }
+                assertEquals(2, next.attempts)
+                assertNotNull(next.leaseUntil)
+                val running = jdbc.queryForObject("select to_jsonb(j)::text from pipeline_jobs j where id=?", String::class.java, id)
+                assertEquals("RUNNING", jdbc.queryForObject("select status from pipeline_jobs where id=?", String::class.java, id))
+                release.countDown()
+                assertTrue(late.get(20, java.util.concurrent.TimeUnit.SECONDS) >= 1)
+                assertEquals(
+                    running,
+                    jdbc.queryForObject("select to_jsonb(j)::text from pipeline_jobs j where id=?", String::class.java, id),
+                    "A stale generic catch must preserve the newer lease, schedule, error and both counters (maxAttempts=$maxAttempts)",
+                )
+                assertEquals(ApplicationStatus.DISBURSING, applications.find(fixture.app.id)!!.status)
+                assertEquals(fixture.app.version, applications.find(fixture.app.id)!!.version)
+                assertNull(loans.find(fixture.app.id))
+                assertEquals(0, jdbc.queryForObject("select count(*) from servicing_open_outbox where application_id=?", Int::class.java, fixture.app.id))
+                verify(core, times(1)).disburse(any())
+            } finally {
+                release.countDown()
+                pool.shutdownNow()
+                check(pool.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS))
+                jobs.cancelPending(fixture.app.id)
+            }
+        }
+    }
+
     @Test fun `late signing code cannot replace the signature bound to the booked cycle`() {
         val fixture = fixture()
         jdbc.update("update applications set status='SIGNING' where id=?", fixture.app.id)

@@ -85,7 +85,9 @@ class DocumentsRpc(private val store: DocumentsStore, private val mapper: Object
             observer.onError(Status.NOT_FOUND.asRuntimeException())
         } catch (failure: Exception) {
             val databaseUnavailable = generateSequence<Throwable>(failure) { it.cause }.take(12).filterIsInstance<java.sql.SQLException>().any {
-                it.sqlState?.take(2) in setOf("08", "53") || it.sqlState in setOf("57P01", "57P02", "57P03") || (it is java.sql.SQLTransientConnectionException && it.sqlState == null)
+                it.sqlState?.take(2) in setOf("08", "53") ||
+                    it.sqlState in setOf("57P01", "57P02", "57P03") ||
+                    (it is java.sql.SQLTransientConnectionException && it.sqlState == null)
             }
             observer.onError((if (databaseUnavailable) Status.UNAVAILABLE else Status.FAILED_PRECONDITION).asRuntimeException())
         }

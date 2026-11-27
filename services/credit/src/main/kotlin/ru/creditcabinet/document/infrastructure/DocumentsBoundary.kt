@@ -73,19 +73,23 @@ class DocumentsBoundary(
         val original = jdbc.dataSource!!
         val source = if (original.isWrapperFor(com.zaxxer.hikari.HikariDataSource::class.java)) {
             val configured = original.unwrap(com.zaxxer.hikari.HikariDataSource::class.java)
-            com.zaxxer.hikari.HikariDataSource(com.zaxxer.hikari.HikariConfig().apply {
-                jdbcUrl = configured.jdbcUrl
-                username = configured.username
-                password = configured.password
-                driverClassName = configured.driverClassName
-                dataSourceProperties = configured.dataSourceProperties
-                maximumPoolSize = 2
-                minimumIdle = 0
-                connectionTimeout = 3000
-                validationTimeout = 1000
-                poolName = "documents-upload-operations"
-            }).also { operationPool = it }
-        } else original
+            com.zaxxer.hikari.HikariDataSource(
+                com.zaxxer.hikari.HikariConfig().apply {
+                    jdbcUrl = configured.jdbcUrl
+                    username = configured.username
+                    password = configured.password
+                    configured.driverClassName?.let { driverClassName = it }
+                    dataSourceProperties = configured.dataSourceProperties
+                    maximumPoolSize = 2
+                    minimumIdle = 0
+                    connectionTimeout = 3000
+                    validationTimeout = 1000
+                    poolName = "documents-upload-operations"
+                },
+            ).also { operationPool = it }
+        } else {
+            original
+        }
         org.springframework.jdbc.core.JdbcTemplate(source).apply { queryTimeout = 5 }
     }
     data class UploadOperation(val at: Instant, val backend: StorageBackend)
@@ -95,10 +99,22 @@ class DocumentsBoundary(
             org.springframework.jdbc.datasource.DataSourceTransactionManager(operationJdbc.dataSource!!),
         ).apply { propagationBehavior = org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW }
         return transaction.execute {
-            operationJdbc.update("insert into document_upload_operations(operation_id,application_id,company_id,actor_id,request_hash,requested_at,requested_backend) values(?,?,?,?,?,?,?) on conflict do nothing",
-                id, applicationId, company, actor, requestHash, java.sql.Timestamp.from(at.truncatedTo(java.time.temporal.ChronoUnit.MICROS)), backend.name)
+            operationJdbc.update(
+                "insert into document_upload_operations(operation_id,application_id,company_id,actor_id,request_hash,requested_at,requested_backend) values(?,?,?,?,?,?,?) on conflict do nothing",
+                id,
+                applicationId,
+                company,
+                actor,
+                requestHash,
+                java.sql.Timestamp.from(at.truncatedTo(java.time.temporal.ChronoUnit.MICROS)),
+                backend.name,
+            )
             val operation = operationJdbc.queryForMap("select * from document_upload_operations where operation_id=?", id)
-            if (operation["application_id"] != applicationId || operation["company_id"] != company || operation["actor_id"] != actor || operation["request_hash"] != requestHash) {
+            if (operation["application_id"] != applicationId ||
+                operation["company_id"] != company ||
+                operation["actor_id"] != actor ||
+                operation["request_hash"] != requestHash
+            ) {
                 throw ru.creditcabinet.common.exception.ConflictException("Ключ загрузки уже использован для другого файла")
             }
             UploadOperation((operation["requested_at"] as java.sql.Timestamp).toInstant(), StorageBackend.valueOf(operation["requested_backend"] as String))

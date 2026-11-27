@@ -32,11 +32,16 @@ class DocumentsDatabaseFailureTest {
             val store = mock<DocumentsStore>()
             whenever(store.owned(any(), any<() -> Any>())).thenThrow(CannotGetJdbcConnectionException("Synthetic database failure", cause))
             var actual: Status.Code? = null
-            DocumentsRpc(store, jacksonObjectMapper()).listDocuments(Scope.getDefaultInstance(), object : StreamObserver<Records> {
-                override fun onNext(value: Records) = error("Unexpected successful database operation")
-                override fun onCompleted() = error("Unexpected database completion")
-                override fun onError(failure: Throwable) { actual = Status.fromThrowable(failure).code }
-            })
+            DocumentsRpc(store, jacksonObjectMapper()).listDocuments(
+                Scope.getDefaultInstance(),
+                object : StreamObserver<Records> {
+                    override fun onNext(value: Records) = error("Unexpected successful database operation")
+                    override fun onCompleted() = error("Unexpected database completion")
+                    override fun onError(failure: Throwable) {
+                        actual = Status.fromThrowable(failure).code
+                    }
+                },
+            )
             assertEquals(if (transient) Status.Code.UNAVAILABLE else Status.Code.FAILED_PRECONDITION, actual)
         }
     }

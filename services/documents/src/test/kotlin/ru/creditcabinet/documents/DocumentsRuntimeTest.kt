@@ -316,6 +316,25 @@ class DocumentsRuntimeTest {
                     executor.awaitTermination(5, TimeUnit.SECONDS)
                 }
             }
+            db("documents") { connection ->
+                connection.prepareStatement("update artifact_records set status='ERROR',metadata=?::jsonb where id=?").use { statement ->
+                    statement.setString(1, mapper.writeValueAsString(immutableReady.copy(status = "ERROR")))
+                    statement.setObject(2, ready.id)
+                    statement.executeUpdate()
+                }
+            }
+            try {
+                assertEquals(Status.Code.ALREADY_EXISTS, assertFailsWith<StatusRuntimeException> { remote.retry(scope, ready.id) }.status.code)
+                assertEquals(immutableReady.checksum, remote.artifacts(scope).single { it.id == ready.id }.checksum)
+            } finally {
+                db("documents") { connection ->
+                    connection.prepareStatement("update artifact_records set status='READY',metadata=?::jsonb where id=?").use { statement ->
+                        statement.setString(1, mapper.writeValueAsString(immutableReady))
+                        statement.setObject(2, ready.id)
+                        statement.executeUpdate()
+                    }
+                }
+            }
             assertEquals(frozen, ready.inputJson)
             assertTrue(ready.inputJson.contains("\"rate\":12.00"))
             assertEquals(input, mapper.readValue(ready.inputJson, ArtifactInput::class.java))
@@ -643,7 +662,15 @@ class DocumentsRuntimeTest {
             if (index == 2) {
                 client { remote ->
                     val abandoned = remote.list(documentScope).single { it.fileName == fileName }
-                    File(env("DOCUMENTS_TEST_PROOF_DIR"), "abandoned-upload-operation.json").writeText(mapper.writeValueAsString(mapOf("key" to key, "record" to abandoned, "content" to Base64.getEncoder().encodeToString(bytes))))
+                    File(env("DOCUMENTS_TEST_PROOF_DIR"), "abandoned-upload-operation.json").writeText(
+                        mapper.writeValueAsString(
+                            mapOf(
+                                "key" to key,
+                                "record" to abandoned,
+                                "content" to Base64.getEncoder().encodeToString(bytes),
+                            ),
+                        ),
+                    )
                 }
                 continue
             }
@@ -724,16 +751,31 @@ class DocumentsRuntimeTest {
                 val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
                 val start = java.util.concurrent.CountDownLatch(1)
                 try {
-                    val replies = (1..2).map { executor.submit<Int> { start.await(); delete("$base/documents/$id", auth).statusCode() } }
+                    val replies = (1..2).map {
+                        executor.submit<Int> {
+                            start.await()
+                            delete("$base/documents/$id", auth).statusCode()
+                        }
+                    }
                     start.countDown()
                     assertEquals(listOf(204, 404), replies.map { it.get(10, TimeUnit.SECONDS) }.sorted())
-                } finally { executor.shutdownNow(); executor.awaitTermination(5, TimeUnit.SECONDS) }
+                } finally {
+                    executor.shutdownNow()
+                    executor.awaitTermination(5, TimeUnit.SECONDS)
+                }
             } else {
                 assertEquals(204, delete("$base/documents/$id", auth).statusCode())
             }
-            db("credit") { connection -> connection.createStatement().use { statement ->
-                statement.executeQuery("select count(*) from application_events where application_id='$application' and event='DOCUMENT_REMOVED' and payload->>'documentId'='$id'").use { rs -> rs.next(); assertEquals(1, rs.getInt(1)) }
-            } }
+            db("credit") { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery(
+                        "select count(*) from application_events where application_id='$application' and event='DOCUMENT_REMOVED' and payload->>'documentId'='$id'",
+                    ).use { rs ->
+                        rs.next()
+                        assertEquals(1, rs.getInt(1))
+                    }
+                }
+            }
             assertEquals(404, http("$base/documents/$id", auth).statusCode())
             client { remote -> assertEquals(null, remote.list(DocumentScope(company, application)).single { it.id == id }.deletedAt) }
             if (deferred) {
@@ -744,12 +786,16 @@ class DocumentsRuntimeTest {
                 }
             }
         }
-        val submitRace = multipart("$base/documents?type=OTHER", auth, UUID.randomUUID().toString(), "submit-race.pdf", "%PDF-1.4\nsubmit race\n%%EOF".toByteArray())
+        val submitRace =
+            multipart("$base/documents?type=OTHER", auth, UUID.randomUUID().toString(), "submit-race.pdf", "%PDF-1.4\nsubmit race\n%%EOF".toByteArray())
         assertEquals(201, submitRace.statusCode())
         val raceId = mapper.readTree(submitRace.body())["id"].asText()
         db("credit") { connection ->
             connection.autoCommit = false
-            connection.createStatement().use { it.executeQuery("select id from applications where id='$application' for update").close(); it.executeUpdate("update applications set status='SUBMITTED' where id='$application'") }
+            connection.createStatement().use {
+                it.executeQuery("select id from applications where id='$application' for update").close()
+                it.executeUpdate("update applications set status='SUBMITTED' where id='$application'")
+            }
             val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
             try {
                 val deleting = executor.submit<Int> { delete("$base/documents/$raceId", auth).statusCode() }
@@ -757,10 +803,21 @@ class DocumentsRuntimeTest {
                 assertTrue(!deleting.isDone)
                 connection.commit()
                 assertEquals(409, deleting.get(10, TimeUnit.SECONDS))
-            } finally { connection.rollback(); executor.shutdownNow(); executor.awaitTermination(5, TimeUnit.SECONDS) }
+            } finally {
+                connection.rollback()
+                executor.shutdownNow()
+                executor.awaitTermination(5, TimeUnit.SECONDS)
+            }
         }
         assertEquals(200, http("$base/documents/$raceId", auth).statusCode())
-        db("credit") { connection -> connection.createStatement().use { statement -> statement.executeQuery("select count(*) from document_deletion_intents where document_id='$raceId'").use { rs -> rs.next(); assertEquals(0, rs.getInt(1)) } } }
+        db("credit") { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery("select count(*) from document_deletion_intents where document_id='$raceId'").use { rs ->
+                    rs.next()
+                    assertEquals(0, rs.getInt(1))
+                }
+            }
+        }
     }
 
     private fun delete(path: String, token: String): HttpResponse<ByteArray> = HttpClient.newHttpClient().send(

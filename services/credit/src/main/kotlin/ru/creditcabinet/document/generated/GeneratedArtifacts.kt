@@ -80,7 +80,12 @@ class GeneratedArtifacts(
     }
 
     private fun prepare(application: LoanApplication): List<ArtifactView> {
-        val frozen = jdbc.query("select input_json from document_artifact_inputs where application_id=? and phase='FINAL' order by created_at limit 1", { rs, _ -> mapper.readValue<ArtifactInput>(rs.getString(1)) }, application.id).firstOrNull()
+        val frozen = jdbc.query("select input_json from document_artifact_inputs where application_id=? and phase='FINAL' order by created_at limit 1", {
+                rs,
+                _,
+            ->
+            mapper.readValue<ArtifactInput>(rs.getString(1))
+        }, application.id).firstOrNull()
         if (frozen != null) return if (boundary?.remote == true) prepareRemote(application, frozen) else prepareLocal(application, frozen)
         val offer = offers.current(application.id) ?: throw NotFoundException("Банк ещё не сделал предложение")
         val loan = loans.find(application.id)
@@ -108,7 +113,11 @@ class GeneratedArtifacts(
         val inputJson = mapper.writeValueAsString(input)
         val hash = checksum(inputJson.toByteArray(Charsets.UTF_8))
         val now = Timestamp.from(clock.instant())
-        val backend = jdbc.query("select requested_backend from document_artifact_inputs where application_id=? and offer_id=? and phase=? and input_hash=?", { rs, _ -> rs.getString(1) }, application.id, input.offerId, input.phase.name, hash).firstOrNull() ?: files.writeBackend.name
+        val backend =
+            jdbc.query("select requested_backend from document_artifact_inputs where application_id=? and offer_id=? and phase=? and input_hash=?", { rs, _ ->
+                rs.getString(1)
+            }, application.id, input.offerId, input.phase.name, hash).firstOrNull()
+                ?: files.writeBackend.name
         val kinds = ArtifactKind.entries.filter { input.phase == ArtifactPhase.FINAL || it != ArtifactKind.CONTRACT_PDF }
         for (kind in kinds) {
             val id = UUID.randomUUID()
@@ -187,13 +196,26 @@ class GeneratedArtifacts(
         val stableInput = mapper.readValue<ArtifactInput>(frozen)
         val stableJson = mapper.writeValueAsString(stableInput)
         val stableHash = checksum(stableJson.toByteArray())
-        val backend = jdbc.queryForObject("select requested_backend from document_artifact_inputs where application_id=? and offer_id=? and phase=? and input_hash=?", String::class.java, application.id, stableInput.offerId, stableInput.phase.name, stableHash)!!
+        val backend = jdbc.queryForObject(
+            "select requested_backend from document_artifact_inputs where application_id=? and offer_id=? and phase=? and input_hash=?",
+            String::class.java,
+            application.id,
+            stableInput.offerId,
+            stableInput.phase.name,
+            stableHash,
+        )!!
         val records = remoteRecords(application, stableInput, stableJson, stableHash, backend)
         if (outerTransaction) return records.map { it.remoteView() }
         return publishRemote(application.id, records)
     }
 
-    private fun remoteRecords(application: LoanApplication, input: ArtifactInput, json: String, hash: String, backend: String): List<ru.creditcabinet.documents.ArtifactRecord> {
+    private fun remoteRecords(
+        application: LoanApplication,
+        input: ArtifactInput,
+        json: String,
+        hash: String,
+        backend: String,
+    ): List<ru.creditcabinet.documents.ArtifactRecord> {
         val scope = boundary!!.scope(application.id)
         return ArtifactKind.entries.filter { input.phase == ArtifactPhase.FINAL || it != ArtifactKind.CONTRACT_PDF }.map { kind ->
             val id = UUID.nameUUIDFromBytes(
@@ -226,12 +248,15 @@ class GeneratedArtifacts(
     }
 
     private fun publishPendingRemote() {
-        val pending = jdbc.query("select application_id,input_json,requested_backend from document_artifact_inputs where delivered_at is null order by created_at limit 5", {
-                rs,
-                _,
-            ->
-            Triple(rs.getObject(1, UUID::class.java), mapper.readValue<ArtifactInput>(rs.getString(2)), rs.getString(3))
-        })
+        val pending = jdbc.query(
+            "select application_id,input_json,requested_backend from document_artifact_inputs where delivered_at is null order by created_at limit 5",
+            {
+                    rs,
+                    _,
+                ->
+                Triple(rs.getObject(1, UUID::class.java), mapper.readValue<ArtifactInput>(rs.getString(2)), rs.getString(3))
+            },
+        )
         pending.forEach { (id, input, backend) ->
             runCatching {
                 val application = repository.find(id) ?: throw NotFoundException("Заявка не найдена")
@@ -415,7 +440,7 @@ class GeneratedArtifacts(
         if (boundary?.remote == true) return false
         return tx.execute {
             val row = jdbc.queryForList(
-                "select * from generated_artifacts where template_version=? and status <> 'READY' and attempts < 5 and next_attempt_at <= ? order by next_attempt_at limit 1 for update skip locked",
+                "select * from generated_artifacts where template_version=? and status <> 'READY' and checksum is null and ready_at is null and attempts < 5 and next_attempt_at <= ? order by next_attempt_at limit 1 for update skip locked",
 
                 ArtifactRenderer.TEMPLATE_VERSION,
                 Timestamp.from(clock.instant()),
@@ -469,6 +494,9 @@ class GeneratedArtifacts(
                 ?: throw NotFoundException("Файл не найден")
         if (record.status == ArtifactStatus.READY) return record
         val version = jdbc.queryForObject("select template_version from generated_artifacts where id=?", Int::class.java, artifactId)
+        if (version == ArtifactRenderer.TEMPLATE_VERSION && (record.readyAt != null || record.checksum != null)) {
+            throw ConflictException("Опубликованный файл требует восстановления исходного объекта")
+        }
         if (version != ArtifactRenderer.TEMPLATE_VERSION) {
             // Recover exhausted legacy errors through a new registry version. Old READY objects
             // and links stay immutable; the response identifies the current replacement file.
@@ -554,14 +582,9 @@ class GeneratedArtifacts(
                 "Generated file checksum mismatch"
             }
             return ArtifactDownload(metadata, bytes)
-        } catch (failure: Exception) {
-            jdbc.update(
-                "update generated_artifacts set status='ERROR',error_code='STORAGE_UNAVAILABLE',attempts=0,next_attempt_at=?,updated_at=? where id=?",
-                Timestamp.from(clock.instant().plusSeconds(15)),
-                Timestamp.from(clock.instant()),
-                artifactId,
-            )
-            throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Файл временно недоступен. Обновите список и повторите создание файла.")
+        } catch (_: Exception) {
+            // A read failure cannot revoke publication or authorize overwriting its immutable ID.
+            throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Исходный файл временно недоступен. Попробуйте позже.")
         }
     }
 

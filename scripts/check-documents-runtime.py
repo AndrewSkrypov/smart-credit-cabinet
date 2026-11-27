@@ -527,6 +527,23 @@ insert into financing_scenario_publications(application_id,revision,status,docum
             if time.monotonic()>deadline: raise AssertionError('Reversed frozen FINAL jobs did not render under LOCAL')
             time.sleep(.2)
         sql('credit',f"do $$ begin if exists(select 1 from generated_artifacts where application_id='{pending_application}' and (input_hash<>'{pending_hash}' or input_json->'calculation'->>'rate'<>'12.00' or input_json->>'amount'<>'123456')) then raise exception 'Frozen FINAL input was recomputed'; end if; end $$;",user='credit_owner',password=credit_password,name='pending-final-proof')
+        published=json.loads(scalar('credit',f"select row_to_json(g) from (select id,stored_name,checksum,size_bytes from generated_artifacts where application_id='{pending_application}' and status='READY' order by id limit 1) g"))
+        original_published_bytes=source_snapshot(published['stored_name'])
+        assert hashlib.sha256(original_published_bytes).hexdigest()==published['checksum']
+        if s3: s3.request('source','PUT',published['stored_name'],b'Synthetic corrupted object')
+        else: (credit_files/published['stored_name']).write_bytes(b'Synthetic corrupted object')
+        try:
+            bad_download=urllib.request.Request(f'http://127.0.0.1:{http_port}/api/v1/applications/{pending_application}/artifacts/{published["id"]}/download',headers={'Authorization':'Bearer '+pending_auth})
+            try: urllib.request.urlopen(bad_download,timeout=10); raise AssertionError('Corrupt published file was served')
+            except __import__('urllib.error',fromlist=['HTTPError']).HTTPError as failure: assert failure.code==503
+            assert scalar('credit',f"select status||':'||checksum from generated_artifacts where id='{published['id']}'")=='READY:'+published['checksum']
+            retry_published=urllib.request.Request(f'http://127.0.0.1:{http_port}/api/v1/applications/{pending_application}/artifacts/{published["id"]}/retry',data=b'',headers={'Authorization':'Bearer '+pending_auth},method='POST')
+            with urllib.request.urlopen(retry_published,timeout=10) as response:
+                kept=json.load(response); assert kept['id']==str(published['id']) and kept['status']=='READY' and kept['checksum']==published['checksum']
+        finally:
+            if s3: s3.request('source','PUT',published['stored_name'],original_published_bytes)
+            else: (credit_files/published['stored_name']).write_bytes(original_published_bytes)
+        (report/'published-read-failure.json').write_text(json.dumps({'artifactId':published['id'],'readStatus':503,'metadata':'READY unchanged','retry':'same READY checksum','restore':'exact original bytes'})+'\n')
         stop(credit)
         sql('credit',"begin; update document_ownership set owner='FROZEN',epoch=4;"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;",user='credit_owner',password=credit_password)
         sql('documents',"update document_ownership set epoch=4;",user='documents_owner',password=own_password)

@@ -146,7 +146,20 @@ class DocumentService(
         }
         val bytesHash = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
         val requestHash = ru.creditcabinet.documents.sha256(
-            com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().writeValueAsBytes(listOf("credit-upload-v1", application.company.id, application.id, claims.userId, context.name, type.name, fileName, size, privateToBank, bytesHash)),
+            com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().writeValueAsBytes(
+                listOf(
+                    "credit-upload-v1",
+                    application.company.id,
+                    application.id,
+                    claims.userId,
+                    context.name,
+                    type.name,
+                    fileName,
+                    size,
+                    privateToBank,
+                    bytesHash,
+                ),
+            ),
         )
         val operation = boundary?.reserveUpload(id, application.id, claims.userId, requestHash, store.writeBackend, now)
         boundary?.lockUpload(id)

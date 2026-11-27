@@ -12,6 +12,8 @@ import org.springframework.transaction.support.TransactionTemplate
 import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.domain.StorageBackend
 import ru.creditcabinet.document.generated.ArtifactInput
+import ru.creditcabinet.document.generated.ArtifactKind
+import ru.creditcabinet.document.generated.ArtifactRenderer
 import ru.creditcabinet.document.infrastructure.LocalFileStore
 import ru.creditcabinet.document.infrastructure.S3FileStore
 import java.sql.ResultSet
@@ -30,7 +32,7 @@ class DocumentsMigration(
     private val tx: TransactionTemplate,
     private val mapper: ObjectMapper,
     private val files: FileStore,
-    private val renderer: ru.creditcabinet.document.generated.ArtifactRenderer,
+    private val renderer: ArtifactRenderer,
     private val context: ConfigurableApplicationContext,
 ) : CommandLineRunner {
     override fun run(vararg args: String) {
@@ -453,26 +455,36 @@ class DocumentsMigration(
     // ArtifactInput JSON and its hash are compared verbatim and never normalized here.
     /** A committed command must survive reverse even if its first Prepare RPC never happened. */
     private fun materializePendingInputs(credit: JdbcTemplate) {
-        credit.query("select i.*,a.number from document_artifact_inputs i join applications a on a.id=i.application_id where i.delivered_at is null order by i.created_at", org.springframework.jdbc.core.RowCallbackHandler { row ->
-            val input = mapper.readValue<ArtifactInput>(row.getString("input_json"))
-            val json = mapper.writeValueAsString(input)
-            val hash = row.getString("input_hash")
-            val application = row.getObject("application_id", UUID::class.java)
-            val offer = row.getObject("offer_id", UUID::class.java)
-            val phase = row.getString("phase")
-            check(sha256(json.toByteArray()) == hash && input.applicationId == application && input.offerId == offer && input.phase.name == phase)
-            val backend = row.getString("requested_backend")
-            check(backend in setOf("LOCAL", "S3"))
-            ru.creditcabinet.document.generated.ArtifactKind.entries.filter { phase == "FINAL" || it != ru.creditcabinet.document.generated.ArtifactKind.CONTRACT_PDF }.forEach { kind ->
-                val id = UUID.nameUUIDFromBytes("credit-artifact-v1:$application:$offer:${kind.name}:$phase:${ru.creditcabinet.document.generated.ArtifactRenderer.TEMPLATE_VERSION}:$hash".toByteArray())
-                credit.update("""insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,status,next_attempt_at,created_at,updated_at)
+        credit.query(
+            "select i.*,a.number from document_artifact_inputs i join applications a on a.id=i.application_id where i.delivered_at is null order by i.created_at",
+            org.springframework.jdbc.core.RowCallbackHandler { row ->
+                val input = mapper.readValue<ArtifactInput>(row.getString("input_json"))
+                val json = mapper.writeValueAsString(input)
+                val hash = row.getString("input_hash")
+                val application = row.getObject("application_id", UUID::class.java)
+                val offer = row.getObject("offer_id", UUID::class.java)
+                val phase = row.getString("phase")
+                check(sha256(json.toByteArray()) == hash && input.applicationId == application && input.offerId == offer && input.phase.name == phase)
+                val backend = row.getString("requested_backend")
+                check(backend in setOf("LOCAL", "S3"))
+                ArtifactKind.entries.filter {
+                    phase == "FINAL" ||
+                        it != ArtifactKind.CONTRACT_PDF
+                }.forEach { kind ->
+                    val id = UUID.nameUUIDFromBytes(
+                        "credit-artifact-v1:$application:$offer:${kind.name}:$phase:${ArtifactRenderer.TEMPLATE_VERSION}:$hash".toByteArray(),
+                    )
+                    credit.update(
+                        """insert into generated_artifacts(id,application_id,offer_id,kind,phase,template_version,input_hash,input_json,title,file_name,content_type,stored_name,storage_backend,status,next_attempt_at,created_at,updated_at)
                     values(?,?,?,?,?,?,?,?::jsonb,?,?,?,?,?,'PENDING',now(),?,now())
                     on conflict(application_id,offer_id,kind,phase,template_version,input_hash) do nothing""",
-                    id, application, offer, kind.name, phase, ru.creditcabinet.document.generated.ArtifactRenderer.TEMPLATE_VERSION, hash, json,
-                    renderer.title(kind, input), "application-${row.getLong("number")}-${kind.name.lowercase()}.${kind.extension}", kind.contentType,
-                    "generated-$id.${kind.extension}", backend, row.getTimestamp("created_at"))
-            }
-        })
+                        id, application, offer, kind.name, phase, ArtifactRenderer.TEMPLATE_VERSION, hash, json,
+                        renderer.title(kind, input), "application-${row.getLong("number")}-${kind.name.lowercase()}.${kind.extension}", kind.contentType,
+                        "generated-$id.${kind.extension}", backend, row.getTimestamp("created_at"),
+                    )
+                }
+            },
+        )
     }
 
     private fun pgInstant(

@@ -308,8 +308,8 @@ class DocumentsDeliveryTest(unittest.TestCase):
         self.dev.assert_writers_stopped = Mock()
         self.dev.prepare_schema = Mock()
         deployment = Mock()
-        self.dev.credit_storage_inputs = Mock(return_value={"artifacts": [], "uploads": [{"requested_backend": "S3"}]})
         with (patch.object(Descriptor, "verify_image"), patch("documents_dev.storage_backend_counts", return_value={"LOCAL": 1}),
+              patch("documents_dev.storage_intent_backends", return_value={"S3"}),
               self.assertRaisesRegex(RuntimeError, "нужен профиль S3")):
             self.dev.prepare(deployment, ("up",))
         deployment.compose.assert_not_called()

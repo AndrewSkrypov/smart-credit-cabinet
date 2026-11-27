@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import runpy
 import sys
+import tarfile
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
@@ -127,6 +128,47 @@ class DeliveryTest(unittest.TestCase):
             backup_archives({**base, "runtimes": {"unknown": "remote"}})
         with self.assertRaisesRegex(AssertionError, "состав копии"):
             backup_archives({**base, "runtimes": {"assessment": "remote"}, "assessment_runtime": {}})
+
+    def test_restore_with_credit_s3_ledger_requires_storage_when_documents_is_disabled(self):
+        for version in (2, 4):
+            with self.subTest(version=version):
+                directory = self.root / str(version)
+                directory.mkdir()
+                env = directory / "cabinet.env"
+                env.touch(mode=0o600)
+                names = {db + ".dump" for db in DATABASES} | {"documents.tar.gz", "seaweedfs.tar.gz"}
+                archive = {"format_version": version, "backup_complete": True, "documents": {}, "source_project": "cabinet-dev",
+                           "databases": {db: {} for db in DATABASES}, "release": REVISION, "storage": {
+                               "s3_volume_included": True, "backends": {"LOCAL": 1}, "requested_backends": ["S3"],
+                               "s3_bucket": "credit", "seaweedfs_files": {}}}
+                project = "cabinet-dev-restore-ledger" if version == 4 else "cabinet-prod-restore"
+                args = ["restore.py", str(directory), "--env-file", str(env), "--project", project]
+                if version == 4:
+                    content = unified_manifest()
+                    content["assessment"]["dev_mode"] = "local"
+                    release = self.read_release(content)
+                    args.extend(("--release-manifest", str(release.path)))
+                    archive.update(release_manifest_sha256=release.checksum, runtimes={"assessment": "local"}, assessment_runtime={})
+                    names.update(("assessment.dump", "assessment-kafka.tar.gz", "assessment-state.tar.gz"))
+                archive["files"] = {}
+                for name in names:
+                    path = directory / name
+                    if name in {"documents.tar.gz", "seaweedfs.tar.gz"}:
+                        with tarfile.open(path, "w:gz"):
+                            pass
+                    else:
+                        path.write_bytes(b"fixture")
+                    archive["files"][name] = {"bytes": path.stat().st_size, "sha256": digest(path)}
+                write_record(directory / "manifest.json", archive)
+                deployment = MagicMock(profiles={"prod"}, documents=None, runtime_modes={}, values={"CABINET_RELEASE": REVISION})
+                with (patch.object(sys, "argv", args), patch("common.deploy_lock", return_value=nullcontext()),
+                      patch("common.Deployment", return_value=deployment), patch("runtime_backup.stage_private") as stage,
+                      patch("backup_support.checked_docker") as docker):
+                    with self.assertRaisesRegex(RuntimeError, "Для восстановления S3 включите storage"):
+                        runpy.run_path(str(ROOT / "deploy/restore.py"), run_name="__main__")
+                stage.assert_not_called()
+                docker.assert_not_called()
+                deployment.compose.assert_not_called()
 
     def test_servicing_switch_is_bound_to_verified_backup_and_attempt(self):
         directory = self.root / "backups" / "fresh"

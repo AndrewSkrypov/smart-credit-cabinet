@@ -14,7 +14,7 @@ import struct
 import subprocess
 from uuid import UUID, uuid4
 
-from backup_support import checked_docker, digest, document_inventory, storage_backend_counts, storage_volume
+from backup_support import checked_docker, digest, document_inventory, storage_backend_counts, storage_intent_backends, storage_volume
 from maintenance import Database
 from runtime_delivery_support import (
     Descriptor, ensure_private, ensure_tls, fsync_dir, inspect_one, load_secrets, private_state,
@@ -572,7 +572,7 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
             self.preflight(deployment)
             image_id = self.descriptor.verify_image()
             self.assert_writers_stopped(deployment)
-            backends = set(storage_backend_counts(deployment)) | input_backends(self.credit_storage_inputs(deployment))
+            backends = set(storage_backend_counts(deployment)) | storage_intent_backends(deployment)
             self.verify_source_store(deployment, backends)
             services = ["documents-db", *(["documents-s3"] if self.has_s3 else [])]
             deployment.compose(*arguments, *services)

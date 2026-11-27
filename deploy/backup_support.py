@@ -75,6 +75,26 @@ def storage_backend_counts(deployment):
     return json.loads(deployment.sql("credit", "select coalesce(json_object_agg(storage_backend,n),'{}') from (select storage_backend,count(*) n from (" + " union all ".join(sources) + ") files group by storage_backend) t"))
 
 
+def storage_intent_backends(deployment):
+    """Discover frozen Credit storage requirements, including with Documents disabled."""
+    available = set(deployment.sql("credit", """
+        select table_name || '.' || column_name from information_schema.columns
+        where table_schema='public' and (table_name,column_name) in (
+            ('document_upload_operations','requested_backend'),
+            ('document_artifact_inputs','requested_backend'), ('document_artifact_inputs','delivered_at')
+        );
+    """).splitlines())
+    sources = []
+    if "document_upload_operations.requested_backend" in available:
+        sources.append("select requested_backend from public.document_upload_operations")
+    if {"document_artifact_inputs.requested_backend", "document_artifact_inputs.delivered_at"} <= available:
+        sources.append("select requested_backend from public.document_artifact_inputs where delivered_at is null")
+    if not sources:
+        return set()
+    statement = "select distinct requested_backend from (" + " union all ".join(sources) + ") inputs;"
+    return set(deployment.sql("credit", statement).splitlines())
+
+
 def storage_volume(deployment, key):
     assert key in {"cabinet-documents", "cabinet-seaweedfs"}
     config = deployment.config()
@@ -88,11 +108,14 @@ def storage_volume(deployment, key):
 
 def backup_needs_s3(manifest):
     runtime = manifest.get("documents_runtime", {})
+    storage = manifest.get("storage", {})
     snapshot_backends = runtime.get("snapshot", {}).get("backends", [])
-    if not isinstance(snapshot_backends, list) or any(backend not in ("LOCAL", "S3") for backend in snapshot_backends):
-        raise ValueError("Некорректный состав backend в резерве Documents")
-    return (bool(manifest.get("storage", {}).get("backends", {}).get("S3"))
-            or "S3" in snapshot_backends or runtime.get("identity", {}).get("has_s3") is True)
+    requested_backends = storage.get("requested_backends", [])
+    for backends in (snapshot_backends, requested_backends):
+        if not isinstance(backends, list) or any(backend not in ("LOCAL", "S3") for backend in backends):
+            raise ValueError("Некорректный состав backend в резерве файлов или заданий Documents")
+    return (bool(storage.get("backends", {}).get("S3")) or "S3" in snapshot_backends
+            or "S3" in requested_backends or runtime.get("identity", {}).get("has_s3") is True)
 
 
 def backup_archives(manifest):

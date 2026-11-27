@@ -38,7 +38,7 @@ import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.document.domain.DocumentRepository
 import ru.creditcabinet.document.domain.DocumentScanner
 import ru.creditcabinet.document.domain.DocumentType
-import ru.creditcabinet.integration.CompanySources
+import ru.creditcabinet.integration.domain.CompanySources
 import ru.creditcabinet.product.domain.FinancingPurpose
 import java.time.Clock
 import java.util.Date

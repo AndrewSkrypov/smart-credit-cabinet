@@ -1,6 +1,11 @@
 package ru.creditcabinet.assistant
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import ru.creditcabinet.assistant.controller.InvoiceFactCandidates
+import ru.creditcabinet.assistant.controller.InvoiceFactChoice
+import ru.creditcabinet.assistant.controller.InvoiceFactSelection
+import ru.creditcabinet.assistant.domain.ChatMessage
+import ru.creditcabinet.assistant.domain.LanguageModel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

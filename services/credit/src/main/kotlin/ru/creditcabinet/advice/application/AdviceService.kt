@@ -1,16 +1,8 @@
-package ru.creditcabinet.advice
+package ru.creditcabinet.advice.application
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
-import io.swagger.v3.oas.annotations.Hidden
-import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.stereotype.Service
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.advice.domain.AdviceKind
 import ru.creditcabinet.advice.domain.P
 import ru.creditcabinet.advice.domain.UnderwritingAdviceModel
@@ -186,27 +178,9 @@ class AdviceService(
         val options = if (AdviceKind.OPTION in kinds) " Есть варианты в пределах порога нагрузки; остальные условия политики проверяются отдельно." else ""
         return "Перед решением: ${parts.joinToString(", ")}.$options"
     }
+
     private fun sha256Hex(input: String): String =
         MessageDigest.getInstance("SHA-256")
             .digest(input.toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
-}
-
-@Tag(name = "Решения сотрудников банка")
-@RestController
-@RequestMapping("/api/v1/underwriting/applications")
-class AdviceController(private val service: AdviceService) {
-    @Operation(summary = "Рекомендации экспертной системы: что проверить, что запросить, какие условия проходят — с цепочкой «почему»")
-    @GetMapping("/{id}/advice")
-    fun advice(@PathVariable id: UUID): AdviceView = service.advice(id)
-}
-
-/** For engagement background summary warmup. Not routed by the gateway (/internal is closed with 404). */
-@Hidden
-@RestController
-@RequestMapping("/internal/v1/underwriting/applications")
-class InternalAdviceController(private val service: AdviceService) {
-    @GetMapping("/{id}/advice")
-    fun manualReviewAdvice(@PathVariable id: UUID, @RequestParam eventId: UUID): ObjectNode =
-        service.manualReviewAdvice(id, eventId)
 }

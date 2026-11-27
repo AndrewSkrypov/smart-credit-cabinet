@@ -18,6 +18,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import ru.creditcabinet.assistant.application.AssistantService
+import ru.creditcabinet.assistant.application.Grounding
+import ru.creditcabinet.assistant.application.RuleAnswers
+import ru.creditcabinet.assistant.domain.ApplicationFacts
+import ru.creditcabinet.assistant.domain.ChatMessage
+import ru.creditcabinet.assistant.domain.Knowledge
+import ru.creditcabinet.assistant.domain.LanguageModel
+import ru.creditcabinet.assistant.infrastructure.CreditApplications
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.Roles

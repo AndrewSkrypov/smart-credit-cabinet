@@ -20,6 +20,33 @@ class PreApprovedOfferJdbcStore(
             mapOf("id" to id),
         ) { rs, _ -> mapRow(rs) }.firstOrNull()
 
+    override fun create(offer: PreApprovedOffer) {
+        jdbc.update(
+            """
+            insert into pre_approved_offers
+                (id, company_id, product_code, max_amount, min_term_months, max_term_months,
+                 rate, valid_until, status, application_id, created_at, updated_at)
+            values
+                (:id, :companyId, :productCode, :maxAmount, :minTermMonths, :maxTermMonths,
+                 :rate, :validUntil, :status, :applicationId, :createdAt, :updatedAt)
+            """.trimIndent(),
+            mapOf(
+                "id" to offer.id,
+                "companyId" to offer.companyId,
+                "productCode" to offer.productCode,
+                "maxAmount" to offer.maxAmount,
+                "minTermMonths" to offer.minTermMonths,
+                "maxTermMonths" to offer.maxTermMonths,
+                "rate" to offer.rate,
+                "validUntil" to Timestamp.from(offer.validUntil),
+                "status" to offer.status.name,
+                "applicationId" to offer.applicationId,
+                "createdAt" to Timestamp.from(offer.createdAt),
+                "updatedAt" to Timestamp.from(offer.updatedAt),
+            ),
+        )
+    }
+
     override fun listActiveByCompany(companyId: UUID, now: Instant): List<PreApprovedOffer> =
         jdbc.query(
             """

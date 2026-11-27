@@ -13,6 +13,7 @@ import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.servicing.application.LoanServicingService
 import ru.creditcabinet.servicing.domain.LoanAccount
 import ru.creditcabinet.servicing.domain.LoanAccountStatus
+import ru.creditcabinet.servicing.domain.LoanClosureCertificate
 import ru.creditcabinet.servicing.domain.LoanPayment
 import ru.creditcabinet.servicing.domain.LoanPaymentStatus
 import ru.creditcabinet.servicing.domain.LoanTranche
@@ -46,6 +47,7 @@ data class LoanPaymentResponse(
     val remainingBalance: BigDecimal,
     val status: LoanPaymentStatus,
     val paidAt: Instant?,
+    val overdue: Boolean = false,
 )
 
 data class LoanAccountResponse(
@@ -63,6 +65,9 @@ data class LoanAccountResponse(
     val disbursedAt: Instant,
     val maturityDate: LocalDate,
     val repaidAt: Instant?,
+    val hasOverduePayments: Boolean = false,
+    val overdueDays: Long = 0L,
+    val overdueAmount: BigDecimal = BigDecimal.ZERO,
     val tranches: List<LoanTrancheResponse>,
     val payments: List<LoanPaymentResponse>,
 )
@@ -107,24 +112,40 @@ class LoanServicingController(
     fun repayEarly(@PathVariable loanId: UUID): LoanAccountResponse =
         servicing.repayEarly(loanId).toResponse()
 
-    private fun LoanAccount.toResponse() = LoanAccountResponse(
-        id = id,
-        applicationId = applicationId,
-        contractNumber = contractNumber,
-        status = status,
-        approvedLimit = approvedLimit,
-        disbursedAmount = disbursedAmount,
-        availableLimit = availableLimit,
-        outstandingPrincipal = outstandingPrincipal,
-        rate = rate,
-        termMonths = termMonths,
-        revolving = revolving,
-        disbursedAt = disbursedAt,
-        maturityDate = maturityDate,
-        repaidAt = repaidAt,
-        tranches = tranches.map { it.toResponse() },
-        payments = payments.map { it.toResponse() },
-    )
+    @Operation(summary = "Справка о полном погашении кредитного договора (только клиент, после REPAID)")
+    @GetMapping("/api/v1/loans/{loanId}/closure-certificate")
+    fun closureCertificate(@PathVariable loanId: UUID): LoanClosureCertificate =
+        servicing.closureCertificate(loanId)
+
+    private fun LoanAccount.toResponse(): LoanAccountResponse {
+        val today = servicing.today()
+        return LoanAccountResponse(
+            id = id,
+            applicationId = applicationId,
+            contractNumber = contractNumber,
+            status = status,
+            approvedLimit = approvedLimit,
+            disbursedAmount = disbursedAmount,
+            availableLimit = availableLimit,
+            outstandingPrincipal = outstandingPrincipal,
+            rate = rate,
+            termMonths = termMonths,
+            revolving = revolving,
+            disbursedAt = disbursedAt,
+            maturityDate = maturityDate,
+            repaidAt = repaidAt,
+            hasOverduePayments = hasOverduePayments(today),
+            overdueDays = overdueDays(today),
+            overdueAmount = overdueAmount(today),
+            tranches = tranches.map { it.toResponse() },
+            payments = payments.map { payment ->
+                val isOverdue = status == LoanAccountStatus.ACTIVE &&
+                    payment.status == LoanPaymentStatus.SCHEDULED &&
+                    payment.dueDate.isBefore(today)
+                payment.toResponse(isOverdue)
+            },
+        )
+    }
 
     private fun LoanTranche.toResponse() = LoanTrancheResponse(
         id = id,
@@ -134,7 +155,7 @@ class LoanServicingController(
         disbursedAt = disbursedAt,
     )
 
-    private fun LoanPayment.toResponse() = LoanPaymentResponse(
+    private fun LoanPayment.toResponse(overdue: Boolean) = LoanPaymentResponse(
         id = id,
         paymentNumber = paymentNumber,
         dueDate = dueDate,
@@ -144,5 +165,6 @@ class LoanServicingController(
         remainingBalance = remainingBalance,
         status = status,
         paidAt = paidAt,
+        overdue = overdue,
     )
 }

@@ -74,6 +74,10 @@ ROUTES = (
     ("credit", "POST", "/api/v1/bank/products/{code}/restore", PRODUCT_MISSING),
     ("credit", "GET", "/api/v1/pre-approved-offers", CLIENT_ONLY),
     ("credit", "POST", "/api/v1/pre-approved-offers/{id}/apply", CLIENT_MISSING),
+    ("credit", "POST", "/api/v1/pre-approved-offers/generate", BANK_MISSING),
+    ("credit", "POST", "/api/v1/agent/pre-approved-offers/{id}/prepare-draft", AGENT_MISSING),
+    ("credit", "GET", "/api/v1/bank/products/{code}/impact", BANK_MISSING),
+    ("credit", "GET", "/api/v1/loans/{loanId}/closure-certificate", CLIENT_MISSING),
     ("engagement", "POST", "/api/v1/assistant/messages/stream", SIGNED_IN),
     ("engagement", "GET", "/api/v1/assistant/next-steps", HINTS_MISSING),
     ("engagement", "POST", "/api/v1/assistant/reminders", AGENT_MISSING),
@@ -136,6 +140,8 @@ def check(api):
                         "payableAmount": 2_000_000, "targetBuffer": 30_000,
                         "controlDate": control_date, "paymentDate": payment_date,
                     }
+                elif template.endswith("/pre-approved-offers/generate"):
+                    body = {"companyId": missing, "productCode": "WORKING_CAPITAL", "annualRevenue": 20_000_000, "bureauWorstOverdueDays": 0}
                 elif template.endswith("/payment-reserve/receipt-event"):
                     body = {"eventId": str(uuid4()), "status": "DELAYED"}
                 elif template.endswith("/payment-reserve/confirm-draw"):

@@ -112,6 +112,8 @@ for db in identity credit engagement; do
 done
 python3 deploy/check-schema-rollback.py --pg-bin "$(pg_config --bindir)" --port "$DB_PORT" --user cabinet \
     --source-prefix cabinet_test_ --output ci-artifacts/schema-rollback.json
+python3 deploy/check-business-rollback.py --pg-bin "$(pg_config --bindir)" --port "$DB_PORT" --user cabinet \
+    --output ci-artifacts/business-rollback.json
 python3 deploy/check-migration-restore.py --pg-bin "$(pg_config --bindir)" --java-bin "${JAVA_HOME:?}/bin" \
     --port "$DB_PORT" --user cabinet --output ci-artifacts/migration-restore.json
 python3 scripts/check-documents-rollback.py --pg-bin "$(pg_config --bindir)" \

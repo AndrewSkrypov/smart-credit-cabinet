@@ -12,4 +12,5 @@ dependencies {
 
 dependencies {
     testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.archunit.junit5)
 }

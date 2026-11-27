@@ -1,8 +1,9 @@
-package ru.creditcabinet.assistant
+package ru.creditcabinet.assistant.infrastructure
 
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import org.springframework.stereotype.Component
+import ru.creditcabinet.assistant.application.Answer
 
 @Component
 class AssistantMetrics(private val registry: MeterRegistry) {

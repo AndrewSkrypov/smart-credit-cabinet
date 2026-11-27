@@ -37,7 +37,7 @@ import ru.creditcabinet.assessment.domain.StopFactor
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.integration.CompanySources
+import ru.creditcabinet.integration.domain.CompanySources
 import ru.creditcabinet.preapproved.application.PreApprovedOfferService
 import ru.creditcabinet.preapproved.domain.PreApprovedOffer
 import ru.creditcabinet.preapproved.domain.PreApprovedOfferStatus

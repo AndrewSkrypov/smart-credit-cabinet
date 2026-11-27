@@ -75,7 +75,8 @@ class ServicingConfiguration {
         accounts: LoanAccountStore,
         jdbc: JdbcTemplate,
         tx: TransactionTemplate,
-    ): LoanServicingService = LoanServicingService(operations, applications) { application, loan ->
+        clock: Clock,
+    ): LoanServicingService = LoanServicingService(operations, applications, clock) { application, loan ->
         require(operations is ServicingEngine) { "Legacy opening is disabled for the remote writer" }
         JdbcServicingTransaction(jdbc, tx, "LOCAL").execute {
             JdbcOpeningLedger(jdbc, com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()).lockApplication(application.id)

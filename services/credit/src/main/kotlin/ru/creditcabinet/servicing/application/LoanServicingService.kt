@@ -11,12 +11,17 @@ import ru.creditcabinet.servicing.contract.v1.PayNextCommand
 import ru.creditcabinet.servicing.contract.v1.ServicingActor
 import ru.creditcabinet.servicing.contract.v1.ServicingOperations
 import ru.creditcabinet.servicing.domain.LoanAccount
+import ru.creditcabinet.servicing.domain.LoanClosureCertificate
+import java.time.Clock
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 
 /** Credit authorization facade. Transactions and transport are infrastructure ports. */
 class LoanServicingService(
     private val operations: ServicingOperations,
     private val applications: ApplicationService,
+    private val clock: Clock = Clock.systemUTC(),
     private val legacyOpening: (LoanApplication, Loan) -> LoanAccount,
 ) {
     fun openOnDisbursement(application: LoanApplication, loan: Loan): LoanAccount = legacyOpening(application, loan)
@@ -40,5 +45,18 @@ class LoanServicingService(
     private fun actor(): ServicingActor {
         val (caller, companyId) = CurrentCaller.requireClient()
         return ServicingActor(caller.userId, companyId)
+    }
+
+    /** A paid-off loan's closure certificate; only the client's company may request it. */
+    fun closureCertificate(loanId: UUID): LoanClosureCertificate {
+        val actor = readyActor(loanId)
+        val account = operations.byId(loanId)?.takeIf { it.companyId == actor.companyId } ?: throw missing()
+        return account.closureCertificate(clock.instant())
+    }
+
+    fun today(): LocalDate = clock.instant().atZone(ZONE).toLocalDate()
+
+    private companion object {
+        val ZONE: ZoneId = ZoneId.of("Europe/Moscow")
     }
 }

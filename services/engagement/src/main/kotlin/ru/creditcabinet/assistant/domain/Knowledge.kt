@@ -1,4 +1,4 @@
-package ru.creditcabinet.assistant
+package ru.creditcabinet.assistant.domain
 
 /**
  * One article of the assistant's reference: what a term means for the client, in plain words.

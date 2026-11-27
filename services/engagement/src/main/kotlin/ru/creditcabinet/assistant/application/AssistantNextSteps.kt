@@ -1,8 +1,9 @@
-package ru.creditcabinet.assistant
+package ru.creditcabinet.assistant.application
 
 import com.fasterxml.jackson.databind.JsonNode
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import ru.creditcabinet.assistant.infrastructure.CreditApplications
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller

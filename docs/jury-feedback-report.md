@@ -15,7 +15,7 @@
 
 | № | Комментарий | Статус | Что изменили | Как проверить |
 | --- | --- | --- | --- | --- |
-| 1.1 | Предодобренные предложения, проактивное предложение продукта | ✅ / 🟡 | Таблица `pre_approved_offers` (`V14`), витрина у клиента и агента, заявка по предложению в один клик; в скоринге оффер в пределах лимита выпускается по ставке предложения. Осталось: предложения заданы в демо-данных, генерация по оборотам и бюро — в плане пилота | `PreApprovedOfferTest`, `AgentWorkflowIntegrationTest`; `client@demo.test` → `/client` → «Оформить»; `agent@demo.test` → карточка ИП Котова → «По предодобрению» |
+| 1.1 | Предодобренные предложения, проактивное предложение продукта | ✅ | Таблица `pre_approved_offers` (`V14`), витрина у клиента и агента, заявка по предложению в один клик; в скоринге оффер в пределах лимита выпускается по ставке предложения. Банк формирует предложение по оборотам и данным БКИ (`POST /api/v1/pre-approved-offers/generate`), клиенту уходит уведомление через outbox. Отбор компаний по расписанию — в плане пилота | `PreApprovedOfferTest`, `PreApprovedGenerationIntegrationTest`, `AgentWorkflowIntegrationTest`; `client@demo.test` → `/client` → «Оформить» |
 | 1.2 | Потраншевые выдачи | ✅ | `loan_tranches` (`V15`): для кредитной линии первый транш — 50% лимита, остальное выбирается траншами в кабинете | `LoanAccountDomainTest`, `LoanServicingIntegrationTest`; `mebel@demo.test` → выданный кредит → «Выбрать транш» |
 | 1.3 | Жизненный цикл после выдачи | ✅ | Кредитный счёт, график, очередной платёж, досрочное погашение до статуса «Погашен»; у агента — только просмотр | `LoanServicingIntegrationTest`, `LoanServicingBlock.test.tsx`, e2e `agent-channel.spec.ts` |
 | 1.4 | Конструктор и жизненный цикл продуктов | ✅ | Статусы `DRAFT → ACTIVE → ARCHIVED` и восстановление, даты действия, комиссия агента поверх версий; поданные заявки сохраняют свою версию | `ProductLifecycleIntegrationTest`, `VersionEditors.test.tsx`, e2e `release-products.spec.ts`; `risk@demo.test` → `/bank/products` |
@@ -24,10 +24,10 @@
 
 | № | Комментарий | Статус | Что изменили | Как проверить |
 | --- | --- | --- | --- | --- |
-| 2.1 | Гексагональная архитектура до конца (приоритет) | 🟡 | Модули `credit` (`agent`, `application`, `chat`, `document`, `offer`, `preapproved`, `product`, `servicing`) и `engagement/notification` разнесены на `domain / application / controller / infrastructure`; workflow `credit` идут через порты. Осталось: `engagement/assistant`, `credit/integration`, часть `identity` | Структура пакетов; `./gradlew build` (ktlint, тесты) |
+| 2.1 | Гексагональная архитектура до конца (приоритет) | ✅ / 🟡 | Слои `domain / application / controller / infrastructure` в `credit` (`agent`, `application`, `advice`, `chat`, `integration`, `offer`, `preapproved`, `product`, `servicing`), `engagement` (`assistant`, `notification`) и `identity` (`user`, `company`); границы проверяет ArchUnit на каждой сборке. Осталось: модули сервисного контура `credit/document` и `credit/financing` — перенос после стабилизации контура, чтобы не конфликтовать с текущей поставкой | `HexagonalArchitectureTest` в `credit`, `identity`, `engagement` |
 | 2.2 | Микросервисы и C4 с планом эволюции | ✅ | C4: контекст, контейнеры, компоненты и план выделения сервисов в [c4-architecture.md](c4-architecture.md). Пилот `analytics` (Kafka-проекция статусов) — первый шаг этой эволюции, включается флагом | `docs/c4-architecture.md`; `./gradlew -PalphaAnalytics=true :services:analytics:test` |
 | 2.3 | Разделить API Gateway по контурам | ✅ | `docker/gateway/conf.d/`: клиент, агент, банк, identity, engagement, запрет `/internal`, свои лимиты на контур; то же в Helm | `docker/gateway/conf.d/*`, `python3 security/gateway_rate.py` |
-| 2.4 | Rollback миграций и `COMMENT ON` | ✅ / 🟡 | `COMMENT ON` для таблиц и полей во всех сервисах; откат и повторный накат комментариев в `db/rollback/`; восстановление и повтор каждой версии Flyway из снимка в CI. Осталось: обратные скрипты для бизнес-миграций V13–V16 — заменены проверенным восстановлением из снимка | `python3 deploy/check-schema-rollback.py`; шаг CI «Restore and replay every Flyway version» |
+| 2.4 | Rollback миграций и `COMMENT ON` | ✅ | `COMMENT ON` во всех сервисах; обратные скрипты `U13–U18` бизнес-миграций и комментариев, репетиция `V → U → V` в CI; для `V19–V27` — восстановление снимка и runbook передачи владения (`U24`, `U26`, `U27`); повтор каждой версии Flyway из снимка в CI | `python3 deploy/check-business-rollback.py`, `deploy/check-schema-rollback.py`, шаг CI «Restore and replay every Flyway version» |
 
 ### 3. Наблюдаемость и инфраструктура
 
@@ -41,7 +41,7 @@
 | № | Комментарий | Статус | Что изменили | Как проверить |
 | --- | --- | --- | --- | --- |
 | 4.1 | Скорость и проактивность | ✅ | Потоковые ответы (SSE) со справкой до генерации, кэш типовых ответов в Valkey, `next-steps` заранее подсвечивает риски и следующий шаг | `AssistantApiTest`, `AssistantNextStepsTest`, `AssistantReferenceCacheIntegrationTest`; [assistant-eval.md](assistant-eval.md) |
-| 4.2 | Автономность в допустимых рамках | 🟡 | Напоминание клиенту о недостающих документах в один клик агента; подсказки андеррайтеру обновляются при ручном рассмотрении. Решение и юридически значимые действия остаются за человеком. Осталось: автоподготовка черновика по предодобрению с подтверждением агента | `AssistantNextStepsTest`, e2e `assistant-advice.spec.ts` |
+| 4.2 | Автономность в допустимых рамках | ✅ | Система сама формирует предодобрение и уведомляет клиента; напоминание о недостающих документах в один клик агента; подсказки андеррайтеру обновляются при ручном рассмотрении; черновик по предодобрению готовится автоматически и всегда требует подтверждения агента и клиента. Решение и юридически значимые действия остаются за человеком | `AssistantNextStepsTest`, `AgentAutoPrepareDraftIntegrationTest`, `PreApprovedGenerationIntegrationTest`, e2e `assistant-advice.spec.ts` |
 
 ### 5. UI/UX
 
@@ -53,8 +53,8 @@
 
 | № | Комментарий | Статус | Что изменили | Как проверить |
 | --- | --- | --- | --- | --- |
-| 6.1 | Подробная структурированная тестовая документация без дублей | 🟡 | [test-scenarios.md](test-scenarios.md) дополнен агентским каналом, режимом обучения и замером канала. Осталось: каталог кейсов с ID и трассировкой, объединение отчётов оценки ИИ | [test-scenarios.md](test-scenarios.md) |
-| 6.2 | Негативные сценарии, некорректные данные, границы доступа | 🟡 | Матрица доступа на 35 маршрутов, IDOR агента, отказ от `confirm/sign` агентом. Осталось: граничные значения сумм и сроков, неполные данные в e2e | `python3 security/matrix.py`, `AgentWorkflowIntegrationTest` |
+| 6.1 | Подробная структурированная тестовая документация без дублей | ✅ / 🟡 | [test-scenarios.md](test-scenarios.md): каталог тест-кейсов `TC-01…TC-29` с трассировкой на требования и замечания жюри, агентский канал, режим обучения, замер канала. Осталось: объединить отчёты оценки ИИ в один | [test-scenarios.md](test-scenarios.md) |
+| 6.2 | Негативные сценарии, некорректные данные, границы доступа | ✅ | Матрица доступа на 35 маршрутов; граничные суммы и сроки, неполные данные, IDOR документов и чата, отказ `identity`, просрочка и чужой кредит — в интеграционных тестах и в e2e через шлюз | `AgentNegativeAndBoundaryIntegrationTest`, `LoanServicingBoundaryIntegrationTest`, e2e `boundary-negative.spec.ts`, `python3 security/matrix.py` |
 | 6.3 | Больше автотестов | ✅ | Бэкенд 432 теста, фронтенд 195, e2e агентского канала и режима обучения, Postman агентского контура | `./gradlew build`, `cd frontend && npx vitest run`, `cd e2e && npm test` |
 
 ### Сверх замечаний: что добавили для финала

@@ -1,4 +1,4 @@
-package ru.creditcabinet.assistant
+package ru.creditcabinet.assistant.infrastructure
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
+import ru.creditcabinet.assistant.domain.ApplicationFacts
+import ru.creditcabinet.assistant.domain.ManualReviewAdvice
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.CurrentCaller
@@ -18,21 +20,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
-
-/** What the assistant may know about one application, in words; facts only, no guesses. */
-data class ApplicationFacts(
-    val number: String,
-    val status: String,
-    val lines: List<String>,
-    val offer: String?,
-    /** The cabinet's own estimate at the base rate: a calculation, never the bank's terms. */
-    val estimate: String? = null,
-    val refusal: List<String>,
-    val missingDocuments: List<String>,
-    val deadline: String?,
-) {
-    fun asText(): String = (listOf("Заявка № $number, статус: $status") + lines).joinToString("\n")
-}
 
 /**
  * Reads the application from credit with the caller's own token: the assistant sees exactly what

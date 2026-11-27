@@ -112,6 +112,20 @@ class ServicingEngineTest {
         val db = Memory()
         val opening = command()
         val id = db.engine(clock).open(opening).accountId
+        // Only the maturity boundary is checked here: earlier payments are paid, nothing is overdue.
+        db.accounts[id] = db.accounts.getValue(id).let { account ->
+            account.copy(
+                payments = account.payments.map {
+                    if (it.dueDate <
+                        opening.maturityDate.minusDays(1)
+                    ) {
+                        it.copy(status = LoanPaymentStatus.PAID)
+                    } else {
+                        it
+                    }
+                },
+            )
+        }
         val input = PaymentReserveInputs(20_000, 180_000, 100_000, 50_000, opening.maturityDate.minusDays(1), opening.maturityDate)
         val before = db.engine(Clock.fixed(opening.maturityDate.minusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC))
         before.putReserve(id, ReserveCommand(actor, input))

@@ -29,6 +29,7 @@ dependencies {
     implementation(libs.poi.ooxml)
     implementation("org.apache.kafka:kafka-clients")
     testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.archunit.junit5)
 }
 
 tasks.test {

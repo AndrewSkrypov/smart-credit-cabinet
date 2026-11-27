@@ -120,17 +120,21 @@ class LoanAccountDomainTest {
             maturityDate = maturityDate,
             firstPaymentBaseDate = baseDate,
         )
-        val today = baseDate.plusMonths(2)
-        val now = disbursedAt.plusSeconds(60L * 86400)
+        // The first payment is due today: it is kept as it is, but it is not overdue yet.
+        val today = loan.payments.first().dueDate
+        val now = disbursedAt.plusSeconds(30L * 86400)
         val updated = loan.drawTranche(250_000L, null, now, today)
-        assertEquals(loan.payments.take(2), updated.payments.take(2))
+        assertEquals(loan.payments.take(1), updated.payments.take(1))
         assertEquals(loan.payments.map { it.dueDate }, updated.payments.map { it.dueDate })
         assertEquals(updated.outstandingPrincipal, updated.payments.sumOf { it.principalAmount })
         assertTrue(updated.payments[2].interestAmount > loan.payments[2].interestAmount)
-        assertEquals(2, loan.drawTranche(1L, null, now, maturityDate.minusDays(1)).tranches.size)
+        val lastDay = maturityDate.minusDays(1)
+        val paidUp = loan.copy(payments = loan.payments.map { if (it.dueDate.isBefore(lastDay)) it.copy(status = LoanPaymentStatus.PAID) else it })
+        assertEquals(2, paidUp.drawTranche(1L, null, now, lastDay).tranches.size)
         for (day in listOf(maturityDate, maturityDate.plusDays(1))) {
-            assertFailsWith<ConflictException> { loan.drawTranche(1L, null, now, day) }
+            assertFailsWith<ConflictException> { paidUp.drawTranche(1L, null, now, day) }
         }
+        assertFailsWith<ConflictException> { loan.drawTranche(1L, null, now, lastDay) }
     }
 
     @Test

@@ -51,6 +51,12 @@ import ru.creditcabinet.product.domain.ProductCatalog
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
+data class PreparedDraftResponse(
+    val application: ApplicationResponse,
+    val requiresHumanConfirmation: Boolean,
+    val nextRequiredStep: String,
+)
+
 @Tag(name = "Агентский канал: заявки, портфель, документы и чат")
 @RestController
 @RequestMapping("/api/v1/agent")
@@ -89,6 +95,20 @@ class AgentController(
     @ResponseStatus(HttpStatus.CREATED)
     fun applyPreApprovedOffer(@PathVariable id: UUID): ApplicationResponse =
         detail(service.applyPreApprovedOffer(id))
+
+    @Operation(
+        summary = "Автоматическая подготовка черновика по предодобрению с обязательным подтверждением человеком (статус строго DRAFT)",
+    )
+    @PostMapping("/pre-approved-offers/{id}/prepare-draft")
+    @ResponseStatus(HttpStatus.CREATED)
+    fun prepareDraftFromOffer(@PathVariable id: UUID): PreparedDraftResponse {
+        val view = applicationController.detailView(service.applyPreApprovedOffer(id))
+        return PreparedDraftResponse(
+            application = view,
+            requiresHumanConfirmation = true,
+            nextRequiredStep = "Проверьте параметры черновика и отправьте заявку на подтверждение клиенту: без согласия клиента заявка не передаётся в банк.",
+        )
+    }
 
     @Operation(summary = "Заявки агента по закреплённым компаниям")
     @GetMapping("/applications")

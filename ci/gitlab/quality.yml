@@ -69,6 +69,7 @@ backend:
       - '**/build/reports/tests/'
       - '**/build/reports/jacoco/'
       - ci-artifacts/schema-rollback.json
+      - ci-artifacts/business-rollback.json
       - ci-artifacts/migration-restore.json
       - ci-artifacts/documents-rollback.json
       - ci-artifacts/catalog-r1/

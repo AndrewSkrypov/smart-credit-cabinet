@@ -25,14 +25,14 @@ import org.springframework.test.web.servlet.put
 import ru.creditcabinet.access.application.CompanyAccessService
 import ru.creditcabinet.access.application.PasswordAccessService
 import ru.creditcabinet.access.domain.LinkPurpose
-import ru.creditcabinet.access.dto.ResetPasswordRequest
 import ru.creditcabinet.access.infrastructure.IdentityLinks
 import ru.creditcabinet.access.infrastructure.SecurityMailDelivery
-import ru.creditcabinet.auth.application.JwtService
-import ru.creditcabinet.common.exception.ApiException
+import ru.creditcabinet.auth.application.SessionTokens
 import ru.creditcabinet.common.mail.MailCapabilities
 import ru.creditcabinet.common.mail.MailTransport
 import ru.creditcabinet.common.security.JwtVerifier
+import ru.creditcabinet.identity.domain.IdentityFailure.Forbidden
+import ru.creditcabinet.identity.domain.IdentityFailure.InvalidLink
 import ru.creditcabinet.user.domain.User
 import ru.creditcabinet.user.domain.UserRole
 import java.time.Clock
@@ -76,7 +76,7 @@ class AccountAccessIntegrationTest {
 
     @Autowired private lateinit var encoder: PasswordEncoder
 
-    @Autowired private lateinit var jwt: JwtService
+    @Autowired private lateinit var jwt: SessionTokens
 
     @Autowired private lateinit var verifier: JwtVerifier
 
@@ -230,10 +230,10 @@ class AccountAccessIntegrationTest {
                 List(2) {
                     Callable {
                         try {
-                            passwords.resetPassword(ResetPasswordRequest(current, "Updated2026"))
-                            200
-                        } catch (e: ApiException) {
-                            e.httpStatus.value()
+                            passwords.resetPassword(current, "Updated2026")
+                            true
+                        } catch (_: InvalidLink) {
+                            false
                         }
                     }
                 },
@@ -343,6 +343,14 @@ class AccountAccessIntegrationTest {
         assertEquals(403, post("/api/v1/companies/me/invitations", mapOf("email" to "new@example.test"), employeeToken, UUID.randomUUID()).status)
         assertEquals(410, accept(token).status)
         val memberId = UUID.fromString(json(accepted)["user"]["id"].asText())
+        assertEquals(
+            listOf("2026-10-21"),
+            jdbc.queryForList(
+                "select version from personal_data_consents where user_id=? and document='PERSONAL_DATA'",
+                String::class.java,
+                memberId,
+            ),
+        )
         val revoked = mvc.delete("/api/v1/companies/me/employees/$memberId/access") {
             header("Authorization", "Bearer ${jwt.issue(owner)}")
             header("Idempotency-Key", UUID.randomUUID())
@@ -379,7 +387,7 @@ class AccountAccessIntegrationTest {
     fun `self revocation is forbidden even when another signer exists`() {
         val first = user()
         val second = user(first.companyId!!)
-        val actors = listOf(first, second).map { verifier.parseClaims(jwt.issue(it)) }
+        val actors = listOf(first, second).map { jwt.read(jwt.issue(it)) }
         val pool = Executors.newFixedThreadPool(2)
         try {
             val results = pool.invokeAll(
@@ -387,9 +395,9 @@ class AccountAccessIntegrationTest {
                     Callable {
                         try {
                             companies.revoke(actor, actor.userId, UUID.randomUUID())
-                            200
-                        } catch (e: ApiException) {
-                            e.httpStatus.value()
+                            false
+                        } catch (_: Forbidden) {
+                            true
                         }
                     }
                 },

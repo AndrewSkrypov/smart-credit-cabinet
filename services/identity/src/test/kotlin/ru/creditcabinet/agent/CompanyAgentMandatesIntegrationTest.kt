@@ -12,7 +12,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
-import ru.creditcabinet.auth.application.JwtService
+import ru.creditcabinet.auth.application.SessionTokens
 import ru.creditcabinet.common.model.Inn
 import ru.creditcabinet.user.domain.User
 import ru.creditcabinet.user.domain.UserRole
@@ -32,7 +32,7 @@ class CompanyAgentMandatesIntegrationTest {
 
     @Autowired private lateinit var jdbc: JdbcTemplate
 
-    @Autowired private lateinit var jwt: JwtService
+    @Autowired private lateinit var jwt: SessionTokens
 
     @Test
     fun `only a current company signer manages their own mandates for active agents`() {

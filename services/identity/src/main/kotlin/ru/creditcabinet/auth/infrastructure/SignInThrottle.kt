@@ -1,10 +1,10 @@
-package ru.creditcabinet.auth.application
+package ru.creditcabinet.auth.infrastructure
 
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
-import ru.creditcabinet.common.exception.ApiException
+import ru.creditcabinet.auth.application.SignInLimits
 import ru.creditcabinet.common.limits.LimitWindow
 import ru.creditcabinet.common.limits.SharedLimits
+import ru.creditcabinet.identity.domain.IdentityFailure.RateLimited
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -17,10 +17,10 @@ import java.util.concurrent.ConcurrentHashMap
  * The local implementation is for isolated tests/development without Valkey only.
  */
 @Component
-class SignInThrottle(private val shared: SharedLimits, private val clock: Clock = Clock.systemUTC()) {
+class SignInThrottle(private val shared: SharedLimits, private val clock: Clock = Clock.systemUTC()) : SignInLimits {
     private val failures = ConcurrentHashMap<String, List<Instant>>()
 
-    fun check(email: String, address: String) {
+    override fun check(email: String, address: String) {
         if (shared.enabled) {
             shared.acquire(
                 "Слишком много попыток входа. Попробуйте через несколько минут.",
@@ -32,17 +32,17 @@ class SignInThrottle(private val shared: SharedLimits, private val clock: Clock 
         val recent = recent(email)
         if (recent.size >= MAX_FAILURES) {
             val minutes = Duration.between(clock.instant(), recent.first().plus(WINDOW)).toMinutes() + 1
-            throw ApiException(HttpStatus.TOO_MANY_REQUESTS, "Слишком много попыток входа. Попробуйте через $minutes мин.")
+            throw RateLimited("Слишком много попыток входа. Попробуйте через $minutes мин.")
         }
     }
 
-    fun recordFailure(email: String) {
+    override fun recordFailure(email: String) {
         if (shared.enabled) return // Already reserved atomically before checking the password.
         if (failures.size > MAX_TRACKED) evictExpired()
         failures.compute(email) { _, _ -> recent(email) + clock.instant() }
     }
 
-    fun reset(email: String) {
+    override fun reset(email: String) {
         if (shared.enabled) {
             shared.reset("signin", email)
             return

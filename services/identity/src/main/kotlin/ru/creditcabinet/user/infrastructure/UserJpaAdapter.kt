@@ -1,11 +1,13 @@
 package ru.creditcabinet.user.infrastructure
 
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 import ru.creditcabinet.user.domain.User
 import ru.creditcabinet.user.domain.UserDataPort
+import ru.creditcabinet.user.domain.UserRegistrationConflict
 import ru.creditcabinet.user.domain.UserRole
 import ru.creditcabinet.user.domain.UserStatus
 import java.time.Instant
@@ -58,7 +60,11 @@ class UserJpaAdapter(
         val passwordHash = password?.let(passwordEncoder::encode)
             ?: repository.findById(user.id).orElse(null)?.passwordHash
             ?: error("A new user cannot be saved without a password")
-        repository.save(UserEntity.from(user, passwordHash))
+        try {
+            repository.save(UserEntity.from(user, passwordHash))
+        } catch (failure: DataIntegrityViolationException) {
+            throw UserRegistrationConflict(failure)
+        }
         return user
     }
 }

@@ -1,16 +1,10 @@
-package ru.creditcabinet.assistant
+package ru.creditcabinet.assistant.application
 
-import com.fasterxml.jackson.databind.JsonNode
-import org.springframework.http.HttpStatus
-import org.springframework.stereotype.Service
-import ru.creditcabinet.common.exception.ApiException
-import ru.creditcabinet.common.exception.NotFoundException
-import ru.creditcabinet.common.security.CurrentCaller
-import ru.creditcabinet.common.security.Roles
+import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.notification.Audience
 import ru.creditcabinet.notification.NewNotification
-import ru.creditcabinet.notification.NotificationService
 import ru.creditcabinet.notification.NotificationType
+import ru.creditcabinet.notification.application.NotificationDelivery
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -29,61 +23,60 @@ data class AssistantHint(
     val infoRequestId: UUID? = null,
 )
 
-@Service
 class AssistantNextSteps(
-    private val credit: CreditApplications,
-    private val notifications: NotificationService,
+    private val credit: AssistantApplications,
+    private val notifications: NotificationDelivery,
     private val clock: Clock,
 ) {
-    fun list(applicationId: UUID?, authorization: String): List<AssistantHint> {
-        val role = CurrentCaller.claims().role
-        if (role != Roles.CLIENT && role != Roles.AGENT) return emptyList()
-        val agent = role == Roles.AGENT
+    fun list(applicationId: UUID?, authorization: String, claims: TokenClaims): List<AssistantHint> {
+        if (!claims.isClient && !claims.isAgent) return emptyList()
+        val agent = claims.isAgent
         val now = clock.instant()
         if (applicationId != null) return summarize(applicationId, credit.application(applicationId, authorization, agent), agent, now)
         if (!agent) return emptyList()
         val applications = credit.agentApplications(authorization)
-            .filter { it.path("status").asText() in ACTIONABLE }
-            .sortedByDescending { it.path("statusChangedAt").asText() }
+            .filter { it.status in ACTIONABLE }
+            .sortedByDescending { it.statusChangedAt }
             .take(MAX_APPLICATIONS)
             .flatMap { row ->
-                val id = UUID.fromString(row.path("id").asText())
+                val id = UUID.fromString(row.id)
                 try {
                     summarize(id, credit.application(id, authorization, agent = true), true, now)
-                } catch (_: NotFoundException) {
+                } catch (failure: AssistantFailure) {
+                    if (failure.reason != AssistantFailureReason.NOT_FOUND) throw failure
                     emptyList() // The assignment may have been revoked since the portfolio was read.
                 }
             }
-        val offers = credit.agentOffers(authorization).filter { it.path("status").asText() == "ACTIVE" }
+        val offers = credit.agentOffers(authorization).filter { it.status == "ACTIVE" }
             .mapNotNull { row ->
-                val expiry = row.path("validUntil").instant() ?: return@mapNotNull null
+                val expiry = row.validUntil ?: return@mapNotNull null
                 if (expiry <= now) return@mapNotNull null
                 AssistantHint(
                     HintType.PRE_APPROVED,
                     "Есть предодобренное предложение",
-                    row.path("productName").asText(),
+                    row.productName,
                     deadline = expiry,
-                    companyId = UUID.fromString(row.path("companyId").asText()),
+                    companyId = UUID.fromString(row.companyId),
                 )
             }.take(MAX_PRE_APPROVED)
         return applications + offers
     }
 
-    fun sendReminder(id: UUID, infoRequestId: UUID, authorization: String) {
-        CurrentCaller.requireRole(Roles.AGENT)
+    fun sendReminder(id: UUID, infoRequestId: UUID, authorization: String, claims: TokenClaims) {
+        if (!claims.isAgent) forbidden()
         val app = credit.application(id, authorization, agent = true)
-        val request = app.path("process").path("infoRequest")
-        val documents = request.path("items").filter { it.path("documentType").isTextual }.map { it.path("title").asText() }
-        if (app.path("status").asText() != "INFO_REQUESTED" ||
-            documents.isEmpty() ||
-            request.path("deadline").instant()?.isAfter(clock.instant()) != true
+        val request = app.infoRequest
+        val hasDocuments = request?.items?.any(InfoRequestItem::hasDocument) == true
+        if (app.status != "INFO_REQUESTED" ||
+            !hasDocuments ||
+            request?.deadline?.isAfter(clock.instant()) != true
         ) {
-            throw ApiException(HttpStatus.CONFLICT, "Сейчас нет действующего запроса документов для напоминания")
+            throw AssistantFailure(AssistantFailureReason.CONFLICT, "Сейчас нет действующего запроса документов для напоминания")
         }
-        if (request.path("id").uuid() != infoRequestId) {
-            throw ApiException(HttpStatus.CONFLICT, "Запрос документов изменился. Проверьте новый запрос перед отправкой напоминания.")
+        if (request?.id != infoRequestId) {
+            throw AssistantFailure(AssistantFailureReason.CONFLICT, "Запрос документов изменился. Проверьте новый запрос перед отправкой напоминания.")
         }
-        val companyId = UUID.fromString(app.path("company").path("id").asText())
+        val companyId = UUID.fromString(app.companyId)
         notifications.deliver(
             listOf(
                 NewNotification(
@@ -98,12 +91,11 @@ class AssistantNextSteps(
         )
     }
 
-    internal fun summarize(id: UUID, app: JsonNode, agent: Boolean, now: Instant): List<AssistantHint> {
-        val process = app.path("process")
-        return when (app.path("status").asText()) {
+    internal fun summarize(id: UUID, app: AssistantApplication, agent: Boolean, now: Instant): List<AssistantHint> {
+        return when (app.status) {
             "DRAFT" -> {
-                val missing = app.path("requiredDocuments").filter { !it.path("uploaded").asBoolean() }.map { it.path("title").asText() }
-                val problems = app.path("submissionProblems").map(JsonNode::asText).filter(String::isNotBlank)
+                val missing = app.missingDocuments
+                val problems = app.submissionProblems.filter(String::isNotBlank)
                     .filterNot { agent && it.contains("бюро кредитных историй", ignoreCase = true) }
                 val checklist = (missing + problems).distinct()
                 if (checklist.isEmpty()) {
@@ -120,13 +112,13 @@ class AssistantNextSteps(
                 }
             }
             "INFO_REQUESTED" -> {
-                val request = process.path("infoRequest")
-                val deadline = request.path("deadline").instant() ?: return emptyList()
+                val request = app.infoRequest ?: return emptyList()
+                val deadline = request.deadline ?: return emptyList()
                 if (deadline <= now) return emptyList()
-                val checkList = request.path("items").map { it.path("title").asText() }.filter(String::isNotBlank)
-                val hasDocuments = request.path("items").any { it.path("documentType").isTextual }
+                val checkList = request.items.map(InfoRequestItem::title).filter(String::isNotBlank)
+                val hasDocuments = request.items.any(InfoRequestItem::hasDocument)
                 val title = if (deadline <= now.plus(REMINDER_WINDOW)) "Скоро истечёт срок ответа банку" else "Банк ждёт ответа по заявке"
-                val infoRequestId = if (agent && hasDocuments) request.path("id").uuid() else null
+                val infoRequestId = if (agent && hasDocuments) request.id else null
                 listOf(
                     AssistantHint(
                         HintType.INFO_DEADLINE,
@@ -140,8 +132,8 @@ class AssistantNextSteps(
                 )
             }
             "OFFER_ISSUED" -> buildList {
-                val offer = process.path("offer")
-                val deadline = offer.path("validUntil").instant()
+                val offer = app.offer
+                val deadline = offer?.validUntil
                 if (deadline != null && deadline > now && deadline <= now.plus(REMINDER_WINDOW)) {
                     add(
                         AssistantHint(
@@ -153,16 +145,12 @@ class AssistantNextSteps(
                         ),
                     )
                 }
-                if (offer.path("kind").asText() == "COUNTER") add(alternative(id))
+                if (offer?.kind == "COUNTER") add(alternative(id))
             }
             "REJECTED" -> listOf(alternative(id))
             else -> emptyList()
         }
     }
-
-    private fun JsonNode.instant(): Instant? = if (isTextual) runCatching { Instant.parse(asText()) }.getOrNull() else null
-
-    private fun JsonNode.uuid(): UUID? = if (isTextual) runCatching { UUID.fromString(asText()) }.getOrNull() else null
 
     private fun alternative(id: UUID) =
         AssistantHint(HintType.ALTERNATIVE, "Можно сравнить другие продукты", "Подбор посчитает ориентировочный платёж по параметрам этой заявки.", id)

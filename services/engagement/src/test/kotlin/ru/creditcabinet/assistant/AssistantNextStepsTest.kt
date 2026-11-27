@@ -2,6 +2,10 @@ package ru.creditcabinet.assistant
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.mockito.kotlin.mock
+import ru.creditcabinet.assistant.application.AssistantHint
+import ru.creditcabinet.assistant.application.AssistantNextSteps
+import ru.creditcabinet.assistant.application.HintType
+import ru.creditcabinet.assistant.infrastructure.toAssistantApplication
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -26,8 +30,8 @@ class AssistantNextStepsTest {
               "submissionProblems":["Укажите выручку","Без согласия на запрос в бюро кредитных историй заявку не рассмотреть"]}
             """,
         )
-        val client = nextSteps.summarize(applicationId, draft, agent = false, now).single()
-        val agent = nextSteps.summarize(applicationId, draft, agent = true, now).single()
+        val client = nextSteps.summarize(applicationId, draft.toAssistantApplication(), agent = false, now).single()
+        val agent = nextSteps.summarize(applicationId, draft.toAssistantApplication(), agent = true, now).single()
         assertEquals(HintType.MISSING_DOCUMENTS, client.type)
         assertTrue(listOf("Счёт", "Укажите выручку", "бюро кредитных историй").all { it in client.detail })
         assertTrue(listOf("Счёт", "Укажите выручку").all { it in agent.detail })
@@ -43,11 +47,11 @@ class AssistantNextStepsTest {
                 "items":[{"title":"Счёт","documentType":"OTHER"}]}}}""",
         )
         val open = request(now.plusSeconds(1))
-        val agentHint = nextSteps.summarize(applicationId, open, agent = true, now).single()
+        val agentHint = nextSteps.summarize(applicationId, open.toAssistantApplication(), agent = true, now).single()
         assertTrue(agentHint.canRemind)
         assertEquals(infoRequestId, agentHint.infoRequestId)
-        assertFalse(nextSteps.summarize(applicationId, open, agent = false, now).single().canRemind)
-        assertTrue(nextSteps.summarize(applicationId, request(now), agent = true, now).isEmpty())
+        assertFalse(nextSteps.summarize(applicationId, open.toAssistantApplication(), agent = false, now).single().canRemind)
+        assertTrue(nextSteps.summarize(applicationId, request(now).toAssistantApplication(), agent = true, now).isEmpty())
     }
 
     @Test
@@ -56,7 +60,7 @@ class AssistantNextStepsTest {
         val offer = mapper.readTree("""{"status":"OFFER_ISSUED","process":{"offer":{"kind":"COUNTER","validUntil":"$due"}}}""")
         assertEquals(
             listOf(HintType.OFFER_DEADLINE, HintType.ALTERNATIVE),
-            nextSteps.summarize(applicationId, offer, agent = true, now).map(AssistantHint::type),
+            nextSteps.summarize(applicationId, offer.toAssistantApplication(), agent = true, now).map(AssistantHint::type),
         )
     }
 }

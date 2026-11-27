@@ -1,10 +1,6 @@
 package ru.creditcabinet.notification.application
 
-import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.notifications.NotificationEmail
-import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.notification.domain.Notification
 import ru.creditcabinet.notification.domain.NotificationType
@@ -55,7 +51,6 @@ data class NotificationView(
     }
 }
 
-@Service
 class NotificationService(
     private val store: NotificationStore,
     private val people: PeopleDirectory,
@@ -63,12 +58,12 @@ class NotificationService(
     private val receipts: NotificationReceipts,
     private val emailDelivery: NotificationEmailPort,
     private val agentAccess: AgentNotificationAccessPort,
+    private val deliveryTransaction: NotificationDeliveryTransaction,
 ) : NotificationUseCases {
     /** Turns each address into people and stores one row per person; a repeated delivery is stored once. */
-    @Transactional
-    override fun deliver(items: List<NewNotification>): Int {
+    override fun deliver(items: List<NewNotification>): Int = deliveryTransaction.execute {
         val now = clock.instant()
-        return items.sumOf { item ->
+        items.sumOf { item ->
             require(item.link == null || Notification.INTERNAL_LINK.matches(item.link)) { "Ссылка уведомления должна вести внутрь кабинета" }
             if (!receipts.claim(item)) return@sumOf 0
             val recipients = when {
@@ -93,8 +88,7 @@ class NotificationService(
         }
     }
 
-    override fun page(page: Int, size: Int, authorization: String?): NotificationPage {
-        val caller = CurrentCaller.claims()
+    override fun page(caller: TokenClaims, page: Int, size: Int, authorization: String?): NotificationPage {
         val links = accessibleAgentLinks(caller, authorization, unreadOnly = false)
         val index = page.coerceAtLeast(0)
         val limit = size.coerceIn(1, MAX_PAGE)
@@ -107,14 +101,12 @@ class NotificationService(
         )
     }
 
-    override fun unread(authorization: String?): Int {
-        val caller = CurrentCaller.claims()
+    override fun unread(caller: TokenClaims, authorization: String?): Int {
         return store.unread(caller.userId, accessibleAgentLinks(caller, authorization, unreadOnly = true))
     }
 
     /** An inaccessible notification is indistinguishable from an unknown ID. */
-    override fun markRead(id: UUID, authorization: String?) {
-        val caller = CurrentCaller.claims()
+    override fun markRead(caller: TokenClaims, id: UUID, authorization: String?) {
         val notification = store.find(id)?.takeIf { it.recipientId == caller.userId } ?: notFound()
         if (notification.link.isAgentApplicationLink()) {
             if (!caller.isAgent || authorization == null) notFound()
@@ -124,8 +116,7 @@ class NotificationService(
         store.markRead(notification.id, caller.userId, clock.instant())
     }
 
-    override fun markAllRead(authorization: String?): Int {
-        val caller = CurrentCaller.claims()
+    override fun markAllRead(caller: TokenClaims, authorization: String?): Int {
         val links = accessibleAgentLinks(caller, authorization, unreadOnly = true)
         return store.markAllRead(caller.userId, clock.instant(), links)
     }
@@ -145,7 +136,7 @@ class NotificationService(
         return allowed
     }
 
-    private fun notFound(): Nothing = throw NotFoundException("Уведомление не найдено")
+    private fun notFound(): Nothing = throw NotificationNotFound()
 
     private companion object {
         const val MAX_PAGE = 50

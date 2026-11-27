@@ -1,4 +1,4 @@
-package ru.creditcabinet.assistant
+package ru.creditcabinet.assistant.infrastructure
 
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
@@ -9,18 +9,11 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import ru.creditcabinet.assistant.application.ChatMessage
+import ru.creditcabinet.assistant.application.LanguageModel
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-
-data class ChatMessage(val role: String, val content: String)
-
-/** A language model the assistant may use; null answers mean "not available now, use the rules". */
-interface LanguageModel {
-    val name: String
-    fun available(): Boolean
-    fun chat(messages: List<ChatMessage>): String?
-}
 
 /**
  * A model with open weights served by Ollama (the "ai" profile of docker compose). Whether it is
@@ -59,7 +52,9 @@ class OllamaModel(
 
     private data class Tags(val models: List<Tag> = emptyList())
 
-    private data class Reply(val message: ChatMessage?)
+    private data class Message(val role: String, val content: String)
+
+    private data class Reply(val message: Message?)
 
     override fun available(): Boolean {
         if (baseUrl == null) return false
@@ -120,7 +115,7 @@ class OllamaModel(
             .body(
                 mapOf(
                     "model" to name,
-                    "messages" to messages,
+                    "messages" to messages.map { Message(it.role, it.content) },
                     "stream" to false,
                     "keep_alive" to keepAlive,
                     // The answer retells facts without spending its token budget on a reasoning trace.

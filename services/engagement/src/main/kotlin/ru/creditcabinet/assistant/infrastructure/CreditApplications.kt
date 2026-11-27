@@ -1,38 +1,36 @@
-package ru.creditcabinet.assistant
+package ru.creditcabinet.assistant.infrastructure
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
+import com.fasterxml.jackson.databind.node.TextNode
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
-import org.springframework.http.HttpStatus
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
-import ru.creditcabinet.common.exception.ApiException
-import ru.creditcabinet.common.exception.NotFoundException
-import ru.creditcabinet.common.security.CurrentCaller
+import ru.creditcabinet.assistant.application.AdviceSnapshot
+import ru.creditcabinet.assistant.application.AssistantApplication
+import ru.creditcabinet.assistant.application.AssistantApplicationRow
+import ru.creditcabinet.assistant.application.AssistantApplications
+import ru.creditcabinet.assistant.application.AssistantFailure
+import ru.creditcabinet.assistant.application.AssistantFailureReason
+import ru.creditcabinet.assistant.application.AssistantOffer
+import ru.creditcabinet.assistant.application.AssistantPreApprovedOffer
+import ru.creditcabinet.assistant.application.InfoRequest
+import ru.creditcabinet.assistant.application.InfoRequestItem
+import ru.creditcabinet.assistant.application.ManualReviewAdvice
+import ru.creditcabinet.assistant.application.UnderwritingSummaryInput
+import ru.creditcabinet.assistant.domain.ApplicationFacts
+import java.security.MessageDigest
 import java.time.Duration
+import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.HexFormat
 import java.util.Locale
 import java.util.UUID
-
-/** What the assistant may know about one application, in words; facts only, no guesses. */
-data class ApplicationFacts(
-    val number: String,
-    val status: String,
-    val lines: List<String>,
-    val offer: String?,
-    /** The cabinet's own estimate at the base rate: a calculation, never the bank's terms. */
-    val estimate: String? = null,
-    val refusal: List<String>,
-    val missingDocuments: List<String>,
-    val deadline: String?,
-) {
-    fun asText(): String = (listOf("Заявка № $number, статус: $status") + lines).joinToString("\n")
-}
 
 /**
  * Reads the application from credit with the caller's own token: the assistant sees exactly what
@@ -42,7 +40,7 @@ data class ApplicationFacts(
 class CreditApplications(
     @Value("\${cabinet.credit.url:}") creditUrl: String,
     builder: RestClient.Builder,
-) {
+) : AssistantApplications {
     private val client = creditClient(creditUrl, builder, Duration.ofSeconds(2), Duration.ofSeconds(5))
     private val reviewCheckClient = creditClient(creditUrl, builder, Duration.ofMillis(300), Duration.ofMillis(500))
 
@@ -55,20 +53,20 @@ class CreditApplications(
     }
 
     /** The expert system's advice on an application, read with the staff member's own token. */
-    fun advice(applicationId: UUID, authorization: String): JsonNode? {
+    override fun advice(applicationId: UUID, authorization: String): AdviceSnapshot? {
         val client = client ?: return null
         return try {
             client.get().uri("/api/v1/underwriting/applications/{id}/advice", applicationId).header(HttpHeaders.AUTHORIZATION, authorization)
-                .retrieve().body(JsonNode::class.java)
+                .retrieve().body(JsonNode::class.java)?.toAdviceSnapshot()
         } catch (exception: HttpClientErrorException.NotFound) {
-            throw NotFoundException("Заявка не найдена")
+            throw AssistantFailure(AssistantFailureReason.NOT_FOUND, "Заявка не найдена")
         } catch (exception: Exception) {
             null
         }
     }
 
     /** Credit binds this private read to the latest transition into manual review. */
-    fun manualReviewAdvice(applicationId: UUID, eventId: UUID, foreground: Boolean = false): ManualReviewAdvice? {
+    override fun manualReviewAdvice(applicationId: UUID, eventId: UUID, foreground: Boolean): ManualReviewAdvice? {
         val target = (if (foreground) reviewCheckClient else client) ?: unavailable()
         val response = try {
             target.get().uri(
@@ -83,28 +81,39 @@ class CreditApplications(
         val facts = response.deepCopy()
         val revision = facts.remove("adviceRevision")?.takeIf { it.isTextual }?.asText()?.lowercase()
         if (revision == null || !revision.matches(ADVICE_REVISION)) unavailable()
-        return ManualReviewAdvice(revision, facts)
+        return ManualReviewAdvice(revision, facts.toAdviceSnapshot())
     }
 
-    fun facts(applicationId: UUID, authorization: String): ApplicationFacts? {
-        if (CurrentCaller.claims().isAgent) return describe(application(applicationId, authorization, agent = true))
+    override fun facts(applicationId: UUID, authorization: String, agent: Boolean): ApplicationFacts? {
+        if (agent) return describe(read(authorization, "/api/v1/agent/applications/{id}", applicationId))
         val client = client ?: return null
         val application = try {
             client.get().uri("/api/v1/applications/{id}", applicationId).header(HttpHeaders.AUTHORIZATION, authorization).retrieve().body(JsonNode::class.java)
         } catch (exception: HttpClientErrorException.NotFound) {
-            throw NotFoundException("Заявка не найдена")
+            throw AssistantFailure(AssistantFailureReason.NOT_FOUND, "Заявка не найдена")
         } catch (exception: Exception) {
             return null
         } ?: return null
         return describe(application)
     }
 
-    fun application(id: UUID, authorization: String, agent: Boolean): JsonNode =
-        read(authorization, if (agent) "/api/v1/agent/applications/{id}" else "/api/v1/applications/{id}", id)
+    override fun application(id: UUID, authorization: String, agent: Boolean): AssistantApplication =
+        read(authorization, if (agent) "/api/v1/agent/applications/{id}" else "/api/v1/applications/{id}", id).toAssistantApplication()
 
-    fun agentApplications(authorization: String): JsonNode = read(authorization, "/api/v1/agent/applications")
+    override fun agentApplications(authorization: String): List<AssistantApplicationRow> =
+        read(authorization, "/api/v1/agent/applications").map {
+            AssistantApplicationRow(it.path("id").asText(), it.path("status").asText(), it.path("statusChangedAt").asText())
+        }
 
-    fun agentOffers(authorization: String): JsonNode = read(authorization, "/api/v1/agent/pre-approved-offers")
+    override fun agentOffers(authorization: String): List<AssistantPreApprovedOffer> =
+        read(authorization, "/api/v1/agent/pre-approved-offers").map {
+            AssistantPreApprovedOffer(
+                it.path("status").asText(),
+                it.path("validUntil").instant(),
+                it.path("productName").asText(),
+                it.path("companyId").asText(),
+            )
+        }
 
     private fun read(authorization: String, path: String, vararg variables: UUID): JsonNode = requestWithCaller {
         get().uri(path, *variables).header(HttpHeaders.AUTHORIZATION, authorization)
@@ -116,19 +125,19 @@ class CreditApplications(
         return try {
             target.block()
         } catch (_: HttpClientErrorException.NotFound) {
-            throw NotFoundException("Заявка не найдена")
+            throw AssistantFailure(AssistantFailureReason.NOT_FOUND, "Заявка не найдена")
         } catch (_: HttpClientErrorException.Unauthorized) {
-            throw ApiException(HttpStatus.UNAUTHORIZED, "Требуется вход в систему")
+            throw AssistantFailure(AssistantFailureReason.UNAUTHENTICATED, "Требуется вход в систему")
         } catch (_: HttpClientErrorException.Forbidden) {
-            throw ApiException(HttpStatus.FORBIDDEN, "Недостаточно прав для этого действия")
+            throw AssistantFailure(AssistantFailureReason.FORBIDDEN, "Недостаточно прав для этого действия")
         } catch (_: HttpClientErrorException.Conflict) {
-            throw ApiException(HttpStatus.CONFLICT, "Действие недоступно в текущем состоянии заявки")
+            throw AssistantFailure(AssistantFailureReason.CONFLICT, "Действие недоступно в текущем состоянии заявки")
         } catch (_: RestClientException) {
             unavailable()
         }
     }
 
-    private fun unavailable(): Nothing = throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Данные заявки сейчас недоступны")
+    private fun unavailable(): Nothing = throw AssistantFailure(AssistantFailureReason.UNAVAILABLE, "Данные заявки сейчас недоступны")
 
     private fun describe(app: JsonNode): ApplicationFacts {
         val process = app["process"]
@@ -189,7 +198,7 @@ class CreditApplications(
 
     private fun percent(rate: String) = (rate.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: rate).replace('.', ',') + "%"
 
-    private fun date(iso: String) = runCatching { DATE.format(java.time.Instant.parse(iso).atZone(MOSCOW)) }.getOrDefault(iso)
+    private fun date(iso: String) = runCatching { DATE.format(Instant.parse(iso).atZone(MOSCOW)) }.getOrDefault(iso)
 
     private companion object {
         val ADVICE_REVISION = Regex("[0-9a-f]{64}")
@@ -217,4 +226,50 @@ class CreditApplications(
             "CLOSED" to "заявка закрыта",
         )
     }
+}
+
+internal fun JsonNode.toAssistantApplication(): AssistantApplication {
+    val process = path("process")
+    val request = process.path("infoRequest")
+    val offer = process.path("offer")
+    return AssistantApplication(
+        status = path("status").asText(),
+        purpose = path("purpose").asText(),
+        amount = path("amount").asLong(),
+        termMonths = path("termMonths").asInt(),
+        productCode = path("product").path("code").asText(),
+        companyId = path("company").path("id").asText(),
+        missingDocuments = path("requiredDocuments").filter { !it.path("uploaded").asBoolean() }.map { it.path("title").asText() },
+        submissionProblems = path("submissionProblems").map(JsonNode::asText),
+        infoRequest = request.takeIf { it.isObject }?.let {
+            InfoRequest(
+                it.path("id").takeIf(JsonNode::isTextual)?.asText()?.let { value -> runCatching { UUID.fromString(value) }.getOrNull() },
+                it.path("deadline").instant(),
+                it.path("items").map { item -> InfoRequestItem(item.path("title").asText(), item.path("documentType").isTextual) },
+            )
+        },
+        offer = offer.takeIf { it.isObject }?.let {
+            AssistantOffer(it.path("kind").asText(), it.path("productCode").asText(), it.path("validUntil").instant())
+        },
+    )
+}
+
+private fun JsonNode.instant(): Instant? = if (isTextual) runCatching { Instant.parse(asText()) }.getOrNull() else null
+
+internal fun JsonNode.toAdviceSnapshot(): AdviceSnapshot = AdviceSnapshot(
+    UnderwritingSummaryInput(
+        get("verdict").asText(),
+        get("items").map { "${it["title"].asText()}. ${it["text"].asText()}" },
+        get("modelVersion").asInt(),
+    ),
+    HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(canonicalJson().toByteArray(Charsets.UTF_8))),
+)
+
+// Object field order is irrelevant, but array order and fields omitted from the summary still affect the snapshot.
+private fun JsonNode.canonicalJson(): String = when {
+    isObject -> fields().asSequence().sortedBy { it.key }.joinToString(",", "{", "}") { (key, value) ->
+        "${TextNode.valueOf(key)}:${value.canonicalJson()}"
+    }
+    isArray -> joinToString(",", "[", "]") { it.canonicalJson() }
+    else -> toString()
 }

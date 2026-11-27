@@ -101,6 +101,27 @@ class DocumentsDeliveryTest(unittest.TestCase):
         self.dev.migration.assert_not_called()
         self.dev.move_gate.assert_not_called()
 
+    def test_readiness_receipt_requires_live_credit_probe_and_is_idempotent(self):
+        deployment = self.mock_migration()
+        self.dev.resume_attempt(deployment, self.request)
+        current = self.dev.current()
+        config = {"Config": {"Env": ["CABINET_DOCUMENTS_MODE=remote", "CABINET_DOCUMENTS_EPOCH=2"]}}
+        path = self.dev.state / "ready" / f"{SHA}-2.json"
+        self.dev.probe = Mock(side_effect=[TimeoutError, None, None])
+        with (patch.object(Descriptor, "verify_image", return_value="sha256:" + SHA),
+              patch("documents_dev.verify_container", side_effect=lambda _deployment, _service, image, **_: image),
+              patch("documents_dev.inspect_one", return_value=config)):
+            deployment.release.local_image_id.return_value = "sha256:" + "b" * 64
+            with self.assertRaises(TimeoutError):
+                self.dev.verify_credit(deployment)
+            self.assertFalse(path.exists())
+            receipt = self.dev.verify_credit(deployment)
+            self.assertEqual(receipt, self.dev.verify_credit(deployment))
+        self.dev.probe.assert_called_with(deployment, from_credit=True)
+        self.assertEqual(current["receipt"], receipt["cutover_receipt"])
+        self.assertEqual(receipt, read_record(path))
+        self.assertEqual(0o600, path.stat().st_mode & 0o777)
+
     def test_reverse_starts_frozen_and_new_forward_attempt_advances_epoch(self):
         for mode, other in (("local", "remote"), ("remote", "local")):
             sequence = transition_gates(mode, 2)
@@ -217,6 +238,9 @@ class DocumentsDeliveryTest(unittest.TestCase):
         identity = {**IDENTITY, "ca_sha256": sha256((tls / "ca.crt").read_bytes()).hexdigest(),
                     "credentials_sha256": sha256(credentials.read_bytes()).hexdigest()}
         write_record(state / "identity.json", identity)
+        ready_path = Path("ready") / f"{SHA}-1.json"
+        ensure_private(state / "ready")
+        write_record(state / ready_path, {"epoch": 1}, immutable=True)
         archive = self.root / "backup"
         archive.mkdir(mode=0o700)
         paths = {"db": "documents-runtime.dump", "local": "documents-runtime-local.tar.gz",
@@ -237,6 +261,7 @@ class DocumentsDeliveryTest(unittest.TestCase):
         target = self.root / "restore"
         DocumentsDev.stage_restore(target, archive, backup)
         self.assertEqual(identity, read_record(target / "identity.json"))
+        self.assertEqual({"epoch": 1}, read_record(target / ready_path))
         self.assertTrue((tls / "ca.crt").read_bytes() == (target / "tls" / "ca.crt").read_bytes())
         self.assertTrue(credentials.read_bytes() == (target / "credentials.env").read_bytes())
         self.assertEqual(0o600, (target / "credentials.env").stat().st_mode & 0o777)

@@ -452,7 +452,10 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
 
     def verify_credit(self, deployment):
         current = self.current()
-        verify_container(deployment, "credit", deployment.release.local_image_id("credit"), ready=True)
+        if self.active_request() or current["mode"] != self.descriptor.mode:
+            raise RuntimeError("Режим manifest и согласованный режим Documents различаются")
+        credit_image = verify_container(deployment, "credit", deployment.release.local_image_id("credit"), ready=True)
+        documents_image = verify_container(deployment, "documents", self.descriptor.verify_image(), ready=True)
         config = inspect_one("inspect", "--type", "container", deployment.container("credit")).get("Config") or {}
         fields = [line.partition("=") for line in config.get("Env") or ()]
         for key, value in self.credit_environment().items():
@@ -461,6 +464,22 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
         if self.gates(deployment) != stable_gates(current["mode"], current["epoch"]):
             raise RuntimeError("Credit и Documents не подтвердили режим одного writer")
         self.probe(deployment, from_credit=True)
+        receipt = {
+            "revision": self.descriptor.revision,
+            "manifest_sha256": self.descriptor.manifest_sha256,
+            "image": self.descriptor.image,
+            "jar_sha256": self.descriptor.jar_sha256,
+            "documents_image_id": documents_image,
+            "credit_image_id": credit_image,
+            "generation": self.identity["generation"],
+            "mode": current["mode"],
+            "epoch": current["epoch"],
+            "cutover_receipt": current["receipt"],
+            "credit_mtls": True,
+        }
+        ready = ensure_private(self.state / "ready")
+        write_record(ready / f"{self.descriptor.manifest_sha256}-{current['epoch']}.json", receipt, immutable=True)
+        return receipt
 
     def move_gate(self, deployment, side, before, after):
         old_owner, old_epoch = before
@@ -721,7 +740,7 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
                     deployment.compose("up", "-d", "--no-build", "--no-deps", "--wait", "--wait-timeout", "120",
                                        "documents-s3")
             files = [self.state / name for name in ("identity.json", "credentials.env", "current.json") if (self.state / name).exists()]
-            for area in ("tls", "receipts", "attempts"):
+            for area in ("tls", "receipts", "attempts", "ready"):
                 files.extend(path for path in (self.state / area).rglob("*") if path.is_file())
             with self.private_file(directory / paths["state"]) as output:
                 with tarfile.open(fileobj=output, mode="w:gz") as archive:
@@ -768,7 +787,8 @@ where t.tgname in ('documents_owner_fence','artifacts_owner_fence')
             candidate = ensure_private(Path(scratch) / "state")
             pattern = re.compile(
                 r"(?:identity\.json|credentials\.env|current\.json|tls/(?:ca\.(?:key|crt)|(?:server|credit)/(?:ca\.crt|tls\.(?:crt|key)))"
-                r"|receipts/[a-f0-9]{64}\.json|attempts/[a-f0-9]{32}/(?:request|original-inputs|verified)\.json)"
+                r"|receipts/[a-f0-9]{64}\.json|ready/[a-f0-9]{64}-[1-9][0-9]{0,18}\.json"
+                r"|attempts/[a-f0-9]{32}/(?:request|original-inputs|verified)\.json)"
             )
             seen = set()
             with tarfile.open(directory / backup["paths"]["state"], "r:gz") as archive:

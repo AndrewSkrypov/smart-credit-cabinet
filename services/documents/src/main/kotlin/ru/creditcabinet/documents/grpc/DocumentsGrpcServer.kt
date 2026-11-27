@@ -29,6 +29,8 @@ import ru.creditcabinet.documents.DocumentConflict
 import ru.creditcabinet.documents.DocumentRecord
 import ru.creditcabinet.documents.DocumentScope
 import ru.creditcabinet.documents.MAX_DOCUMENT_BYTES
+import ru.creditcabinet.documents.application.DocumentsStorageRejected
+import ru.creditcabinet.documents.application.DocumentsStorageUnavailable
 import ru.creditcabinet.documents.application.DocumentsStore
 import ru.creditcabinet.documents.sha256
 import java.io.File
@@ -90,13 +92,12 @@ class DocumentsRpc(private val store: DocumentsStore, private val mapper: Object
             _: NoSuchElementException,
         ) {
             observer.onError(Status.NOT_FOUND.asRuntimeException())
+        } catch (failure: DocumentsStorageUnavailable) {
+            observer.onError(Status.UNAVAILABLE.withCause(failure).asRuntimeException())
+        } catch (failure: DocumentsStorageRejected) {
+            observer.onError(Status.FAILED_PRECONDITION.withCause(failure).asRuntimeException())
         } catch (failure: Exception) {
-            val databaseUnavailable = generateSequence<Throwable>(failure) { it.cause }.take(12).filterIsInstance<java.sql.SQLException>().any {
-                it.sqlState?.take(2) in setOf("08", "53") ||
-                    it.sqlState in setOf("57P01", "57P02", "57P03") ||
-                    (it is java.sql.SQLTransientConnectionException && it.sqlState == null)
-            }
-            observer.onError((if (databaseUnavailable) Status.UNAVAILABLE else Status.FAILED_PRECONDITION).asRuntimeException())
+            observer.onError(Status.FAILED_PRECONDITION.withCause(failure).asRuntimeException())
         }
     }
     private fun content(bytes: ByteArray): Content = Content.newBuilder().setContent(ByteString.copyFrom(bytes)).setSha256(sha256(bytes)).build()

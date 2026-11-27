@@ -105,3 +105,22 @@ All remote write entry points (A12 commit-order inventory):
 Logical parity excludes both document and artifact orphans. Physical backup preserves
 all metadata, bytes and pending delivery state. A pending deletion may be represented by
 Credit's committed intent until delivery/reverse; cutover verifies that state explicitly.
+
+The immutable `document_upload_operations` table is a command-input ledger, not a file
+registry: it holds scope/actor, opaque exact-request hash, PG-precision requested time
+and requested backend. A separate bounded two-connection pool reserves it without
+application FKs or outer transaction locks, avoiding pool starvation and self-deadlock.
+It never authorizes public visibility. Retain it in every Credit backup, including
+uncommitted operations: REMOTE rollback -> reverse (no orphan import) -> same-key LOCAL
+retry -> forward must preserve UUID, requested time, backend, bytes and one journal.
+Preflight must validate stores needed by these operations and pending artifact inputs,
+even before their first file exists. Missing requested storage fails closed.
+
+A committed artifact input also freezes requested backend. Reverse creates missing
+LOCAL PENDING jobs directly from that exact immutable input, including an unsent FINAL
+intent; it never derives replacement final terms from the current application. Published
+READY metadata remains immutable; only database timestamp precision is normalized for
+cross-database comparison, without altering frozen input JSON or existing published values.
+Every worker revalidates token and fresh database expiry after locking the artifact row.
+Runtime JaCoCo reports consume their own execution data and never pull the unrelated
+default database test suite into the fixture task graph; default test/check coverage stays.

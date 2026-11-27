@@ -68,6 +68,58 @@ class DocumentsBoundary(
         // A replay returns the original owner-chosen timestamp/backend/path, including after a lost reply.
         client().list(scope).single { it.id == document.id && it.deletedAt == null }.document()
     }
+    private var operationPool: com.zaxxer.hikari.HikariDataSource? = null
+    private val operationJdbc by lazy {
+        val original = jdbc.dataSource!!
+        val source = if (original.isWrapperFor(com.zaxxer.hikari.HikariDataSource::class.java)) {
+            val configured = original.unwrap(com.zaxxer.hikari.HikariDataSource::class.java)
+            com.zaxxer.hikari.HikariDataSource(
+                com.zaxxer.hikari.HikariConfig().apply {
+                    jdbcUrl = configured.jdbcUrl
+                    username = configured.username
+                    password = configured.password
+                    configured.driverClassName?.let { driverClassName = it }
+                    dataSourceProperties = configured.dataSourceProperties
+                    maximumPoolSize = 2
+                    minimumIdle = 0
+                    connectionTimeout = 3000
+                    validationTimeout = 1000
+                    poolName = "documents-upload-operations"
+                },
+            ).also { operationPool = it }
+        } else {
+            original
+        }
+        org.springframework.jdbc.core.JdbcTemplate(source).apply { queryTimeout = 5 }
+    }
+    data class UploadOperation(val at: Instant, val backend: StorageBackend)
+    fun reserveUpload(id: UUID, applicationId: UUID, actor: UUID, requestHash: String, backend: StorageBackend, at: Instant): UploadOperation {
+        val company = scope(applicationId).companyId
+        val transaction = org.springframework.transaction.support.TransactionTemplate(
+            org.springframework.jdbc.datasource.DataSourceTransactionManager(operationJdbc.dataSource!!),
+        ).apply { propagationBehavior = org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW }
+        return transaction.execute {
+            operationJdbc.update(
+                "insert into document_upload_operations(operation_id,application_id,company_id,actor_id,request_hash,requested_at,requested_backend) values(?,?,?,?,?,?,?) on conflict do nothing",
+                id,
+                applicationId,
+                company,
+                actor,
+                requestHash,
+                java.sql.Timestamp.from(at.truncatedTo(java.time.temporal.ChronoUnit.MICROS)),
+                backend.name,
+            )
+            val operation = operationJdbc.queryForMap("select * from document_upload_operations where operation_id=?", id)
+            if (operation["application_id"] != applicationId ||
+                operation["company_id"] != company ||
+                operation["actor_id"] != actor ||
+                operation["request_hash"] != requestHash
+            ) {
+                throw ru.creditcabinet.common.exception.ConflictException("Ключ загрузки уже использован для другого файла")
+            }
+            UploadOperation((operation["requested_at"] as java.sql.Timestamp).toInstant(), StorageBackend.valueOf(operation["requested_backend"] as String))
+        }!!
+    }
     fun lockUpload(id: UUID) {
         check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
         jdbc.queryForObject("select pg_advisory_xact_lock(hashtextextended(?,0))", { _, _ -> true }, id.toString())
@@ -204,6 +256,7 @@ class DocumentsBoundary(
 
     @PreDestroy fun close() {
         channel?.shutdownNow()
+        operationPool?.close()
     }
 }
 

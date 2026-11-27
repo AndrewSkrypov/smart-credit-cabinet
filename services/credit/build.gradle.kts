@@ -41,8 +41,22 @@ apply(from = rootProject.file("gradle/catalog-integration.gradle.kts"))
 
 val documentsClaimFenceRuntimeTest by tasks.registering(Test::class) {
     description = "Real PostgreSQL stale generic worker callback fence gate"
+    // Custom fixture owns its database; the default report depends on an unrelated full test suite.
+    setFinalizedBy(emptyList<String>())
+    outputs.upToDateWhen { false }
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     include("**/DocumentsClaimFenceRuntimeTest.class", "**/DocumentsArtifactIntentRuntimeTest.class")
     useJUnitPlatform()
 }
+
+val documentsCreditRuntimeCoverageReport by tasks.registering(org.gradle.testing.jacoco.tasks.JacocoReport::class) {
+    dependsOn(documentsClaimFenceRuntimeTest)
+    executionData(fileTree(layout.buildDirectory.dir("jacoco")) { include("test.exec", "documentsClaimFenceRuntimeTest.exec") })
+    sourceSets(sourceSets.main.get())
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+documentsClaimFenceRuntimeTest.configure { finalizedBy(documentsCreditRuntimeCoverageReport) }

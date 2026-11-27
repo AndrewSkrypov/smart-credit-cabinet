@@ -57,7 +57,7 @@ class DocumentsWorkerFenceTest {
             assertEquals(if (next == ("DOCUMENTS" to 1L)) 1 else 0, errorWrites.size)
             errorWrites.forEach { invocation ->
                 val sql = invocation.arguments.first().toString()
-                kotlin.test.assertTrue(sql.contains("lease_until>now()") && sql.contains("status<>'READY'"))
+                kotlin.test.assertTrue(sql.contains("lease_until>clock_timestamp()") && sql.contains("status<>'READY'"))
             }
         }
     }

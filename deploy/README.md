@@ -62,6 +62,69 @@ SHA-256 JavaScript по HTTPS, статусы входа, мандат аген�
 Повтор того же защищённого job продолжает выпуск при временном сбое. Для независимой
 проверки ролей используйте `deploy/verify-jury.py --url https://<FQDN> --credentials <закрытый-json>`.
 
+### Первый выпуск четырёх runtime на Dev
+
+Первый этап запускает Catalog, Assessment, Servicing и Documents в `local`.
+Успешная выкладка применяет миграции Credit до V26 и подтверждает работающие
+private runtime и локальных владельцев. Первый выпуск Documents с `remote`
+отклоняется, пока состояние Dev не содержит подтверждённый Documents.
+
+После приёмки local оформите факты в коротком коммите с документацией, проведите
+его через отдельный MR и дождитесь следующего защищённого SHA. Этот новый SHA
+используется для этапа remote. GitLab выпускает второй неизменяемый
+`release.json` на новом SHA. Оба этапа хранят собственные артефакты
+`release-images` и `dev-deploy`, квитанции runtime и привязку согласованной копии.
+Применённый staged-каталог и `release.json` первого выпуска остаются исходными.
+
+Перед каждым этапом сверяйте фактический `current`, отсутствие `pending` и
+поколение Alpha в согласованном отчёте Dev. Для замера ресурсов используется
+отдельный защищённый pipeline с `CABINET_DEV_DIAGNOSTICS=1`. После проверки
+`dev-diagnostics-docker` запускается только `dev-diagnostics`. Его staged SHA
+берётся из второго родителя защищённого merge-коммита с тем же деревом. Отчёт содержит
+`resources.memory` с `MemTotal` и `MemAvailable` в байтах и свободное место для
+корня, состояния, staged-выпусков и data-root локального Docker. Одинаковый
+`group` обозначает общее место на файловой системе. `null` означает
+недоступное измерение. Сопоставьте лимиты всех активных Compose-профилей и
+резерв 2 GiB из `start.py` с фактической RAM. Сопоставьте общее свободное место
+с копией текущего выпуска, холодными архивами Alpha и загрузкой образов
+нового выпуска. Штатный SSH endpoint оставляет только команды `stage` и `deploy`.
+
+Для каждого этапа создайте отдельный API pipeline на проверенной защищённой
+ветке `feat/final-platform-release`. В запросе
+`POST /api/v4/projects/:id/pipeline` передайте `ref` и массив `variables`
+с пятью объектами `key` и `value`. Сразу сверьте SHA в ответе с утверждённым
+SHA этапа. [GitLab Pipelines API](https://docs.gitlab.com/api/pipelines/#create-a-new-pipeline)
+
+| Переменная | Первый SHA | Следующий SHA |
+| --- | --- | --- |
+| `CABINET_ALPHA_PILOT` | `1` | `1` |
+| `CABINET_CATALOG_DEV_MODE` | `local` | `remote` |
+| `CABINET_ASSESSMENT_DEV_MODE` | `local` | `remote` |
+| `CABINET_SERVICING_DEV_MODE` | `local` | `remote` |
+| `CABINET_DOCUMENTS_DEV_MODE` | `local` | `remote` |
+
+1. Дождитесь обязательных задач `quality`, `verify` и `extended`, включая
+   `alpha-pilot-infrastructure` и `alpha-pilot-analytics-jar`. Сверьте их SHA,
+   контрольные суммы backend и Analytics JAR и результаты проверок безопасности.
+2. Запустите `release-images`. Сверьте SHA и SHA-256 `release.json`, режимы четырёх
+   runtime, digest ссылок Registry, OCI config ID и JAR SHA. Проверьте, что
+   опубликованный digest Kafka указывает на прошедший сканирование образ.
+3. Запустите `dev-deploy` из того же pipeline. Сохраните SHA-256 манифеста,
+   квитанцию backup своего исходного выпуска и отчёт выкладки. Дампы и файлы
+   с ключами остаются в защищённом каталоге Dev. Проверьте ожидаемые режимы и
+   работающие OCI image IDs четырёх runtime. Штатный запуск завершает Flyway Credit
+   до запуска runtime. Сводка Dev не публикует историю Flyway, поэтому для отдельной
+   записи о V26 нужен уже разрешённый источник сведений о миграциях. В
+   `alpha_continuity` ожидаются прежние тома и маркер,
+   подтверждённые позиции партиций, неизменный DLQ, пустой открытый outbox,
+   догнавшая проекция и `credit_status_source=sql`.
+4. Сверьте HTTPS и хеш frontend, а также `role_checks` для входа клиента,
+   агента и андеррайтера, мандата агента и запретов на соседние роли.
+   Внутренний маршрут Analytics снаружи возвращает `404`.
+   `prod-deploy` остаётся ручным и без запуска. Критерий этапа — успешный
+   `dev-deploy` с квитанциями. Статус всего pipeline может остаться `blocked`
+   на ручном Prod.
+
 ## Репетиция отката
 
 Сделайте отдельный рабочий каталог, локальный env и уникальную сеть Docker. Для примера

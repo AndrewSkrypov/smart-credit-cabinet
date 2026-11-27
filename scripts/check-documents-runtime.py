@@ -51,6 +51,12 @@ def main():
     source_sha=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()
     context = RuntimeContext(ROOT, source_sha)
     scratch = context.create_scratch()
+    job_id=os.environ.get('CI_JOB_ID','')
+    project_id=os.environ.get('CI_PROJECT_ID','')
+    profile=args.storage_backend
+    scope=f'cabinet-documents-{project_id}-{job_id}-{profile}' if job_id else f'cabinet-documents-native-{uuid.uuid4().hex}'
+    ledger = context.initialize_ledger(scratch, report, scope)
+    ledger_path=report/'native-processes.json'
     processes = []
     identity_server = None
     handles = []
@@ -74,10 +80,6 @@ def main():
     # migration flags, tokens and application secrets cannot reach a synthetic JAR.
     base_env = {name:os.environ[name] for name in ('PATH','HOME','JAVA_HOME','GRADLE_USER_HOME','GRADLE_RO_DEP_CACHE','TMPDIR','LD_LIBRARY_PATH','LANG','LC_ALL') if name in os.environ}
     base_env['GRADLE_OPTS']='-Xmx256m'
-    job_id=os.environ.get('CI_JOB_ID','')
-    project_id=os.environ.get('CI_PROJECT_ID','')
-    profile=args.storage_backend
-    scope=f'cabinet-documents-{project_id}-{job_id}-{profile}' if job_id else f'cabinet-documents-native-{uuid.uuid4().hex}'
     docker_env=None
     labels={'cabinet.fixture':'documents-r3','cabinet.ci.job':job_id,'cabinet.ci.project':project_id,'cabinet.source':source_sha,'cabinet.profile':profile}
     if args.postgres_image or args.s3_image:
@@ -88,9 +90,6 @@ def main():
         docker_env=base_env|{'DOCKER_HOST':endpoint}
         daemon_labels=subprocess.check_output(['docker','info','--format','{{json .Labels}}'],env=docker_env)
         if 'cabinet-ci=true' not in json.loads(daemon_labels): raise ValueError('Fixture daemon label mismatch')
-    ledger={'scope':scope,'source':source_sha,'scratch':str(scratch),'processes':[]}
-    (scratch/'fixture-scope.json').write_text(json.dumps({'scope':scope,'source':source_sha})+'\n')
-    ledger_path=report/'native-processes.json'
     def register(process,marker):
         if isinstance(process,int): pid=process
         else: pid=process.pid

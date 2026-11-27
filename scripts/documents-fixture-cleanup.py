@@ -23,7 +23,16 @@ def identity(pid):
 
 
 def cleanup(path, expected=None):
-    if not path.exists(): return
+    if not path.exists():
+        if expected:
+            context = RuntimeContext(ROOT, expected['source'])
+            if context.ci:
+                scope = expected['scope']
+                if scope not in (f'cabinet-documents-{context.project}-{context.job}-local', f'cabinet-documents-{context.project}-{context.job}-s3'):
+                    raise ValueError('Missing journal scope is outside the current CI job')
+                if context.parent.exists() and any(child.name.startswith('alpha-documents-runtime-') for child in context.parent.iterdir()):
+                    raise RuntimeError('Missing fixture journal with current CI scratch; state uncertain, data retained')
+        return
     receipt=json.loads(path.read_text())
     if expected and any(receipt.get(key)!=value for key,value in expected.items()):
         raise ValueError('Fixture cleanup scope mismatch')

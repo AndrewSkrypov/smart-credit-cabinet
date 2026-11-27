@@ -1,5 +1,6 @@
 """Shared Documents scratch identity, reconstructed by a fresh CI cleanup shell."""
 import os
+import json
 from pathlib import Path
 import re
 import tempfile
@@ -8,6 +9,7 @@ import tempfile
 class RuntimeContext:
     def __init__(self, root, source, environment=None):
         self.root = Path(root).resolve()
+        self.source = source
         self.environment = os.environ if environment is None else environment
         self.job = self.environment.get('CI_JOB_ID', '')
         self.project = self.environment.get('CI_PROJECT_ID', '')
@@ -36,6 +38,26 @@ class RuntimeContext:
             self._check_shared_path()
         self.parent.mkdir(parents=True, exist_ok=True)
         return Path(tempfile.mkdtemp(prefix='alpha-documents-runtime-', dir=self.parent))
+
+    def initialize_ledger(self, scratch, report, scope):
+        if not self.permits(scratch, scope):
+            raise ValueError('Initial fixture journal is outside the runtime context')
+        ledger = {'scope': scope, 'source': self.source, 'scratch': str(scratch), 'processes': []}
+        # Publish both ownership and the empty journal before any fixture side effect.
+        for target, value in ((scratch / 'fixture-scope.json', {'scope': scope, 'source': self.source}),
+                              (report / 'native-processes.json', ledger)):
+            temporary = target.with_suffix('.new')
+            with temporary.open('w') as output:
+                output.write(json.dumps(value) + '\n')
+                output.flush()
+                os.fsync(output.fileno())
+            temporary.replace(target)
+            descriptor = os.open(target.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+        return ledger
 
     def permits(self, scratch, scope):
         scratch = Path(scratch)

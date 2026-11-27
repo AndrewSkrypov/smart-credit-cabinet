@@ -338,6 +338,76 @@ runpy.run_path(runtime, run_name='__main__')
                 if child.poll() is None: child.terminate(); child.wait(timeout=5)
             if context.parent.exists(): shutil.rmtree(context.parent)
 
+    def test_actual_main_jvm_sigterm_and_hard_kill_before_popen_return_are_fenced(self):
+        source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+        child_code=r'''
+import importlib.util,json,os,signal,subprocess,sys
+from pathlib import Path
+from unittest.mock import patch,MagicMock
+runtime_file,report,mode=sys.argv[1:]
+sys.path.insert(0,str(Path(runtime_file).parent))
+spec=importlib.util.spec_from_file_location('jvm_gap_main',runtime_file)
+runtime=importlib.util.module_from_spec(spec);spec.loader.exec_module(runtime)
+real_run=subprocess.run; real_popen=subprocess.Popen
+def run(command,**kwargs):
+    if command[0]=='git': return real_run(command,**kwargs)
+    if command[:2]==['docker','info']: return subprocess.CompletedProcess(command,0,b'["cabinet-ci=true"]',b'')
+    return subprocess.CompletedProcess(command,0,'a'*64 if command[:2]==['docker','run'] else '', '')
+def popen(command,**kwargs):
+    if command[0]!='/unused/bin/java': return real_popen(command,**kwargs)
+    marker=command[1]
+    child=real_popen([sys.executable,'-c','import time; time.sleep(60)',marker],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    start=Path(f'/proc/{child.pid}/stat').read_text().rsplit(')',1)[1].split()[19]
+    ledger=json.loads((Path(report)/'native-processes.json').read_text())
+    assert ledger['pendingJvmStart'] is True and ledger['processes']==[]
+    (Path(report)/'unregistered-child.json').write_text(json.dumps({'pid':child.pid,'start':start,'marker':marker}))
+    os.kill(os.getpid(),signal.SIGTERM if mode=='term' else signal.SIGKILL)
+    return child
+sys.argv=['runtime','--skip-build','--postgres-image','synthetic-postgres:test','--report-dir',report]
+with patch.object(subprocess,'run',run),patch.object(subprocess,'Popen',popen),patch.object(runtime.socket,'create_connection',return_value=MagicMock()):
+    runtime.main()
+'''
+        for mode in ('term','kill'):
+            with self.subTest(mode=mode):
+                env=self.env|{'CI_PROJECT_DIR':str(ROOT),'CI_JOB_ID':str(uuid.uuid4().int)[:12],'CI_COMMIT_SHA':source,
+                              'JAVA_HOME':'/unused','CABINET_CI_DOCKER_HOST':'unix:///synthetic-cabinet-ci.sock','CI_RUNNER_TAGS':'cabinet-ci'}
+                context=RuntimeContext(ROOT,source,env)
+                report=self.root/('jvm-'+mode)
+                identity=None
+                try:
+                    result=subprocess.run([sys.executable,'-B','-c',child_code,str(ROOT/'scripts/check-documents-runtime.py'),str(report),mode],
+                                          env=env,capture_output=True,text=True,timeout=15)
+                    self.assertEqual(result.returncode,143 if mode=='term' else -signal.SIGKILL,result.stderr)
+                    identity=json.loads((report/'unregistered-child.json').read_text())
+                    ledger=json.loads((report/'native-processes.json').read_text())
+                    scratch=Path(ledger['scratch'])
+                    if mode=='term':
+                        self.assertFalse(ledger['pendingJvmStart'])
+                        self.assertEqual(len(ledger['processes']),1)
+                        self.assertIsNone(cleanup.identity(identity['pid']))
+                        self.assertFalse(scratch.exists())
+                    else:
+                        self.assertTrue(ledger['pendingJvmStart'])
+                        self.assertEqual(ledger['processes'],[])
+                        self.assertEqual(cleanup.identity(identity['pid']),identity['start'])
+                        command=[sys.executable,'-B',str(ROOT/'scripts/documents-fixture-cleanup.py'),str(report/'native-processes.json'),
+                                 '--scope',ledger['scope'],'--source',source]
+                        cleaned=subprocess.run(command,env=env,capture_output=True,text=True,timeout=15)
+                        self.assertNotEqual(cleaned.returncode,0)
+                        self.assertIn('JVM startup identity unresolved',cleaned.stderr)
+                        self.assertTrue(scratch.exists())
+                finally:
+                    if identity is None and (report/'unregistered-child.json').exists():
+                        identity=json.loads((report/'unregistered-child.json').read_text())
+                    if identity and cleanup.identity(identity['pid'])==identity['start']:
+                        self.assertIn(identity['marker'].encode(),Path(f"/proc/{identity['pid']}/cmdline").read_bytes().split(b'\0'))
+                        os.kill(identity['pid'],signal.SIGTERM)
+                        import time
+                        deadline=time.monotonic()+5
+                        while cleanup.identity(identity['pid'])==identity['start'] and time.monotonic()<deadline: time.sleep(.05)
+                        self.assertIsNone(cleanup.identity(identity['pid']))
+                    if context.parent.exists(): shutil.rmtree(context.parent)
+
     def test_fresh_cleanup_shell_stops_only_owned_identity_in_current_job(self):
         # Use the real checkout because a fresh helper independently derives ROOT.
         env = self.env | {'CI_PROJECT_DIR': str(ROOT), 'CI_JOB_ID': str(uuid.uuid4().int)[:12]}

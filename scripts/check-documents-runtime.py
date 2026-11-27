@@ -61,6 +61,7 @@ def main():
     identity_server = None
     handles = []
     container = None
+    startup_unconfirmed = False
     pg_started = False
     pg_process = None
     spawning_process = False
@@ -161,15 +162,19 @@ def main():
         return records
     try:
         if args.storage_backend == 's3':
+            startup_unconfirmed = bool(args.s3_image)
             spec=importlib.util.spec_from_file_location('documents_s3_fixture',ROOT/'scripts/documents-s3-fixture.py')
             module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
             s3=module.S3Fixture.__new__(module.S3Fixture)
             s3.__init__(scratch,report,free_port,binary=args.s3_binary,binary_sha256=args.s3_sha256,image=args.s3_image,docker_env=docker_env,scope=scope,labels=labels,environment=base_env,register=register)
+            startup_unconfirmed = False
         if not args.skip_build:
             run([gradle, '--no-daemon', '--max-workers=1', ':services:documents:bootJar', ':services:credit:bootJar', ':services:documents:testClasses'], 'build')
         if args.postgres_image:
+            startup_unconfirmed = True
             pg_labels=labels|{'cabinet.resource':'postgres'}
             container, pg_port = start_ci_container(['docker', 'run', '-d', '--name', f'{scope}-postgres', *[part for key,value in pg_labels.items() for part in ('--label',f'{key}={value}')], '-p', '127.0.0.1::5432', '-e', 'POSTGRES_PASSWORD', '-e', f'POSTGRES_USER={admin}', '-e', 'POSTGRES_DB=postgres', args.postgres_image], docker_env | {'POSTGRES_PASSWORD': admin_password}, name=f'{scope}-postgres',image=args.postgres_image,labels=pg_labels,container_port=5432)
+            startup_unconfirmed = False
             wait_port(pg_port)
             # Use host psql for the isolated, verified image.
         else:
@@ -593,7 +598,11 @@ insert into financing_scenario_publications(application_id,revision,status,docum
             except subprocess.TimeoutExpired:
                 # Keep the directory and ownership ledger for guarded after_script cleanup.
                 raise RuntimeError('Owned PostgreSQL did not stop; fixture directory retained')
-        if pg_process is None or pg_process.poll() is not None:
+        if startup_unconfirmed:
+            # A timed-out Docker client may already have created a live bind consumer.
+            # after_script must verify/remove the job-labeled resource before data removal.
+            (report/'cleanup-retained.json').write_text(json.dumps({'scope':scope,'source':source_sha,'scratch':str(scratch),'reason':'CI container startup unconfirmed; guarded after_script cleanup required'})+'\n')
+        elif pg_process is None or pg_process.poll() is not None:
             shutil.rmtree(scratch)
 
 if __name__ == '__main__': main()

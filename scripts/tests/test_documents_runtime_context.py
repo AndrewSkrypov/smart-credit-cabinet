@@ -184,6 +184,59 @@ runpy.run_path(runtime, run_name='__main__')
             if scratch.exists(): shutil.rmtree(scratch)
             context.parent.rmdir()
 
+    def test_actual_main_retains_ci_s3_and_pg_data_after_docker_timeout_with_live_consumer(self):
+        runtime = load('documents_main_timeout_test', 'check-documents-runtime.py')
+        source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+        original_run = subprocess.run
+        for profile in ('s3', 'local'):
+            with self.subTest(profile=profile):
+                env = self.env | {'CI_PROJECT_DIR':str(ROOT), 'CI_JOB_ID':str(uuid.uuid4().int)[:12], 'CI_COMMIT_SHA':source,
+                                  'JAVA_HOME':'/unused-no-java', 'CABINET_CI_DOCKER_HOST':'unix:///synthetic-cabinet-ci.sock',
+                                  'CI_RUNNER_TAGS':'cabinet-ci'}
+                context = RuntimeContext(ROOT, source, env)
+                report = self.root / ('timeout-' + profile)
+                arguments = ['--storage-backend','s3','--s3-image',s3.PINNED_IMAGE] if profile == 's3' else ['--postgres-image','synthetic-ci-postgres:test']
+                children = []
+                foreign = self.root / 'foreign-data'; foreign.write_text('unchanged')
+                previous_handlers = {number:signal.getsignal(number) for number in (signal.SIGTERM,signal.SIGINT)}
+                def docker(command, **kwargs):
+                    if command[:2] == ['docker','info']:
+                        return subprocess.CompletedProcess(command, 0, b'["cabinet-ci=true"]', b'')
+                    if command[:2] == ['docker','run']:
+                        ledger = json.loads((report/'native-processes.json').read_text())
+                        scratch = Path(ledger['scratch'])
+                        marker = f'-dir={scratch}/s3/data' if profile == 's3' else '-Dcabinet.documents.fixture.scope='+ledger['scope']
+                        child = subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)',marker])
+                        children.append((child,cleanup.identity(child.pid),marker))
+                        (scratch/'bound-data').write_text('keep while Docker outcome is unknown')
+                        raise subprocess.TimeoutExpired(command,45,stderr='synthetic-secret-not-for-logs')
+                    return original_run(command, **kwargs)
+                try:
+                    with patch.dict(os.environ,env,clear=True), patch.object(sys,'argv',['runtime','--skip-build','--report-dir',str(report),*arguments]), patch.object(subprocess,'run',docker):
+                        with self.assertRaisesRegex(RuntimeError,'Fixture Docker operation timed out'):
+                            runtime.main()
+                    retained = json.loads((report/'cleanup-retained.json').read_text())
+                    scratch = Path(retained['scratch'])
+                    self.assertTrue(scratch.exists())
+                    self.assertEqual((scratch/'bound-data').read_text(),'keep while Docker outcome is unknown')
+                    child, started, marker = children[0]
+                    self.assertIsNone(child.poll())
+                    self.assertEqual(foreign.read_text(),'unchanged')
+                    # The supervisor owns this synthetic stand-in for a label-verified container.
+                    self.assertEqual(cleanup.identity(child.pid),started)
+                    self.assertIn(marker.encode(),Path(f'/proc/{child.pid}/cmdline').read_bytes().split(b'\0'))
+                    child.terminate(); child.wait(timeout=5)
+                    with patch.dict(os.environ,env,clear=True):
+                        cleanup.cleanup(report/'native-processes.json',{'scope':retained['scope'],'source':source})
+                    self.assertFalse(scratch.exists())
+                    self.assertEqual(foreign.read_text(),'unchanged')
+                finally:
+                    for number, handler in previous_handlers.items(): signal.signal(number,handler)
+                    for child, _, _ in children:
+                        if child.poll() is None:
+                            child.terminate(); child.wait(timeout=5)
+                    if context.parent.exists(): shutil.rmtree(context.parent)
+
     def test_fresh_cleanup_shell_stops_only_owned_identity_in_current_job(self):
         # Use the real checkout because a fresh helper independently derives ROOT.
         env = self.env | {'CI_PROJECT_DIR': str(ROOT), 'CI_JOB_ID': str(uuid.uuid4().int)[:12]}

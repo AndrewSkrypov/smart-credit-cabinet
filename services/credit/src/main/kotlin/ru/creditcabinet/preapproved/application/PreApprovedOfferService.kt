@@ -104,6 +104,11 @@ class PreApprovedOfferService(
         }
         val product = products.find(offer.productCode)
             ?: throw ConflictException("Продукт по предложению недоступен")
+        val amount = minOf(offer.maxAmount, product.maxAmount)
+        val term = minOf(offer.maxTermMonths, product.maxTermMonths)
+        if (amount < product.minAmount || term < maxOf(offer.minTermMonths, product.minTermMonths)) {
+            throw ConflictException("Предодобренное предложение не подходит под текущие условия продукта")
+        }
         if (applications.hasActive(offer.companyId, product.code)) {
             throw activeExists(product)
         }
@@ -112,11 +117,11 @@ class PreApprovedOfferService(
         val terms = ApplicationTerms(
             productCode = product.code,
             purpose = defaultPurpose,
-            amount = offer.maxAmount,
-            termMonths = offer.maxTermMonths,
+            amount = amount,
+            termMonths = term,
         )
         val commissionRateBps = if (agentId != null) product.agentCommissionRateBps else null
-        val commissionAmount = commissionRateBps?.let { offer.maxAmount * it / 10_000L }
+        val commissionAmount = commissionRateBps?.let { amount * it / 10_000L }
         val commissionStatus = if (agentId != null) CommissionStatus.EXPECTED else CommissionStatus.NONE
         val draft = LoanApplication(
             company = company,

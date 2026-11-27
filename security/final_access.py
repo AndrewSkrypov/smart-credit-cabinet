@@ -90,7 +90,9 @@ def check(api):
                 elif template.endswith("/confirm"):
                     body = {"bureauConsent": True}
                 elif template.endswith("/tranches"):
-                    body = {"amount": 100_000, "purpose": "Синтетическая проверка доступа"}
+                    body, headers = {"amount": 100_000, "purpose": "Синтетическая проверка доступа"}, {"Idempotency-Key": str(uuid4())}
+                elif template.endswith("/payments/next"):
+                    body, headers = {"paymentId": missing}, {"Idempotency-Key": str(uuid4())}
                 elif template.endswith("/messages") and method == "POST":
                     body, headers = {"text": "Синтетическая проверка доступа"}, {"Idempotency-Key": str(uuid4())}
                 elif template.endswith("/messages/read"):

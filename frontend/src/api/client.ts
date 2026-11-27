@@ -45,6 +45,12 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
+export class ApiResponseError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
 api.interceptors.request.use((config) => {
   const session = readSession();
   if (session) {
@@ -71,7 +77,7 @@ api.interceptors.response.use(
     }
     const backendMessage = responseData?.message;
     if (typeof backendMessage === 'string' && backendMessage.trim()) {
-      return Promise.reject(new Error(backendMessage));
+      return Promise.reject(new ApiResponseError(backendMessage, error.response.status));
     }
     if (error?.response?.status === 401) {
       return Promise.reject(new Error('Сессия истекла — войдите заново'));
@@ -167,9 +173,10 @@ export const productEditorApi = {
 
 export const loanServicingApi = {
   getByApplication: (applicationId: string) => get<LoanAccount>(`/applications/${applicationId}/loan`),
-  drawTranche: (loanId: string, amount: number, purpose?: string) =>
-    post<LoanAccount>(`/loans/${loanId}/tranches`, { amount, purpose: purpose?.trim() || undefined }),
-  payNext: (loanId: string) => post<LoanAccount>(`/loans/${loanId}/payments/next`),
+  drawTranche: async (loanId: string, amount: number, purpose: string | undefined, key: string) =>
+    (await api.post<LoanAccount>(`/loans/${loanId}/tranches`, { amount, purpose }, { headers: { 'Idempotency-Key': key } })).data,
+  payNext: async (loanId: string, paymentId: string, key: string) =>
+    (await api.post<LoanAccount>(`/loans/${loanId}/payments/next`, { paymentId }, { headers: { 'Idempotency-Key': key } })).data,
   repayEarly: (loanId: string) => post<LoanAccount>(`/loans/${loanId}/repay-early`)
 };
 

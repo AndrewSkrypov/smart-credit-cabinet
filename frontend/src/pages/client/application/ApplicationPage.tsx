@@ -9,6 +9,7 @@ import { PageHeader } from '../../../components/PageHeader';
 import { MessagesBlock } from '../../../components/MessagesBlock';
 import { explainStatus, SYSTEM_STATUSES, statusTitle, statusTone } from '../../../shared/applicationText';
 import { formatDateTime, months, percent, rub, rubExact } from '../../../shared/format';
+import { transparentOutlineButtonSx } from '../../../theme/theme';
 import { Application } from '../../../types';
 import { DocumentsBlock } from './DocumentsBlock';
 import { DraftForm } from './DraftForm';
@@ -255,7 +256,9 @@ function ApplicationCard({ id }: { id: string }) {
               <Fact label={application.submittedAt ? 'Отправлена' : 'Создана'} value={formatDateTime(application.submittedAt ?? application.createdAt)} />
             </Stack>
             {canWithdraw && (
-              <Button color="error" onClick={() => setWithdrawing(true)} sx={{ mt: 2, ml: -1 }}>Отозвать заявку</Button>
+              <Button variant="outlined" size="small" onClick={() => setWithdrawing(true)} sx={{ ...transparentOutlineButtonSx, mt: 2 }}>
+                Отозвать заявку
+              </Button>
             )}
           </Paper>
         </Grid>
@@ -306,12 +309,17 @@ function ApplicationCard({ id }: { id: string }) {
       <Dialog open={withdrawing} onClose={() => setWithdrawing(false)} fullWidth maxWidth="sm">
         <DialogTitle>Отозвать заявку?</DialogTitle>
         <DialogContent>
-          <Typography gutterBottom>Банк прекратит рассмотрение. Позже можно подать новую заявку.</Typography>
+          <Typography gutterBottom>
+            {application.submittedAt
+              ? 'Банк прекратит рассмотрение. Позже можно подать новую заявку.'
+              : 'Заявка ещё не отправлена в банк. После отзыва её нельзя будет отправить. Позже можно создать новую заявку.'}
+          </Typography>
           <TextField label="Причина (необязательно)" fullWidth multiline minRows={2} value={withdrawComment} onChange={(event) => setWithdrawComment(event.target.value)} inputProps={{ maxLength: 2000 }} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setWithdrawing(false)}>Не отзывать</Button>
+          <Button variant="outlined" onClick={() => setWithdrawing(false)} sx={transparentOutlineButtonSx}>Не отзывать</Button>
           <Button
+            variant="contained"
             color="error"
             onClick={async () => {
               try {

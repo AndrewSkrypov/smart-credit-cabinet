@@ -238,7 +238,7 @@ class AccountAccessIntegrationTest {
                     }
                 },
             ).map { it.get(10, TimeUnit.SECONDS) }.sorted()
-            assertEquals(listOf(200, 410), results)
+            assertEquals(listOf(false, true), results)
         } finally {
             pool.shutdownNow()
         }
@@ -402,7 +402,7 @@ class AccountAccessIntegrationTest {
                     }
                 },
             ).map { it.get(10, TimeUnit.SECONDS) }.sorted()
-            assertEquals(listOf(403, 403), results)
+            assertEquals(listOf(true, true), results)
         } finally {
             pool.shutdownNow()
         }

@@ -44,6 +44,8 @@ def cleanup(path, expected=None):
     marker=scratch/'fixture-scope.json'
     if scratch.exists() and (not valid_scratch or not marker.is_file() or json.loads(marker.read_text())!={'scope':scope,'source':receipt['source']}):
         raise ValueError('Fixture directory ownership mismatch')
+    if receipt.get('pendingJvmStart'):
+        raise RuntimeError('JVM startup identity unresolved; owned data retained')
     processes=list(receipt['processes'])
     native_s3=receipt.get('nativeS3')
     if native_s3:

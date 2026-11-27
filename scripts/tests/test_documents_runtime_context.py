@@ -12,6 +12,7 @@ import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
 import uuid
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
@@ -237,6 +238,176 @@ runpy.run_path(runtime, run_name='__main__')
                             child.terminate(); child.wait(timeout=5)
                     if context.parent.exists(): shutil.rmtree(context.parent)
 
+    def test_actual_main_retains_s3_and_pg_data_when_normal_finally_removal_is_unconfirmed(self):
+        runtime=load('documents_main_rm_test','check-documents-runtime.py')
+        source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+        original_run=subprocess.run
+        for profile in ('s3','local'):
+            for removal in ('nonzero','timeout'):
+                with self.subTest(profile=profile,removal=removal):
+                    env=self.env|{'CI_PROJECT_DIR':str(ROOT),'CI_JOB_ID':str(uuid.uuid4().int)[:12],'CI_COMMIT_SHA':source,
+                                  'JAVA_HOME':'/unused','CABINET_CI_DOCKER_HOST':'unix:///synthetic-cabinet-ci.sock',
+                                  'CI_RUNNER_TAGS':'cabinet-ci','DOCUMENTS_TEST_GRADLE':'/synthetic-no-gradle'}
+                    context=RuntimeContext(ROOT,source,env)
+                    report=self.root/('remove-'+profile+'-'+removal)
+                    children=[]
+                    def consumer():
+                        ledger=json.loads((report/'native-processes.json').read_text())
+                        scratch=Path(ledger['scratch']); (scratch/'bound-data').write_text('retain')
+                        marker='-Dcabinet.documents.fixture.scope='+ledger['scope']
+                        child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)',marker])
+                        children.append((child,cleanup.identity(child.pid),marker))
+                    class FakeS3:
+                        close=s3.S3Fixture.close  # exercise the real normal-close implementation.
+                        def __init__(self,*args,**kwargs):
+                            self.container='a'*64; self.report=report; self.docker_env={}; self.process=None; self.handle=None
+                            consumer()
+                    def docker(command,**kwargs):
+                        if command[0]=='/synthetic-no-gradle': raise RuntimeError('Synthetic gate stop')
+                        if command[:2]==['docker','info']: return subprocess.CompletedProcess(command,0,b'["cabinet-ci=true"]',b'')
+                        if command[:2]==['docker','run']:
+                            consumer(); return subprocess.CompletedProcess(command,0,'a'*64,'')
+                        if command[:2]==['docker','logs']: return subprocess.CompletedProcess(command,0,'','')
+                        if command[:2]==['docker','rm']:
+                            self.assertEqual(command[-1],'a'*64)
+                            if removal=='timeout': raise subprocess.TimeoutExpired(command,45)
+                            return subprocess.CompletedProcess(command,1,'','')
+                        return original_run(command,**kwargs)
+                    arguments=['--storage-backend','s3','--s3-image',s3.PINNED_IMAGE] if profile=='s3' else ['--skip-build','--postgres-image','synthetic-postgres:test']
+                    previous={number:signal.getsignal(number) for number in (signal.SIGTERM,signal.SIGINT)}
+                    fake_spec=SimpleNamespace(loader=SimpleNamespace(exec_module=lambda module:None))
+                    try:
+                        with patch.dict(os.environ,env,clear=True), patch.object(sys,'argv',['runtime','--report-dir',str(report),*arguments]), patch.object(subprocess,'run',docker), patch.object(runtime.socket,'create_connection',side_effect=RuntimeError('Synthetic gate stop')), patch.object(runtime.importlib.util,'spec_from_file_location',return_value=fake_spec), patch.object(runtime.importlib.util,'module_from_spec',return_value=SimpleNamespace(S3Fixture=FakeS3)):
+                            with self.assertRaisesRegex(RuntimeError,'Synthetic gate stop'): runtime.main()
+                        retained=json.loads((report/'cleanup-retained.json').read_text())
+                        scratch=Path(retained['scratch'])
+                        self.assertEqual((scratch/'bound-data').read_text(),'retain')
+                        child,started,marker=children[0]
+                        self.assertIsNone(child.poll())
+                        self.assertEqual(cleanup.identity(child.pid),started)
+                        self.assertIn(marker.encode(),Path(f'/proc/{child.pid}/cmdline').read_bytes().split(b'\0'))
+                        child.terminate(); child.wait(timeout=5)
+                        with patch.dict(os.environ,env,clear=True): cleanup.cleanup(report/'native-processes.json',{'scope':retained['scope'],'source':source})
+                        self.assertFalse(scratch.exists())
+                    finally:
+                        for number,handler in previous.items(): signal.signal(number,handler)
+                        for child,_,_ in children:
+                            if child.poll() is None: child.terminate(); child.wait(timeout=5)
+                        if context.parent.exists(): shutil.rmtree(context.parent)
+
+    def test_actual_main_native_sigterm_before_popen_returns_retains_live_consumer(self):
+        runtime=load('documents_main_native_signal_test','check-documents-runtime.py')
+        source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+        env=self.env|{'CI_PROJECT_DIR':str(ROOT),'CI_JOB_ID':str(uuid.uuid4().int)[:12],'CI_COMMIT_SHA':source,'JAVA_HOME':'/unused'}
+        context=RuntimeContext(ROOT,source,env)
+        report=self.root/'native-signal'
+        binary=self.root/'native-signal-binary'; binary.write_bytes(b'synthetic non-engine')
+        children=[]
+        original_popen=subprocess.Popen
+        original_output=subprocess.check_output
+        def output(command,**kwargs):
+            return b'version 4.55' if command[0]==str(binary) else original_output(command,**kwargs)
+        def popen(command,**kwargs):
+            if command[0]!=str(binary): return original_popen(command,**kwargs)
+            marker=next(value for value in command if value.startswith('-dir='))
+            child=original_popen([sys.executable,'-c','import time; time.sleep(60)',marker])
+            children.append((child,cleanup.identity(child.pid),marker))
+            os.kill(os.getpid(),signal.SIGTERM)  # main's handler runs before Popen publishes self.process.
+            raise AssertionError('SIGTERM handler must interrupt Popen return')
+        previous={number:signal.getsignal(number) for number in (signal.SIGTERM,signal.SIGINT)}
+        try:
+            arguments=['runtime','--skip-build','--storage-backend','s3','--s3-binary',str(binary),'--s3-sha256',hashlib.sha256(binary.read_bytes()).hexdigest(),'--report-dir',str(report)]
+            with patch.dict(os.environ,env,clear=True), patch.object(sys,'argv',arguments), patch.object(subprocess,'Popen',popen), patch.object(subprocess,'check_output',output):
+                with self.assertRaises(SystemExit) as interrupted: runtime.main()
+            self.assertEqual(interrupted.exception.code,143)
+            ledger=json.loads((report/'native-processes.json').read_text())
+            scratch=Path(ledger['scratch'])
+            self.assertTrue(scratch.exists())
+            self.assertEqual(ledger['processes'],[])
+            self.assertTrue((report/'cleanup-retained.json').exists())
+            child,started,marker=children[0]
+            self.assertIsNone(child.poll())
+            with patch.dict(os.environ,env,clear=True), self.assertRaisesRegex(RuntimeError,'Native S3 startup identity unresolved'):
+                cleanup.cleanup(report/'native-processes.json',{'scope':ledger['scope'],'source':source})
+            self.assertTrue(scratch.exists())
+            self.assertEqual(cleanup.identity(child.pid),started)
+            self.assertIn(marker.encode(),Path(f'/proc/{child.pid}/cmdline').read_bytes().split(b'\0'))
+        finally:
+            for number,handler in previous.items(): signal.signal(number,handler)
+            for child,_,_ in children:
+                if child.poll() is None: child.terminate(); child.wait(timeout=5)
+            if context.parent.exists(): shutil.rmtree(context.parent)
+
+    def test_actual_main_jvm_sigterm_and_hard_kill_before_popen_return_are_fenced(self):
+        source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+        child_code=r'''
+import importlib.util,json,os,signal,subprocess,sys
+from pathlib import Path
+from unittest.mock import patch,MagicMock
+runtime_file,report,mode=sys.argv[1:]
+sys.path.insert(0,str(Path(runtime_file).parent))
+spec=importlib.util.spec_from_file_location('jvm_gap_main',runtime_file)
+runtime=importlib.util.module_from_spec(spec);spec.loader.exec_module(runtime)
+real_run=subprocess.run; real_popen=subprocess.Popen
+def run(command,**kwargs):
+    if command[0]=='git': return real_run(command,**kwargs)
+    if command[:2]==['docker','info']: return subprocess.CompletedProcess(command,0,b'["cabinet-ci=true"]',b'')
+    return subprocess.CompletedProcess(command,0,'a'*64 if command[:2]==['docker','run'] else '', '')
+def popen(command,**kwargs):
+    if command[0]!='/unused/bin/java': return real_popen(command,**kwargs)
+    marker=command[1]
+    child=real_popen([sys.executable,'-c','import time; time.sleep(60)',marker],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    start=Path(f'/proc/{child.pid}/stat').read_text().rsplit(')',1)[1].split()[19]
+    ledger=json.loads((Path(report)/'native-processes.json').read_text())
+    assert ledger['pendingJvmStart'] is True and ledger['processes']==[]
+    (Path(report)/'unregistered-child.json').write_text(json.dumps({'pid':child.pid,'start':start,'marker':marker}))
+    os.kill(os.getpid(),signal.SIGTERM if mode=='term' else signal.SIGKILL)
+    return child
+sys.argv=['runtime','--skip-build','--postgres-image','synthetic-postgres:test','--report-dir',report]
+with patch.object(subprocess,'run',run),patch.object(subprocess,'Popen',popen),patch.object(runtime.socket,'create_connection',return_value=MagicMock()):
+    runtime.main()
+'''
+        for mode in ('term','kill'):
+            with self.subTest(mode=mode):
+                env=self.env|{'CI_PROJECT_DIR':str(ROOT),'CI_JOB_ID':str(uuid.uuid4().int)[:12],'CI_COMMIT_SHA':source,
+                              'JAVA_HOME':'/unused','CABINET_CI_DOCKER_HOST':'unix:///synthetic-cabinet-ci.sock','CI_RUNNER_TAGS':'cabinet-ci'}
+                context=RuntimeContext(ROOT,source,env)
+                report=self.root/('jvm-'+mode)
+                identity=None
+                try:
+                    result=subprocess.run([sys.executable,'-B','-c',child_code,str(ROOT/'scripts/check-documents-runtime.py'),str(report),mode],
+                                          env=env,capture_output=True,text=True,timeout=15)
+                    self.assertEqual(result.returncode,143 if mode=='term' else -signal.SIGKILL,result.stderr)
+                    identity=json.loads((report/'unregistered-child.json').read_text())
+                    ledger=json.loads((report/'native-processes.json').read_text())
+                    scratch=Path(ledger['scratch'])
+                    if mode=='term':
+                        self.assertFalse(ledger['pendingJvmStart'])
+                        self.assertEqual(len(ledger['processes']),1)
+                        self.assertIsNone(cleanup.identity(identity['pid']))
+                        self.assertFalse(scratch.exists())
+                    else:
+                        self.assertTrue(ledger['pendingJvmStart'])
+                        self.assertEqual(ledger['processes'],[])
+                        self.assertEqual(cleanup.identity(identity['pid']),identity['start'])
+                        command=[sys.executable,'-B',str(ROOT/'scripts/documents-fixture-cleanup.py'),str(report/'native-processes.json'),
+                                 '--scope',ledger['scope'],'--source',source]
+                        cleaned=subprocess.run(command,env=env,capture_output=True,text=True,timeout=15)
+                        self.assertNotEqual(cleaned.returncode,0)
+                        self.assertIn('JVM startup identity unresolved',cleaned.stderr)
+                        self.assertTrue(scratch.exists())
+                finally:
+                    if identity is None and (report/'unregistered-child.json').exists():
+                        identity=json.loads((report/'unregistered-child.json').read_text())
+                    if identity and cleanup.identity(identity['pid'])==identity['start']:
+                        self.assertIn(identity['marker'].encode(),Path(f"/proc/{identity['pid']}/cmdline").read_bytes().split(b'\0'))
+                        os.kill(identity['pid'],signal.SIGTERM)
+                        import time
+                        deadline=time.monotonic()+5
+                        while cleanup.identity(identity['pid'])==identity['start'] and time.monotonic()<deadline: time.sleep(.05)
+                        self.assertIsNone(cleanup.identity(identity['pid']))
+                    if context.parent.exists(): shutil.rmtree(context.parent)
+
     def test_fresh_cleanup_shell_stops_only_owned_identity_in_current_job(self):
         # Use the real checkout because a fresh helper independently derives ROOT.
         env = self.env | {'CI_PROJECT_DIR': str(ROOT), 'CI_JOB_ID': str(uuid.uuid4().int)[:12]}
@@ -388,6 +559,97 @@ class ContainerStartTest(unittest.TestCase):
                 self.start()
         self.assertNotIn('synthetic-test-secret', str(rejected.exception))
         self.assertEqual(run.call_count, 1)
+
+
+class AfterScriptTest(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory(prefix='documents-after-script-',dir='/var/tmp')
+        self.root = Path(self.directory.name)
+        for filename in ('ci/gitlab/quality/documents-cleanup.sh','ci/gitlab/quality/runner.sh',
+                         'scripts/documents-fixture-cleanup.py','scripts/documents_runtime_context.py'):
+            target = self.root/filename; target.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copyfile(ROOT/filename,target)
+        self.source = 'a'*40
+        binary = self.root/'bin'; binary.mkdir()
+        self.mode = self.root/'mode'; self.mode.write_text('absent')
+        self.calls = self.root/'calls'
+        docker = binary/'docker'
+        docker.write_text('#!'+sys.executable+'\n'+r'''
+import os,sys
+from pathlib import Path
+root=Path(__file__).resolve().parent.parent
+with (root/'calls').open('a') as output: output.write(' '.join(sys.argv[1:])+'\n')
+mode=(root/'mode').read_text()
+if sys.argv[1]=='info': print('cabinet-ci=true'); sys.exit(0)
+if sys.argv[1]=='inspect':
+    if sys.argv[-1].endswith('-s3-s3') and mode in ('rmerror','foreign'):
+        job='999' if mode=='foreign' else '12345'
+        print('a'*64+' documents-r3 77 '+job+' '+os.environ['CI_COMMIT_SHA']+' s3 s3'); sys.exit(0)
+    print('Synthetic inspect connection failure',file=sys.stderr); sys.exit(1)
+if sys.argv[1]=='rm': sys.exit(1)
+if sys.argv[1:4]==['container','ls','-aq']:
+    name=sys.argv[-1]
+    assert name.startswith('name=^/cabinet-documents-77-12345-') and name.endswith('$')
+    if name.endswith('-s3-s3$') and mode=='error': sys.exit(1)
+    if name.endswith('-s3-s3$') and mode=='present': print('a'*64)
+    sys.exit(0)
+sys.exit(9)
+''')
+        docker.chmod(0o700)
+        self.env = {'PATH':str(binary)+os.pathsep+os.defpath,'CI_PROJECT_DIR':str(self.root),'CI_JOB_ID':'12345',
+                    'CI_PROJECT_ID':'77','CI_COMMIT_SHA':self.source,'CABINET_CI_DOCKER_HOST':'unix:///synthetic-cabinet-ci.sock'}
+        self.context = RuntimeContext(self.root,self.source,self.env)
+        self.foreign = self.root/'ci-artifacts/.job/documents-77-999/alpha-documents-runtime-foreign'
+        self.foreign.mkdir(parents=True); (self.foreign/'keep').write_text('foreign unchanged')
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def shell(self):
+        return subprocess.run(['bash',str(self.root/'ci/gitlab/quality/documents-cleanup.sh')],
+                              env=self.env,capture_output=True,text=True,timeout=15)
+
+    def test_unknown_inspect_and_failed_or_nonempty_listing_retain_live_consumer_data(self):
+        local = self.context.create_scratch()
+        report = self.root/'ci-artifacts/documents-r3'; report.mkdir()
+        self.context.initialize_ledger(local,report,'cabinet-documents-77-12345-local')
+        shutil.rmtree(local)  # completed LOCAL, exactly as in the reported composition.
+        scratch = self.context.create_scratch()
+        report = self.root/'ci-artifacts/documents-r3-s3'; report.mkdir()
+        self.context.initialize_ledger(scratch,report,'cabinet-documents-77-12345-s3')
+        (scratch/'bound-data').write_text('must survive')
+        marker=f'-dir={scratch}/s3/data'
+        child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)',marker])
+        started=cleanup.identity(child.pid)
+        try:
+            for mode in ('error','present','rmerror','foreign'):
+                self.mode.write_text(mode)
+                self.calls.write_text('')
+                result=self.shell()
+                self.assertNotEqual(result.returncode,0)
+                self.assertTrue(scratch.exists())
+                self.assertEqual((scratch/'bound-data').read_text(),'must survive')
+                self.assertIsNone(child.poll())
+                self.assertEqual((self.foreign/'keep').read_text(),'foreign unchanged')
+                if mode=='foreign': self.assertFalse(any(line.startswith('rm ') for line in self.calls.read_text().splitlines()))
+            # Supervisor verifies and stops only its own stand-in container consumer.
+            self.assertEqual(cleanup.identity(child.pid),started)
+            self.assertIn(marker.encode(),Path(f'/proc/{child.pid}/cmdline').read_bytes().split(b'\0'))
+            child.terminate(); child.wait(timeout=5)
+            self.mode.write_text('absent')
+            result=self.shell()
+            self.assertEqual(result.returncode,0,result.stderr)
+            self.assertFalse(scratch.exists())
+            self.assertEqual((self.foreign/'keep').read_text(),'foreign unchanged')
+        finally:
+            if child.poll() is None: child.terminate(); child.wait(timeout=5)
+
+    def test_confirmed_exact_name_absence_and_no_resources_is_noop(self):
+        result=self.shell()
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertFalse(self.context.parent.exists())
+        self.assertEqual(self.calls.read_text().count('container ls -aq --filter name=^/'),4)
+        self.assertEqual((self.foreign/'keep').read_text(),'foreign unchanged')
 
 
 if __name__ == '__main__':

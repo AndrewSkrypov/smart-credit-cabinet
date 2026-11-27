@@ -16,6 +16,7 @@ import secrets
 import shutil
 import socket
 import signal
+import sys
 import re
 import subprocess
 import threading
@@ -91,14 +92,20 @@ def main():
         docker_env=base_env|{'DOCKER_HOST':endpoint}
         daemon_labels=subprocess.check_output(['docker','info','--format','{{json .Labels}}'],env=docker_env)
         if 'cabinet-ci=true' not in json.loads(daemon_labels): raise ValueError('Fixture daemon label mismatch')
+    def publish_ledger():
+        temporary=ledger_path.with_suffix('.new')
+        with temporary.open('w') as output:
+            output.write(json.dumps(ledger)+'\n'); output.flush(); os.fsync(output.fileno())
+        temporary.replace(ledger_path)
+        descriptor=os.open(ledger_path.parent,os.O_RDONLY|os.O_DIRECTORY)
+        try: os.fsync(descriptor)
+        finally: os.close(descriptor)
     def register(process,marker):
         if isinstance(process,int): pid=process
         else: pid=process.pid
         start=Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()[19]
         ledger['processes'].append({'pid':pid,'start':start,'marker':marker})
-        temporary=ledger_path.with_suffix('.new')
-        temporary.write_text(json.dumps(ledger)+'\n')
-        temporary.replace(ledger_path)
+        publish_ledger()
     def terminate(signum,frame):
         nonlocal deferred_signal
         if spawning_process:
@@ -116,13 +123,25 @@ def main():
         env = base_env | {'PGPASSWORD': password}
         run([str(pg_bin / 'psql'), '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-h', '127.0.0.1', '-p', str(pg_port), '-U', user, '-d', db], name, env=env, data=statement.encode())
     def start(command, name, env):
+        nonlocal spawning_process, startup_unconfirmed
         marker=f'-Dcabinet.documents.fixture.scope={scope}'
         command=[command[0],marker,*command[1:]]
         handle = (report / f'{name}.log').open('ab')
         handles.append(handle)
-        process = subprocess.Popen(command, cwd=ROOT, env=env, stdout=handle, stderr=subprocess.STDOUT)
-        processes.append(process)
-        register(process,marker)
+        ledger['pendingJvmStart']=True
+        publish_ledger()
+        startup_unconfirmed=True
+        spawning_process=True
+        try:
+            process = subprocess.Popen(command, cwd=ROOT, env=env, stdout=handle, stderr=subprocess.STDOUT)
+            processes.append(process)
+            register(process,marker)
+            ledger['pendingJvmStart']=False
+            publish_ledger()
+            startup_unconfirmed=False
+        finally:
+            spawning_process=False
+        if deferred_signal is not None: raise SystemExit(128+deferred_signal)
         return process
     def wait_port(port, process=None):
         deadline = time.monotonic() + 100
@@ -162,7 +181,7 @@ def main():
         return records
     try:
         if args.storage_backend == 's3':
-            startup_unconfirmed = bool(args.s3_image)
+            startup_unconfirmed = True
             spec=importlib.util.spec_from_file_location('documents_s3_fixture',ROOT/'scripts/documents-s3-fixture.py')
             module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
             s3=module.S3Fixture.__new__(module.S3Fixture)
@@ -187,7 +206,7 @@ def main():
             handle=(report/'postgres-server.log').open('ab')
             handles.append(handle)
             ledger['nativePg']={'directory':str(scratch/'db'),'binary':str(pg_bin/'postgres')}
-            temporary=ledger_path.with_suffix('.new'); temporary.write_text(json.dumps(ledger)+'\n'); temporary.replace(ledger_path)
+            publish_ledger()
             try:
                 pg_process=subprocess.Popen([str(pg_bin/'postgres'),'-D',str(scratch/'db'),'-h','127.0.0.1','-p',str(pg_port),'-k',str(scratch)],env=base_env,stdout=handle,stderr=subprocess.STDOUT)
                 if args.verify_startup_cancellation: os.kill(os.getpid(),signal.SIGTERM)
@@ -584,10 +603,19 @@ insert into financing_scenario_publications(application_id,revision,status,docum
     finally:
         if identity_server: identity_server.shutdown(); identity_server.server_close()
         scanner_stop.set()
-        if s3: s3.close()
+        if s3:
+            try:
+                if not s3.close(): startup_unconfirmed = True
+            except (OSError, subprocess.SubprocessError):
+                startup_unconfirmed = True
         for process in reversed(processes): stop(process)
         for handle in handles: handle.close()
-        if container: subprocess.run(['docker','rm','-fv',container],env=docker_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        if container:
+            try:
+                removed=subprocess.run(['docker','rm','-fv',container],env=docker_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=45)
+                if removed.returncode: startup_unconfirmed = True
+            except (OSError, subprocess.SubprocessError):
+                startup_unconfirmed = True
         elif pg_started and pg_process is not None:
             if pg_process.poll() is None:
                 stopped=subprocess.run([str(pg_bin/'pg_ctl'),'-D',str(scratch/'db'),'-m','fast','-t','20','-w','stop'],env=base_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=25)
@@ -599,9 +627,11 @@ insert into financing_scenario_publications(application_id,revision,status,docum
                 # Keep the directory and ownership ledger for guarded after_script cleanup.
                 raise RuntimeError('Owned PostgreSQL did not stop; fixture directory retained')
         if startup_unconfirmed:
-            # A timed-out Docker client may already have created a live bind consumer.
-            # after_script must verify/remove the job-labeled resource before data removal.
-            (report/'cleanup-retained.json').write_text(json.dumps({'scope':scope,'source':source_sha,'scratch':str(scratch),'reason':'CI container startup unconfirmed; guarded after_script cleanup required'})+'\n')
+            # An interrupted native/CI start or removal may leave a live bind consumer.
+            # Ownership-aware cleanup must resolve it before any fixture data removal.
+            (report/'cleanup-retained.json').write_text(json.dumps({'scope':scope,'source':source_sha,'scratch':str(scratch),'reason':'Fixture startup/removal unconfirmed; guarded cleanup required'})+'\n')
+            if sys.exc_info()[0] is None:
+                raise RuntimeError('Fixture cleanup unconfirmed; owned data retained')
         elif pg_process is None or pg_process.poll() is not None:
             shutil.rmtree(scratch)
 

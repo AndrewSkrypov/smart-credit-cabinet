@@ -10,9 +10,10 @@ import subprocess
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPSHandler, HTTPRedirectHandler, build_opener
 
-from alpha_dev import analytics_owner
+from alpha_dev import analytics_owner, verify_credit_mode
 from common import Deployment
 from registry_release import APP_SERVICES, REVISION, SERVICE_COMPONENTS
+from runtime_rollout import runtime_services, verify_private
 
 
 IMAGE_ID = re.compile(r"sha256:[0-9a-f]{64}")
@@ -98,6 +99,7 @@ def verify_alpha(deployment, opener, origin, containers):
     return {
         "topic": alpha.topic, "dlq_topic": alpha.dlq, "consumer_group": alpha.group,
         "read_enabled": alpha.read_enabled, "snapshot_sha256": marker[1],
+        "credit_status_source": verify_credit_mode(deployment),
         "http_with_token": int(authorized), "http_without_token": int(denied), "public_http": 404,
         "kafka": {"container": kafka, "image_id": image_id, "registry_ref": image_ref,
                   "revision": release.revision, "upstream_ref": release.kafka_upstream},
@@ -112,6 +114,7 @@ def verify(deployment, expected_revision):
     services = (*APP_SERVICES, "postgres") if deployment.release else APP_SERVICES
     if deployment.release and "clamav" in deployment.release.images:
         services = (*services, "clamav")
+    services = (*services, *runtime_services(deployment))
     if deployment.ollama_ssh:
         services = (*services, "ollama-ssh-bridge")
     containers = {service: deployment.container(service) for service in services}
@@ -136,10 +139,9 @@ def verify(deployment, expected_revision):
             raise RuntimeError(f"OCI revision работающего образа {service} отличается от ожидаемой")
         images[service] = {"container": container, "image_id": image_id, "revision": revision}
         if deployment.release:
-            images[service]["registry_ref"] = (
-                deployment.release.alpha_dev["image"] if component == "analytics" else deployment.release.images[component]
-            )
+            images[service]["registry_ref"] = deployment.release.image_for(component)
 
+    runtimes = verify_private(deployment) if deployment.runtime_modes else {}
     frontend = containers["frontend"]
     entry = frontend_entry(docker("exec", frontend, "cat", FRONTEND_ROOT + "/index.html"))
     image_hash = sha256(docker("exec", frontend, "cat", FRONTEND_ROOT + entry)).hexdigest()
@@ -160,6 +162,7 @@ def verify(deployment, expected_revision):
         "images": images,
         **({"alpha_dev": alpha_report} if alpha_report else {}),
         "https": {"origin": origin, "status": 200, "entry": entry, "sha256": image_hash},
+        **runtimes,
     }
 
 

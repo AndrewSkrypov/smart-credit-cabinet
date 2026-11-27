@@ -437,6 +437,9 @@ helm-chart:
   extends: .quality
   script:
     - sh helm/cabinet/test-chart.sh
+    - python3 -B -m unittest discover -s deploy -p 'test_*delivery*.py'
+    - python3 -B -m unittest discover -s ci/gitlab -p test_catalog_prod_guard.py
+    - python3 -B ci/alpha/test_dev_rollout.py
 
 # Mandatory R3 gate: a fresh job-owned PostgreSQL container, mTLS and a separate runtime.
 servicing-integration:

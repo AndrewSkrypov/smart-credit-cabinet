@@ -1,0 +1,170 @@
+# Protected cabinet-dev overlay. Only Credit and Documents share the RPC network.
+x-documents-image: &documents-image
+  image: ${CABINET_IMAGE_DOCUMENTS:?Нужен OCI digest Documents}
+  pull_policy: never
+  mem_limit: 576m
+
+x-documents-storage: &documents-storage
+  CABINET_STORAGE_MODE: ${CABINET_DOCUMENTS_STORAGE_MODE:?Нужен профиль хранения Documents}
+  CABINET_STORAGE_LOCAL_DIR: /app/uploads
+  CABINET_STORAGE_S3_ENDPOINT: http://documents-s3:8333
+  CABINET_STORAGE_S3_REGION: us-east-1
+  CABINET_STORAGE_S3_BUCKET: ${CABINET_DOCUMENTS_S3_BUCKET:?Нужен бакет Documents}
+  CABINET_STORAGE_S3_ACCESS_KEY: ${CABINET_DOCUMENTS_S3_ACCESS_KEY:?Нужен ключ Documents}
+  CABINET_STORAGE_S3_SECRET_KEY: ${CABINET_DOCUMENTS_S3_SECRET_KEY:?Нужен секрет Documents}
+  SPRING_APPLICATION_JSON: >-
+    {"cabinet":{"storage":{"mode":"${CABINET_DOCUMENTS_STORAGE_MODE}","local-dir":"/app/uploads","s3":{"endpoint":"http://documents-s3:8333","region":"us-east-1","bucket":"${CABINET_DOCUMENTS_S3_BUCKET}","access-key":"${CABINET_DOCUMENTS_S3_ACCESS_KEY}","secret-key":"${CABINET_DOCUMENTS_S3_SECRET_KEY}"}}}}
+
+x-documents-tls: &documents-tls
+  DOCUMENTS_TLS_CA: /run/documents-tls/ca.crt
+  DOCUMENTS_TLS_CERTIFICATE: /run/documents-tls/tls.crt
+  DOCUMENTS_TLS_KEY: /run/documents-tls/tls.key
+
+services:
+  credit:
+    networks: [cabinet, documents-rpc]
+    environment:
+      CABINET_DOCUMENTS_MODE: ${CABINET_DOCUMENTS_MODE:?Нужен режим Documents}
+      CABINET_DOCUMENTS_EPOCH: ${CABINET_DOCUMENTS_EPOCH:?Нужно поколение владельца документов}
+      CABINET_DOCUMENTS_GRPC_HOST: documents
+      CABINET_DOCUMENTS_GRPC_PORT: "9096"
+      CABINET_DOCUMENTS_GRPC_CA: /run/documents-tls/ca.crt
+      CABINET_DOCUMENTS_GRPC_CERTIFICATE: /run/documents-tls/tls.crt
+      CABINET_DOCUMENTS_GRPC_KEY: /run/documents-tls/tls.key
+    volumes:
+      - ${CABINET_DOCUMENTS_TLS_DIR:?Нужны защищённые сертификаты}/credit:/run/documents-tls:ro
+
+  postgres:
+    networks: [cabinet, documents-source]
+
+  seaweedfs:
+    networks: [cabinet, documents-source]
+
+  clamav:
+    networks: [cabinet, documents-scan]
+
+  documents-db:
+    image: ${CABINET_IMAGE_POSTGRES:?Нужен OCI digest PostgreSQL}
+    pull_policy: never
+    restart: unless-stopped
+    mem_limit: 320m
+    command: [postgres, -c, shared_buffers=64MB, -c, max_connections=30]
+    networks: [documents-store]
+    environment:
+      POSTGRES_DB: documents
+      POSTGRES_USER: postgres
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_PASSWORD: ${CABINET_DOCUMENTS_PG_ADMIN_PASSWORD:?Нужен пароль администратора Documents}
+      CABINET_DOCUMENTS_PG_OWNER_PASSWORD: ${CABINET_DOCUMENTS_PG_OWNER_PASSWORD:?Нужен пароль владельца Documents}
+      CABINET_DOCUMENTS_PG_APP_PASSWORD: ${CABINET_DOCUMENTS_PG_APP_PASSWORD:?Нужен пароль приложения Documents}
+    volumes:
+      - documents-db-data:/var/lib/postgresql/data
+      - ./helm/cabinet/files/documents/init.sh:/docker-entrypoint-initdb.d/10-documents.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, 'PGPASSWORD="$$CABINET_DOCUMENTS_PG_APP_PASSWORD" psql -X -w -h 127.0.0.1 -U documents_app -d documents -Atc "select 1" | grep -qx 1']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+
+  documents:
+    <<: *documents-image
+    restart: unless-stopped
+    networks: [documents-rpc, documents-store, documents-scan]
+    environment:
+      <<: [*documents-storage, *documents-tls]
+      DOCUMENTS_DATABASE_URL: jdbc:postgresql://documents-db:5432/documents
+      DOCUMENTS_DATABASE_USER: documents_app
+      DOCUMENTS_DATABASE_PASSWORD: ${CABINET_DOCUMENTS_PG_APP_PASSWORD:?Нужен пароль приложения Documents}
+      DOCUMENTS_GRPC_HOST: 0.0.0.0
+      DOCUMENTS_GRPC_PORT: "9096"
+      DOCUMENTS_CREDIT_PEER: spiffe://credit-cabinet/credit
+      SPRING_FLYWAY_ENABLED: "false"
+      CABINET_ANTIVIRUS_HOST: clamav
+      CABINET_ANTIVIRUS_PORT: "3310"
+      CABINET_ANTIVIRUS_ENABLED: "true"
+      CABINET_ANTIVIRUS_TIMEOUT: ${ANTIVIRUS_TIMEOUT:-PT10S}
+    volumes:
+      - documents-local-data:/app/uploads
+      - ${CABINET_DOCUMENTS_TLS_DIR:?Нужны защищённые сертификаты}/server:/run/documents-tls:ro
+    depends_on:
+      documents-db:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, bash, -ec, 'exec 3<>/dev/tcp/127.0.0.1/9096']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  documents-cutover:
+    <<: *documents-image
+    profiles: [documents-maintenance]
+    networks: [documents-source, documents-store]
+    command: [--spring.flyway.enabled=false, --cabinet.documents.grpc.enabled=false, --cabinet.documents.migration.enabled=true]
+    environment:
+      <<: *documents-storage
+      DOCUMENTS_DATABASE_URL: jdbc:postgresql://documents-db:5432/documents
+      DOCUMENTS_DATABASE_USER: documents_owner
+      DOCUMENTS_DATABASE_PASSWORD: ${CABINET_DOCUMENTS_PG_OWNER_PASSWORD:?Нужен пароль владельца Documents}
+      DOCUMENTS_TLS_CA: ""
+      DOCUMENTS_TLS_CERTIFICATE: ""
+      DOCUMENTS_TLS_KEY: ""
+      DOCUMENTS_CREDIT_DATABASE_URL: jdbc:postgresql://postgres:5432/credit
+      DOCUMENTS_CREDIT_DATABASE_USER: credit_owner
+      DOCUMENTS_CREDIT_DATABASE_PASSWORD: ${CREDIT_MIGRATION_PASSWORD:?Нужен пароль владельца Credit}
+      DOCUMENTS_CREDIT_LOCAL_DIR: /credit-uploads
+      DOCUMENTS_CREDIT_S3_ENDPOINT: http://seaweedfs:8333
+      DOCUMENTS_CREDIT_S3_REGION: ${S3_REGION:-us-east-1}
+      DOCUMENTS_CREDIT_S3_BUCKET: ${S3_BUCKET:-cabinet-documents}
+      DOCUMENTS_CREDIT_S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      DOCUMENTS_CREDIT_S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+    volumes:
+      - documents-local-data:/app/uploads
+      - cabinet-documents:/credit-uploads
+      - ./helm/cabinet/files/documents/object-digests.sh:/cabinet/object-digests.sh:ro
+
+  documents-probe:
+    <<: *documents-image
+    profiles: [documents-maintenance]
+    networks: [documents-rpc]
+    entrypoint: [curl]
+    volumes:
+      - ${CABINET_DOCUMENTS_TLS_DIR:?Нужны защищённые сертификаты}/credit:/run/documents-tls:ro
+
+  documents-s3:
+    image: chrislusf/seaweedfs:4.55@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9
+    profiles: [storage]
+    restart: unless-stopped
+    mem_limit: 512m
+    networks: [documents-store]
+    entrypoint: [/bin/sh, /cabinet/start.sh]
+    environment:
+      S3_BUCKET: ${CABINET_DOCUMENTS_S3_BUCKET:?Нужен бакет Documents}
+      S3_ACCESS_KEY: ${CABINET_DOCUMENTS_S3_ACCESS_KEY:?Нужен ключ Documents}
+      S3_SECRET_KEY: ${CABINET_DOCUMENTS_S3_SECRET_KEY:?Нужен секрет Documents}
+      S3_ADMIN_ACCESS_KEY: ${CABINET_DOCUMENTS_S3_ADMIN_ACCESS_KEY:?Нужен ключ оператора Documents}
+      S3_ADMIN_SECRET_KEY: ${CABINET_DOCUMENTS_S3_ADMIN_SECRET_KEY:?Нужен секрет оператора Documents}
+      GOMEMLIMIT: 384MiB
+    volumes:
+      - ./docker/seaweedfs/start.sh:/cabinet/start.sh:ro
+      - documents-s3-data:/data
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -O /dev/null http://127.0.0.1:9333/cluster/status']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+networks:
+  documents-rpc: {internal: true}
+  documents-store: {internal: true}
+  documents-source: {internal: true}
+  documents-scan: {internal: true}
+
+volumes:
+  documents-db-data:
+    name: ${CABINET_DOCUMENTS_DB_VOLUME:?Нужно имя тома Documents DB}
+  documents-local-data:
+    name: ${CABINET_DOCUMENTS_LOCAL_VOLUME:?Нужно имя локального тома Documents}
+  documents-s3-data:
+    name: ${CABINET_DOCUMENTS_S3_VOLUME:?Нужно имя тома Documents S3}

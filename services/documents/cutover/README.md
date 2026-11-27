@@ -80,3 +80,28 @@ V26 adds the reference table and `pipeline_jobs.documents_outages`; U26 retains 
 as additive history/retry data. No Documents own-schema/protobuf change is required.
 Expected transport outages during DATA_CHECK use durable capped 5..300 second backoff,
 without consuming business attempts; stale/expired claims cannot reschedule the job.
+
+All remote write entry points (A12 commit-order inventory):
+- `DocumentsBoundary.put`: remote bytes/metadata first, then committed business reference
+  and BUSINESS journal or CHAT receipt/audit in one Credit transaction. Unconfirmed rows
+  remain physically backed up and cannot be listed, opened, attached, or reverse imported.
+- `DocumentsBoundary.markDeleted`: only a durable Credit deletion intent in the journal
+  transaction. Readers overlay that committed tombstone; direct removed-file reads deny
+  access even if Documents is down. `DocumentsDeletionDelivery` sends it independently,
+  with bounded retry; Documents delete is idempotent for the exact immutable timestamp.
+  Reverse materializes even an undelivered committed deletion before reopening LOCAL.
+- `GeneratedArtifacts.prepareRemote`: frozen input and artifact business reference commit
+  together. Within an outer signing/business transaction it sends no RPC. Its durable
+  publisher reads committed pending inputs outside transactions and uses stable identities;
+  duplicate/lost replies converge through Documents' unique frozen identity.
+- Artifact retry/download/notice and reverse require the committed
+  `(application_id,offer_id,phase,input_hash)` reference. Notice additionally requires the
+  exact delivered input and three READY kinds, then notice+notification outbox commit once.
+- V26 backfills every legacy generated artifact into immutable
+  `document_artifact_references`, preserving historical hashes without weakening the unique
+  current FINAL input. LOCAL inserts and newly frozen current inputs record references in
+  the same transaction. Scope binds exist solely in Documents and convey no public access.
+
+Logical parity excludes both document and artifact orphans. Physical backup preserves
+all metadata, bytes and pending delivery state. A pending deletion may be represented by
+Credit's committed intent until delivery/reverse; cutover verifies that state explicitly.

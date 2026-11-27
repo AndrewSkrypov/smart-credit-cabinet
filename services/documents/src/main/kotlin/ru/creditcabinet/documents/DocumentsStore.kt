@@ -71,7 +71,10 @@ class DocumentsStore(
 
     fun delete(scope: DocumentScope, id: UUID, context: String, at: Instant) {
         val record = document(scope, id, context)
-        require(record.deletedAt == null)
+        if (record.deletedAt != null) {
+            if (record.deletedAt != at) throw DocumentConflict()
+            return
+        }
         jdbc.update("update document_records set metadata=?::jsonb where id=?", mapper.writeValueAsString(record.copy(deletedAt = at)), id)
     }
 

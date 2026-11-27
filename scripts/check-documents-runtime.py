@@ -152,6 +152,10 @@ def main():
             refs={line.decode() for line in ref_output.splitlines() if line}
             metadata_output=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','documents','-c',"select metadata from document_records"],env=base_env|{'PGPASSWORD':admin_password})
             orphan_names={item['storedName'] for line in metadata_output.splitlines() if line for item in [json.loads(line)] if item['id'] not in refs}
+            reference_output=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','credit','-c',"select application_id||':'||offer_id||':'||phase||':'||input_hash from document_artifact_references"],env=base_env|{'PGPASSWORD':admin_password})
+            artifact_refs={line.decode() for line in reference_output.splitlines() if line}
+            artifact_output=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','documents','-c',"select metadata from artifact_records"],env=base_env|{'PGPASSWORD':admin_password})
+            orphan_names|={item['storedName'] for line in artifact_output.splitlines() if line for item in [json.loads(line)] if ':'.join((item['scope']['applicationId'],item['offerId'],item['phase'],item['inputHash'])) not in artifact_refs}
             records=[item for item in records if item['storedName'] not in orphan_names]
         for record in records:
             assert record['backend']=='S3'
@@ -286,14 +290,15 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         class IdentityFixture(BaseHTTPRequestHandler):
             def do_GET(self):
                 match=re.fullmatch(r'/internal/v1/companies/([a-f0-9-]{36})',self.path)
-                if not match: self.send_error(404); return
-                body=json.dumps({'id':match[1],'inn':'000100000004','name':'Synthetic Documents company','legalForm':'ENTREPRENEUR'}).encode()
+                if re.fullmatch(r'/internal/v1/users/[a-f0-9-]{36}/credentials',self.path): body=b'{"credentialsVersion":0}'
+                elif match: body=json.dumps({'id':match[1],'inn':'000100000004','name':'Synthetic Documents company','legalForm':'ENTREPRENEUR'}).encode()
+                else: self.send_error(404); return
                 self.send_response(200); self.send_header('Content-Type','application/json'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
             def log_message(self,*args): pass
         identity_server=ThreadingHTTPServer(('127.0.0.1',0),IdentityFixture)
         threading.Thread(target=identity_server.serve_forever,daemon=True).start()
         credit_env = base_env | {'DB_HOST':'127.0.0.1','DB_PORT':str(pg_port),'DB_NAME':'credit','DB_USER':'credit_app','DB_PASSWORD':credit_app_password,'SERVER_PORT':str(http_port),'JWT_SECRET':jwt,'PIPELINE_ENABLED':'true','OUTBOX_WORKER_ENABLED':'false','IDENTITY_URL':f'http://127.0.0.1:{identity_server.server_address[1]}','ANTIVIRUS_ENABLED':'false','STORAGE_BACKEND':args.storage_backend,'UPLOAD_DIR':str(credit_files)}
-        credit = start([java,'-Xmx320m','-jar','services/credit/build/libs/app.jar','--spring.flyway.enabled=false','--server.address=127.0.0.1','--spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration','--cabinet.pipeline.max-attempts=2','--cabinet.pipeline.poll-interval=PT0.2S','--cabinet.documents.grpc.deadline-ms=1500','--cabinet.documents.mode=remote','--cabinet.documents.epoch=2','--cabinet.documents.grpc.host=127.0.0.1',f'--cabinet.documents.grpc.port={grpc_port}',f'--cabinet.documents.grpc.certificate={certs/"credit.crt"}',f'--cabinet.documents.grpc.key={certs/"credit.key"}',f'--cabinet.documents.grpc.ca={certs/"ca.crt"}'], 'credit', credit_env)
+        credit = start([java,'-Xmx320m','-jar','services/credit/build/libs/app.jar','--spring.flyway.enabled=false','--server.address=127.0.0.1','--spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration','--cabinet.documents.deletions.enabled=false','--cabinet.pipeline.max-attempts=2','--cabinet.pipeline.poll-interval=PT0.2S','--cabinet.documents.grpc.deadline-ms=1500','--cabinet.documents.mode=remote','--cabinet.documents.epoch=2','--cabinet.documents.grpc.host=127.0.0.1',f'--cabinet.documents.grpc.port={grpc_port}',f'--cabinet.documents.grpc.certificate={certs/"credit.crt"}',f'--cabinet.documents.grpc.key={certs/"credit.key"}',f'--cabinet.documents.grpc.ca={certs/"ca.crt"}'], 'credit', credit_env)
         wait_port(http_port, credit)
         def synthetic_token(actor, company_id):
             def b64(value): return base64.urlsafe_b64encode(value).decode().rstrip('=')
@@ -376,11 +381,17 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         totals = {key: sum(int(ET.parse(path).getroot().get(key,0)) for path in xml_paths) for key in ('tests','failures','errors','skipped')}
         assert totals['tests'] >= 3 and all(totals[key] == 0 for key in ('failures','errors','skipped')), totals
         for path in xml_paths: shutil.copy2(path, report/path.name)
-        stop(credit); stop(own); stop(replica)
+        # Committed tombstone must deny direct reads even while BOTH Documents servers are down.
+        stop(own); stop(replica)
+        deleted=json.loads(scalar('credit', "select json_build_object('document',i.document_id,'application',i.application_id,'company',a.company_id,'actor',a.created_by) from document_deletion_intents i join applications a on a.id=i.application_id order by i.document_id limit 1"))
+        removal_request=urllib.request.Request(f"http://127.0.0.1:{http_port}/api/v1/applications/{deleted['application']}/documents/{deleted['document']}",headers={'Authorization':'Bearer '+synthetic_token(deleted['actor'],deleted['company'])})
+        try: urllib.request.urlopen(removal_request,timeout=5); raise AssertionError('Committed tombstone visible while Documents down')
+        except __import__('urllib.error',fromlist=['HTTPError']).HTTPError as failure: assert failure.code==404
+        stop(credit)
         sql('documents', "update artifact_records set lease_until=now()-interval '1 second',next_attempt_at=now() where template_version=2 and status<>'READY';", user='documents_owner', password=own_password, name='recovery')
         own = start([arg for arg in own.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')], 'documents-restart', own_env)
         wait_port(grpc_port, own)
-        credit = start([arg for arg in credit.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')], 'credit-restart', credit_env)
+        credit = start([*[arg for arg in credit.args if not arg.startswith('-Dcabinet.documents.fixture.scope=')],'--cabinet.documents.deletions.enabled=true'], 'credit-restart', credit_env)
         wait_port(http_port, credit)
         deadline=time.monotonic()+40
         while True:
@@ -390,6 +401,12 @@ insert into financing_scenario_publications(application_id,revision,status,docum
             except subprocess.CalledProcessError:
                 if time.monotonic()>deadline: raise
                 time.sleep(.3)
+        deadline=time.monotonic()+20
+        while scalar('credit',"select count(*) from document_deletion_intents where delivered_at is null and run_at<=now()")!='0':
+            if time.monotonic()>deadline: raise AssertionError('Committed deletion did not recover after restart')
+            time.sleep(.2)
+        assert scalar('credit',"select count(*) from document_deletion_intents where delivered_at is not null")=='1'
+        assert scalar('credit',"select count(*) from document_deletion_intents where delivered_at is null")=='1'
         # A second restarted poll observes durable READY and must preserve one notice/outbox effect.
         time.sleep(2)
         sql('credit', "do $$ begin if (select count(*) from generated_artifact_notices)<>1 then raise exception 'Notice dedup failed'; end if; if (select count(*) from delivery_outbox where event_key like 'generated-files:%')<>1 then raise exception 'Outbox dedup failed'; end if; end $$;", user='credit_owner', password=credit_password, name='recovery')
@@ -415,7 +432,8 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         if s3: s3.verify('source',f'{hidden}.pdf',len(body),checksum)
         else: assert (credit_files/f'{hidden}.pdf').read_bytes()==body
         sql('credit',f"alter table documents disable trigger documents_owner_fence; update documents set file_name='proof.pdf' where id='{hidden}'; alter table documents enable trigger documents_owner_fence;",user='credit_owner',password=credit_password,name='conflict-fixture')
-        raw_artifact=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','documents','-c',"select metadata from artifact_records where status='READY' order by id limit 1"],env=base_env|{'PGPASSWORD':admin_password})
+        confirmed_hash=scalar('credit',"select input_hash from document_artifact_inputs where phase='FINAL' order by created_at limit 1")
+        raw_artifact=subprocess.check_output([str(pg_bin/'psql'),'-X','-qAt','-h','127.0.0.1','-p',str(pg_port),'-U',admin,'-d','documents','-c',f"select metadata from artifact_records where status='READY' and input_hash='{confirmed_hash}' order by id limit 1"],env=base_env|{'PGPASSWORD':admin_password})
         artifact=json.loads(raw_artifact)
         conflict_name=f"reverse-conflict-{artifact['id']}.pdf"
         conflict_bytes=b'Original source conflict bytes'
@@ -449,6 +467,7 @@ insert into financing_scenario_publications(application_id,revision,status,docum
         assert not s3 or sorted(source_inventory,key=lambda row:row['storedName']) == sorted(target_inventory,key=lambda row:row['storedName'])
         sql('credit', "begin; update document_ownership set owner='LOCAL';"+(ROOT/'services/documents/cutover/credit-grants.sql').read_text()+"commit;", user='credit_owner', password=credit_password)
         sql('credit', (ROOT/'db/rollback/credit/U26__documents_boundary.sql').read_text(), user='credit_owner', password=credit_password, name='rollback-compatibility')
+        sql('credit',"do $$ begin if exists(select 1 from document_deletion_intents i left join documents d on d.id=i.document_id where d.id is null or d.deleted_at is distinct from i.deleted_at) then raise exception 'Committed deletion lost on reverse'; end if; end $$;",user='credit_owner',password=credit_password,name='deletion-reverse-intents')
         # V26 remains additive: all pre-existing metadata and attachment references survive.
         sql('credit', f"do $$ begin if (select count(*) from documents where application_id='{application}') < 4 then raise exception 'Reverse import lost rows'; end if; end $$;", user='credit_owner', password=credit_password, name='rollback-compatibility')
         revision = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()

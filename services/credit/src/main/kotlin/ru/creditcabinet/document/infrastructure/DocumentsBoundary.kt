@@ -90,7 +90,12 @@ class DocumentsBoundary(
             rs.getObject(1, UUID::class.java)
         }, applicationId).toSet()
         if (committed.isEmpty()) return emptyList()
-        return rpc { client().list(scope(applicationId)).filter { it.id in committed } }
+        val deleted = jdbc.query("select document_id,deleted_at from document_deletion_intents where application_id=?", { rs, _ ->
+            rs.getObject(1, UUID::class.java) to rs.getTimestamp(2).toInstant()
+        }, applicationId).toMap()
+        return rpc { client().list(scope(applicationId)).filter { it.id in committed }.map { record ->
+            deleted[record.id]?.let { record.copy(deletedAt = it) } ?: record
+        } }
     }
     override fun list(applicationId: UUID): List<ApplicationDocument> = if (!remote) {
         local.list(applicationId)
@@ -109,6 +114,7 @@ class DocumentsBoundary(
             },
             applicationId,
         ).firstOrNull()
+        if (documentId != null && documentId !in packet.orEmpty() && removed(documentId)) return emptyList()
         return all(applicationId).filter {
             it.context == "BUSINESS" &&
                 (documentId == null || it.id == documentId) &&
@@ -118,6 +124,8 @@ class DocumentsBoundary(
     }
     override fun find(applicationId: UUID, documentId: UUID): ApplicationDocument? = if (!remote) {
         local.find(applicationId, documentId)
+    } else if (removed(documentId)) {
+        null
     } else {
         all(applicationId).firstOrNull {
             it.id ==
@@ -139,8 +147,10 @@ class DocumentsBoundary(
             return
         }
         val document = find(applicationId, documentId) ?: throw ru.creditcabinet.common.exception.NotFoundException("Документ не найден")
-        rpc { client().delete(scope(applicationId), documentId, document.context.name, at) }
+        check(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+        jdbc.update("insert into document_deletion_intents(document_id,application_id,deleted_at) values(?,?,?) on conflict do nothing", document.id, applicationId, java.sql.Timestamp.from(at))
     }
+    private fun removed(id: UUID): Boolean = jdbc.queryForObject("select exists(select 1 from document_deletion_intents where document_id=?)", Boolean::class.java, id)!!
     override fun isChatAttached(documentId: UUID): Boolean = local.isChatAttached(documentId)
     fun <T> rpc(
         action: () -> T,

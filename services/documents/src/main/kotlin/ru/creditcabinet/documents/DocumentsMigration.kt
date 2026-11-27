@@ -102,14 +102,14 @@ class DocumentsMigration(
                         rs.getString("context"), backend, sha256(bytes), rs.getBoolean("private_to_bank"), rs.getTimestamp("deleted_at")?.toInstant(),
                     )
                 record.validate()
-                copy(files, record.storedName, backend, bytes)
                 bindScope(record.scope)
                 val previous = target.query("select metadata from document_records where id=?", { row, _ ->
                     mapper.readValue<DocumentRecord>(row.getString(1))
                 }, record.id).firstOrNull()
-                check(previous == null || previous == record)
+                check(previous == null || (previous.copy(deletedAt = record.deletedAt) == record && (previous.deletedAt == null || previous.deletedAt == record.deletedAt)))
+                copy(files, record.storedName, backend, bytes)
                 target.update(
-                    "insert into document_records(id,company_id,application_id,context,metadata) values(?,?,?,?,?::jsonb) on conflict do nothing",
+                    "insert into document_records(id,company_id,application_id,context,metadata) values(?,?,?,?,?::jsonb) on conflict(id) do update set metadata=excluded.metadata",
                     record.id,
                     record.scope.companyId,
                     record.scope.applicationId,
@@ -192,6 +192,7 @@ class DocumentsMigration(
                     ),
                     record.status, rs.getInt("attempts"), rs.getTimestamp("next_attempt_at"),
                 )
+                credit.update("insert into document_artifact_references(application_id,offer_id,phase,input_hash,input_json) values(?,?,?,?,?::jsonb) on conflict do nothing", record.scope.applicationId, record.offerId, record.phase, record.inputHash, frozen)
                 // Import the immutable Credit snapshot as a retry intent, retaining old file links.
                 credit.update(
                     "insert into document_artifact_inputs(application_id,offer_id,phase,input_hash,input_json,delivered_at) values(?,?,?,?,?::jsonb,now()) on conflict do nothing",
@@ -215,13 +216,18 @@ class DocumentsMigration(
         target.query(
             "select metadata from document_records order by id",
             org.springframework.jdbc.core.RowCallbackHandler { rs ->
-                val d = mapper.readValue<DocumentRecord>(rs.getString(1))
+                var d = mapper.readValue<DocumentRecord>(rs.getString(1))
                 // Expected orphan after Credit rollback/lost reply: never activate it on reverse.
                 val committed = credit.query("select application_id from document_references where document_id=?", { row, _ ->
                     row.getObject(1, UUID::class.java)
                 }, d.id).firstOrNull()
                 if (committed == null) return@RowCallbackHandler
                 check(committed == d.scope.applicationId)
+                val deletion = credit.query("select deleted_at from document_deletion_intents where document_id=? and application_id=?", { row, _ -> row.getTimestamp(1).toInstant() }, d.id, d.scope.applicationId).firstOrNull()
+                if (deletion != null) {
+                    check(d.deletedAt == null || pgInstant(credit, d.deletedAt!!) == deletion)
+                    d = d.copy(deletedAt = deletion)
+                }
                 check(credit.queryForObject("select company_id from applications where id=?", UUID::class.java, d.scope.applicationId) == d.scope.companyId)
                 val previous = credit.query(
                     "select d.*,a.company_id from documents d join applications a on a.id=d.application_id where d.id=? for update of d",
@@ -277,6 +283,8 @@ class DocumentsMigration(
             "select metadata,attempts,next_attempt_at from artifact_records order by id",
             org.springframework.jdbc.core.RowCallbackHandler { rs ->
                 val a = mapper.readValue<ArtifactRecord>(rs.getString(1))
+                val confirmed = credit.queryForObject("select exists(select 1 from document_artifact_references where application_id=? and offer_id=? and phase=? and input_hash=?)", Boolean::class.java, a.scope.applicationId, a.offerId, a.phase, a.inputHash)!!
+                if (!confirmed) return@RowCallbackHandler
                 check(credit.queryForObject("select company_id from applications where id=?", UUID::class.java, a.scope.applicationId) == a.scope.companyId)
                 val previous = credit.query(
                     "select g.*,a.company_id from generated_artifacts g join applications a on a.id=g.application_id where g.id=? for update of g",

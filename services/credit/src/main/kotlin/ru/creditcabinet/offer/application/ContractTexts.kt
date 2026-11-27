@@ -46,9 +46,13 @@ class ContractTexts(private val snapshots: ContractTextStore, private val clock:
             Заёмщик: ${application.company.name ?: "ИНН ${application.company.inn}"}, ИНН ${application.company.inn}
             Продукт: ${product.name} (версия ${offer.productVersion})
             Предложение: ${offer.id}
-            Сумма: ${rubles(offer.amount)}; срок: ${offer.termMonths} мес.; ставка: ${offer.rate}% годовых
-            Первый платёж: ${rows.first().payment} ₽; максимальный платёж: ${rows.maxOf { it.payment }} ₽; последний платёж: ${rows.last().payment} ₽
-            Всего к возврату: ${calculation.totalPayment} ₽; переплата: ${calculation.overpayment} ₽
+            Сумма: ${rubles(offer.amount)}; срок: ${offer.termMonths} мес.; ставка: ${percent(offer.rate)} годовых
+            Первый платёж: ${money(rows.first().payment)}; максимальный платёж: ${money(
+            rows.maxOf {
+                it.payment
+            },
+        )}; последний платёж: ${money(rows.last().payment)}
+            Всего к возврату: ${money(calculation.totalPayment)}; переплата: ${money(calculation.overpayment)}
             ${if (product.revolving) "Возобновляемый лимит: расчёт при полном использовании. Платежи меняются; остаток возвращается в последний месяц." else "Последний платёж учитывает округление и закрывает долг."}
             В графике указаны номера месяцев; календарные даты платежей не определены.
         """.trimIndent()
@@ -58,6 +62,19 @@ class ContractTexts(private val snapshots: ContractTextStore, private val clock:
         "Сводка сохранённых условий. Исходный подписываемый текст не сохранён.\n" + render(application, offer, product).substringAfter('\n')
 
     companion object {
+        private val NBSP = '\u00A0'
+
+        /** 99 884,66 ₽ — the way amounts are written in Russian documents. */
+        fun money(amount: java.math.BigDecimal): String {
+            val scaled = amount.setScale(2, java.math.RoundingMode.HALF_UP)
+            val whole = String.format(java.util.Locale.ROOT, "%,d", scaled.toBigInteger()).replace(',', NBSP)
+            val kopecks = scaled.remainder(java.math.BigDecimal.ONE).abs().movePointRight(2).toInt()
+            return "$whole,${"%02d".format(kopecks)}$NBSP₽"
+        }
+
+        /** 19,5% rather than 19.50%. */
+        fun percent(rate: java.math.BigDecimal): String = rate.stripTrailingZeros().toPlainString().replace('.', ',') + "%"
+
         fun sha256(
             text: String,
         ): String = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(StandardCharsets.UTF_8)).joinToString("") { "%02x".format(it) }

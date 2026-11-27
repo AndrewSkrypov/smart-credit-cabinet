@@ -150,7 +150,11 @@ def run_once(agent, other, client, company_id, request_body):
     status, loan = call("GET", f"{agent_path}/loan", agent)
     expect(checks, "агент видит кредит только для чтения", status, 200)
     if status == 200:
-        expect(checks, "агент вносит платёж за клиента", call("POST", f"/loans/{loan['id']}/payments/next", agent)[0], 403)
+        expect(checks, "агент вносит платёж за клиента", call(
+            "POST", f"/loans/{loan['id']}/payments/next", agent,
+            {"paymentId": loan["payments"][0]["id"]},
+            headers={"Idempotency-Key": str(uuid.uuid4())},
+        )[0], 403)
 
     status, portfolio = call("GET", "/agent/portfolio", agent)
     return {"ok": True, "application": app, "marks": marks, "actions": actions, "checks": checks,

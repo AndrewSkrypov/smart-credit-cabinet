@@ -176,7 +176,7 @@ class HexagonalBoundariesTest(unittest.TestCase):
     def test_financing_controller_cannot_start_the_locking_transaction(self):
         target = Path("services/credit/src/main/kotlin/ru/creditcabinet/financing/scenario/controller/FinancingScenarioController.kt")
         controller = (boundaries.ROOT / target).read_text()
-        write_call = "agents.saveFinancingScenario(id, inputs.toDomain()).toContract()"
+        write_call = "agents.saveFinancingScenario(id, inputs.toDomain(), inputs.expectedRevision).toContract()"
         self.assertIn(write_call, controller)
         self.assertNotIn("import org.springframework.transaction", controller)
         prior = controller.replace("import org.springframework.http.ResponseEntity\n",

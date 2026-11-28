@@ -9,6 +9,7 @@ import { BrandMark } from './BrandMark';
 import { AssistantPanel } from './AssistantPanel';
 import { NotificationBell } from './NotificationBell';
 import { ProfileMenu } from './ProfileMenu';
+import { KeshaProvider } from './kesha/KeshaProvider';
 import { OnboardingHeaderMenu, OnboardingProvider, OnboardingWelcomeBanner } from './onboarding/OnboardingTour';
 
 /** Sections of the bank workspace; the rules are changed by the risk administrator, read by all staff. */
@@ -64,6 +65,7 @@ export function AppShell() {
   );
   return (
     <OnboardingProvider targetRootRef={tourRootRef}>
+    <KeshaProvider key={`${user.role}:${user.id}`}>
     <DocumentSurface kind="workspace"><Box ref={tourRootRef} sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: nightGlow, overflowX: 'clip' }}>
       <Box component="header" sx={{ position: 'sticky', top: 0, zIndex: 10, pt: { xs: 1, md: 2 } }}>
         <Container maxWidth="lg">
@@ -88,6 +90,7 @@ export function AppShell() {
       </Box>
       {!bank && <AssistantPanel />}
     </Box></DocumentSurface>
+    </KeshaProvider>
     </OnboardingProvider>
   );
 }

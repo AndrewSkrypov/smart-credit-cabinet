@@ -3,12 +3,16 @@ import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded';
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { api, assistantApi, get, post } from '../api/client';
 import { readSession } from '../auth/session';
 import { tokens } from '../theme/theme';
 import { SensitiveDataNotice } from './SensitiveDataNotice';
 import { AssistantAnswer, AssistantTurn } from '../types';
+import { KeshaBird } from './kesha/KeshaBird';
+import { KeshaProactivitySetting } from './kesha/KeshaProactivitySetting';
+import { useKesha } from './kesha/KeshaProvider';
 
 const APPLICATION_PATH = /^\/(?:client|agent)\/applications\/([0-9a-f-]{36})(?:\/|$)/;
 const AGENT_COMPANY_PATH = /^\/agent\/clients\/([0-9a-f-]{36})(?:\/|$)/;
@@ -94,11 +98,14 @@ const contextFor = (messages: Message[]): AssistantTurn[] => messages
 export function AssistantPanel() {
   const location = useLocation();
   const navigate = useNavigate();
+  const kesha = useKesha();
   const applicationId = location.pathname.match(APPLICATION_PATH)?.[1] ?? null;
   const companyId = location.pathname.match(AGENT_COMPANY_PATH)?.[1] ?? null;
   const agent = location.pathname === '/agent' || location.pathname.startsWith('/agent/');
   const contextKey = `${agent ? 'agent' : 'client'}:${applicationId ?? ''}:${companyId ?? ''}`;
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = kesha?.chatOpen ?? localOpen;
+  const setOpen = kesha?.setChatOpen ?? setLocalOpen;
   const [mode, setMode] = useState<{ mode: 'MODEL' | 'RULES'; model: string | null } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState('');
@@ -264,13 +271,24 @@ export function AssistantPanel() {
     void ask(question);
   };
 
+  const showKesha = kesha?.enabled && !kesha.blocked;
+  const launcher = !kesha?.attached && (
+    <Fab variant="extended" color="secondary" onClick={() => setOpen(true)} aria-label="Открыть помощника" data-kesha-launcher
+      sx={{ position: 'fixed', right: { xs: 16, md: 32 }, bottom: { xs: 16, md: 32 }, pointerEvents: 'auto', textTransform: 'none', zIndex: 1200 }}>
+      <Badge color="error" badgeContent={hints.length} sx={{ mr: 1.5 }}>
+        {showKesha ? (
+          <Box component="span" data-testid="kesha-dock" ref={kesha.dockBird} aria-hidden="true"
+            sx={{ display: 'block', width: 34, height: 34, '& svg': { width: '100%', height: '100%', display: 'block' } }}>
+            <KeshaBird />
+          </Box>
+        ) : <ChatBubbleOutlineRoundedIcon />}
+      </Badge>
+      Помощник
+    </Fab>
+  );
   return (
     <>
-      <Fab variant="extended" color="secondary" onClick={() => setOpen(true)} aria-label="Открыть помощника"
-        sx={{ position: 'fixed', right: { xs: 16, md: 32 }, bottom: { xs: 16, md: 32 }, textTransform: 'none', zIndex: 1200 }}>
-        <Badge color="error" badgeContent={hints.length} sx={{ mr: 1.5 }}><ChatBubbleOutlineRoundedIcon /></Badge>
-        Помощник
-      </Fab>
+      {kesha?.overlay ? createPortal(launcher, kesha.overlay) : launcher}
       {/* No scroll lock: removing the page's scrollbar would shift the whole page sideways. */}
       <Drawer anchor="right" open={open} onClose={() => setOpen(false)} disableScrollLock PaperProps={{ sx: { width: { xs: '100%', sm: 420 }, display: 'flex', flexDirection: 'column' } }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
@@ -283,6 +301,12 @@ export function AssistantPanel() {
           </Box>
           <IconButton onClick={() => setOpen(false)} aria-label="Закрыть помощника"><CloseRoundedIcon /></IconButton>
         </Stack>
+
+        {kesha?.enabled && (
+          <Box sx={{ px: 2, py: 0.5, borderBottom: 1, borderColor: 'divider' }}>
+            <KeshaProactivitySetting proactive={kesha.proactive} onChange={kesha.setProactive} />
+          </Box>
+        )}
 
         <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }} aria-live="polite">
           {hints.length > 0 && <Stack spacing={1} sx={{ mb: 2 }}>

@@ -65,14 +65,14 @@ describe('session response ordering', () => {
     expect(readSession()?.token).toBe('file-session');
   });
 
-  it('keeps demo requests, their token and session expiry in the demo scope', async () => {
+  it.each(['/demo', '/demo/jury'])('keeps requests, their token and session expiry in %s', async (basename) => {
     writeSession(session('ordinary-session'));
     vi.resetModules();
     let redirected!: (url: string) => void;
     const nextUrl = new Promise<string>((resolve) => { redirected = resolve; });
     vi.stubGlobal('window', { location: {
       origin: 'https://credit-cabinet.ru',
-      pathname: '/demo/client/applications/fixture',
+      pathname: `${basename}/client/applications/fixture`,
       search: '?tab=overview',
       assign: redirected
     } });
@@ -81,7 +81,7 @@ describe('session response ordering', () => {
     expect(demoSession.readSession()).toBeNull();
     demoSession.writeSession(session('demo-session'));
     demoApi.defaults.adapter = async (config) => {
-      expect(demoApi.getUri(config)).toBe('/demo/api/v1/auth/session');
+      expect(demoApi.getUri(config)).toBe(`${basename}/api/v1/auth/session`);
       expect(config.headers.Authorization).toBe('Bearer demo-session');
       throw new AxiosError('expired', 'ERR_BAD_REQUEST', config, undefined, {
         status: 401, statusText: 'Unauthorized', headers: {}, config, data: {}
@@ -89,7 +89,7 @@ describe('session response ordering', () => {
     };
     void demoAuth.session();
     const expectedNext = encodeURIComponent('/client/applications/fixture?tab=overview');
-    expect(await nextUrl).toBe(`/demo/sign-in?expired=1&next=${expectedNext}`);
+    expect(await nextUrl).toBe(`${basename}/sign-in?expired=1&next=${expectedNext}`);
     expect(demoSession.readSession()).toBeNull();
     expect(readSession()?.token).toBe('ordinary-session');
   });

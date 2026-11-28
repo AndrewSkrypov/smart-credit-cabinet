@@ -1,0 +1,41 @@
+# Imported only by Dev. Exact namespace keeps the public /demo API on its existing upstream.
+@jury_namespace path /demo/jury /demo/jury/*
+handle @jury_namespace {
+    route {
+        header {
+            Referrer-Policy no-referrer
+            defer
+        }
+        @jury_account_writes path /demo/jury/api/v1/auth/sign-up* /demo/jury/api/v1/auth/sign-in* /demo/jury/api/v1/auth/password* /demo/jury/api/v1/auth/invitations* /demo/jury/api/v1/companies/me/invitations*
+        @jury_profile_write {
+            method PUT PATCH POST DELETE
+            path /demo/jury/api/v1/users/me* /demo/jury/api/v1/companies/me/employees*
+        }
+        respond @jury_account_writes 404
+        respond @jury_profile_write 404
+
+        @jury_api path /demo/jury/api/v1/*
+        handle @jury_api {
+            header {
+                Cache-Control no-store
+                defer
+            }
+            uri strip_prefix /demo/jury
+            reverse_proxy jury-gateway:80 {
+                header_up -Cookie
+                header_down -Set-Cookie
+            }
+        }
+
+        @jury_private path /demo/jury/api /demo/jury/api/* /demo/jury/internal /demo/jury/internal/* /demo/jury/sim /demo/jury/sim/* /demo/jury/actuator /demo/jury/actuator/* /demo/jury/v3 /demo/jury/v3/* /demo/jury/swagger /demo/jury/swagger/* /demo/jury/ext /demo/jury/ext/*
+        respond @jury_private 404
+
+        @jury_home path /demo/jury
+        rewrite @jury_home /
+        uri strip_prefix /demo/jury
+        reverse_proxy jury-gateway:80 {
+            header_up -Cookie
+            header_down -Set-Cookie
+        }
+    }
+}

@@ -41,15 +41,16 @@ class UserJpaAdapter(
         val entity = repository.findByEmail(email.lowercase())
         val snapshot = entity?.toDomain()
         // Hash anyway for an unknown address, so both answers take the same time.
-        return snapshot.takeIf { passwordEncoder.matches(password, entity?.passwordHash ?: absentUserHash) }
+        return snapshot.takeIf { passwordEncoder.matches(password, entity?.passwordHash ?: absentUserHash) && entity?.juryLinkEnabled != true }
     }
 
-    override fun recordSignIn(userId: UUID, credentialsVersion: Int, at: Instant): Boolean =
+    override fun recordSignIn(userId: UUID, credentialsVersion: Int, at: Instant, juryLink: Boolean): Boolean =
         jdbc.update(
-            "update users set last_sign_in_at=? where id=? and credentials_version=? and status='ACTIVE'",
+            "update users set last_sign_in_at=? where id=? and credentials_version=? and status='ACTIVE' and jury_link_enabled=?",
             java.sql.Timestamp.from(at),
             userId,
             credentialsVersion,
+            juryLink,
         ) == 1
 
     private val absentUserHash: String by lazy { passwordEncoder.encode(UUID.randomUUID().toString()) }

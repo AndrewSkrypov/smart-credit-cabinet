@@ -125,6 +125,14 @@ class AuthIntegrationTest {
     }
 
     @Test
+    fun `jury link is disabled in the normal identity deployment`() {
+        mockMvc.post("/api/v1/auth/jury-link/redeem") {
+            contentType = MediaType.APPLICATION_JSON
+            content = "{}"
+        }.andExpect { status { isNotFound() } }
+    }
+
+    @Test
     fun `stale password validation cannot acquire a newly changed credentials version`() {
         val email = "password-race-${UUID.randomUUID()}@example.test"
         val oldPassword = "Secret2026"

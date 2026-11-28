@@ -1,8 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { demoAccess } from '../auth/demoAccess';
+import { demoAccess, JURY_BASE } from '../auth/demoAccess';
 import { AppShell } from '../components/AppShell';
 import { RoleGuard } from '../components/RoleGuard';
 import { SignInPage, SignUpPage } from '../pages/AuthPages';
+import { JuryLinkPage } from '../pages/JuryLinkPage';
 import { ProfilePage } from '../pages/ProfilePage';
 import { AcceptInvitationPage, PasswordRecoveryPage, PasswordResetPage } from '../pages/AccountAccessPages';
 import { AgentMandatesPage } from '../pages/client/AgentMandatesPage';
@@ -23,14 +24,24 @@ import { AccessDeniedPage, NotFoundPage } from '../pages/SystemPages';
 import { bankRoles } from '../shared/labels';
 
 export function AppRoutes() {
+  const inJury = demoAccess.basename === JURY_BASE;
   return (
     <Routes>
-      <Route path="/" element={demoAccess.basename ? <Navigate to="/sign-in" replace /> : <LandingPage />} />
-      <Route path="/sign-in" element={<SignInPage />} />
-      <Route path="/sign-up" element={<SignUpPage />} />
-      <Route path="/password-recovery" element={<PasswordRecoveryPage />} />
-      <Route path="/reset-password" element={<PasswordResetPage />} />
-      <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+      {inJury ? (
+        <>
+          <Route path="/" element={<JuryLinkPage />} />
+          <Route path="/sign-in" element={<Navigate to="/" replace />} />
+        </>
+      ) : (
+        <>
+          <Route path="/" element={demoAccess.basename ? <Navigate to="/sign-in" replace /> : <LandingPage />} />
+          <Route path="/sign-in" element={<SignInPage />} />
+          <Route path="/sign-up" element={<SignUpPage />} />
+          <Route path="/password-recovery" element={<PasswordRecoveryPage />} />
+          <Route path="/reset-password" element={<PasswordResetPage />} />
+          <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+        </>
+      )}
       <Route element={<RoleGuard roles={['CLIENT', 'AGENT', ...bankRoles]} />}>
         <Route element={<AppShell />}>
           <Route path="/profile" element={<ProfilePage />} />

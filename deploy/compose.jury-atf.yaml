@@ -1,0 +1,52 @@
+# Apply after docker-compose.yml and deploy/compose.yaml for cabinet-jury-atf only.
+
+services:
+  postgres:
+    image: cabinet-jury-atf/postgres:16.15-alpine-su-exec-0.3
+  db-init:
+    image: cabinet-jury-atf/postgres:16.15-alpine-su-exec-0.3
+  identity:
+    image: cabinet-jury-atf/identity:${CABINET_RELEASE}
+    environment:
+      DEMO_ACCOUNTS: "false"
+      JURY_LOGIN_ENABLED: "true"
+      CABINET_MAIL_MODE: "off"
+  identity-migrate:
+    image: cabinet-jury-atf/identity:${CABINET_RELEASE}
+    environment:
+      DEMO_ACCOUNTS: "false"
+  credit:
+    image: cabinet-jury-atf/credit:${CABINET_RELEASE}
+    environment:
+      DEMO_ACCOUNTS: "false"
+  credit-migrate:
+    image: cabinet-jury-atf/credit:${CABINET_RELEASE}
+  engagement:
+    image: cabinet-jury-atf/engagement:${CABINET_RELEASE}
+    environment:
+      CABINET_MAIL_MODE: "off"
+      OLLAMA_URL: ""
+  engagement-migrate:
+    image: cabinet-jury-atf/engagement:${CABINET_RELEASE}
+  external-sim:
+    image: cabinet-jury-atf/external-sim:${CABINET_RELEASE}
+    environment:
+      SIM_CONTROL_ENABLED: "false"
+  frontend:
+    image: cabinet-jury-atf/frontend:${CABINET_RELEASE}
+    build:
+      args:
+        VITE_ASSET_BASE: /demo/jury/
+  caddy:
+    profiles: !override [jury-disabled]
+    ports: !override []
+  gateway:
+    ports: !override []
+    networks:
+      cabinet-dev-jury-edge:
+        ipv4_address: 172.30.42.3
+        aliases: [jury-gateway]
+
+networks:
+  cabinet-dev-jury-edge:
+    external: true

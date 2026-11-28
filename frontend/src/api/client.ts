@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { cabinetPathname, demoAccess } from '../auth/demoAccess';
+import { cabinetPathname, demoAccess, JURY_BASE } from '../auth/demoAccess';
 import { clearSession, readSession } from '../auth/session';
 import {
   AgentClientSummary,
@@ -128,6 +128,21 @@ export const artifactsApi = {
 export const authApi = {
   options: () => get<{ demoAccounts: boolean; mailAvailable: boolean }>('/auth/options'),
   signIn: (email: string, password: string) => post<UserSession>('/auth/sign-in', { email, password }),
+  redeemJuryLink: async (token: string): Promise<UserSession> => {
+    // This exchange must carry neither the current user's bearer token nor cookies.
+    const response = await fetch(`${JURY_BASE}/api/v1/auth/jury-link/redeem`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+      mode: 'same-origin',
+      credentials: 'omit',
+      redirect: 'error',
+      cache: 'no-store',
+      referrerPolicy: 'no-referrer'
+    });
+    if (!response.ok) throw new Error('Не удалось открыть кабинет по QR-коду');
+    return response.json();
+  },
   signUp: (input: SignUpInput) => post<UserSession>('/auth/sign-up', input),
   session: () => get<UserSession>('/auth/session'),
   recoverPassword: (email: string) => post<{ message: string }>('/auth/password-recovery', { email }),

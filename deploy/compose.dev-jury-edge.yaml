@@ -1,0 +1,21 @@
+# Append after the canonical Dev public-demo overlay. Uses the existing Dev TLS site.
+services:
+  caddy:
+    environment:
+      CABINET_DEV_DEMO_API: |
+        import /etc/caddy/demo-api.caddy
+        import /etc/caddy/jury-atf-api.caddy
+    volumes:
+      - type: bind
+        source: ${CABINET_JURY_CADDY_ROUTES:?Задайте абсолютный путь к jury-atf-api.caddy}
+        target: /etc/caddy/jury-atf-api.caddy
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      cabinet-dev-jury-edge:
+        ipv4_address: 172.30.42.2
+
+networks:
+  cabinet-dev-jury-edge:
+    external: true

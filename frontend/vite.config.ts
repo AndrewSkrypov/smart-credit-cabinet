@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  base: process.env.VITE_ASSET_BASE || '/',
   server: {
     port: 3000,
     // Local development against `docker compose up`: the gateway serves the API on 8080.

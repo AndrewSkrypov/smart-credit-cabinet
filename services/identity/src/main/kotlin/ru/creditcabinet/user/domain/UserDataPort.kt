@@ -11,6 +11,6 @@ interface UserDataPort {
     fun findByRole(role: UserRole): List<User>
     fun verifyPassword(email: String, password: String): Boolean
     fun authenticate(email: String, password: String): User?
-    fun recordSignIn(userId: UUID, credentialsVersion: Int, at: Instant): Boolean
+    fun recordSignIn(userId: UUID, credentialsVersion: Int, at: Instant, juryLink: Boolean = false): Boolean
     fun save(user: User, password: String? = null): User
 }

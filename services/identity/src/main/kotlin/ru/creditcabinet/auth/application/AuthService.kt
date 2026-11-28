@@ -3,6 +3,8 @@ package ru.creditcabinet.auth.application
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import ru.creditcabinet.access.domain.AccessGrant
+import ru.creditcabinet.auth.domain.JuryLoginGrantPort
 import ru.creditcabinet.auth.dto.SignInRequest
 import ru.creditcabinet.auth.dto.SignUpRequest
 import ru.creditcabinet.auth.dto.UserSessionResponse
@@ -21,6 +23,7 @@ import ru.creditcabinet.user.domain.UserRole
 import ru.creditcabinet.user.domain.UserStatus
 import ru.creditcabinet.user.dto.UserResponse
 import java.time.Instant
+import java.util.Base64
 
 @Service
 class AuthService(
@@ -30,6 +33,7 @@ class AuthService(
     private val jwtService: JwtService,
     private val signInThrottle: SignInThrottle,
     private val consentLog: ConsentLog,
+    private val juryLoginGrants: JuryLoginGrantPort,
 ) {
     fun signIn(request: SignInRequest, address: String): UserSessionResponse {
         val email = request.email.trim().lowercase()
@@ -46,6 +50,19 @@ class AuthService(
         val at = Instant.now()
         if (!users.recordSignIn(user.id, user.credentialsVersion, at)) throw UnauthorizedException(REVOKED)
         return session(user.copy(lastSignInAt = at))
+    }
+
+    @Transactional
+    fun redeemJuryLink(token: String?): UserSessionResponse {
+        if (token == null || !JURY_TOKEN_FORMAT.matches(token)) AccessGrant.expiredLink()
+        val decoded = Base64.getUrlDecoder().decode(token)
+        if (Base64.getUrlEncoder().withoutPadding().encodeToString(decoded) != token) AccessGrant.expiredLink()
+        val claim = juryLoginGrants.consume(AccessGrant.hash(token)) ?: AccessGrant.expiredLink()
+        val user = users.findById(claim.userId) ?: AccessGrant.expiredLink()
+        if (user.credentialsVersion != claim.credentialsVersion || !users.recordSignIn(user.id, claim.credentialsVersion, claim.usedAt, juryLink = true)) {
+            AccessGrant.expiredLink()
+        }
+        return session(user.copy(lastSignInAt = claim.usedAt))
     }
 
     /**
@@ -97,6 +114,7 @@ class AuthService(
     private fun session(user: User) = UserSessionResponse(token = jwtService.issue(user), user = UserResponse.of(user))
 
     companion object {
+        private val JURY_TOKEN_FORMAT = Regex("[A-Za-z0-9_-]{43}")
         const val BLOCKED = "Учётная запись заблокирована. Обратитесь в банк."
         const val REVOKED = "Сессия больше не действует — войдите заново"
         const val COMPANY_TAKEN = "Компания с этим ИНН уже подключена. Попросите её представителя добавить вас в кабинет."

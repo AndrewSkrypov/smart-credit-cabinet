@@ -1,7 +1,12 @@
 import { UserSession } from '../types';
-import { demoAccess } from './demoAccess';
+import { DEMO_BASE, demoAccess, JURY_BASE } from './demoAccess';
 
-const KEY = demoAccess.basename ? 'cabinet.demo.session' : 'cabinet.session';
+const SESSION_KEYS: Record<string, string> = {
+  '': 'cabinet.session',
+  [DEMO_BASE]: 'cabinet.demo.session',
+  [JURY_BASE]: 'cabinet.jury.session'
+};
+const KEY = SESSION_KEYS[demoAccess.basename];
 
 /** The stored session, or null when there is none or it cannot be read. */
 export function readSession(): UserSession | null {

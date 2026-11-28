@@ -2,9 +2,10 @@ import { Box, Button, Stack, Typography } from '@mui/material';
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { DocumentSurface } from './DocumentSurface';
 import { useLocation } from 'react-router-dom';
-import { demoAccess } from '../auth/demoAccess';
+import { demoAccess, JURY_BASE } from '../auth/demoAccess';
 
-const RELOADED_FOR_NEW_VERSION = demoAccess.basename ? 'cabinet.demo.reloadedForNewVersion' : 'cabinet.reloadedForNewVersion';
+const STORAGE_SCOPE = demoAccess.basename === JURY_BASE ? 'cabinet.jury' : demoAccess.basename ? 'cabinet.demo' : 'cabinet';
+const RELOADED_FOR_NEW_VERSION = `${STORAGE_SCOPE}.reloadedForNewVersion`;
 
 // After a release the old page asks for code chunks that no longer exist on the server.
 function isStaleChunk(error: Error): boolean {

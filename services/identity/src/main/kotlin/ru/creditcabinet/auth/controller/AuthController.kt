@@ -3,8 +3,10 @@ package ru.creditcabinet.auth.controller
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.HttpHeaders
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -13,9 +15,11 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.auth.application.AuthService
 import ru.creditcabinet.auth.dto.AuthOptionsResponse
+import ru.creditcabinet.auth.dto.JuryLinkRequest
 import ru.creditcabinet.auth.dto.SignInRequest
 import ru.creditcabinet.auth.dto.SignUpRequest
 import ru.creditcabinet.auth.dto.UserSessionResponse
+import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.mail.MailCapabilities
 
 @Tag(name = "Вход и регистрация")
@@ -25,6 +29,7 @@ class AuthController(
     private val authService: AuthService,
     private val mail: MailCapabilities,
     @Value("\${spring.flyway.placeholders.demo-accounts:true}") private val demoAccounts: Boolean,
+    @Value("\${cabinet.auth.jury-login-enabled:false}") private val juryLoginEnabled: Boolean,
 ) {
     @Operation(summary = "Настройки входа: доступность демо-учётных записей")
     @GetMapping("/options")
@@ -38,6 +43,14 @@ class AuthController(
     @PostMapping("/sign-in")
     fun signIn(@Valid @RequestBody request: SignInRequest, servlet: HttpServletRequest): UserSessionResponse =
         authService.signIn(request, servlet.getHeader("X-Real-IP")?.take(128) ?: servlet.remoteAddr)
+
+    @Operation(hidden = true)
+    @PostMapping("/jury-link/redeem")
+    fun redeemJuryLink(@RequestBody request: JuryLinkRequest, servlet: HttpServletResponse): UserSessionResponse {
+        servlet.setHeader(HttpHeaders.CACHE_CONTROL, "no-store")
+        if (!juryLoginEnabled) throw NotFoundException("Страница не найдена")
+        return authService.redeemJuryLink(request.token)
+    }
 
     /** A fresh token for the current user, e.g. after their company or rights changed. */
     @Operation(summary = "Проверить текущего пользователя и обновить JWT с актуальными правами")

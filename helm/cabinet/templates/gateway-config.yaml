@@ -23,6 +23,8 @@
 {{- if .Values.agentMcpCredit.enabled }}
 {{- $mcp := printf "http://cabinet-mcp.%s.svc.%s:8080" .Release.Namespace $domain }}
 {{- $gateway = replace "    server_tokens off;" (printf "    server_tokens off;\n    set $cabinet_mcp %s;\n    include /etc/nginx/cabinet-gateway/mcp.conf;" $mcp) $gateway }}
+{{- else }}
+{{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    location = /api/mcp { return 404; }\n    location ^~ /api/mcp/ { return 404; }\n    location = /.well-known/oauth-authorization-server { return 404; }\n    location = /.well-known/oauth-protected-resource/api/mcp { return 404; }" $gateway }}
 {{- end }}
 {{- if .Values.publicDemo.enabled }}
 {{- $demo := printf "http://cabinet-demo-proxy.%s.svc.%s:8080" .Release.Namespace $domain }}

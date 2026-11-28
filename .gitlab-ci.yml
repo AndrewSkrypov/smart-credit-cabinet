@@ -1,6 +1,13 @@
 workflow:
   rules:
-    - if: &quick_mr '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /^(dev|main)$/'
+    - if: &quick_mr >-
+        $CI_PIPELINE_SOURCE == "merge_request_event" &&
+        ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" ||
+        ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" &&
+        (($CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != "feature/fantech-dev-final" &&
+        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != "feature/backend-code-style") ||
+        $CI_MERGE_REQUEST_SOURCE_PROJECT_ID != $CI_PROJECT_ID ||
+        $CI_MERGE_REQUEST_PROJECT_ID != $CI_PROJECT_ID)))
       auto_cancel:
         on_new_commit: interruptible
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -11,6 +18,14 @@ workflow:
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE =~ /^(api|web)$/ && ($CABINET_ALPHA_PILOT == "1" || $CABINET_DEV_DIAGNOSTICS == "1")'
     - if: '$CI_COMMIT_BRANCH == "main" && $PUMP_MAIN_RELEASE_ENABLED == "1" && $CI_PIPELINE_SOURCE != "schedule"'
       when: never
+    - if: >-
+        $CI_COMMIT_BRANCH == "dev" && $CI_COMMIT_REF_PROTECTED == "true" &&
+        $CI_PIPELINE_SOURCE =~ /^(api|web)$/ &&
+        $CABINET_ALPHA_PILOT == "1" && $CABINET_DEV_DIAGNOSTICS == "1" &&
+        $CABINET_CATALOG_DEV_MODE == "remote" &&
+        $CABINET_ASSESSMENT_DEV_MODE == "remote" &&
+        $CABINET_SERVICING_DEV_MODE == "remote" &&
+        $CABINET_DOCUMENTS_DEV_MODE == "remote"
     - if: '$CI_COMMIT_BRANCH == "dev"'
       when: never
     - if: '$CI_COMMIT_REF_PROTECTED == "true"'

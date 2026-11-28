@@ -6,6 +6,13 @@
     - if: '$CABINET_ALPHA_PILOT == "1"'
     - if: >-
         $CI_PIPELINE_SOURCE == "merge_request_event" &&
+        $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" &&
+        $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID &&
+        $CI_MERGE_REQUEST_PROJECT_ID == $CI_PROJECT_ID &&
+        ($CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/fantech-dev-final" ||
+        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/backend-code-style")
+    - if: >-
+        $CI_PIPELINE_SOURCE == "merge_request_event" &&
         ($CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-analytics-pilot" ||
         $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-dev-provisioning" ||
         $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-kafka-security" ||

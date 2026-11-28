@@ -107,8 +107,14 @@ stay outside the runner and CI variables.
 
 - Feature MR to `dev`: `quick-backend`, `quick-frontend`, and `quick-helm`
   for chart changes. An unprotected source push with an open MR is skipped.
-- Branch pipeline on `dev`: skipped, including manual and scheduled
-  sources. Configure independent schedules on their existing refs.
+- Same-project MRs from `feature/fantech-dev-final` and
+  `feature/backend-code-style` to `dev` run the full source checks and both
+  Alpha jobs.
+- Branch pipelines on `dev` are skipped by default. An API or web pipeline
+  on protected `dev` runs the full checks when `CABINET_ALPHA_PILOT=1`,
+  `CABINET_DEV_DIAGNOSTICS=1`, and all four runtime mode variables are
+  `remote`. Publication, diagnostics, and the Dev deployment are manual.
+  The pipeline has no production deployment job.
 - Same-project `dev` MR to `main`: `release-mr` only. Any other source
   branch or source project fails that gate.
 - Protected `main` push with the flag: all quality, verify and extended

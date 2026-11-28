@@ -346,7 +346,11 @@ class HostCapacityTest(unittest.TestCase):
 
 class DiagnosticJobTest(unittest.TestCase):
     def test_job_verifies_the_dev_environment_without_release_inputs(self):
-        pipeline = yaml.safe_load((ROOT / "ci/gitlab/release.yml").read_text())
+        class GitLabLoader(yaml.SafeLoader):
+            pass
+
+        GitLabLoader.add_constructor("!reference", lambda loader, node: loader.construct_sequence(node))
+        pipeline = yaml.load((ROOT / "ci/gitlab/release.yml").read_text(), Loader=GitLabLoader)
         job = pipeline["dev-diagnostics"]
         self.assertEqual(job["environment"], {"name": "dev", "action": "verify"})
         self.assertEqual(job["resource_group"], pipeline["dev-deploy"]["resource_group"])
@@ -355,7 +359,10 @@ class DiagnosticJobTest(unittest.TestCase):
         self.assertEqual(job["variables"]["GIT_DEPTH"], "2")
         self.assertNotIn("dependencies", job)
         self.assertNotIn("image", job)
-        rule, = job["rules"]
+        main_push, rule = job["rules"]
+        self.assertEqual(main_push["when"], "never")
+        self.assertIn('CI_COMMIT_BRANCH == "main"', main_push["if"])
+        self.assertIn('CI_PIPELINE_SOURCE == "push"', main_push["if"])
         for fragment in ('CABINET_DEV_DIAGNOSTICS == "1"', 'CI_COMMIT_REF_PROTECTED == "true"',
                          'CI_PIPELINE_SOURCE != "merge_request_event"', 'CI_PIPELINE_SOURCE != "schedule"'):
             self.assertIn(fragment, rule["if"])

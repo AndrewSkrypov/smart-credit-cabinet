@@ -87,6 +87,93 @@ class HandoffTests(unittest.TestCase):
                 handoff.validate_claims(token(**(main_claims | override)), handoff.VAULT_ORIGIN,
                                         "dev", 2, JOB, SHA, "start", main_pipeline="178")
 
+    def test_dev_branch_role_is_bound_to_the_protected_pipeline_and_dev_runner(self):
+        dev_claims = {"ref": "dev", "ref_path": "refs/heads/dev", "pipeline_id": "178"}
+        for source in ("api", "web"):
+            env = self.env | {handoff.JWT_VAR: token(**dev_claims, pipeline_source=source)}
+            with (self.subTest(source=source), patch.dict(os.environ, env, clear=True), self.trust(),
+                  patch.object(handoff, "vault_request", side_effect=self.fake_vault) as request):
+                handoff.read_values("dev", dev_pipeline="178")
+                self.assertEqual(request.call_args_list[0].kwargs["body"]["role"], "pump-ci-dev-branch")
+        for override in (
+            {"pipeline_id": "179"}, {"pipeline_source": "push"}, {"pipeline_source": "merge_request_event"},
+            {"ref": "main"}, {"ref_path": f"refs/heads/{handoff.RELEASE_BRANCH}"},
+            {"ref_protected": "false"}, {"sha": "b" * 40}, {"environment": "production"},
+            {"environment_action": "verify"}, {"runner_id": 4},
+        ):
+            claims = dev_claims | {"pipeline_source": "api"} | override
+            with self.subTest(override=override), self.assertRaises(handoff.HandoffError):
+                handoff.validate_claims(token(**claims), handoff.VAULT_ORIGIN, "dev", 2, JOB, SHA,
+                                        "start", dev_pipeline="178")
+
+    def dev_branch_env(self):
+        return self.env | {
+            "CI_PROJECT_ID": "1", "CI_PROJECT_PATH": handoff.PROJECT_PATH,
+            "CI_PIPELINE_ID": "178", "CI_PIPELINE_SOURCE": "api",
+            "CI_COMMIT_BRANCH": "dev", "CI_COMMIT_REF_NAME": "dev", "CI_COMMIT_REF_PROTECTED": "true",
+            "CI_JOB_NAME": "dev-deploy", "CI_ENVIRONMENT_NAME": "dev",
+            "CI_ENVIRONMENT_ACTION": "start", "CI_RUNNER_ID": "2",
+            handoff.JWT_VAR: token(ref="dev", ref_path="refs/heads/dev", pipeline_source="api", pipeline_id="178"),
+        }
+
+    def test_dev_branch_release_rejects_jobs_outside_the_protected_dev_scope(self):
+        env = self.dev_branch_env()
+        with patch.object(handoff, "release") as release:
+            for changed in (
+                {"CI_COMMIT_BRANCH": "main"}, {"CI_COMMIT_REF_NAME": "main"},
+                {"CI_COMMIT_REF_PROTECTED": "false"}, {"CI_PIPELINE_SOURCE": "push"},
+                {"CI_PIPELINE_ID": ""}, {"CI_JOB_ID": ""}, {"CI_COMMIT_SHA": "short"},
+                {"CI_PROJECT_ID": "99"}, {"CI_PROJECT_PATH": "other/project"},
+                {"CI_JOB_NAME": "main-dev-deploy"}, {"CI_ENVIRONMENT_NAME": "production"},
+                {"CI_ENVIRONMENT_ACTION": "verify"}, {"CI_RUNNER_ID": "4"},
+                {"CI_DEBUG_TRACE": "true"},
+            ):
+                with (self.subTest(changed=changed), patch.dict(os.environ, env | changed, clear=True),
+                      self.assertRaises(handoff.HandoffError)):
+                    handoff.dev_branch_release(["fixture-command"])
+            release.assert_not_called()
+            with patch.dict(os.environ, env | {"CI_PIPELINE_SOURCE": "web"}, clear=True):
+                handoff.dev_branch_release(["fixture-command"])
+            release.assert_called_once_with("dev", ["fixture-command"], dev_pipeline="178")
+
+    def test_dev_branch_without_marker_runs_with_existing_dev_file_variables(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory)
+            files = {key: str(config / key) for key in self.values}
+            for key, file in files.items():
+                Path(file).write_text(self.values[key])
+            with (patch.object(handoff, "CONFIG_DIR", config),
+                  patch.object(handoff, "verify_trust_path", side_effect=lambda path, _: path.lstat()),
+                  patch.dict(os.environ, self.dev_branch_env() | files, clear=True),
+                  patch.object(handoff, "read_values") as vault,
+                  patch.object(handoff.subprocess, "run", return_value=handoff.subprocess.CompletedProcess([], 17)) as run):
+                self.assertEqual(handoff.dev_branch_release(["fixture-command"]), 17)
+                inherited = run.call_args.kwargs["env"]
+                self.assertEqual({key: inherited[key] for key in files}, files)
+                self.assertNotIn(handoff.JWT_VAR, inherited)
+                vault.assert_not_called()
+
+    def test_dev_branch_marker_mismatch_and_vault_failure_never_run_legacy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory)
+            marker = config / "dev-active-sha"
+            with (patch.object(handoff, "CONFIG_DIR", config),
+                  patch.object(handoff, "verify_trust_path", side_effect=lambda path, _: path.lstat()),
+                  patch.dict(os.environ, self.dev_branch_env(), clear=True), self.trust(),
+                  patch.object(handoff, "vault_request", side_effect=handoff.HandoffError("Vault unavailable")) as vault,
+                  patch.object(handoff.subprocess, "run") as run):
+                marker.write_text("b" * 40 + "\n")
+                with self.assertRaisesRegex(handoff.HandoffError, "activation does not match"):
+                    handoff.dev_branch_release(["fixture-command"])
+                vault.assert_not_called()
+
+                marker.write_text(SHA + "\n")
+                with self.assertRaisesRegex(handoff.HandoffError, "Vault unavailable"):
+                    handoff.dev_branch_release(["fixture-command"])
+                vault.assert_called_once()
+                self.assertEqual(vault.call_args.kwargs["body"]["role"], "pump-ci-dev-branch")
+                run.assert_not_called()
+
     def test_main_vault_failure_never_uses_the_legacy_release_path(self):
         cli = ["with-deploy-secrets.py", "production-main-release", "--", "fixture-command"]
         with (patch.object(handoff.sys, "argv", cli),
@@ -94,7 +181,7 @@ class HandoffTests(unittest.TestCase):
               patch.object(handoff, "release") as legacy, patch.object(handoff.subprocess, "run") as run,
               contextlib.redirect_stderr(io.StringIO())):
             self.assertEqual(handoff.main(), 1)
-            read.assert_called_once_with("production", main_release=True)
+            read.assert_called_once_with("production", main_release=True, dev_pipeline=None)
             legacy.assert_not_called()
             run.assert_not_called()
 
@@ -199,7 +286,7 @@ class HandoffTests(unittest.TestCase):
                 self.assertEqual(handoff.release("dev", ["fixture-command"]), 17)
                 trust.assert_any_call(config, stat.S_ISDIR)
                 trust.assert_any_call(marker, stat.S_ISREG)
-                deploy.assert_called_once_with("dev", ["fixture-command"])
+                deploy.assert_called_once_with("dev", ["fixture-command"], dev_pipeline=None)
                 marker.write_text("b" * 40)
                 with self.assertRaisesRegex(handoff.HandoffError, "activation does not match"):
                     handoff.release("dev", ["fixture-command"])

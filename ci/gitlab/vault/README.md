@@ -23,3 +23,21 @@ Dev переносит два защищённых файловых параме
 3. Офлайн отрендерить `python3 ci/gitlab/vault/render-role.py pump-ci-prod-canary <protected-sha>`. После разрешения применить только эту роль, сверить exact read-back и запустить `prod-vault-canary` до загрузки JIT kubeconfig. Job ждёт прежние release и Dev jobs, проверяет их checksum и provenance, читает только Prod запись, сверяет 1/1 и отзывает сессию. Он использует GitLab environment `production`, action `verify`, не запускает Helm и не выдаёт deploy record. Подтвердить реальные deny для CD01, Dev, неверного SHA и action `start`.
 4. Для реальной выкладки отдельно согласовать роль `pump-ci-prod` на тот же SHA с action `start`, fresh scoped kubeconfig и одного Helm writer. Оператор CD03 атомарно ставит root-owned `/etc/pump-vault-ci/prod-active-sha` с этим полным SHA. `prod-deploy` сверяет Dev checksum до вызова wrapper. Без файла остаётся legacy-путь, при несовпадении SHA или ошибке Vault wrapper останавливается до Helm. Зафиксировать Vault audit read/revoke, immutable refs и реальный smoke.
 5. Возврат после Vault-отказа до Helm: дождаться terminal, снять только `prod-active-sha`, сверить исходную переменную, срок scoped kubeconfig и отсутствие writer, согласовать один retry того же релиза. Если Helm начал менять выпуск, сначала применить штатный rollback с оператором. Dev marker отдельный. Legacy-копии сохранять до подтверждённых фактических deploy и отдельного согласования отзыва.
+
+## Выпуск с защищённой ветки dev
+
+Профиль `dev-branch-release` использует ту же Dev KV-запись и доверенный Vault.
+Роль `pump-ci-dev-branch` ограничена защищённой веткой `dev`, API/web pipeline,
+окружением `dev`, действием `start` и runner #2. Её конфигурацию можно
+сгенерировать офлайн командой
+`python3 ci/gitlab/vault/render-role.py pump-ci-dev-branch`.
+
+Существующий `dev-deploy` проверяет контекст защищённого API/web pipeline,
+runner #2 и действие `start` в окружении `dev`. Пока runner не активировал
+Vault через `/etc/pump-vault-ci/dev-active-sha`, используются существующие
+защищённые файловые переменные GitLab со scope `dev`. При совпадении marker
+с SHA выпуска wrapper сверяет точные SHA, pipeline и job в JWT и берёт файлы
+из Vault. Несовпадение SHA или ошибка Vault останавливают job.
+
+Перед SSH сверяется актуальная вершина `dev`. Диагностика использует действие
+`verify` с проверкой той же вершины и дерева второго родителя merge-коммита.

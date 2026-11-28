@@ -15,10 +15,12 @@ import ru.creditcabinet.agent.application.CompanyAgentMandates
 import ru.creditcabinet.agent.domain.AgentClientPort
 import ru.creditcabinet.agent.domain.AgentMandatePort
 import ru.creditcabinet.auth.application.AuthService
+import ru.creditcabinet.auth.application.JuryLoginService
 import ru.creditcabinet.auth.application.PasswordHashes
 import ru.creditcabinet.auth.application.PersonalDataConsents
 import ru.creditcabinet.auth.application.SessionTokens
 import ru.creditcabinet.auth.application.SignInLimits
+import ru.creditcabinet.auth.domain.JuryLoginGrantPort
 import ru.creditcabinet.company.application.CompanyQueries
 import ru.creditcabinet.company.domain.CompanyDataPort
 import ru.creditcabinet.company.domain.CompanyRegistry
@@ -39,6 +41,10 @@ class IdentityUseCases(private val clocks: ObjectProvider<Clock>) {
         consents: PersonalDataConsents,
         transactions: IdentityTransactions,
     ) = AuthService(users, companies, registry, tokens, signInLimits, consents, transactions)
+
+    @Bean
+    fun juryLoginService(grants: JuryLoginGrantPort, users: UserDataPort, tokens: SessionTokens, transactions: IdentityTransactions) =
+        JuryLoginService(grants, users, tokens, transactions)
 
     @Bean
     fun companyAccessService(

@@ -13,6 +13,8 @@ data class SignInRequest(
     val password: String,
 )
 
+class JuryLinkRequest(val token: String? = null)
+
 /** Registration of a business: the person and the company they represent. */
 data class SignUpRequest(
     @field:NotBlank(message = "Укажите имя")

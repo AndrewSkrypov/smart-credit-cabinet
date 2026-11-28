@@ -7,6 +7,7 @@ import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
@@ -161,6 +162,19 @@ class AuthIntegrationTest {
         assertEquals("UNDERWRITER", claims.role)
         assertEquals(null, claims.companyId)
         assertEquals(401, signIn("underwriter@demo.test", "wrong-password1").status)
+    }
+
+    @Test
+    fun `jury login is disabled by default`() {
+        for (operation in listOf("prepare", "redeem")) {
+            mockMvc.post("/api/v1/auth/jury-link/$operation") {
+                contentType = MediaType.APPLICATION_JSON
+                content = "{}"
+            }.andExpect {
+                status { isNotFound() }
+                header { string(HttpHeaders.CACHE_CONTROL, "no-store") }
+            }
+        }
     }
 
     @Test

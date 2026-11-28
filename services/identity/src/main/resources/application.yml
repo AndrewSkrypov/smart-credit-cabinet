@@ -49,6 +49,8 @@ cabinet:
   security:
     public-endpoints:
       - "POST /api/v1/auth/sign-in"
+      - "POST /api/v1/auth/jury-link/prepare"
+      - "POST /api/v1/auth/jury-link/redeem"
       - "POST /api/v1/auth/sign-up"
       - "GET /api/v1/auth/options"
       - "POST /api/v1/auth/password-recovery"
@@ -67,6 +69,8 @@ cabinet:
     url: ${REGISTRY_URL:}
     api-key: ${SIM_API_KEY:dev-sim-api-key}
   auth:
+    jury-login-enabled: ${JURY_LOGIN_ENABLED:false}
+    shared-demo-accounts: ${DEMO_ACCOUNTS:true}
     link-key: ${IDENTITY_LINK_KEY:dev-identity-links-change-before-deployment-48bytes}
     link-key-version: ${IDENTITY_LINK_KEY_VERSION:1}
     jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}

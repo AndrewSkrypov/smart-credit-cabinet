@@ -1,7 +1,7 @@
 import { UserSession } from '../types';
-import { demoAccess } from './demoAccess';
+import { cabinetStorageScope } from './demoAccess';
 
-const KEY = demoAccess.basename ? 'cabinet.demo.session' : 'cabinet.session';
+const KEY = `${cabinetStorageScope}.session`;
 
 /** The stored session, or null when there is none or it cannot be read. */
 export function readSession(): UserSession | null {

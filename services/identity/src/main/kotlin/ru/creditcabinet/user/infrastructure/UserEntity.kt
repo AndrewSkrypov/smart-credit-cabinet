@@ -41,6 +41,8 @@ class UserEntity(
     val lastSignInAt: Instant?,
     @Column(name = "avatar")
     val avatar: String? = null,
+    @Column(name = "jury_link_enabled", nullable = false, insertable = false, updatable = false)
+    val juryLinkEnabled: Boolean = false,
 ) {
     fun toDomain(): User =
         User(

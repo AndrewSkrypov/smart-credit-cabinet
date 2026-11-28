@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { cabinetPathname, demoAccess } from '../auth/demoAccess';
+import { cabinetPathname, demoAccess, JURY_BASE } from '../auth/demoAccess';
 import { clearSession, readSession } from '../auth/session';
 import {
   AgentClientSummary,
@@ -30,6 +30,7 @@ import {
   ProductRevision,
   Purpose,
   RuleParams,
+  Role,
   RulesResponse,
   RulesSnapshot,
   SignUpInput,
@@ -126,9 +127,29 @@ export const artifactsApi = {
   download: (id: string, artifactId: string, fileName: string) => downloadFile(`/applications/${id}/artifacts/${artifactId}/download`, fileName)
 };
 
+export type JuryLinkPreview = { fullName: string; email: string; role: Role };
+
+async function exchangeJuryLink<T>(operation: 'prepare' | 'redeem', token: string): Promise<T> {
+  // Invitation endpoints are separate from session authentication. Never send another user's session.
+  const response = await fetch(`${JURY_BASE}/api/v1/auth/jury-link/${operation}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+    mode: 'same-origin',
+    credentials: 'omit',
+    redirect: 'error',
+    cache: 'no-store',
+    referrerPolicy: 'no-referrer'
+  });
+  if (!response.ok) throw new Error('Не удалось открыть кабинет по QR-коду');
+  return response.json();
+}
+
 export const authApi = {
   options: () => get<{ demoAccounts: boolean; mailAvailable: boolean }>('/auth/options'),
   signIn: (email: string, password: string) => post<UserSession>('/auth/sign-in', { email, password }),
+  prepareJuryLink: (token: string) => exchangeJuryLink<JuryLinkPreview>('prepare', token),
+  redeemJuryLink: (token: string) => exchangeJuryLink<UserSession>('redeem', token),
   signUp: (input: SignUpInput) => post<UserSession>('/auth/sign-up', input),
   session: () => get<UserSession>('/auth/session'),
   recoverPassword: (email: string) => post<{ message: string }>('/auth/password-recovery', { email }),

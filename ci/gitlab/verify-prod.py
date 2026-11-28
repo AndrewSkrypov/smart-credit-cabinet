@@ -148,16 +148,19 @@ def main():
         raise SystemExit("identity: inconsistent MCP activation mode")
     mcp_enabled = True in mcp_modes
     if mcp_enabled:
-        if "mcp" not in release.images:
-            raise SystemExit("The immutable release has no MCP image")
+        if not (release.mcp or {}).get("config_digest"):
+            raise SystemExit("The immutable release has no MCP OCI provenance")
         selector = "app.kubernetes.io/instance=cabinet,app.kubernetes.io/name=cabinet-mcp"
         pods = json.loads(subprocess.check_output([*kubectl, "get", "pods", "-l", selector, "-o", "json"]))["items"]
         active = [pod for pod in pods if not pod["metadata"].get("deletionTimestamp")]
         if len(active) < 2 or any(
             pod["metadata"].get("annotations", {}).get("cabinet.release/revision") != release.revision
             or [c["image"] for c in pod["spec"]["containers"] if c["name"] == "cabinet-mcp"] != [release.images["mcp"]]
-            or not any(c["name"] == "cabinet-mcp" and c["ready"] and c.get("imageID")
-                       for c in pod["status"].get("containerStatuses", []))
+            or not any(
+                c["name"] == "cabinet-mcp" and c["ready"] and c.get("imageID")
+                and catalog_image_matches(release.images["mcp"], release.mcp["config_digest"], c["imageID"])
+                for c in pod["status"].get("containerStatuses", [])
+            )
             for pod in active
         ):
             raise SystemExit("MCP: active Pods are not ready with the expected release image")

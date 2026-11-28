@@ -42,8 +42,11 @@ class PaymentReserveService(
         val current = actor()
         val account = operations.byId(id)?.takeIf { it.companyId == current.companyId } ?: throw missing()
         val application = applications.find(account.applicationId) ?: throw missing()
-        if (account.id != id || application.id != account.applicationId || application.company.id != current.companyId ||
-            application.status != ApplicationStatus.DISBURSED || !application.company.inn.startsWith("00")
+        if (account.id != id ||
+            application.id != account.applicationId ||
+            application.company.id != current.companyId ||
+            application.status != ApplicationStatus.DISBURSED ||
+            !application.company.inn.startsWith("00")
         ) throw missing()
         return account
     }

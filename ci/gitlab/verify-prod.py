@@ -164,6 +164,15 @@ def main():
             for pod in active
         ):
             raise SystemExit("MCP: active Pods are not ready with the expected release image")
+        probe = Path(__file__).resolve().parents[2] / "deploy" / "mcp-private-probe.mjs"
+        for pod in active:
+            result = subprocess.run(
+                [*kubectl, "exec", pod["metadata"]["name"], "-c", "cabinet-mcp", "--",
+                 "node", "--input-type=module", "--eval", probe.read_text(encoding="utf-8")],
+                capture_output=True, check=False, timeout=30,
+            )
+            if result.returncode:
+                raise SystemExit("MCP: private TLS or endpoint isolation checks failed")
         pod_counts["cabinet-mcp"] = len(active)
     report = {"revision": release.revision, "readyPods": pod_counts}
     if args.catalog_mode:

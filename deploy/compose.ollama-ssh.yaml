@@ -2,7 +2,7 @@ services:
   engagement:
     environment:
       OLLAMA_URL: http://127.0.0.1:11434
-      ASSISTANT_MODEL: qwen2.5:7b-instruct-q4_K_M
+      ASSISTANT_MODEL: ${CABINET_DEV_OLLAMA_MODEL:-qwen2.5:7b-instruct-q4_K_M}
       ASSISTANT_TIMEOUT: PT30S
       ASSISTANT_WARMUP: "false"
 

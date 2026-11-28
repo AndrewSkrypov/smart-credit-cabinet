@@ -1,0 +1,66 @@
+{{- $env := "prod" -}}
+{{- $base := "https://grafana.credit-cabinet.ru" -}}
+{{- if eq .Receiver "telegram-dev" -}}
+  {{- $env = "dev" -}}
+  {{- $base = "https://dev.credit-cabinet.ru/grafana" -}}
+{{- end -}}
+{{- $name := .GroupLabels.alertname -}}
+{{- if eq $name "CabinetTelegramSmoke" -}}
+  {{- printf "[PUMP TEST][%s][%s][info] CabinetTelegramSmoke monitoring" (.Status | toUpper) $env -}}
+{{- else -}}
+  {{- $severity := "warning" -}}
+  {{- if eq .CommonLabels.severity "critical" }}{{ $severity = "critical" }}{{ end -}}
+  {{- $uid := "cabinet-platform" -}}
+  {{- $panel := 0 -}}
+  {{- $where := "мониторинг" -}}
+  {{- $symptom := "Сработало правило мониторинга" -}}
+  {{- if eq $name "CabinetHTTPSUnavailable" -}}
+    {{- $panel = 4 -}}{{- $where = "внешняя HTTPS-проба" -}}{{- $symptom = "Проверка HTTPS кабинета не проходит 2 минуты" -}}
+    {{- if eq .CommonLabels.target "cabinet-public" }}{{ $where = "публичный каталог /api/v1/products" }}{{ end -}}
+  {{- else if eq $name "CabinetServiceDown" -}}
+    {{- $uid = "credit-pipeline" -}}{{- $panel = 1 -}}{{- $where = "опрос приложения" -}}{{- $symptom = "Prometheus не может опросить экземпляр сервиса 1 минуту" -}}
+  {{- else if eq $name "CabinetHTTPHighErrorRate" -}}
+    {{- $panel = 2 -}}{{- $where = "HTTP API" -}}{{- $symptom = "Доля ответов 5xx выше 5% в течение 5 минут" -}}
+  {{- else if eq $name "CabinetHTTPHighLatency" -}}
+    {{- $panel = 3 -}}{{- $where = "HTTP API" -}}{{- $symptom = "Средняя задержка API выше 2 секунд в течение 5 минут. Панель показывает p95 для диагностики." -}}
+  {{- else if eq $name "CabinetPVCLowSpace" -}}
+    {{- $panel = 7 -}}{{- $where = "постоянное хранилище PVC" -}}{{- $symptom = "На постоянном томе меньше 15% свободного места 10 минут" -}}
+  {{- else if eq $name "CabinetNodeDiskLowSpace" -}}
+    {{- $panel = 7 -}}{{- $where = "корневой диск узла" -}}{{- $symptom = "На корневой ФС меньше 10% свободного места 10 минут" -}}
+  {{- else if eq $name "CabinetAssistantFallbackElevated" -}}
+    {{- $uid = "cabinet-agent-final" -}}{{- $panel = 5 -}}{{- $where = "модель ассистента" -}}{{- $symptom = "Больше половины обращений к модели ушли на резервные правила" -}}
+  {{- else if eq $name "CabinetAssistantAnswerErrors" -}}
+    {{- $uid = "cabinet-agent-final" -}}{{- $panel = 6 -}}{{- $where = "ответы ассистента" -}}{{- $symptom = "Более 10% ответов ассистента завершились ошибкой" -}}
+  {{- else if eq $name "CabinetNotificationDeliveryFailed" -}}
+    {{- $panel = 15 -}}{{- $where = "доставка уведомлений" -}}{{- $symptom = "Есть недоставленные уведомления или письма" -}}
+  {{- else if eq $name "CabinetNotificationDeliveryDelayed" -}}
+    {{- $panel = 12 -}}{{- $where = "очередь уведомлений" -}}{{- $symptom = "Старейшее уведомление ждёт больше 2 минут" -}}
+  {{- else if eq $name "CabinetFailedJobs" -}}
+    {{- $uid = "credit-pipeline" -}}{{- $panel = 2 -}}{{- $where = "кредитный конвейер" -}}{{- $symptom = "В конвейере есть задания в состоянии FAILED" -}}
+  {{- else if eq $name "CabinetQueueDelayed" -}}
+    {{- $uid = "credit-pipeline" -}}{{- $panel = 4 -}}{{- $where = "очередь кредитного конвейера" -}}{{- $symptom = "Просроченная задача ждёт больше 60 секунд" -}}
+  {{- else if eq $name "CabinetMetricsStale" -}}
+    {{- $uid = "credit-pipeline" -}}{{- $panel = 12 -}}{{- $where = "снимки метрик БД credit" -}}{{- $symptom = "Снимок метрик БД старше 60 секунд или отсутствует при доступном credit" -}}
+  {{- else if eq $name "CabinetSourceCircuitOpen" -}}
+    {{- $uid = "credit-pipeline" -}}{{- $panel = 8 -}}{{- $where = "внешний источник кредитного конвейера" -}}{{- $symptom = "Circuit breaker источника открыт 1 минуту" -}}
+  {{- end -}}
+  {{- $service := .CommonLabels.service -}}
+  {{- if not (or (eq $service "credit") (eq $service "identity") (eq $service "engagement") (eq $service "external-sim") (eq $service "gateway")) }}{{ $service = "" }}{{ end -}}
+  {{- $from := "now-1h" -}}
+  {{- $to := "now" -}}
+  {{- if .Alerts -}}
+    {{- $start := (index .Alerts 0).StartsAt -}}
+    {{- $end := (index .Alerts 0).EndsAt -}}
+    {{- range .Alerts -}}
+      {{- if and (not .StartsAt.IsZero) (or $start.IsZero (.StartsAt.Before $start)) }}{{ $start = .StartsAt }}{{ end -}}
+      {{- if .EndsAt.After $end }}{{ $end = .EndsAt }}{{ end -}}
+    {{- end -}}
+    {{- if not $start.IsZero }}{{ $from = printf "%d" ($start.Add -900000000000).UnixMilli }}{{ end -}}
+    {{- if and (eq .Status "resolved") (not $end.IsZero) }}{{ $to = printf "%d" $end.UnixMilli }}{{ end -}}
+  {{- end -}}
+  {{- printf "[%s][%s][%s] %s\n" (.Status | toUpper) $env $severity $name -}}
+  {{- if eq .Status "resolved" }}Условие снято. Критерий: {{ else }}Симптом: {{ end -}}
+  {{- printf "%s\nГде: %s" $symptom $where -}}
+  {{- if $service }} / {{ $service }}{{ end -}}
+{{ printf "\n" }}<a href="{{ $base }}/d/{{ $uid }}?from={{ $from }}&amp;to={{ $to }}{{ if $panel }}&amp;viewPanel={{ $panel }}{{ end }}">Grafana {{ $env }}</a>
+{{- end -}}

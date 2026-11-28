@@ -199,6 +199,7 @@ it('requires every registration field and consent; retains input after network f
   change('ИНН компании или ИП', generateTestInn(true));
   change('Ваше имя', '  Alice Example  '); change('Email', 'alice@example.test'); change('Пароль', 'Demo2026');
   expect(submit).toBeEnabled();
+  expect(submit).toHaveAccessibleDescription('Данные готовы к отправке.');
   fireEvent.click(screen.getByRole('checkbox')); expect(submit).toBeDisabled();
   fireEvent.click(screen.getByRole('checkbox'));
   let reject!: (reason: Error) => void;
@@ -208,11 +209,16 @@ it('requires every registration field and consent; retains input after network f
   expect(submit).toBeDisabled();
   await act(async () => { reject(new Error('Сеть недоступна')); });
   expect(screen.getByText('Сеть недоступна')).toBeInTheDocument();
+  expect(screen.queryByText('Данные готовы к отправке.')).not.toBeInTheDocument();
+  expect(submit).not.toHaveAttribute('aria-describedby');
   expect(submit).toBeEnabled();
   expect(screen.getByLabelText('Ваше имя', { exact: false })).toHaveValue('  Alice Example  ');
+  const correctedInn = generateTestInn(false);
+  change('ИНН компании или ИП', correctedInn);
   auth.signUp.mockResolvedValueOnce(undefined);
   await act(async () => { fireEvent.submit(view.container.querySelector('form')!); });
   expect(auth.signUp).toHaveBeenCalledTimes(2);
+  expect(auth.signUp.mock.lastCall![0].inn).toBe(correctedInn);
   expect(auth.signUp.mock.lastCall![0].fullName).toBe('Alice Example');
 });
 

@@ -277,8 +277,12 @@ export function SignUpPage() {
           control={<Checkbox checked={form.personalDataConsent} onChange={(event) => setForm({ ...form, personalDataConsent: event.target.checked })} />}
           label="Согласен на обработку персональных данных"
         />
-        <Typography id="signup-readiness" variant="body2" color="text.secondary">{ready ? 'Все требования выполнены — можно подключить компанию.' : 'Заполните ИНН, имя, email и пароль по требованиям и подтвердите согласие.'}</Typography>
-        <Button type="submit" variant="contained" size="large" disabled={busy || !ready} aria-describedby="signup-readiness">Подключить</Button>
+        {!error && (
+          <Typography id="signup-readiness" variant="body2" color="text.secondary">
+            {ready ? 'Данные готовы к отправке.' : 'Заполните ИНН, имя, email и пароль по требованиям и подтвердите согласие.'}
+          </Typography>
+        )}
+        <Button type="submit" variant="contained" size="large" disabled={busy || !ready} aria-describedby={error ? undefined : 'signup-readiness'}>Подключить</Button>
         <Typography variant="body2">
           Уже есть кабинет? <Link component={RouterLink} to={authPath('/sign-in', location.search)}>Войти</Link>
         </Typography>

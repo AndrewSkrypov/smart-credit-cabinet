@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
+import org.springframework.transaction.support.TransactionTemplate
 import ru.creditcabinet.agent.domain.AgentAccessDecision
 import ru.creditcabinet.agent.domain.AgentAccessPort
 import ru.creditcabinet.agent.domain.AgentAccessUnavailable
@@ -50,6 +51,7 @@ import ru.creditcabinet.integration.domain.CompanySources
 import ru.creditcabinet.product.domain.FinancingPurpose
 import ru.creditcabinet.product.domain.LoanMath
 import ru.creditcabinet.product.domain.ProductCatalog
+import ru.creditcabinet.product.domain.ProductVersions
 import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 import java.time.Clock
@@ -85,6 +87,10 @@ class FinancingScenarioIntegrationTest {
     @Autowired private lateinit var clock: Clock
 
     @Autowired private lateinit var products: ProductCatalog
+
+    @Autowired private lateinit var versions: ProductVersions
+
+    @Autowired private lateinit var transactions: TransactionTemplate
 
     @Autowired private lateinit var infoRequests: InfoRequests
 
@@ -165,9 +171,13 @@ class FinancingScenarioIntegrationTest {
     fun `saved web preview refuses changed application terms without writing`() {
         val draft = draft()
         val path = agentPath(draft.id)
+        val product = checkNotNull(products.find(draft.terms.productCode)).copy(code = "PREVIEW_" + UUID.randomUUID())
+        transactions.executeWithoutResult {
+            versions.create(product, agentId, "Synthetic preview fixture", clock.instant())
+            versions.replace(product, 1, agentId, "Synthetic second revision", clock.instant())
+            applications.save(draft.copy(terms = draft.terms.copy(productCode = product.code), productVersion = 1))
+        }
         putScenario(path, delayDays = 5)
-        val current = checkNotNull(applications.find(draft.id))
-        applications.save(current.copy(productVersion = current.productVersion + 1))
         val before = creditMcpSnapshot(jdbc, draft.id)
         val input = """{"mode":"SAVED_SCENARIO","delayDays":6,"alternativeTermMonths":24}"""
         assertEquals(409, post("$path/financing-scenario/preview", agent, input).status)

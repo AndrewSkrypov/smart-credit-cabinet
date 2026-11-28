@@ -18,6 +18,17 @@ import { FinancingPurpose, ProductMatch } from '../../types';
 
 const TERMS = [3, 6, 12, 18, 24, 36, 48, 60];
 
+/** A typical request for each goal: a cash gap is short and small, equipment is long and large. */
+const PURPOSE_DEFAULTS: Record<FinancingPurpose, { amount: number; termMonths: number }> = {
+  CASH_GAP: { amount: 500_000, termMonths: 3 },
+  CURRENT_EXPENSES: { amount: 700_000, termMonths: 12 },
+  WORKING_CAPITAL: { amount: 1_500_000, termMonths: 12 },
+  EQUIPMENT: { amount: 3_000_000, termMonths: 36 },
+  VEHICLE: { amount: 2_500_000, termMonths: 36 },
+  RENOVATION: { amount: 2_000_000, termMonths: 24 },
+  BUSINESS_DEVELOPMENT: { amount: 5_000_000, termMonths: 48 },
+};
+
 /**
  * The needs wizard: what the money is for, how much and for how long — and the products that
  * fit, with the reasons and the payment. Rules, not a model: every suggestion can be explained.
@@ -34,6 +45,8 @@ export function NeedsWizardPage() {
     const wanted = selection.termMonths ?? 12;
     return TERMS.reduce((best, term) => (Math.abs(term - wanted) < Math.abs(best - wanted) ? term : best));
   });
+  // Once the person types a sum or picks a term, a new goal no longer overwrites them.
+  const [ownTerms, setOwnTerms] = useState(() => selection.amount != null || selection.termMonths != null);
   const [matches, setMatches] = useState<ProductMatch[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -89,7 +102,12 @@ export function NeedsWizardPage() {
               <Grid item xs={12} sm={6} md={4} key={item.code}>
                 <Card elevation={0} sx={{ height: '100%', bgcolor: purpose === item.code ? '#fff' : tokens.inputFill, boxShadow: purpose === item.code ? `inset 0 0 0 2px ${tokens.red}` : 'none' }}>
                   <CardActionArea sx={{ height: '100%', p: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1.5 }} aria-pressed={purpose === item.code}
-                    onClick={() => { setPurpose(item.code); setMatches(null); }}>
+                    onClick={() => {
+                      setPurpose(item.code);
+                      setMatches(null);
+                      const typical = PURPOSE_DEFAULTS[item.code];
+                      if (!ownTerms && typical) { setAmount(typical.amount); setTermMonths(typical.termMonths); }
+                    }}>
                     <Illustration name={purposeArt[item.code] ?? 'coin'} size={44} />
                     <Typography fontWeight={600}>{item.title}</Typography>
                   </CardActionArea>
@@ -102,8 +120,8 @@ export function NeedsWizardPage() {
         <Paper variant="outlined" component="form" onSubmit={search} sx={{ p: { xs: 2, md: 3 } }}>
           <Typography variant="h6" component="h2" gutterBottom>2. Сколько и на какой срок?</Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'flex-start' }}>
-            <MoneyField label="Сумма" value={amount} onChange={(value) => { setAmount(value); setMatches(null); }} sx={{ minWidth: 240 }} required />
-            <TextField select label="Срок" value={termMonths} onChange={(event) => { setTermMonths(Number(event.target.value)); setMatches(null); }} sx={{ minWidth: 200 }}>
+            <MoneyField label="Сумма" value={amount} onChange={(value) => { setAmount(value); setOwnTerms(true); setMatches(null); }} sx={{ minWidth: 240 }} required />
+            <TextField select label="Срок" value={termMonths} onChange={(event) => { setTermMonths(Number(event.target.value)); setOwnTerms(true); setMatches(null); }} sx={{ minWidth: 200 }}>
               {[...new Set([...TERMS, termMonths])].sort((a, b) => a - b).map((term) => <MenuItem key={term} value={term}>{months(term)}</MenuItem>)}
             </TextField>
             <Button type="submit" variant="contained" size="large" disabled={!purpose || !amount || busy} sx={{ minHeight: 56 }}>Подобрать</Button>

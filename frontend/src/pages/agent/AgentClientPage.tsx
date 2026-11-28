@@ -15,6 +15,7 @@ import {
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import { tokens } from '../../theme/theme';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { agentApi, productsApi } from '../../api/client';
@@ -214,29 +215,25 @@ export function AgentClientPage() {
                   ))}
               </TextField>
 
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <MoneyField
-                    label="Сумма"
-                    fullWidth
-                    required
-                    value={amount}
-                    onChange={setAmount}
-                    helperText={selectedProduct ? `от ${rub(selectedProduct.minAmount)} до ${rub(selectedProduct.maxAmount)}` : ' '}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Срок, месяцев"
-                    fullWidth
-                    required
-                    inputProps={{ inputMode: 'numeric' }}
-                    value={termMonths || ''}
-                    onChange={(event) => setTermMonths(Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0)}
-                    helperText={selectedProduct ? `от ${selectedProduct.minTermMonths} до ${selectedProduct.maxTermMonths}` : ' '}
-                  />
-                </Grid>
-              </Grid>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, alignItems: 'start' }}>
+                <MoneyField
+                  label="Сумма"
+                  fullWidth
+                  required
+                  value={amount}
+                  onChange={setAmount}
+                  helperText={selectedProduct ? `от ${rub(selectedProduct.minAmount)} до ${rub(selectedProduct.maxAmount)}` : ' '}
+                />
+                <TextField
+                  label="Срок, месяцев"
+                  fullWidth
+                  required
+                  inputProps={{ inputMode: 'numeric' }}
+                  value={termMonths || ''}
+                  onChange={(event) => setTermMonths(Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0)}
+                  helperText={selectedProduct ? `от ${selectedProduct.minTermMonths} до ${selectedProduct.maxTermMonths}` : ' '}
+                />
+              </Box>
 
               <TextField
                 label="Комментарий к цели"
@@ -248,26 +245,22 @@ export function AgentClientPage() {
                 onChange={(event) => setPurposeComment(event.target.value)}
               />
 
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <MoneyField
-                    label="Выручка за 12 месяцев"
-                    fullWidth
-                    value={declaredRevenue12m}
-                    onChange={setDeclaredRevenue12m}
-                    helperText="По данным налоговой отчётности"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <MoneyField
-                    label="Платежи по кредитам, в месяц"
-                    fullWidth
-                    value={declaredMonthlyDebtPayments}
-                    onChange={setDeclaredMonthlyDebtPayments}
-                    helperText="0, если кредитов нет"
-                  />
-                </Grid>
-              </Grid>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, alignItems: 'start' }}>
+                <MoneyField
+                  label="Выручка за 12 месяцев"
+                  fullWidth
+                  value={declaredRevenue12m}
+                  onChange={setDeclaredRevenue12m}
+                  helperText="По данным налоговой отчётности"
+                />
+                <MoneyField
+                  label="Платежи по кредитам, в месяц"
+                  fullWidth
+                  value={declaredMonthlyDebtPayments}
+                  onChange={setDeclaredMonthlyDebtPayments}
+                  helperText="0, если кредитов нет"
+                />
+              </Box>
 
               <Button type="submit" variant="contained" size="large" disabled={submitting || !selectedProduct}>
                 {submitting ? 'Создаём черновик…' : 'Создать черновик заявки'}
@@ -286,7 +279,7 @@ export function AgentClientPage() {
                 {companyApps.map((app) => {
                   const tone = statusTone(app.status);
                   return (
-                    <Card key={app.id} variant="outlined">
+                    <Card key={app.id} elevation={0} sx={{ bgcolor: tokens.tile, borderRadius: 4 }}>
                       <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
                           <Typography fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
@@ -303,9 +296,10 @@ export function AgentClientPage() {
                         <Button
                           component={RouterLink}
                           to={`/agent/applications/${app.id}`}
+                          variant="outlined"
                           size="small"
                           endIcon={<ChevronRightRoundedIcon />}
-                          sx={{ mt: 1, ml: -0.5 }}
+                          sx={{ mt: 1.5, bgcolor: '#fff', '&:hover': { bgcolor: '#fff' } }}
                         >
                           Открыть заявку
                         </Button>

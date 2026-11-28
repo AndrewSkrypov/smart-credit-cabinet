@@ -84,42 +84,53 @@ export const cabinetTheme = createTheme({
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
+        // One button for every cabinet, as on the landing: rounded, semibold, no frame.
         root: {
-          borderRadius: 10,
+          borderRadius: 12,
           minHeight: 48,
-          paddingInline: 19,
+          paddingInline: 20,
+          fontWeight: 600,
           transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
           '&.Mui-focusVisible': { outline: `3px solid ${tokens.info}`, outlineOffset: 3 },
           [touch]: { minHeight: 48 }
         },
-        sizeLarge: { minHeight: 56, paddingInline: 23 },
-        sizeSmall: { minHeight: 36, paddingInline: 12, fontSize: '0.875rem', [touch]: { minHeight: 44 } },
+        sizeLarge: { minHeight: 56, paddingInline: 28, borderRadius: 16 },
+        sizeSmall: { minHeight: 36, paddingInline: 14, borderRadius: 10, fontSize: '0.875rem', [touch]: { minHeight: 44 } },
+        containedPrimary: { backgroundColor: tokens.red, '&:hover': { backgroundColor: tokens.redDark } },
+        containedSecondary: { backgroundColor: tokens.dark, '&:hover': { backgroundColor: '#000' } },
         // Secondary actions: the light filled button of the brand instead of an outline.
         outlined: {
-          border: `1px solid ${tokens.neutral}`,
+          border: '1px solid transparent',
           backgroundColor: tokens.secondaryFill,
           color: tokens.ink,
-          '&:hover': { border: `1px solid ${tokens.ink}`, backgroundColor: alpha('#0f1937', 0.16) }
+          '&:hover': { border: '1px solid transparent', backgroundColor: alpha('#0f1937', 0.16) },
+          '&.Mui-disabled': { border: '1px solid transparent', backgroundColor: alpha('#0f1937', 0.05) }
         },
+        outlinedWarning: { backgroundColor: alpha(tokens.warning, 0.12), color: '#8a4500', '&:hover': { backgroundColor: alpha(tokens.warning, 0.2) } },
+        outlinedError: { backgroundColor: alpha('#c4211a', 0.1), color: '#a81c16', '&:hover': { backgroundColor: alpha('#c4211a', 0.18) } },
         text: { color: tokens.ink }
       }
     },
     MuiIconButton: { styleOverrides: { root: { [touch]: { minWidth: 44, minHeight: 44 } } } },
     MuiTextField: { defaultProps: { variant: 'filled' } },
     MuiInputLabel: { styleOverrides: { root: { '&.Mui-focused:not(.Mui-error)': { color: tokens.ink } } } },
+    MuiFormHelperText: { styleOverrides: { root: { marginInline: 14 } } },
     MuiFilledInput: {
       defaultProps: { disableUnderline: true },
       styleOverrides: {
+        // Soft rounded wells instead of underlined boxes; focus draws a full ring, not a bottom line.
         root: {
           backgroundColor: tokens.inputFill,
-          borderRadius: '4px 4px 0 0',
-          borderBottom: '1px solid transparent',
-          transition: 'box-shadow 0.3s ease-in-out, background-color 0.2s ease',
+          borderRadius: 14,
+          overflow: 'hidden',
+          transition: 'box-shadow 0.2s ease, background-color 0.2s ease',
           '&:hover': { backgroundColor: alpha('#0b1f35', 0.1) },
-          '&.Mui-focused': { backgroundColor: tokens.inputFill, boxShadow: `inset 0 -2px 0 ${tokens.ink}` },
-          '&.Mui-error': { boxShadow: `inset 0 -2px 0 #c4211a` },
+          '&.Mui-focused': { backgroundColor: '#fff', boxShadow: `inset 0 0 0 2px ${tokens.ink}` },
+          '&.Mui-error': { boxShadow: 'inset 0 0 0 2px #c4211a' },
+          '&.Mui-disabled': { backgroundColor: alpha('#0b1f35', 0.04) },
           [touch]: { minHeight: 56 }
-        }
+        },
+        sizeSmall: { minHeight: 48 }
       }
     },
     MuiSelect: { defaultProps: { variant: 'filled' } },

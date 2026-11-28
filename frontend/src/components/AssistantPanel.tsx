@@ -1,4 +1,5 @@
-import { Alert, Badge, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Drawer, Fab, IconButton, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Badge, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Drawer, Fab, IconButton, InputAdornment, Stack, TextField, Typography } from '@mui/material';
+import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded';
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { FormEvent, useEffect, useRef, useState } from 'react';
@@ -346,10 +347,28 @@ export function AssistantPanel() {
 
         <Box sx={{ px: 2, pt: 1 }}><SensitiveDataNotice compact /></Box>
         {error && <Alert severity="error" sx={{ mx: 2 }} action={<Button disabled={busy} onClick={() => void ask(messages.at(-1)?.text ?? '')}>Повторить вопрос</Button>}>{error}</Alert>}
-        <Stack component="form" onSubmit={submit} direction="row" spacing={1} sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-          <TextField label="Ваш вопрос" value={question} onChange={(event) => setQuestion(event.target.value)} fullWidth size="small" inputProps={{ maxLength: 500 }} />
-          <Button type="submit" variant="contained" disabled={busy || !question.trim()}>Спросить</Button>
-        </Stack>
+        <Box component="form" onSubmit={submit} sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+          <TextField hiddenLabel placeholder="Задайте вопрос помощнику" value={question} onChange={(event) => setQuestion(event.target.value)}
+            fullWidth multiline maxRows={4}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                event.currentTarget.closest('form')?.requestSubmit();
+              }
+            }}
+            inputProps={{ maxLength: 500, 'aria-label': 'Ваш вопрос' }}
+            InputProps={{
+              sx: { borderRadius: '28px', alignItems: 'flex-end', minHeight: 56, py: 1, pl: 2.5, pr: 1, '& textarea': { pb: 1 } },
+              endAdornment: (
+                <InputAdornment position="end" sx={{ alignSelf: 'flex-end', height: 40, maxHeight: 'none', m: 0 }}>
+                  <IconButton type="submit" aria-label="Спросить" disabled={busy || !question.trim()}
+                    sx={{ bgcolor: tokens.red, color: '#fff', width: 40, height: 40, '&:hover': { bgcolor: tokens.redDark }, '&.Mui-disabled': { bgcolor: tokens.secondaryFill, color: 'text.disabled' } }}>
+                    <ArrowUpwardRoundedIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }} />
+        </Box>
       </Drawer>
       <Dialog open={confirmation !== null} onClose={() => { if (!sendingReminder) setConfirmation(null); }}>
         <DialogTitle>Напомнить клиенту о документах?</DialogTitle>

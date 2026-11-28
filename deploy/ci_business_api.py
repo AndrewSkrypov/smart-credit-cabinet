@@ -21,12 +21,7 @@ import business_smoke as business
 from common import Deployment, ROOT
 
 OVERLAY = ROOT / "ci/gitlab/quality/compose.business-api.yaml"
-CHECKS = {
-    "financing_versions_consent_bank_pep_simulated_funding",
-    "private_statement_bank_only_exact_bytes_and_agent_readiness",
-    "reserve_0_130000_limit80000_shortfall50000_remote_single_effect",
-    "own_mandate_revocation_replay_404_client_continuity",
-}
+CHECKS = business.CHECKS
 SERVICES = ("identity", "credit", "engagement", "external-sim", "frontend")
 
 

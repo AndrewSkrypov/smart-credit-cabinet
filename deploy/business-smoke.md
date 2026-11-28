@@ -59,12 +59,26 @@ Ledger содержит только UUID/alias, шаги и whitelisted син�
 
 ## Journal и cleanup
 
-`state/business-smoke/<SHA>-<runUUID>.json`:0700 directory/0600 file, atomic
-replace, fsync. До каждого изменения сохраняется intent без payload. Для
+`state/business-smoke/<SHA>-<runUUID>.json`:0700 directory/0600 file, schema2,
+atomic replace, fsync. Ledger связывает SHA/manifest с immutable attempt32hex и
+каноническим хешем current/desired. До каждого изменения сохраняется intent без payload. Для
 создания отдельно сохраняется intent до HTTP; полученный UUID сохраняется
 до очистки intent. Network/JSON/crash ambiguity не запускает повтор создания.
-Повторный запуск на том же SHA при наличии ledger останавливается для
-операторского reconciliation, включая crash между PASS и current commit.
+INCOMPLETE, неизвестный intent, неоднозначный/старый/malformed ledger или другой
+attempt требуют operator reconciliation. Автоматический повтор бизнес-мутаций
+по такому ledger запрещён. Для единственного завершённого PASS schema2 разрешён
+read-only reuse лишь при точном SHA/manifest/attempt/current/desired, четырёх
+известных проверках, валидных own registries/financial facts и успешной cleanup.
+Сначала повторяется весь verified_context: held lock, actual current/pending,
+immutable attempt, approved origin/4REMOTE/runtime report. Только после этого
+возвращается proof тех же private bytes/hash, без jury/auth/API/signup/выдачи/
+списания и перезаписи ledger. CI ledger без Dev attempt не может дать этот допуск.
+
+PASS ledger означает завершённые API-сценарии и cleanup, а не приёмку выпуска.
+При сбое свежего Alpha или прерывании между PASS и current commit штатный retry
+повторно использует завершённый proof, но **обязательно** выполняет новый
+Alpha catchup до current commit. `alpha_catchup_verified` из старого proof не
+переносится. Одного сохранённого PASS недостаточно для Dev acceptance.
 
 В finally отменяются только записанные собственные незавершённые заявки и
 новые мандаты. DISBURSED/terminal accounts, audit и документы сохраняются и
@@ -85,7 +99,8 @@ user/company и обрабатывает только известные UUID. �
 Контроллер вызывает smoke после verify-release только при существующем pending,
 `has_all_runtimes`, четырёх REMOTE и computed Dev flag, **до current commit**.
 Verify-only, LOCAL и обычный повтор уже принятого current без pending не создают
-business fixtures или ledger. Ошибка попадает в существующий fail-closed
+business fixtures или ledger. Ошибка, включая CalledProcessError/TimeoutExpired
+от bounded subprocess helper, попадает в существующий fail-closed
 контроллер с закрытием Caddy/pending retained. Proof вложен в
 `report.release.business_smoke`, поэтому четыре top-level поля старого
 extractor не расширяются. После всех signup/заявок/отзывов/cleanup выполняется

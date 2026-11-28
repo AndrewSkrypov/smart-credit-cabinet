@@ -66,8 +66,9 @@ Registry manifest и immutable Dev attempt в этом тесте не созд�
 
 Scope отчёта всегда `isolated-base-local-api`, `dev_accepted=false`,
 `four_remote_accepted=false`, browser `NOT_RUN`. В исходных названиях проверок
-`Smoke` сохранён исторический суффикс `remote_single_effect`; actual runtime
-здесь embedded, и этот суффикс не доказывает remote transport.
+`Smoke` используется нейтральная проверка
+`reserve_0_130000_limit80000_shortfall50000_single_effect`; actual runtime здесь
+embedded. Принадлежность к четырём REMOTE доказывается отдельным host report.
 
 Полный four-REMOTE provider требует LOCAL baseline, штатную согласованную копию
 и REMOTE target с **другим** source-bound revision; разные manifests одного SHA

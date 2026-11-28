@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import signal
 import ssl
+import subprocess
 import sys
 import tempfile
 import time
@@ -380,7 +381,7 @@ class VerifiedContext(unittest.TestCase):
         self.report = {"manifest_sha256": self.release.checksum, "release": {"passed": True, "expected_revision": self.sha,
                         **{name: {"mode": "remote", "revision": self.sha, "manifest_sha256": self.release.checksum} for name in smoke.RUNTIMES}}}
         self.modules = patch.dict(sys.modules, {"common": SimpleNamespace(Deployment=Deployment, ROOT=self.release_dir),
-                            "runtime_attempts": SimpleNamespace(load=lambda *_: {"previous": self.current, "target": self.desired,
+                            "runtime_attempts": SimpleNamespace(load=lambda *_: {"attempt": "f" * 32, "previous": self.current, "target": self.desired,
                             "backup": {"sha256": "e" * 64}, "alpha": {"frozen": {"checkpoint": {"generation": self.current["alpha_dev"]["generation"]}}}})})
         self.modules.start()
         self.addCleanup(self.modules.stop)
@@ -409,7 +410,7 @@ class VerifiedContext(unittest.TestCase):
 
     def test_malformed_metadata_is_sanitized_before_api_and_matches_controller_failure_boundary(self):
         cases = (
-            ("runtime_attempts", {"load": lambda *_: {"synthetic-private-key": "never expose"}}),
+            ("runtime_attempts", {"load": lambda *_: {"attempt": "f" * 32, "synthetic-private-key": "never expose"}}),
             ("report", {"release": None}),
         )
         for kind, values in cases:
@@ -495,7 +496,7 @@ class HookCompatibility(unittest.TestCase):
         self.current.write_bytes(b"synthetic current retained")
         self.events, self.helper_results = [], []
 
-    def execute(self, *, fail_alpha=False):
+    def execute(self, *, fail_alpha=False, alpha_error=None):
         import runtime_backup as backup
         tree = ast.parse(controller_source())
         blocks = [node for node in ast.walk(tree) if isinstance(node, ast.Try)
@@ -511,6 +512,8 @@ class HookCompatibility(unittest.TestCase):
             self.assertEqual(self.events[0], "business_and_cleanup_complete")
             if fail_alpha:
                 raise RuntimeError("synthetic fresh Alpha unavailable")
+            if alpha_error is not None:
+                raise alpha_error
             value = original_helper(deployment, before)
             self.helper_results.append(value)
             return value
@@ -518,7 +521,7 @@ class HookCompatibility(unittest.TestCase):
             "args": SimpleNamespace(verify_only=False, deployment_fd=123),
             "state_dir": self.state, "release": self.release, "deployment": self.deployment,
             "status": {}, "desired": {}, "pending_file": self.pending,
-            "ROOT": ROOT, "env_args": [], "release_args": [], "json": json, "COMPANY": smoke.JURY_COMPANY,
+            "ROOT": ROOT, "env_args": [], "release_args": [], "json": json, "subprocess": subprocess, "COMPANY": smoke.JURY_COMPANY,
             "read_credentials": Mock(return_value={}), "provision": Mock(), "verify": Mock(return_value=[]),
             "run": Mock(return_value=json.dumps({"passed": True})), "run_business_smoke": business,
             "runtime_attempts": SimpleNamespace(load=Mock(return_value=self.attempt)),
@@ -599,6 +602,17 @@ class HookCompatibility(unittest.TestCase):
         self.assertEqual(self.current.read_bytes(), b"synthetic current retained")
         self.assertEqual(self.pending.read_bytes(), b"synthetic pending retained")
 
+    def test_fresh_alpha_subprocess_failures_close_candidate_and_keep_current_pending(self):
+        for error in (subprocess.CalledProcessError(1, ["synthetic-private-command"], output="never expose"),
+                      subprocess.TimeoutExpired(["synthetic-private-command"], 3, output="never expose")):
+            with self.subTest(error=type(error).__name__), self.assertRaises(subprocess.SubprocessError):
+                self.execute(alpha_error=error)
+            self.deployment.compose.assert_called_once_with("stop", "caddy")
+            self.assertEqual(self.current.read_bytes(), b"synthetic current retained")
+            self.assertEqual(self.pending.read_bytes(), b"synthetic pending retained")
+            self.deployment.compose.reset_mock()
+            self.events.clear()
+
 
 class BusinessAssertions(unittest.TestCase):
     def test_scenario_checks_actual_financial_outputs_not_just_positive_numbers(self):
@@ -672,14 +686,14 @@ class BusinessAssertions(unittest.TestCase):
             runner.reserve()
         self.assertEqual(ledger.data["checks"], [])
 
-    def test_extra_remote_tranche_on_replay_cannot_be_reported_as_pass(self):
+    def test_extra_tranche_on_replay_cannot_be_reported_as_pass(self):
         runner, api, ledger = self.reserve_fixture()
         replies = list(api.request.side_effect)
         loan = json.loads(replies[-1][1])
         loan["tranches"].append({"id": str(uuid4()), "amount": 130000})
         replies[-1] = (200, encoded(loan))
         api.request.side_effect = replies
-        with self.assertRaisesRegex(smoke.SmokeError, "remote_draw_not_exactly_one_effect"):
+        with self.assertRaisesRegex(smoke.SmokeError, "reserve_draw_not_exactly_one_effect"):
             runner.reserve()
         self.assertEqual(ledger.data["checks"], [])
 

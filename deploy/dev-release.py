@@ -263,7 +263,7 @@ def deploy(args, state_dir, release):
                     report["release"]["business_smoke"]["alpha_catchup_verified"] = True
                 else:
                     report["alpha_continuity"] = alpha
-    except (OSError, ValueError, RuntimeError):
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         if not args.verify_only and pending_file.exists() and release.has_all_runtimes:
             deployment.compose("stop", "caddy")
         raise
@@ -299,7 +299,7 @@ def main():
         with deploy_lock(state_dir / "cabinet.env", PROJECT) as descriptor:
             args.deployment_fd = descriptor
             deploy(args, state_dir, release)
-    except (KeyError, OSError, RuntimeError, ValueError) as error:
+    except (KeyError, OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
         # JSON parsing errors can include private input. Only print controlled errors.
         if type(error) in (RuntimeError, ValueError):
             parser.exit(1, f"Выпуск не подтверждён. {error}\n")

@@ -32,6 +32,10 @@ RUN_SECONDS = 1200
 TERMINAL = {"DISBURSED", "REJECTED", "WITHDRAWN", "CLOSED"}
 JURY_COMPANY = "6f1d4c1e-0b8e-4c55-9a51-000000000001"
 RUNTIMES = ("catalog", "assessment", "servicing", "documents")
+CHECKS = frozenset({"financing_versions_consent_bank_pep_simulated_funding",
+    "private_statement_bank_only_exact_bytes_and_agent_readiness",
+    "reserve_0_130000_limit80000_shortfall50000_single_effect",
+    "own_mandate_revocation_replay_404_client_continuity"})
 
 
 class SmokeError(RuntimeError):
@@ -58,17 +62,29 @@ def private_dir(path):
          and stat.S_IMODE(info.st_mode) == 0o700 and info.st_uid == os.geteuid(), "private_directory_invalid")
 
 
-def private_json(path):
+def private_record(path):
     with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), "rb") as stream:
         info = os.fstat(stream.fileno())
         need(stat.S_ISREG(info.st_mode) and stat.S_IMODE(info.st_mode) == 0o600
              and info.st_uid == os.geteuid() and info.st_size <= MAX_RECORD, "private_record_invalid")
         raw = stream.read(MAX_RECORD + 1)
     need(len(raw) <= MAX_RECORD, "private_record_oversize")
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            need(key not in value, "private_record_json_invalid")
+            value[key] = item
+        return value
+    def invalid_constant(_):
+        raise SmokeError("private_record_json_invalid")
     try:
-        return json.loads(raw)
+        return raw, json.loads(raw, object_pairs_hook=unique, parse_constant=invalid_constant)
     except (ValueError, UnicodeError):
         raise SmokeError("private_record_json_invalid") from None
+
+
+def private_json(path):
+    return private_record(path)[1]
 
 
 @dataclass(frozen=True)
@@ -78,6 +94,12 @@ class Context:
     state: Path
     current: dict
     desired: dict
+    attempt_id: str | None = None
+
+
+def context_digest(context):
+    return hashlib.sha256(json.dumps({"current": context.current, "desired": context.desired},
+        ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
 
 
 def verified_context(deployment, state, current, desired, report, lock_fd):
@@ -116,7 +138,8 @@ def _verified_context(deployment, state, current, desired, report, lock_fd):
          and desired.get("revision") == release.revision and desired.get("manifest_sha256") == release.checksum,
          "actual_current_pending_or_manifest_changed")
     attempt = load(state, release)
-    need(attempt["previous"] == current and attempt["target"] == desired
+    need(isinstance(attempt.get("attempt"), str) and re.fullmatch(r"[a-f0-9]{32}", attempt["attempt"])
+         and attempt["previous"] == current and attempt["target"] == desired
          and isinstance(attempt.get("backup"), dict)
          and re.fullmatch(r"[a-f0-9]{64}", attempt["backup"].get("sha256", ""))
          and attempt.get("alpha", {}).get("frozen", {}).get("checkpoint", {}).get("generation") == desired.get("alpha_dev", {}).get("generation")
@@ -131,7 +154,7 @@ def _verified_context(deployment, state, current, desired, report, lock_fd):
          and all(ready.get(name, {}).get("mode") == "remote" for name in RUNTIMES)
          and all(ready[name].get("revision") == release.revision and ready[name].get("manifest_sha256") == release.checksum
                  for name in ("assessment", "servicing", "documents")), "runtime_verification_required")
-    return Context(release.revision, release.checksum, state, current, desired)
+    return Context(release.revision, release.checksum, state, current, desired, attempt["attempt"])
 
 
 def jury_credentials(state):
@@ -243,14 +266,18 @@ class Ledger:
         need(next(directory.glob(context.revision + "-*.json"), None) is None, "existing_run_requires_operator_reconciliation")
         self.run_id = str(uuid4())
         self.path = directory / (context.revision + "-" + self.run_id + ".json")
-        self.data = {"schema": 1, "sha": context.revision, "manifest_sha256": context.digest, "run_id": self.run_id,
+        self.data = {"schema": 2, "sha": context.revision, "manifest_sha256": context.digest, "run_id": self.run_id,
+                     "attempt_id": context.attempt_id, "context_sha256": context_digest(context),
                      "status": "INCOMPLETE", "clients": {}, "mandates": {}, "applications": {}, "loans": {},
                      "documents": {}, "pending": [], "checks": [], "facts": {}, "cleanup": {}, "browser_proof": "NOT_RUN"}
         self.last = None
         self.save()
 
     def save(self):
-        raw = (json.dumps(self.data, sort_keys=True, indent=2) + "\n").encode()
+        try:
+            raw = (json.dumps(self.data, sort_keys=True, indent=2, allow_nan=False) + "\n").encode()
+        except (TypeError, ValueError):
+            raise SmokeError("ledger_serialization_invalid") from None
         need(len(raw) <= MAX_RECORD, "ledger_budget_exhausted")
         if self.last is None:
             fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
@@ -295,6 +322,124 @@ class Ledger:
         self.data["pending"].remove(intent)
         self.save()
         return ident
+
+
+def completed_proof(context, path, data, raw, *, reused):
+    return {"schema": 1, "sha": context.revision, "manifest_sha256": context.digest,
+            "attempt_id": context.attempt_id, "api_business_proof": "PASS", "checks": data["checks"],
+            "invoice_mode": data.get("invoice_mode"), "browser_proof": "NOT_RUN",
+            "ledger": str(path), "ledger_sha256": hashlib.sha256(raw).hexdigest(),
+            "retained": data["cleanup"], "reused_completed": reused,
+            "requires_fresh_alpha_catchup_after_smoke": True}
+
+
+def validate_completed(context, path, data):
+    need(isinstance(context.attempt_id, str) and re.fullmatch(r"[a-f0-9]{32}", context.attempt_id),
+         "completed_dev_attempt_required")
+    keys = {"schema", "sha", "manifest_sha256", "run_id", "attempt_id", "context_sha256", "status",
+            "clients", "mandates", "applications", "loans", "documents", "pending", "checks", "facts", "cleanup", "browser_proof", "invoice_mode"}
+    need(isinstance(data, dict) and set(data) == keys and type(data["schema"]) is int and data["schema"] == 2
+         and data["sha"] == context.revision and data["manifest_sha256"] == context.digest
+         and data["attempt_id"] == context.attempt_id and data["context_sha256"] == context_digest(context)
+         and data["status"] == "PASS" and data["pending"] == [] and data["browser_proof"] == "NOT_RUN"
+         and data["invoice_mode"] in {"MODEL", "MANUAL"}, "completed_ledger_binding_invalid")
+    need(path.name == context.revision + "-" + identifier(data["run_id"]) + ".json"
+         and isinstance(data["checks"], list) and len(data["checks"]) == len(CHECKS)
+         and all(isinstance(value, str) for value in data["checks"]) and set(data["checks"]) == CHECKS,
+         "completed_ledger_checks_invalid")
+    for kind in ("clients", "mandates", "applications", "loans", "documents"):
+        need(isinstance(data[kind], dict) and 0 < len(data[kind]) <= 32
+             and all(identifier(key) and key != JURY_COMPANY for key in data[kind]), "completed_owned_registry_invalid")
+    clients = data["clients"]
+    need(len(clients) == 2 and all(isinstance(value, dict) and set(value) == {"alias", "user_id"}
+         and value["alias"] in {"A", "B"} and identifier(value["user_id"]) for value in clients.values())
+         and {value["alias"] for value in clients.values()} == {"A", "B"}
+         and len({value["user_id"] for value in clients.values()}) == 2, "completed_client_scope_invalid")
+    apps, loans, docs = data["applications"], data["loans"], data["documents"]
+    need(len(apps) == 5 and list(apps.values()).count("A") == 4 and list(apps.values()).count("B") == 1
+         and len(data["mandates"]) == 2 and set(data["mandates"].values()) == {"A", "B"}
+         and len(loans) == 3 and len(set(loans.values())) == 3 and all(app in apps for app in loans.values())
+         and all(app in apps for app in docs.values()), "completed_owned_registry_invalid")
+    clean = data["cleanup"]
+    need(isinstance(clean, dict) and set(clean) == {"failed_owned_ids", "funded_retained_application_ids", "audit_documents_accounts_retained", "unknown_mutation_intents_retained"}
+         and clean["failed_owned_ids"] == [] and clean["audit_documents_accounts_retained"] is True
+         and type(clean["unknown_mutation_intents_retained"]) is int and clean["unknown_mutation_intents_retained"] == 0
+         and isinstance(clean["funded_retained_application_ids"], list)
+         and len(clean["funded_retained_application_ids"]) == 3
+         and set(clean["funded_retained_application_ids"]) == set(loans.values()), "completed_cleanup_unconfirmed")
+    facts = data["facts"]
+    need(isinstance(facts, dict) and set(facts) == {"financing", "private_statement", "reserve"}, "completed_facts_invalid")
+    finance, private, reserves = facts["financing"], facts["private_statement"], facts["reserve"]
+    need(isinstance(finance, dict) and set(finance) == {"application", "first_revision", "accepted_revision", "selected_term_months", "loan_amount", "annual_rate_percent", "options", "confirm_submit_events"}
+         and finance.get("application") in loans.values() and apps[finance["application"]] == "A"
+         and finance.get("selected_term_months") == 24 and finance.get("loan_amount") == 2_000_000
+         and type(finance.get("first_revision")) is int and type(finance.get("accepted_revision")) is int
+         and 0 < finance["first_revision"] < finance["accepted_revision"]
+         and type(finance.get("confirm_submit_events")) is int and finance["confirm_submit_events"] == 1,
+         "completed_financing_facts_invalid")
+    checked_options({"loanAmount": finance["loan_amount"], "annualRatePercent": finance["annual_rate_percent"], "options": finance["options"]})
+    need(isinstance(finance["options"], list) and len(finance["options"]) == 2
+         and all(isinstance(option, dict) and set(option) == {"termMonths", "monthlyPayment", "totalInterest", "balanceOnPaymentDate"}
+                 for option in finance["options"]), "completed_financing_facts_invalid")
+    need(isinstance(private, dict) and set(private) == {"application", "document", "bank_exact_bytes_sha256", "agent_ready", "foreign_client_denied", "agent_bytes_denied"}
+         and private.get("application") in apps and apps[private["application"]] == "B"
+         and private.get("document") in docs and docs[private["document"]] == private["application"]
+         and isinstance(private.get("bank_exact_bytes_sha256"), str) and re.fullmatch(r"[a-f0-9]{64}", private["bank_exact_bytes_sha256"])
+         and all(private.get(key) is True for key in ("agent_ready", "foreign_client_denied", "agent_bytes_denied")),
+         "completed_private_facts_invalid")
+    need(isinstance(reserves, list) and len(reserves) == 2, "completed_reserve_facts_invalid")
+    reserve_apps = set()
+    for item, limit in zip(reserves, (160000, 400000)):
+        expected_keys = {"application", "loan", "approved_limit", "initial_disbursed", "initial_available", "delayed",
+                         "received" if limit == 160000 else "confirmed"}
+        need(isinstance(item, dict) and set(item) == expected_keys and item.get("application") in apps and apps[item["application"]] == "A"
+             and item.get("loan") in loans and loans[item["loan"]] == item["application"]
+             and item.get("approved_limit") == limit and item.get("initial_disbursed") == limit // 2
+             and item.get("initial_available") == limit // 2, "completed_reserve_facts_invalid")
+        reserve_apps.add(item["application"])
+        late = item.get("delayed", {})
+        need(isinstance(late, dict) and set(late) == {"version", "requiredAmount", "remainingLimit", "shortfall", "canDraw"}
+             and all(type(late.get(key)) is int for key in ("version", "requiredAmount", "remainingLimit", "shortfall"))
+             and late["version"] > 0 and late.get("requiredAmount") == 130000
+             and late.get("remainingLimit") == limit // 2 and late.get("shortfall") == max(130000 - limit // 2, 0)
+             and late.get("canDraw") is (limit == 400000), "completed_reserve_facts_invalid")
+        if limit == 160000:
+            received = item.get("received")
+            need(received == {"requiredAmount": 0, "shortfall": 0, "projectedBalance": 40000, "canDraw": False}
+                 and all(type(received[key]) is int for key in ("requiredAmount", "shortfall", "projectedBalance"))
+                 and received["canDraw"] is False,
+                 "completed_reserve_facts_invalid")
+        else:
+            confirmed = item.get("confirmed", {})
+            need(isinstance(confirmed, dict) and set(confirmed) == {"version_requested", "drawn_amount", "after_available", "after_disbursed", "tranches_before", "tranches_after"}
+                 and type(confirmed.get("version_requested")) is int and confirmed["version_requested"] == late["version"] and confirmed.get("drawn_amount") == 130000
+                 and confirmed.get("after_available") == 70000 and confirmed.get("after_disbursed") == 330000
+                 and type(confirmed.get("tranches_before")) is int and confirmed["tranches_before"] == 1
+                 and confirmed.get("tranches_after") == 2, "completed_reserve_facts_invalid")
+    need(len(reserve_apps) == 2 and set(loans.values()) == reserve_apps | {finance["application"]}, "completed_facts_ownership_invalid")
+
+
+def resume_completed(context):
+    directory = context.state / "business-smoke"
+    if not directory.exists() and not directory.is_symlink():
+        return None
+    try:
+        private_dir(directory)
+        candidates = []
+        for path in directory.glob(context.revision + "-*"):
+            candidates.append(path)
+            need(len(candidates) <= 1, "ambiguous_completed_business_ledger")
+        if not candidates:
+            return None
+        path = candidates[0]
+        need(path.parent == directory and path.resolve() == path, "completed_ledger_path_invalid")
+        raw, data = private_record(path)
+        validate_completed(context, path, data)
+        return completed_proof(context, path, data, raw, reused=True)
+    except SmokeError:
+        raise
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, IndexError, ArithmeticError):
+        raise SmokeError("completed_business_ledger_unconfirmed") from None
 
 
 def synthetic_inn(seed):
@@ -623,13 +768,13 @@ class Smoke:
                 need(self.call("A", "POST", path + "/confirm-draw", data=confirmation) == drawn, "duplicate_confirm_result_changed")
                 after = self.call("A", "GET", self.app_path(app) + "/loan")
                 need(after["disbursedAmount"] == loan["disbursedAmount"] + 130000 and len(after["tranches"]) == len(loan["tranches"]) + 1
-                     and after["availableLimit"] == available - 130000, "remote_draw_not_exactly_one_effect")
+                     and after["availableLimit"] == available - 130000, "reserve_draw_not_exactly_one_effect")
                 observed["confirmed"] = {"version_requested": late["version"], "drawn_amount": drawn["drawnAmount"],
                         "after_available": after["availableLimit"], "after_disbursed": after["disbursedAmount"],
                         "tranches_before": len(loan["tranches"]), "tranches_after": len(after["tranches"])}
             self.ledger.data["facts"]["reserve"].append(observed)
             self.ledger.save()
-        self.check("reserve_0_130000_limit80000_shortfall50000_remote_single_effect")
+        self.check("reserve_0_130000_limit80000_shortfall50000_single_effect")
 
     def cleanup(self):
         errors = []
@@ -678,7 +823,8 @@ def cleanup_saved(deployment, state, current, desired, report, ledger_path, *, l
     private_dir(state / "business-smoke")
     need(ledger_path.parent == state / "business-smoke" and ledger_path.resolve() == ledger_path, "cleanup_ledger_path_invalid")
     data = private_json(ledger_path)
-    need(data.get("schema") == 1 and data.get("sha") == context.revision and data.get("manifest_sha256") == context.digest
+    need(data.get("schema") == 2 and data.get("sha") == context.revision and data.get("manifest_sha256") == context.digest
+         and data.get("attempt_id") == context.attempt_id and data.get("context_sha256") == context_digest(context)
          and ledger_path.name == context.revision + "-" + identifier(data["run_id"]) + ".json", "cleanup_ledger_binding_invalid")
     ledger = object.__new__(Ledger)
     ledger.path, ledger.run_id, ledger.data, ledger.last = ledger_path, data["run_id"], data, json.dumps(data).encode()
@@ -704,6 +850,9 @@ def cleanup_saved(deployment, state, current, desired, report, ledger_path, *, l
 
 def run(deployment, state, current, desired, report, *, lock_fd):
     context = verified_context(deployment, state, current, desired, report, lock_fd)
+    completed = resume_completed(context)
+    if completed is not None:
+        return completed
     credentials = jury_credentials(state)
     ledger = Ledger(context)
     smoke = Smoke(API(), ledger, credentials)
@@ -731,10 +880,7 @@ def run(deployment, state, current, desired, report, *, lock_fd):
         smoke.private_statement()
         smoke.reserve()
         smoke.mandate()
-        need(set(ledger.data["checks"]) == {"financing_versions_consent_bank_pep_simulated_funding",
-             "private_statement_bank_only_exact_bytes_and_agent_readiness",
-             "reserve_0_130000_limit80000_shortfall50000_remote_single_effect",
-             "own_mandate_revocation_replay_404_client_continuity"} and len(ledger.data["checks"]) == 4,
+        need(set(ledger.data["checks"]) == CHECKS and len(ledger.data["checks"]) == len(CHECKS),
              "business_case_set_incomplete")
         passed = True
     except SmokeError as error:
@@ -750,12 +896,16 @@ def run(deployment, state, current, desired, report, *, lock_fd):
             clean = False
         signal.signal(signal.SIGTERM, previous)
         ledger.data["status"] = "PASS" if passed and clean else "INCOMPLETE"
+        if passed and clean:
+            try:
+                validate_completed(context, ledger.path, ledger.data)
+            except (SmokeError, TypeError, ValueError, KeyError, AttributeError, IndexError, ArithmeticError):
+                passed = False
+                failure = "business_completion_ledger_unconfirmed"
+                ledger.data["status"] = "INCOMPLETE"
         ledger.save()
     need(passed and clean, failure)
-    return {"schema": 1, "sha": context.revision, "manifest_sha256": context.digest,
-            "api_business_proof": "PASS", "checks": ledger.data["checks"], "invoice_mode": ledger.data.get("invoice_mode"),
-            "browser_proof": "NOT_RUN", "ledger": str(ledger.path), "ledger_sha256": hashlib.sha256(ledger.path.read_bytes()).hexdigest(),
-            "retained": ledger.data["cleanup"], "requires_fresh_alpha_catchup_after_smoke": True}
+    return completed_proof(context, ledger.path, ledger.data, ledger.last, reused=False)
 
 
 if __name__ == "__main__":

@@ -10,6 +10,11 @@ export function serviceOrigin(value: string, service: Services) {
     "cabinet-" + service,
     "cabinet-" + service + ".cabinet-prod.svc",
     "cabinet-" + service + ".cabinet-prod.svc.cluster.local",
+    ...(service === "credit" ? [
+      "cabinet-credit-mcp",
+      "cabinet-credit-mcp.cabinet-prod.svc",
+      "cabinet-credit-mcp.cabinet-prod.svc.cluster.local",
+    ] : []),
   ]);
   if (url.protocol !== "https:" || (service === "credit" && url.port !== "8443") || !allowedHosts.has(url.hostname)
     || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {

@@ -118,6 +118,25 @@ test("rejects browser cross-origin, SSE GET, query tokens, malformed and oversiz
   assert.equal((await handler(batch)).status, 400);
 });
 
+test("Credit allows the dedicated Kubernetes Service only at its configured private names and port", async () => {
+  const { serviceOrigin } = await import("../dist/http-upstream.js");
+  for (const host of [
+    "cabinet-credit-mcp", "cabinet-credit-mcp.cabinet-prod.svc",
+    "cabinet-credit-mcp.cabinet-prod.svc.cluster.local", "credit",
+  ]) {
+    const url = "https://" + host + ":8443";
+    assert.equal(serviceOrigin(url, "credit").origin, url);
+  }
+  for (const url of [
+    "https://cabinet-credit-mcp.other.svc.cluster.local:8443",
+    "https://cabinet-credit-mcp.example.test:8443",
+    "https://cabinet-credit-mcp.cabinet-prod.svc.cluster.local:8080",
+  ]) {
+    assert.throws(() => serviceOrigin(url, "credit"));
+  }
+  assert.throws(() => serviceOrigin("https://cabinet-credit-mcp:8443", "identity"));
+});
+
 test("private hops keep external access tokens, service credentials and actor assertions separate", async () => {
   const { identityAuthorization } = await import("../dist/http-identity.js");
   const { creditForActor } = await import("../dist/http-credit.js");

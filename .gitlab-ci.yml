@@ -1,35 +1,41 @@
 workflow:
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_REF_PROTECTED == "true"'
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
-      when: never
-    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_BRANCH == "ops/pump-runner-light-canary" && $CI_COMMIT_REF_PROTECTED == "true"'
+    - when: never
 
-stages: [quality, verify, extended, release, dev, prod]
+stages: [test]
 
-include:
-  - local: ci/gitlab/runner-canary.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-  - local: ci/gitlab/quality.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-        when: never
-      - when: always
-  - local: ci/gitlab/release.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-        when: never
-      - when: always
-  - local: ci/gitlab/vault/job-identity.yml
-  - local: ci/alpha/gitlab.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-        when: never
-      - when: always
-  - local: ci/alpha/release.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-        when: never
-      - if: '$CABINET_ALPHA_PILOT == "1" && $CI_COMMIT_REF_PROTECTED == "true"'
+variables:
+  GIT_STRATEGY: clone
+  GIT_DEPTH: "5"
+  GIT_SUBMODULE_STRATEGY: none
+  GIT_LFS_SKIP_SMUDGE: "1"
+
+default:
+  image:
+    name: docker.io/library/alpine@sha256:469c9ea410b9215eaee7976ba6c0639039b444be8e5d638f7abbada189971eb2
+    pull_policy: never
+  timeout: 5 minutes
+
+.light-runner-check:
+  stage: test
+  script:
+    - test "$(id -u)" -eq 65534
+    - test "$(cat /sys/fs/cgroup/memory.max)" -eq 536870912
+    - test "$(cat /sys/fs/cgroup/memory.swap.max)" -eq 0
+    - test "$(cat /sys/fs/cgroup/cpu.max)" = "50000 100000"
+    - test ! -S /var/run/docker.sock
+    - test "$(cat .git/HEAD)" = "$CI_COMMIT_SHA"
+    - test -s .gitlab-ci.yml
+    - nslookup gitlab.credit-cabinet.ru >/dev/null
+    - wget -T 5 -q -O /dev/null https://gitlab.credit-cabinet.ru/users/sign_in
+    - if nc -w 2 1.1.1.1 443 </dev/null 2>/dev/null; then exit 1; fi
+    - printf "PUMP light runner %s passed container isolation checks\n" "$CI_RUNNER_ID"
+
+runner-check-dev02:
+  extends: .light-runner-check
+  tags: [cabinet-ci-light, cabinet-ci-light-dev02]
+
+runner-check-dev03:
+  extends: .light-runner-check
+  tags: [cabinet-ci-light, cabinet-ci-light-dev03]

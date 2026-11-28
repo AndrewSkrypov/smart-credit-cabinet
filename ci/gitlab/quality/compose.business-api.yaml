@@ -1,0 +1,9 @@
+# Test fixture only. No production Deployment path selects this file.
+# The physical project is a disposable CI-owned prod-restore-test project;
+# Credit exercises the protected Dev permission without enabling demo accounts.
+services:
+  credit:
+    environment:
+      DEV_PAYMENT_RESERVE_SIMULATION_ENABLED: "true"
+      CABINET_DEPLOYMENT_PROJECT: cabinet-dev
+      DEMO_ACCOUNTS: "false"

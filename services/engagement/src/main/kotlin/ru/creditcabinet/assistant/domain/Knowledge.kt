@@ -208,3 +208,14 @@ object Knowledge {
             .map { it.first }
     }
 }
+
+/** Only the exact public reference questions can share an answer across different callers. */
+internal fun referenceKeyMaterial(question: String, articles: List<Article>, model: String?): String? {
+    if (model.isNullOrBlank()) return null
+    val first = articles.firstOrNull() ?: return null
+    val normalized = question.trim().trimEnd('?', '.').lowercase().replace('ё', 'е')
+    val title = first.title.lowercase().replace('ё', 'е')
+    if (normalized !in setOf(title, "что такое $title", "объясни $title")) return null
+    val reference = articles.joinToString("\n") { "${it.id}:${it.text}" }
+    return "$model\n$normalized\n$reference"
+}

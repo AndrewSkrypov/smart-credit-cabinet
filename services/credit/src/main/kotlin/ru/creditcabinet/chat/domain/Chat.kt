@@ -1,7 +1,6 @@
 package ru.creditcabinet.chat.domain
 
 import ru.creditcabinet.application.domain.ApplicationStatus
-import ru.creditcabinet.common.exception.ConflictException
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
@@ -65,10 +64,6 @@ object ChatRules {
         status == ApplicationStatus.DRAFT -> "Переписка доступна после отправки заявки в банк"
         status.terminal -> "Заявка завершена. Переписка доступна только для чтения"
         else -> null
-    }
-
-    fun requireWritable(status: ApplicationStatus) {
-        readOnlyReason(status)?.let { throw ConflictException(it) }
     }
 
     fun validate(text: String, documents: List<UUID>) {

@@ -19,10 +19,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
-import ru.creditcabinet.assistant.application.ManualReviewSummaries
-import ru.creditcabinet.assistant.domain.LanguageModel
-import ru.creditcabinet.assistant.domain.ManualReviewEvent
-import ru.creditcabinet.assistant.infrastructure.ManualReviewSummaryCache
+import ru.creditcabinet.assistant.application.LanguageModel
+import ru.creditcabinet.assistant.application.ManualReviewEvent
+import ru.creditcabinet.assistant.application.ReviewSummaryCache
 import ru.creditcabinet.common.outbox.OutboxWorker
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.tokenFor
@@ -52,7 +51,7 @@ class ManualReviewSummariesTest {
 
     @MockitoBean private lateinit var model: LanguageModel
 
-    @MockitoBean private lateinit var cache: ManualReviewSummaryCache
+    @MockitoBean private lateinit var cache: ReviewSummaryCache
 
     private val applicationId = UUID.randomUUID()
     private val event = ManualReviewEvent(1, UUID.randomUUID(), applicationId)
@@ -74,7 +73,7 @@ class ManualReviewSummariesTest {
             "select count(*) from delivery_outbox where event_key=? and channel=?",
             Int::class.java,
             event.eventId.toString(),
-            ManualReviewSummaries.CHANNEL,
+            "assistant-manual-review",
         )
         assertEquals(1, queued)
         assertEquals("PENDING", deliveryState())
@@ -174,6 +173,50 @@ class ManualReviewSummariesTest {
         assertEquals(expected, mapper.readTree(response.contentAsByteArray)["text"].asText())
         assertEquals(listOf(true, true), callsFor(publicPath()).map { it.hasAuthorization })
         verify(model, never()).chat(any())
+    }
+
+    @Test
+    fun `reordered advice fields still match the authorized snapshot`() {
+        val privateAdvice = advice("Прежний вывод", nextRevision)
+        val publicAdvice = mapper.createObjectNode().apply {
+            putArray("items").addObject().put("text", "Сверить данные.").put("title", "Источник")
+            put("modelVersion", 1)
+            put("verdict", "Прежний вывод")
+            put("applicationId", applicationId.toString())
+        }
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(privateAdvice))
+        creditReplies[publicPath()] = StubReply(200, mapper.writeValueAsString(publicAdvice))
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+        val cached = "Прежний вывод\n— Источник. Сверить данные."
+        whenever(cache.text(applicationId, nextRevision)).thenReturn(cached)
+
+        val response = summary(underwriter)
+        assertEquals(200, response.status)
+        assertEquals(cached, mapper.readTree(response.contentAsByteArray)["text"].asText())
+        assertEquals(listOf(true), callsFor(publicPath()).map { it.hasAuthorization })
+        verify(cache).text(applicationId, nextRevision)
+        verify(model, never()).chat(any())
+    }
+
+    @Test
+    fun `a change outside rendered advice fields disqualifies the warmed summary`() {
+        val published = advice("Вывод", nextRevision).apply { put("evidenceVersion", 1) }
+        val authorized = published.deepCopy().apply {
+            remove("adviceRevision")
+            put("evidenceVersion", 2)
+        }
+        creditReplies[internalPath()] = StubReply(200, mapper.writeValueAsString(published))
+        creditReplies[publicPath()] = StubReply(200, mapper.writeValueAsString(authorized))
+        whenever(cache.enabled).thenReturn(true)
+        whenever(cache.eventFor(applicationId)).thenReturn(event.eventId)
+
+        val response = summary(underwriter)
+        assertEquals(200, response.status)
+        assertTrue(mapper.readTree(response.contentAsByteArray)["text"].asText().startsWith("Вывод"))
+        assertEquals(listOf(true, true), callsFor(publicPath()).map { it.hasAuthorization })
+        verify(cache, never()).text(any(), any())
+        verify(cache, never()).publish(any(), anyOrNull(), any(), any(), any())
     }
 
     @Test

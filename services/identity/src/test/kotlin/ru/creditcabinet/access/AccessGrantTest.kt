@@ -1,8 +1,7 @@
 package ru.creditcabinet.access
 
-import org.springframework.http.HttpStatus
 import ru.creditcabinet.access.domain.AccessGrant
-import ru.creditcabinet.common.exception.ApiException
+import ru.creditcabinet.identity.domain.IdentityFailure.InvalidLink
 import java.time.Instant
 import java.util.UUID
 import kotlin.test.Test
@@ -25,11 +24,11 @@ class AccessGrantTest {
         for (invalid in listOf(grant, grant.copy(usedAt = expires.minusSeconds(10)), grant.copy(revokedAt = expires.minusSeconds(10)))) {
             val at = if (invalid == grant) expires else expires.minusSeconds(1)
             assertFalse(invalid.available(at))
-            assertEquals(HttpStatus.GONE, assertFailsWith<ApiException> { invalid.requireValid(token, at) }.httpStatus)
+            assertFailsWith<InvalidLink> { invalid.requireValid(token, at) }
         }
-        assertFailsWith<ApiException> { grant.requireValid(token.replace("a", "b"), expires.minusSeconds(1)) }
+        assertFailsWith<InvalidLink> { grant.requireValid(token.replace("a", "b"), expires.minusSeconds(1)) }
         for (bad in listOf("", "wrong", "$id.abc", "$id.${"a".repeat(43)}.x", "${"x".repeat(36)}.${"a".repeat(43)}")) {
-            assertFailsWith<ApiException> { AccessGrant.tokenId(bad) }
+            assertFailsWith<InvalidLink> { AccessGrant.tokenId(bad) }
         }
     }
 }

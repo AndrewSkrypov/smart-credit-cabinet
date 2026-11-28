@@ -15,6 +15,7 @@ import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
+import ru.creditcabinet.application.infrastructure.SpringCreditCaller
 import ru.creditcabinet.assessment.domain.CreditPolicy
 import ru.creditcabinet.assessment.domain.Decision
 import ru.creditcabinet.assessment.domain.DecisionOutcome
@@ -46,7 +47,7 @@ class AdviceServiceTest {
     private val decisions = mock<DecisionRepository>()
     private val rules = mock<RuleSets>()
     private val catalog = mock<ProductCatalog>()
-    private val service = AdviceService(applications, enrichment, decisions, rules, catalog, Clock.systemUTC())
+    private val service = AdviceService(applications, enrichment, decisions, rules, catalog, Clock.systemUTC(), SpringCreditCaller())
     private val policy = RuleSet(
         1, 0.35, 0.3, mapOf(Rating.A to 85, Rating.B to 70, Rating.C to 55, Rating.D to 35),
         mapOf(Rating.A to 0.0, Rating.B to 1.0, Rating.C to 3.0, Rating.D to 5.0), emptySet(), emptySet(), 0.5, 0.2,

@@ -1,3 +1,5 @@
 # Included only for an opted-in protected release. Keep the usual stage gates.
 release-images:
   dependencies: [backend, frontend, alpha-pilot-analytics-jar]
+main-release-images:
+  dependencies: [backend, frontend, alpha-pilot-analytics-jar]

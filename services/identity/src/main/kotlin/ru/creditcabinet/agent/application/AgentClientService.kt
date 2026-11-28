@@ -1,6 +1,5 @@
 package ru.creditcabinet.agent.application
 
-import org.springframework.stereotype.Service
 import ru.creditcabinet.agent.domain.AgentClientEntry
 import ru.creditcabinet.agent.domain.AgentClientPort
 import ru.creditcabinet.agent.domain.AgentMandate
@@ -8,7 +7,6 @@ import ru.creditcabinet.company.domain.Company
 import ru.creditcabinet.company.domain.CompanyDataPort
 import java.util.UUID
 
-@Service
 class AgentClientService(
     private val agentClients: AgentClientPort,
     private val companies: CompanyDataPort,

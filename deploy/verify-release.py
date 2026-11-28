@@ -7,6 +7,8 @@ import json
 import re
 import ssl
 import subprocess
+
+import mcp_dev
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPSHandler, HTTPRedirectHandler, build_opener
 
@@ -117,6 +119,8 @@ def verify(deployment, expected_revision):
     services = (*services, *runtime_services(deployment))
     if deployment.ollama_ssh:
         services = (*services, "ollama-ssh-bridge")
+    if deployment.mcp:
+        services = (*services, "cabinet-mcp")
     containers = {service: deployment.container(service) for service in services}
     images = {}
     if deployment.alpha_dev:
@@ -150,6 +154,7 @@ def verify(deployment, expected_revision):
     public_entry = frontend_entry(fetch(opener, origin, "/", 1024 * 1024))
     if public_entry != entry or sha256(fetch(opener, origin, entry, 16 * 1024 * 1024)).hexdigest() != image_hash:
         raise RuntimeError("JavaScript по HTTPS отличается от работающего контейнера frontend")
+    mcp_report = mcp_dev.verify_public(opener, origin) if deployment.mcp else None
     alpha_report = verify_alpha(deployment, opener, origin, containers) if deployment.alpha_dev else None
     if any(deployment.container(service) != container for service, container in containers.items()):
         raise RuntimeError("Состав контейнеров изменился во время проверки")
@@ -161,6 +166,7 @@ def verify(deployment, expected_revision):
         "expected_revision": expected_revision,
         "images": images,
         **({"alpha_dev": alpha_report} if alpha_report else {}),
+        **({"mcp": mcp_report} if mcp_report else {}),
         "https": {"origin": origin, "status": 200, "entry": entry, "sha256": image_hash},
         **runtimes,
     }

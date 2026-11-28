@@ -40,11 +40,17 @@ describe('NeedsWizardPage', () => {
     const search = await screen.findByRole('button', { name: 'Подобрать' });
     expect(search).toBeDisabled();
     await userEvent.click(screen.getByText('Покупка оборудования'));
+    // Equipment is a large, long request: the form suggests one until the person types their own.
+    expect((screen.getByRole('textbox', { name: /Сумма/ }) as HTMLInputElement).value.replace(/\s/g, '')).toBe('3000000');
+    expect(screen.getByText('36 месяцев')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Покрыть кассовый разрыв'));
+    expect((screen.getByRole('textbox', { name: /Сумма/ }) as HTMLInputElement).value.replace(/\s/g, '')).toBe('500000');
+    await userEvent.click(screen.getByText('Покупка оборудования'));
     await userEvent.click(search);
     expect(await screen.findByText('Инвестиционный кредит')).toBeInTheDocument();
     expect(screen.getByText('Подходит для цели «покупка оборудования»')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Оформить заявку' }));
-    expect(create).toHaveBeenCalledWith({ productCode: 'INVESTMENT', purpose: 'EQUIPMENT', amount: 1_000_000, termMonths: 12, bureauConsent: false });
+    await userEvent.click(screen.getByRole('button', { name: 'Оформить на 12 месяцев' }));
+    expect(create).toHaveBeenCalledWith({ productCode: 'INVESTMENT', purpose: 'EQUIPMENT', amount: 3_000_000, termMonths: 12, bureauConsent: false });
     expect(await screen.findByText('Черновик открыт')).toBeInTheDocument();
   });
 

@@ -6,7 +6,6 @@ import org.springframework.stereotype.Component
 import ru.creditcabinet.access.domain.AccountAccessPort
 import ru.creditcabinet.access.domain.AccountLinkIssuer
 import ru.creditcabinet.access.domain.LinkPurpose
-import ru.creditcabinet.access.domain.SecurityMailReference
 import ru.creditcabinet.common.mail.MailTransport
 import ru.creditcabinet.common.mail.OutgoingMail
 import ru.creditcabinet.common.outbox.DeliveryHandler

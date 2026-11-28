@@ -21,6 +21,7 @@ images:
   frontend: ""
   postgres: ""
   swagger: ""
+  mcp: ""
   ssh-bridge: ""
   valkey: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
   clamav: clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614
@@ -114,3 +115,25 @@ ollamaBridge:
     podLabels: {}
     port: 4318
   resources: {requests: {cpu: 10m, memory: 16Mi}, limits: {cpu: 100m, memory: 64Mi}}
+
+antivirus:
+  maxSignatureAge: P7D
+
+# Remote agent MCP with private Credit and Identity transport.
+agentMcpCredit:
+  enabled: false
+  oauth:
+    clientId: ""
+    clientName: Cabinet MCP
+    redirectUri: ""
+  identityTlsSecret: ""
+  identityAuthSecret: ""
+  clientTlsSecret: ""
+  dns:
+    namespace: kube-system
+    podLabels:
+      k8s-app: kube-dns
+  resources: {requests: {cpu: 50m, memory: 64Mi}, limits: {cpu: 500m, memory: 192Mi}}
+  peerSha256: ""
+  tlsSecret: ""
+  redemptionSecret: ""

@@ -10,3 +10,5 @@ docs/plans/pr1-followup-spec-2026-10-25.md -text
 docs/plans/pr1-ux-correction-2026-10-25.md -text
 
 docs/plans/pr1-final-followup-spec-v1-2026-10-25.md -text
+*.apk binary
+*.ipa binary

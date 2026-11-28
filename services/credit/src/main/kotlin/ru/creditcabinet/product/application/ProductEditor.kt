@@ -2,9 +2,9 @@ package ru.creditcabinet.product.application
 
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.NotFoundException
-import ru.creditcabinet.common.security.CurrentCaller
+import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
@@ -22,22 +22,23 @@ class ProductEditor(
     private val catalog: ProductCatalog,
     private val versions: ProductVersions,
     private val clock: Clock,
+    private val callerContext: CreditCaller,
     private val impactQuery: ProductImpactQuery? = null,
 ) {
     fun list(): List<Product> {
-        CurrentCaller.requireBankStaff()
+        callerContext.requireBankStaff()
         return versions.list()
     }
 
     fun history(code: String): List<ProductRevision> {
-        CurrentCaller.requireBankStaff()
-        if (catalog.latest(code) == null) throw NotFoundException("Продукт не найден")
+        callerContext.requireBankStaff()
+        if (catalog.latest(code) == null) throw NotFound("Продукт не найден")
         return versions.history(code)
     }
 
     fun impact(code: String): ProductImpact {
-        CurrentCaller.requireBankStaff()
-        val current = catalog.latest(code) ?: throw NotFoundException("Продукт не найден")
+        callerContext.requireBankStaff()
+        val current = catalog.latest(code) ?: throw NotFound("Продукт не найден")
         val counts = impactQuery?.counts(current.code) ?: ProductImpactCounts(0L, 0L, 0L)
         return ProductImpact(
             productCode = current.code,
@@ -53,7 +54,7 @@ class ProductEditor(
 
     @Transactional
     fun create(candidate: Product, reason: String): ProductRevision {
-        val actor = CurrentCaller.requireRole(Roles.RISK_ADMIN)
+        val actor = callerContext.requireRole(Roles.RISK_ADMIN)
         val normalizedCode = candidate.code.trim()
         require(normalizedCode.isNotBlank() && normalizedCode.length <= 32 && CODE_PATTERN.matches(normalizedCode)) {
             "Код продукта — от 1 до 32 символов (латиница в верхнем регистре, цифры и подчёркивание)"
@@ -71,7 +72,7 @@ class ProductEditor(
 
     @Transactional
     fun replace(candidate: Product, expectedVersion: Long, reason: String): ProductRevision {
-        val actor = CurrentCaller.requireRole(Roles.RISK_ADMIN)
+        val actor = callerContext.requireRole(Roles.RISK_ADMIN)
         require(expectedVersion > 0) { "Укажите текущую версию продукта" }
         require(reason.isNotBlank() && reason.length <= 1000) { "Опишите причину изменения — до 1000 символов" }
         val problems = candidate.problems()
@@ -117,12 +118,12 @@ class ProductEditor(
         allowedFrom: Set<ProductLifecycleStatus>,
         invalidMessage: String,
     ): ProductRevision {
-        val actor = CurrentCaller.requireRole(Roles.RISK_ADMIN)
+        val actor = callerContext.requireRole(Roles.RISK_ADMIN)
         require(expectedVersion > 0) { "Укажите текущую версию продукта" }
         require(reason.isNotBlank() && reason.length <= 1000) { "Опишите причину изменения — до 1000 символов" }
-        val current = catalog.latest(code) ?: throw NotFoundException("Продукт не найден")
+        val current = catalog.latest(code) ?: throw NotFound("Продукт не найден")
         if (current.version != expectedVersion) {
-            throw ConflictException("Условия только что изменил другой администратор — обновите карточку и проверьте изменения")
+            throw Conflict("Условия только что изменил другой администратор — обновите карточку и проверьте изменения")
         }
         require(current.lifecycleStatus in allowedFrom) { invalidMessage }
         val updated = current.copy(lifecycleStatus = target)

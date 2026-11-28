@@ -129,7 +129,7 @@ function QueueRow({ item, onOpen }: { item: ApplicationSummary; onOpen: () => vo
         <Typography>{rub(item.amount)}</Typography>
         <Typography variant="body2" color="text.secondary">{months(item.termMonths)}</Typography>
       </TableCell>
-      <TableCell><Chip size="small" label={statusTitle(item.status)} color={tone === 'default' ? 'default' : tone} /></TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}><Chip size="small" label={statusTitle(item.status)} color={tone === 'default' ? 'default' : tone} /></TableCell>
       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
         <Typography color={overdue ? 'error' : 'text.primary'} fontWeight={overdue ? 700 : 400}>{waitingFor(item.statusChangedAt)}</Typography>
         {overdue && <Typography variant="caption" color="error">дольше {REVIEW_SLA_HOURS} ч</Typography>}

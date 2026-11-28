@@ -42,7 +42,7 @@ cp -a frontend/dist "$artifact_dir/frontend"
 printf '%s\n' "$revision" > "$artifact_dir/source-revision.txt"
 ```
 
-Далее из worktree со скриптом выполните команды ниже. Переменные
+Далее из рабочей директории со скриптом выполните команды ниже. Переменные
 `pg_bin`, `pg_libs`, `nginx_bin` и `valkey_bin` указывают на
 ваши локальные двоичные файлы или каталоги. Для системного PostgreSQL
 значение `pg_libs` можно оставить пустым.
@@ -97,7 +97,7 @@ npm run typecheck
 CABINET_URL=http://127.0.0.1:18680 PLAYWRIGHT_CHANNEL=chrome npm test -- --project=desktop
 ```
 
-По завершении выполните из корня worktree со скриптом:
+По завершении выполните из корня рабочей директории со скриптом:
 
 ```bash
 python3 scripts/final-agent-runtime.py --state-dir "$run_state" down

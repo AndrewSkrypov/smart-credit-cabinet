@@ -1,13 +1,14 @@
 package ru.creditcabinet.product.domain
 
 import ru.creditcabinet.application.domain.LoanApplication
-import ru.creditcabinet.common.exception.NotFoundException
+
+class ProductOutsideSubmissionCatalog : RuntimeException("Продукта нет в условиях, зафиксированных при подаче заявки")
 
 /** A submitted application never consults the mutable catalogue, even for a counter offer. */
 fun ProductCatalog.forApplication(application: LoanApplication, code: String = application.terms.productCode): Product {
     val selected = application.productCatalogSnapshot[code]
         ?: application.productVersion.takeIf { code == application.terms.productCode }
-        ?: throw NotFoundException("Продукта нет в условиях, зафиксированных при подаче заявки")
+        ?: throw ProductOutsideSubmissionCatalog()
     return version(code, selected) ?: throw IllegalStateException("Зафиксированная версия продукта не найдена")
 }
 

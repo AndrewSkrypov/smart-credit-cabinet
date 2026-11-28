@@ -1,7 +1,7 @@
 package ru.creditcabinet.analytics.application
 
 import org.springframework.stereotype.Service
-import ru.creditcabinet.common.security.CurrentCaller
+import ru.creditcabinet.application.application.CreditCaller
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -41,9 +41,10 @@ class AnalyticsQuery(
     private val queries: AnalyticsQueries,
     private val clock: Clock,
     private val projection: CurrentStatusesProjection,
+    private val callerContext: CreditCaller,
 ) {
     fun funnel(from: Instant?, to: Instant?): Analytics {
-        CurrentCaller.requireBankStaff()
+        callerContext.requireBankStaff()
         val end = to ?: clock.instant()
         val start = from ?: end.minus(Duration.ofDays(30))
         require(start.isBefore(end)) { "Начало периода должно быть раньше конца" }

@@ -1,0 +1,56 @@
+.quick-dev:
+  stage: quality
+  tags: [cabinet-ci]
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"'
+
+quick-backend:
+  extends: .quick-dev
+  timeout: 25 minutes
+  script:
+    - >-
+      ./gradlew --no-daemon --no-parallel --max-workers=1
+      -Dorg.gradle.jvmargs='-Xmx2048m -XX:MaxMetaspaceSize=768m -XX:+ExitOnOutOfMemoryError'
+      -Pkotlin.compiler.execution.strategy=in-process
+      compileTestKotlin :libs:loan-math:test
+
+quick-frontend:
+  extends: .quick-dev
+  timeout: 15 minutes
+  script:
+    - cd frontend
+    - npm ci
+    - npx tsc --noEmit
+    - npm run lint
+    - npm run test:coverage
+
+quick-helm:
+  stage: quality
+  tags: [cabinet-ci]
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"'
+      changes:
+        - helm/**/*
+  script:
+    - helm lint helm/cabinet
+
+release-mr:
+  stage: quality
+  tags: [cabinet-ci]
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
+  script:
+    - |
+      if [ "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" != dev ] ||
+         [ "$CI_MERGE_REQUEST_SOURCE_PROJECT_ID" != "$CI_PROJECT_ID" ] ||
+         [ "$CI_MERGE_REQUEST_PROJECT_ID" != "$CI_PROJECT_ID" ]; then
+        echo "Release merge requests must go from dev to main in this project." >&2
+        exit 1
+      fi
+    - python3 -B -m unittest discover -s ci/gitlab -p test_release_evidence.py
+    - python3 -B -m unittest discover -s ci/gitlab -p test_publisher_receipt.py
+    - python3 -B -m unittest discover -s ci/gitlab -p test_main_release_activation.py
+    - python3 -B -m unittest discover -s ci/gitlab/vault -p test_with_deploy_secrets.py

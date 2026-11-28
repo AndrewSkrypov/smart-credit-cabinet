@@ -55,6 +55,11 @@ cabinet:
       - "POST /api/v1/auth/password-reset"
       - "POST /api/v1/auth/invitations/inspect"
       - "POST /api/v1/auth/invitations/accept"
+      - "GET /.well-known/oauth-authorization-server"
+      - "GET /api/mcp/oauth/authorize"
+      - "POST /api/mcp/oauth/authorize"
+      - "POST /api/mcp/oauth/token"
+      - "POST /api/mcp/oauth/revoke"
   openapi:
     title: "Кабинет предпринимателя: пользователи, компании и вход"
   # ЕГРЮЛ/ЕГРИП: the company name at sign-up. Empty = sign-up without the registry.
@@ -66,3 +71,11 @@ cabinet:
     link-key-version: ${IDENTITY_LINK_KEY_VERSION:1}
     jwt-secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32bytes+}
     jwt-ttl-hours: ${JWT_TTL_HOURS:12}
+  mcp-oauth:
+    enabled: ${CABINET_MCP_OAUTH_ENABLED:false}
+    issuer: ${CABINET_MCP_OAUTH_ISSUER:}
+    client-id: ${CABINET_MCP_OAUTH_CLIENT_ID:}
+    client-name: ${CABINET_MCP_OAUTH_CLIENT_NAME:}
+    redirect-uri: ${CABINET_MCP_OAUTH_REDIRECT_URI:}
+    identity-service-token: ${CABINET_MCP_IDENTITY_SERVICE_TOKEN:}
+    credit-service-token: ${CABINET_MCP_CREDIT_SERVICE_TOKEN:}

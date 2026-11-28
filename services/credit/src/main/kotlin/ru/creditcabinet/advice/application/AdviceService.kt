@@ -1,11 +1,11 @@
 package ru.creditcabinet.advice.application
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.ObjectNode
 import org.springframework.stereotype.Service
 import ru.creditcabinet.advice.domain.AdviceKind
 import ru.creditcabinet.advice.domain.P
 import ru.creditcabinet.advice.domain.UnderwritingAdviceModel
+import ru.creditcabinet.application.application.CreditCaller
+import ru.creditcabinet.application.application.CreditFailure.Conflict
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
@@ -22,11 +22,8 @@ import ru.creditcabinet.assessment.domain.RuleSets
 import ru.creditcabinet.assessment.domain.Scorecard
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.assessment.domain.TaxInfo
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.forApplication
-import java.security.MessageDigest
 import java.time.Clock
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -57,11 +54,11 @@ class AdviceService(
     private val rules: RuleSets,
     private val catalog: ProductCatalog,
     private val clock: Clock,
+    private val callerIdentity: CreditCaller,
     private val journal: ApplicationJournal? = null,
-    private val mapper: ObjectMapper = ObjectMapper(),
 ) {
     fun advice(id: UUID): AdviceView {
-        CurrentCaller.requireBankStaff()
+        callerIdentity.requireBankStaff()
         val application = applications.find(id)?.takeIf { it.visibleToBank } ?: throw notFound()
         return buildAdvice(application)
     }
@@ -71,21 +68,17 @@ class AdviceService(
      * still in MANUAL_REVIEW and [eventId] matches the latest transition into MANUAL_REVIEW;
      * otherwise throws 409 Conflict so stale deliveries stop without burning LLM/cache work.
      */
-    fun manualReviewAdvice(id: UUID, eventId: UUID): ObjectNode {
+    fun manualReviewAdvice(id: UUID, eventId: UUID): AdviceView {
         val application = applications.find(id)
             ?.takeIf { it.status == ApplicationStatus.MANUAL_REVIEW }
-            ?: throw ConflictException("Заявка не находится на ручном рассмотрении")
+            ?: throw Conflict("Заявка не находится на ручном рассмотрении")
         val latestManualReview = checkNotNull(journal) { "ApplicationJournal is required for manualReviewAdvice" }
             .list(application.id)
             .lastOrNull { it.toStatus == ApplicationStatus.MANUAL_REVIEW && it.fromStatus != ApplicationStatus.MANUAL_REVIEW }
         if (latestManualReview == null || latestManualReview.id != eventId) {
-            throw ConflictException("Событие перехода в ручное рассмотрение устарело")
+            throw Conflict("Событие перехода в ручное рассмотрение устарело")
         }
-        val view = buildAdvice(application)
-        val node = mapper.valueToTree<ObjectNode>(view)
-        val revision = sha256Hex("$eventId:${mapper.writeValueAsString(view)}")
-        node.put("adviceRevision", revision)
-        return node
+        return buildAdvice(application)
     }
 
     private fun buildAdvice(application: LoanApplication): AdviceView {
@@ -178,9 +171,4 @@ class AdviceService(
         val options = if (AdviceKind.OPTION in kinds) " Есть варианты в пределах порога нагрузки; остальные условия политики проверяются отдельно." else ""
         return "Перед решением: ${parts.joinToString(", ")}.$options"
     }
-
-    private fun sha256Hex(input: String): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest(input.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
 }

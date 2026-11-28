@@ -6,6 +6,7 @@ import { BulletItem } from '../../components/BulletItem';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Accordion, AccordionDetails, AccordionSummary, Box, Button, ButtonBase, Container, Grid, Skeleton, Stack, Typography, Fab, useMediaQuery } from '@mui/material';
+import PhoneIphoneRoundedIcon from '@mui/icons-material/PhoneIphoneRounded';
 import { Link as RouterLink } from 'react-router-dom';
 import { productsApi } from '../../api/client';
 import { roleHome, useAuth } from '../../auth/AuthProvider';
@@ -337,7 +338,7 @@ export function LandingPage() {
           <BrandMark inverted compact />
           <Stack component="nav" aria-label="Разделы страницы" direction="row" spacing={3} sx={{ display: 'none', [wideHeader]: { display: 'flex' }, flexGrow: 1, ml: 2 }}>
             {[['Кредиты', '#products'], ['Расчёт', '#calculator'], ['Задачи', '#purposes'], ['Как получить', '#steps']].map(([label, href]) => (
-              <Typography key={href} component="a" href={href} sx={{ color: '#fff', textDecoration: 'none', fontWeight: 500, opacity: 0.88, '&:hover': { opacity: 1 } }}>{label}</Typography>
+              <Typography key={href} component="a" href={href} sx={{ color: '#fff', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap', opacity: 0.88, '&:hover': { opacity: 1 } }}>{label}</Typography>
             ))}
           </Stack>
           <Box sx={{ flexGrow: 1, [wideHeader]: { flexGrow: 0 } }} />
@@ -377,6 +378,8 @@ export function LandingPage() {
                     <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1.5} sx={{ mt: { xs: 2, sm: 4 } }}>
                       <Button component={RouterLink} to={startPath} variant="contained" size="large" sx={heroButton}>{bankSession ? 'В кабинет банка' : 'Оформить заявку онлайн'}</Button>
                       <Button href="#calculator" size="large" sx={{ ...heroButton, minHeight: { xs: 44, sm: 60 }, bgcolor: { xs: 'transparent', sm: 'rgba(255,255,255,0.6)' }, '&:hover': { bgcolor: 'rgba(255,255,255,0.85)' } }}>Рассчитать платёж</Button>
+                      <Button component={RouterLink} to="/app" size="large" startIcon={<PhoneIphoneRoundedIcon />}
+                        sx={{ ...heroButton, minHeight: { xs: 44, sm: 60 }, bgcolor: { xs: 'transparent', sm: 'rgba(255,255,255,0.6)' }, '&:hover': { bgcolor: 'rgba(255,255,255,0.85)' } }}>Скачать приложение</Button>
                     </Stack>
                   </Box>
                   <Box aria-hidden sx={{ position: 'relative', flexShrink: 0, display: { xs: 'none', lg: 'block' }, zIndex: 1 }}>

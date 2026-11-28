@@ -17,6 +17,8 @@ from documents_dev import DocumentsDev
 from servicing_dev import ServicingDev, OVERLAY as SERVICING_OVERLAY
 from catalog import requested_mode, state_path, validate_secrets
 from dev_diagnostics import error_category
+import dev_payment_reserve
+import mcp_dev
 from registry_release import RegistryRelease
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -42,6 +44,7 @@ class Deployment:
             if not match:
                 raise ValueError("Ожидается KEY=value без кавычек; используйте configure.py")
             self.values[match[1]] = match[2]
+        dev_payment_reserve.validate_overrides(self.values, os.environ)
         self.release = RegistryRelease(release_manifest) if release_manifest else None
         if self.release:
             self.values["CABINET_RELEASE"] = self.release.revision
@@ -138,6 +141,9 @@ class Deployment:
             raise ValueError("Gateway должен иметь другой адрес внутри EDGE_SUBNET")
         if local and self.values["CABINET_DOMAIN"] != "localhost":
             raise ValueError("Локальная проверка допускает только localhost и внутренний CA")
+        self.dev_payment_reserve_simulation = dev_payment_reserve.enabled(
+            project, local, self.values, self.release, historical_backup,
+        )
         self.catalog_mode = requested_mode(project, local, self.release)
         self.catalog_enabled = self.catalog_mode != "disabled"
         self.catalog_state = state_path(self.path, project)
@@ -145,8 +151,13 @@ class Deployment:
             validate_secrets(self.values)
         elif open_hooks and project == "cabinet-dev" and (self.catalog_state / "authority.json").exists():
             raise RuntimeError("После ввода Catalog нужен manifest с режимом local или remote")
+        self.mcp = mcp_dev.enabled(project, local, self.values, self.release, historical_backup)
         self.alpha_dev = AlphaDev.from_config(project, local, self.values, self.release)
         self.environment = {**os.environ, **self.values, "COMPOSE_PROFILES": ""}
+        # Both values are controller-owned. The reviewed Dev overlay alone sets
+        # the effective container flag; ambient CI/shell values cannot select it.
+        self.environment[dev_payment_reserve.FLAG] = "false"
+        self.environment[dev_payment_reserve.CONTEXT] = project
         if "ai" in self.profiles:
             self.environment.setdefault("ASSISTANT_MODEL", "qwen2.5:1.5b")
         if "monitoring" in self.profiles:
@@ -160,6 +171,8 @@ class Deployment:
         if self.release:
             self.environment.update(self.release.environment())
             self.command.extend(["-f", str(ROOT / "deploy/compose.registry.yaml")])
+        if self.dev_payment_reserve_simulation:
+            self.command.extend(["-f", str(ROOT / dev_payment_reserve.OVERLAY)])
         if self.alpha_dev:
             self.environment.update(self.alpha_dev.environment(self.release, project))
             self.command.extend(["-f", str(ROOT / "deploy/compose.dev-alpha.yaml")])
@@ -203,6 +216,9 @@ class Deployment:
             self.command.extend(["-f", str(ROOT / "deploy/compose.dev-demo-edge.yaml")])
         if self.ollama_ssh:
             self.command.extend(["-f", str(ROOT / "deploy/compose.ollama-ssh.yaml")])
+        if self.mcp:
+            self.environment.update(mcp_dev.environment(self.path, self.values))
+            self.command.extend(["-f", str(ROOT / mcp_dev.OVERLAY)])
         for profile in sorted(self.profiles):
             self.command.extend(["--profile", profile])
 

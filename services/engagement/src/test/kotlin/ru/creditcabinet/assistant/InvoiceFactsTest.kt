@@ -1,11 +1,12 @@
 package ru.creditcabinet.assistant
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import ru.creditcabinet.assistant.controller.InvoiceFactCandidates
-import ru.creditcabinet.assistant.controller.InvoiceFactChoice
-import ru.creditcabinet.assistant.controller.InvoiceFactSelection
-import ru.creditcabinet.assistant.domain.ChatMessage
-import ru.creditcabinet.assistant.domain.LanguageModel
+import ru.creditcabinet.assistant.application.ChatMessage
+import ru.creditcabinet.assistant.application.InvoiceFactCandidates
+import ru.creditcabinet.assistant.application.InvoiceFactChoice
+import ru.creditcabinet.assistant.application.InvoiceFactSelection
+import ru.creditcabinet.assistant.application.LanguageModel
+import ru.creditcabinet.assistant.infrastructure.OllamaInvoiceFacts
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -48,12 +49,14 @@ class InvoiceFactsTest {
     }
 
     private fun selector(reply: (List<ChatMessage>) -> String?) = InvoiceFactSelection(
-        object : LanguageModel {
-            override val name = "test"
-            override fun available() = true
-            override fun chat(messages: List<ChatMessage>) = reply(messages)
-        },
-        mapper,
+        OllamaInvoiceFacts(
+            object : LanguageModel {
+                override val name = "test"
+                override fun available() = true
+                override fun chat(messages: List<ChatMessage>) = reply(messages)
+            },
+            mapper,
+        ),
     )
 
     private companion object {

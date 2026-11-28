@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
 import ru.creditcabinet.agent.domain.AgentAccessDecision
 import ru.creditcabinet.agent.domain.AgentAccessPort
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CommissionStatus
@@ -34,7 +35,6 @@ import ru.creditcabinet.assessment.domain.RejectReason
 import ru.creditcabinet.assessment.domain.RevenueSource
 import ru.creditcabinet.assessment.domain.RuleSet
 import ru.creditcabinet.assessment.domain.StopFactor
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.integration.domain.CompanySources
@@ -504,7 +504,7 @@ class PreApprovedOfferTest {
         val agentId = UUID.randomUUID()
         val offerId = insertOffer(maxAmount = 2_000_000L, minTermMonths = 6, maxTermMonths = 18, rate = BigDecimal("18.00"))
 
-        assertFailsWith<NotFoundException> {
+        assertFailsWith<NotFound> {
             preApprovedService.applyForAgent(offerId, agentId, listOf(otherCompanyId), "Агент Смирнов")
         }
 

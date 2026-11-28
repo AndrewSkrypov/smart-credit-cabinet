@@ -53,6 +53,7 @@ for db in identity credit engagement assessment common_test; do
     psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$DB_PORT" -U cabinet -d cabinet -c "create database $db"
 done
 
+python3 ci/gitlab/quality/test-clamav-runtime.py
 clamav_image=$(bash ci/gitlab/quality/clamav-runtime.sh)
 docker run -d --name "$clamav" --memory 2g -p 127.0.0.1::3310 \
     --mount type=bind,source="$PWD/docker/clamav/clamd.conf",target=/cabinet/clamd.conf,readonly \
@@ -100,6 +101,11 @@ export ASSESSMENT_DB_USER=cabinet ASSESSMENT_DB_PASSWORD=cabinet
 OUTBOX_WORKER_ENABLED=false ./gradlew build --no-daemon --no-parallel --max-workers=1 \
     -Dorg.gradle.jvmargs='-Xmx2048m -XX:MaxMetaspaceSize=768m -XX:+ExitOnOutOfMemoryError' \
     -Pkotlin.compiler.execution.strategy=in-process
+# Analytics is opted into compilation without changing the coverage suite above.
+./gradlew :services:analytics:classes -PalphaAnalytics=true --no-daemon --no-parallel --max-workers=1 \
+    -Dorg.gradle.jvmargs='-Xmx2048m -XX:MaxMetaspaceSize=768m -XX:+ExitOnOutOfMemoryError' \
+    -Pkotlin.compiler.execution.strategy=in-process
+python3 -B scripts/check-hexagonal-boundaries.py --jdeps "${JAVA_HOME:?}/bin/jdeps"
 GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}" CATALOG_TEST_POSTGRES_IMAGE="$image" \
     CATALOG_TEST_POSTGRES_NAME="$prefix-catalog-postgres" \
     bash scripts/check-catalog-integration.sh --no-daemon

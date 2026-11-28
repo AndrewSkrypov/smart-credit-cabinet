@@ -36,6 +36,7 @@ class TransferFixture:
         self.failure = None
         self.unconfirmed = False
         self.disbursing = False
+        self.read_policy = []
 
     def commit(self, event, database):
         self.last_changes.append((event, database))
@@ -57,11 +58,13 @@ class TransferFixture:
     def fence_info(self, database):
         return deepcopy(self.fences[database])
 
-    def require_grants(self, database, active):
+    def require_grants(self, database, active, *, legacy_backup=False):
+        self.read_policy.append(("grants", database, legacy_backup))
         if self.active[database] != active:
             raise AssertionError("Runtime permissions do not match owner")
 
-    def snapshot(self, database):
+    def snapshot(self, database, *, legacy_backup=False):
+        self.read_policy.append(("snapshot", database, legacy_backup))
         return deepcopy(self.data[database])
 
     def fence(self, database):
@@ -98,8 +101,8 @@ class TransferFixture:
 class ServicingDeliveryTest(unittest.TestCase):
     def test_previous_v26_v1_release_can_be_snapshotted_before_operation_migrations(self):
         data = {table: [] for table in TRANSFER.TABLES}
-        with patch.object(TRANSFER, "sql", side_effect=["f", json.dumps(data)]) as sql:
-            self.assertEqual(TRANSFER.snapshot("credit"), data)
+        with patch.object(TRANSFER, "sql", side_effect=["f", "credit", "t", "t", json.dumps(data)]) as sql:
+            self.assertEqual(TRANSFER.snapshot("credit", legacy_backup=True), data)
         statement = sql.call_args.args[1]
         self.assertIn("'loan_operations','[]'::jsonb", statement)
         self.assertNotIn("from loan_operations", statement)
@@ -128,6 +131,33 @@ class ServicingDeliveryTest(unittest.TestCase):
         data["loan_operations"][0]["result"] = {"rate": 20.0}
         with self.assertRaisesRegex(SystemExit, "exact PostgreSQL JSON text"):
             TRANSFER.import_snapshot("servicing", data)
+
+    def test_only_stopped_backup_explicitly_opts_into_legacy_reads(self):
+        self.dev.descriptor = self.local
+        deployment = MagicMock()
+        deployment.compose.return_value = ""
+        with (patch.object(self.dev, "_check_database", return_value={}),
+              patch.object(servicing_dev, "_set_up_transfer", return_value=self.transfer),
+              patch.object(servicing_dev.subprocess, "run", return_value=SimpleNamespace(returncode=0))):
+            self.dev.backup(deployment, self.dev.state)
+        self.assertEqual(self.transfer.read_policy, [
+            ("grants", "credit", True), ("grants", "servicing", True),
+            ("snapshot", "credit", True), ("snapshot", "servicing", True),
+        ])
+        self.transfer.read_policy.clear()
+        self.switch()
+        self.ready_report()
+        servicing_dev._aggregates(self.transfer)
+        self.assertTrue(self.transfer.read_policy)
+        self.assertTrue(all(legacy is False for _, _, legacy in self.transfer.read_policy))
+
+    def test_running_writers_prevent_even_legacy_backup_reads(self):
+        deployment = MagicMock()
+        deployment.compose.return_value = "running-credit"
+        with (patch.object(servicing_dev, "_set_up_transfer") as transfer,
+              self.assertRaisesRegex(RuntimeError, "остановите")):
+            self.dev.backup(deployment, self.dev.state)
+        transfer.assert_not_called()
 
     def setUp(self):
         temporary = TemporaryDirectory()

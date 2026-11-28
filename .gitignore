@@ -41,16 +41,9 @@ scripts/assistant-eval-reports/
 frontend/coverage/
 ci-artifacts/
 
-# Local tool settings, not part of the project.
-CLAUDE.md
-.claude/
-
 # Brand extraction of the bank's public site: reference material, summarised in docs/design-tokens.md.
 Lending_Alpha.xml
 *.docx
 
 # Local working notes.
 notes/
-
-.worktrees/
-.superpowers/

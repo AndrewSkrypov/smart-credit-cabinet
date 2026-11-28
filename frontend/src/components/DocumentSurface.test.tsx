@@ -9,10 +9,11 @@ import { AuthFrame, SignInPage, SignUpPage } from '../pages/AuthPages';
 import { AcceptInvitationPage, PasswordRecoveryPage, PasswordResetPage } from '../pages/AccountAccessPages';
 import { AccessDeniedPage, NotFoundPage } from '../pages/SystemPages';
 import { LandingPage } from '../pages/landing/LandingPage';
+import { AppDownloadPage } from '../pages/AppDownloadPage';
 
 it('covers every declared route by a layout family or explicit system fallback', () => {
   const known = new Map<unknown, Surface>([[AppShell, 'workspace'], [AuthFrame, 'auth'], [SignInPage, 'auth'], [SignUpPage, 'auth'],
-    [AcceptInvitationPage, 'auth'], [PasswordRecoveryPage, 'auth'], [PasswordResetPage, 'auth'], [AccessDeniedPage, 'light'], [NotFoundPage, 'light'], [LandingPage, 'landing']]);
+    [AcceptInvitationPage, 'auth'], [PasswordRecoveryPage, 'auth'], [PasswordResetPage, 'auth'], [AccessDeniedPage, 'light'], [NotFoundPage, 'light'], [LandingPage, 'landing'], [AppDownloadPage, 'light']]);
   const covered: Record<string, Surface> = {};
   function visit(node: ReactNode, inherited?: Surface) {
     Children.forEach(node, (child) => {

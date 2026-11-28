@@ -1,4 +1,6 @@
-import { Box, Button, LinearProgress, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Box, Button, IconButton, InputAdornment, LinearProgress, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { ReactNode, useLayoutEffect, useRef } from 'react';
 import { useApplicationPage } from '../hooks/useApplicationPage';
 import { tokens } from '../theme/theme';
@@ -30,14 +32,29 @@ const statusAction = {
   '&:hover::before': { borderColor: 'text.secondary' },
 };
 
-export function ApplicationPageFilters({ state, bank, status = true }: { state: PageState; bank?: boolean; status?: boolean }) {
+// The filters sit on the grey page, not on a card: white wells like the cards around them.
+const onPageFields = {
+  '& .MuiFilledInput-root': { bgcolor: '#fff', '&:hover': { bgcolor: '#fff' }, '&:hover:not(.Mui-focused):not(.Mui-error)': { boxShadow: `inset 0 0 0 1px ${tokens.line}` }, '&.Mui-focused': { bgcolor: '#fff' } },
+};
+
+export function ApplicationPageFilters({ state, bank, status = true, onPage = false }: { state: PageState; bank?: boolean; status?: boolean; onPage?: boolean }) {
   return <Stack>
-    <Box sx={{ display: 'grid', gap: { xs: 1, sm: 2 }, gridTemplateColumns: {
+    <Box sx={{ display: 'grid', gap: { xs: 1, sm: 2 }, ...(onPage ? onPageFields : {}), gridTemplateColumns: {
       xs: bank ? 'minmax(0, 1fr) minmax(0, 110px)' : '1fr',
       sm: bank ? 'minmax(0, 1fr) 190px 110px' : 'minmax(0, 1fr) 190px',
     } }}>
-      <TextField label={bank ? 'Поиск по номеру, компании или ИНН' : 'Поиск по номеру или продукту'} value={state.search} onChange={(event) => state.setSearch(event.target.value)} onBlur={() => state.setSearch(state.search.trim())} inputProps={{ maxLength: 100 }} fullWidth size="small"
-        sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }} />
+      <TextField hiddenLabel type="search" placeholder={bank ? 'Номер, компания или ИНН' : 'Номер заявки или продукт'} value={state.search}
+        onChange={(event) => state.setSearch(event.target.value)} onBlur={() => state.setSearch(state.search.trim())} fullWidth size="small"
+        inputProps={{ maxLength: 100, 'aria-label': bank ? 'Поиск по номеру, компании или ИНН' : 'Поиск по номеру или продукту' }}
+        InputProps={{
+          startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ color: 'text.secondary' }} /></InputAdornment>,
+          endAdornment: state.search ? (
+            <InputAdornment position="end">
+              <IconButton size="small" aria-label="Очистить поиск" onClick={() => state.setSearch('')} edge="end"><CloseRoundedIcon fontSize="small" /></IconButton>
+            </InputAdornment>
+          ) : undefined,
+        }}
+        sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' }, '& .MuiFilledInput-root': { minHeight: 48 }, '& input::-webkit-search-cancel-button': { display: 'none' } }} />
       <TextField select label="Сортировка" size="small" value={state.query.sort} onChange={(event) => state.update({ sort: event.target.value, page: 0 })}>
         {[['default', 'По очереди'], ['oldest', 'Изменены раньше'], ['newest', 'Изменены позже'], ['number_desc', 'Новые номера'], ['number_asc', 'Ранние номера']].map(([value, text]) => <MenuItem key={value} value={value}>{text}</MenuItem>)}
       </TextField>

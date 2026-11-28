@@ -1,8 +1,15 @@
 .release:
   rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: never
     - if: '$CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE != "merge_request_event" && $CI_PIPELINE_SOURCE != "schedule"'
       when: manual
       allow_failure: false
+
+.main-release:
+  interruptible: false
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true" && $PUMP_MAIN_RELEASE_ENABLED == "1"'
 
 release-images:
   extends: .release
@@ -18,6 +25,82 @@ release-images:
     paths:
       - release.json
       - security/reports/
+
+main-release-images:
+  extends: [release-images, .main-release]
+  resource_group: cabinet-main-publisher
+  script:
+    - python3 -B ci/gitlab/release-evidence.py check
+    - |
+      if python3 -B ci/gitlab/publisher-receipt.py restore; then
+        python3 -B ci/gitlab/release-evidence.py verify
+        exit 0
+      else
+        status=$?
+        if [ "$status" -ne 3 ]; then exit "$status"; fi
+      fi
+    - !reference [release-images, script]
+    - python3 -B ci/gitlab/release-evidence.py write
+    - python3 -B ci/gitlab/publisher-receipt.py save
+  artifacts:
+    paths:
+      - release.json
+      - release-evidence.json
+      - security/reports/
+
+main-release-activation:
+  extends: .main-release
+  stage: main-activation
+  when: manual
+  allow_failure: false
+  tags: [cabinet-deploy-prod]
+  resource_group: cabinet-prod
+  environment:
+    name: production
+    action: prepare
+  dependencies: [main-release-images]
+  before_script:
+    - python3 -B ci/gitlab/release-evidence.py verify
+    - python3 -B ci/gitlab/publisher-receipt.py verify
+  script:
+    - python3 -B ci/gitlab/main-release-activation.py write
+  artifacts:
+    expire_in: 30 days
+    paths: [main-release-activation.json]
+
+.main-deploy:
+  extends: [.main-release, .pump-vault-job-identity]
+  stage: main-deploy
+  dependencies: [main-release-images, main-release-activation]
+  before_script:
+    - !reference [main-release-activation, before_script]
+    - python3 -B ci/gitlab/main-release-activation.py verify
+
+main-dev-deploy:
+  extends: .main-deploy
+  tags: [cabinet-deploy, cabinet-deploy-main-dev]
+  resource_group: cabinet-dev
+  environment:
+    name: dev
+    action: start
+    url: $CABINET_DEV_URL
+  script:
+    - python3 ci/gitlab/vault/with-deploy-secrets.py dev-main-release -- bash ci/gitlab/deploy-dev.sh
+
+main-prod-deploy:
+  extends: .main-deploy
+  tags: [cabinet-deploy-prod]
+  resource_group: cabinet-prod
+  timeout: 40 minutes
+  environment:
+    name: production
+    action: start
+    url: $CABINET_PROD_URL
+  script:
+    - >-
+      CABINET_PROD_KUBECONFIG="$CABINET_MAIN_PROD_KUBECONFIG"
+      CABINET_PROD_JURY_CREDENTIALS="$CABINET_MAIN_PROD_JURY_CREDENTIALS"
+      python3 ci/gitlab/vault/with-deploy-secrets.py production-main-release -- bash ci/gitlab/deploy-prod.sh
 
 dev-deploy:
   extends: [.release, .pump-vault-job-identity]
@@ -100,6 +183,8 @@ dev-diagnostics:
     GIT_DEPTH: "2"
   timeout: 5 minutes
   rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+      when: never
     - if: '$CABINET_DEV_DIAGNOSTICS == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE != "merge_request_event" && $CI_PIPELINE_SOURCE != "schedule"'
       when: manual
       allow_failure: false

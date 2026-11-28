@@ -9,9 +9,9 @@ import org.mockito.kotlin.whenever
 import ru.creditcabinet.application.domain.PipelineJob
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
-import ru.creditcabinet.pipeline.PipelineSettings
 import ru.creditcabinet.pipeline.PipelineSteps
 import ru.creditcabinet.pipeline.PipelineWorker
+import ru.creditcabinet.pipeline.application.PipelineSettings
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset

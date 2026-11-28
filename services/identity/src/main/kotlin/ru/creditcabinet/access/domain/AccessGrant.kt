@@ -1,12 +1,11 @@
 package ru.creditcabinet.access.domain
 
-import org.springframework.http.HttpStatus
-import ru.creditcabinet.common.exception.ApiException
+import ru.creditcabinet.identity.domain.IdentityFailure.InvalidLink
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
 
-enum class LinkPurpose(val path: String) { PASSWORD_RESET("/reset-password"), COMPANY_INVITATION("/accept-invitation") }
+enum class LinkPurpose { PASSWORD_RESET, COMPANY_INVITATION }
 
 data class AccessGrant(
     val id: UUID,
@@ -30,6 +29,6 @@ data class AccessGrant(
             UUID.fromString(token.substringBefore('.'))
         }.getOrElse { expiredLink() }
 
-        fun expiredLink(): Nothing = throw ApiException(HttpStatus.GONE, "Ссылка недействительна или срок её действия истёк. Запросите новую.")
+        fun expiredLink(): Nothing = throw InvalidLink()
     }
 }

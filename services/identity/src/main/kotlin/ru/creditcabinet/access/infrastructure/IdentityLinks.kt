@@ -44,5 +44,11 @@ class IdentityLinks(
 
     override fun hash(purpose: LinkPurpose, id: UUID): String = AccessGrant.hash(token(purpose, id))
 
-    override fun link(purpose: LinkPurpose, id: UUID): String = settings.cabinetLink(purpose.path) + "#token=" + token(purpose, id)
+    override fun link(purpose: LinkPurpose, id: UUID): String {
+        val path = when (purpose) {
+            LinkPurpose.PASSWORD_RESET -> "/reset-password"
+            LinkPurpose.COMPANY_INVITATION -> "/accept-invitation"
+        }
+        return settings.cabinetLink(path) + "#token=" + token(purpose, id)
+    }
 }

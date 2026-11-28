@@ -1,35 +1,58 @@
 workflow:
   rules:
+    - if: &quick_mr '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /^(dev|main)$/'
+      auto_cancel:
+        on_new_commit: interruptible
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true" && $PUMP_MAIN_RELEASE_ENABLED == "1"'
+      auto_cancel:
+        on_new_commit: none
+        on_job_failure: none
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE =~ /^(api|web)$/ && ($CABINET_ALPHA_PILOT == "1" || $CABINET_DEV_DIAGNOSTICS == "1")'
+    - if: '$CI_COMMIT_BRANCH == "main" && $PUMP_MAIN_RELEASE_ENABLED == "1" && $CI_PIPELINE_SOURCE != "schedule"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: never
     - if: '$CI_COMMIT_REF_PROTECTED == "true"'
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
       when: never
     - if: '$CI_COMMIT_BRANCH'
 
-stages: [quality, verify, extended, release, dev, prod]
+stages: [quality, verify, extended, release, main-activation, main-deploy, dev, prod]
 
 include:
+  - local: ci/gitlab/quick.yml
+    rules:
+      - if: *quick_mr
   - local: ci/gitlab/runner-canary.yml
     rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
+      - if: &runner_canary '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
   - local: ci/gitlab/quality.yml
     rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
+      - if: *runner_canary
+        when: never
+      - if: *quick_mr
         when: never
       - when: always
   - local: ci/gitlab/release.yml
     rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
+      - if: *runner_canary
+        when: never
+      - if: *quick_mr
         when: never
       - when: always
   - local: ci/gitlab/vault/job-identity.yml
   - local: ci/alpha/gitlab.yml
     rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
+      - if: *runner_canary
+        when: never
+      - if: *quick_mr
         when: never
       - when: always
   - local: ci/alpha/release.yml
     rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
+      - if: *runner_canary
+        when: never
+      - if: *quick_mr
         when: never
       - if: '$CABINET_ALPHA_PILOT == "1" && $CI_COMMIT_REF_PROTECTED == "true"'

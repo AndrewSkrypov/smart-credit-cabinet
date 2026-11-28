@@ -13,8 +13,8 @@ import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
 import ru.creditcabinet.document.application.DocumentsUnavailable
 import ru.creditcabinet.observability.PipelineMetrics
-import ru.creditcabinet.pipeline.PipelineSettings
 import ru.creditcabinet.pipeline.application.PipelineJobHandler
+import ru.creditcabinet.pipeline.application.PipelineSettings
 import ru.creditcabinet.pipeline.infrastructure.PipelineWorker
 import java.time.Clock
 import java.time.Instant

@@ -192,6 +192,22 @@ ollama-image-security:
       - security/reports/infra-ollama/oci.json
       - security/reports/infra-ollama/trivy-image-*.json
       - security/reports/infra-ollama/summary.json
+mcp-image-security:
+  stage: verify
+  extends: .quality
+  timeout: 30 minutes
+  dependencies: []
+  script:
+    - python3 -B -m unittest discover -s ci/gitlab -p test_mcp_release.py
+    - bash ci/gitlab/quality/image-scan.sh mcp
+  after_script:
+    - bash ci/gitlab/quality/cleanup.sh
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - security/reports/image-mcp/trivy-image-*.json
+      - security/reports/image-mcp/summary.json
 image-security:
   stage: verify
   extends: .verified
@@ -224,7 +240,8 @@ deployment:
   extends: &compose-extended
     - .compose-quality
     - .extended
-  timeout: 35 minutes
+  # Existing35m + API budget20m + two bounded Credit restarts10m + overhead5m.
+  timeout: 70 minutes
   resource_group: cabinet-ci-local-deployment
   parallel:
     matrix:
@@ -236,8 +253,10 @@ deployment:
       python3 -m venv "$RUNNER_TEMP/cabinet-deployment"
       "$RUNNER_TEMP/cabinet-deployment/bin/pip" install -r scripts/requirements-tools.txt
     - docker compose -p "$COMPOSE_PROJECT_NAME" build
-    - 'env -u COMPOSE_PROJECT_NAME "$RUNNER_TEMP/cabinet-deployment/bin/python" deploy/test-local.py --image-prefix "$COMPOSE_PROJECT_NAME" --companies 20 --storage "$STORAGE" --expected-revision
-      "$CI_COMMIT_SHA" --https-port "$CI_HTTPS_PORT" --http-port "$CI_HTTP_PORT"'
+    - |
+      business_args=()
+      if [[ "$STORAGE" == local ]]; then business_args+=(--business-api-smoke); fi
+      env -u COMPOSE_PROJECT_NAME "$RUNNER_TEMP/cabinet-deployment/bin/python" deploy/test-local.py --image-prefix "$COMPOSE_PROJECT_NAME" --companies 20 --storage "$STORAGE" --expected-revision "$CI_COMMIT_SHA" --https-port "$CI_HTTPS_PORT" --http-port "$CI_HTTP_PORT" "${business_args[@]}"
   artifacts:
     when: always
     expire_in: 14 days

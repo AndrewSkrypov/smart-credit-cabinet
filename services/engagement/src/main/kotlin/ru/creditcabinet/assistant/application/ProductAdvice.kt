@@ -2,7 +2,6 @@ package ru.creditcabinet.assistant.application
 
 import ru.creditcabinet.assistant.domain.AnswerLink
 import ru.creditcabinet.assistant.domain.FinancingNeed
-import ru.creditcabinet.assistant.infrastructure.CreditProducts
 import java.math.BigDecimal
 import java.util.Locale
 
@@ -12,7 +11,7 @@ object ProductAdvice {
     const val ASK_AMOUNT = "Сколько нужно и на какой срок?"
     private const val DEFAULT_TERM = 12
 
-    fun answer(need: FinancingNeed, products: CreditProducts, authorization: String, excludeProductCode: String? = null): Pair<String, AnswerLink?> {
+    fun answer(need: FinancingNeed, products: AssistantProducts, authorization: String, excludeProductCode: String? = null): Pair<String, AnswerLink?> {
         val purposes = products.purposes(authorization)
         if (need.purpose == null) {
             val examples = purposes.values.take(4).joinToString(", ") { it.lowercase() }
@@ -20,9 +19,9 @@ object ProductAdvice {
         }
         val purposeTitle = purposes[need.purpose] ?: "эту цель"
         if (need.amount == null) {
-            val fitting = products.catalogue(authorization)?.filter { product -> product["purposes"].any { it.asText() == need.purpose } }.orEmpty()
+            val fitting = products.catalogue(authorization)?.filter { product -> need.purpose in product.purposes }.orEmpty()
             val list = fitting.joinToString("\n") {
-                "— ${it["name"].asText()}: до ${rub(it["maxAmount"].asLong())}, ставка от ${percent(it["baseRate"].decimalValue())}"
+                "— ${it.name}: до ${rub(it.maxAmount)}, ставка от ${percent(it.baseRate)}"
             }
             val intro = if (fitting.isEmpty()) "" else "Для цели «$purposeTitle» есть:\n$list\n\n"
             return "$intro$ASK_AMOUNT Посчитаю платёж по каждому продукту." to link(need.purpose, null, need.termMonths)
@@ -31,18 +30,18 @@ object ProductAdvice {
         val matches = products.match(need.purpose, need.amount, term, authorization)
             ?: return "Подбор сейчас недоступен. Попробуйте ещё раз через несколько минут." to
                 (if (excludeProductCode == null) link(need.purpose, need.amount, term) else null)
-        val eligible = matches.filter { it.path("product").path("code").asText() != excludeProductCode }
-        val fitting = eligible.filter { it["fits"].asBoolean() }
+        val eligible = matches.filter { it.product.code != excludeProductCode }
+        val fitting = eligible.filter { it.fits }
         val header = "Цель «$purposeTitle», ${rub(need.amount)} на ${months(term)}" + (if (need.termMonths == null) " (срок я взял для примера)" else "") + "."
         val body = if (fitting.isEmpty()) {
             val nearest = eligible.firstOrNull()
             (if (excludeProductCode == null) "Ни один продукт не подходит на этих условиях." else "Других продуктов с такими условиями сейчас нет.") +
-                (nearest?.let { "\nБлиже всего — ${it["product"]["name"].asText()}: ${it["adjustments"].joinToString("; ") { a -> a.asText() }}." } ?: "")
+                (nearest?.let { "\nБлиже всего — ${it.product.name}: ${it.adjustments.joinToString("; ")}." } ?: "")
         } else {
             "Подходят:\n" + fitting.joinToString("\n") { match ->
                 val payment =
-                    match["monthlyPayment"].takeIf { !it.isNull }?.let { "платёж ${rubExact(it.decimalValue())} в месяц" } ?: "платёж — по использованию лимита"
-                "— ${match["product"]["name"].asText()}: ставка от ${percent(match["product"]["baseRate"].decimalValue())}, $payment"
+                    match.monthlyPayment?.let { "платёж ${rubExact(it)} в месяц" } ?: "платёж — по использованию лимита"
+                "— ${match.product.name}: ставка от ${percent(match.product.baseRate)}, $payment"
             }
         }
         val tail = "\n\nЭто расчёт по базовой ставке. Итоговые условия банк предложит после оценки заявки — одобрение заранее не обещаю."

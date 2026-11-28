@@ -1,13 +1,12 @@
 package ru.creditcabinet.application.application
 
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import ru.creditcabinet.agent.domain.AgentAccessUnavailable
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationStateMachine
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.service.toActor
-import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.document.application.ApplicationDocuments
 import ru.creditcabinet.document.domain.ApplicationDocument
@@ -44,12 +43,17 @@ interface ApplicationDetails {
     fun read(authorizedApplication: LoanApplication, caller: TokenClaims, newDraft: Boolean = false): ApplicationDetail
 }
 
+fun interface DraftProductPreview {
+    fun latest(productCode: String): Result<Product?>
+}
+
 @Service
 class ReadApplicationDetails(
     private val products: ProductCatalog,
     private val documents: ApplicationDocuments,
     private val processes: ApplicationProcesses,
     private val operations: ApplicationOperations,
+    private val preview: DraftProductPreview,
 ) : ApplicationDetails {
     override fun product(authorizedApplication: LoanApplication): Product = products.forApplication(authorizedApplication)
 
@@ -67,7 +71,7 @@ class ReadApplicationDetails(
         val canResume = isOwnClient &&
             try {
                 operations.canResumeIndependently(application)
-            } catch (_: ApiException) {
+            } catch (_: AgentAccessUnavailable) {
                 false
             }
         val actions = caller.toActor()?.let { actor ->
@@ -83,12 +87,7 @@ class ReadApplicationDetails(
         }.orEmpty()
         // The catalog is a separate service: its outage must not hide the application card.
         val catalogPreview = if (isDraft || application.status == ApplicationStatus.PENDING_CLIENT_CONFIRMATION) {
-            try {
-                Result.success(products.latest(product.code))
-            } catch (failure: ApiException) {
-                if (failure.httpStatus != HttpStatus.SERVICE_UNAVAILABLE) throw failure
-                Result.failure(failure)
-            }
+            preview.latest(product.code)
         } else {
             Result.success(null)
         }

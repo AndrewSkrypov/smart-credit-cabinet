@@ -5,8 +5,12 @@ import org.springframework.http.HttpStatus
 import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.document.domain.FileContent
 import ru.creditcabinet.document.infrastructure.ClamDocumentScanner
+import java.io.DataInputStream
 import java.net.ServerSocket
+import java.time.Clock
 import java.time.Duration
+import java.time.Instant
+import java.time.ZoneOffset
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
@@ -74,6 +78,31 @@ class ClamDocumentScannerTest {
             )
             assertTrue(Duration.ofNanos(System.nanoTime() - start) < Duration.ofSeconds(3))
         }
+    }
+
+    @Test
+    fun `the default scans with four-day signatures and rejects signatures older than seven days`() {
+        val clock = Clock.fixed(Instant.parse("2026-11-28T12:00:00Z"), ZoneOffset.UTC)
+        fun scannerAt(port: Int) =
+            ClamDocumentScanner(true, "127.0.0.1", port, Duration.ofSeconds(3), SimpleMeterRegistry(), clock = clock)
+
+        withServer({ socket ->
+            val input = DataInputStream(socket.getInputStream())
+            assertEquals("zINSTREAM\u0000", String(input.readNBytes(10), Charsets.US_ASCII))
+            assertEquals(4, input.readInt())
+            assertEquals(4, input.readNBytes(4).size)
+            assertEquals(0, input.readInt())
+            socket.getOutputStream().write("stream: OK\u0000".toByteArray(Charsets.US_ASCII))
+        }, "ClamAV 1.5.5/28194/Tue Nov 24 12:00:00 2026") { port ->
+            scannerAt(port).scan(ByteArray(4))
+        }
+
+        val streamed = java.util.concurrent.atomic.AtomicBoolean(false)
+        withServer({ streamed.set(true) }, "ClamAV 1.5.5/28194/Sat Nov 21 11:59:59 2026") { port ->
+            val failure = assertFailsWith<ApiException> { scannerAt(port).scan(ByteArray(4)) }
+            assertEquals(HttpStatus.SERVICE_UNAVAILABLE, failure.httpStatus)
+        }
+        assertTrue(!streamed.get(), "A stale scanner must receive no document content")
     }
 
     @Test

@@ -1,30 +1,46 @@
 package ru.creditcabinet.assistant.application
 
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import org.springframework.stereotype.Component
-import ru.creditcabinet.assistant.domain.ManualReviewEvent
-import ru.creditcabinet.assistant.infrastructure.CreditApplications
-import ru.creditcabinet.assistant.infrastructure.ManualReviewSummaryCache
-import ru.creditcabinet.common.outbox.DeliveryHandler
+import ru.creditcabinet.assistant.domain.Answer
+import ru.creditcabinet.assistant.domain.AnswerMode
 import java.util.UUID
 
-data class UnderwritingSummarySource(val advice: JsonNode?, val answer: Answer? = null)
+data class ManualReviewEvent(val schemaVersion: Int, val eventId: UUID, val applicationId: UUID)
 
-@Component
+data class ManualReviewAdvice(val revision: String, val facts: AdviceSnapshot)
+
+data class UnderwritingSummarySource(val advice: AdviceSnapshot?, val answer: Answer? = null)
+
+/** The snapshot identity covers all advice fields, including those omitted from the rendered summary. */
+data class AdviceSnapshot(val summary: UnderwritingSummaryInput, val identity: String)
+
+fun interface ManualReviewEvents {
+    fun enqueue(event: ManualReviewEvent)
+}
+
+interface ReviewSummaryCache {
+    val enabled: Boolean
+    fun eventFor(applicationId: UUID): UUID?
+    fun text(applicationId: UUID, revision: String): String?
+    fun publish(applicationId: UUID, priorEvent: UUID?, eventId: UUID, revision: String, text: String): Boolean
+}
+
+class ManualReviewIngress(private val events: ManualReviewEvents) {
+    fun accept(event: ManualReviewEvent) {
+        if (event.schemaVersion != 1) throw AssistantFailure(AssistantFailureReason.INVALID_EVENT, "Версия события не поддерживается")
+        events.enqueue(event)
+    }
+}
+
 class ManualReviewSummaries(
-    private val applications: CreditApplications,
-    private val cache: ManualReviewSummaryCache,
-    private val mapper: ObjectMapper,
-) : DeliveryHandler {
-    override val channel = CHANNEL
+    private val applications: AssistantApplications,
+    private val cache: ReviewSummaryCache,
+) {
+    val enabled get() = cache.enabled
 
-    override fun deliver(payload: String) {
-        if (!cache.enabled) return
-        val event = mapper.readValue(payload, ManualReviewEvent::class.java)
+    fun deliver(event: ManualReviewEvent) {
         val priorEvent = cache.eventFor(event.applicationId)
         val advice = applications.manualReviewAdvice(event.applicationId, event.eventId) ?: return
-        val text = UnderwritingSummaryInput.from(advice.facts).rulesAnswer().text
+        val text = advice.facts.summary.rulesAnswer().text
         check(cache.publish(event.applicationId, priorEvent, event.eventId, advice.revision, text)) {
             "Manual review cache changed during delivery"
         }
@@ -40,7 +56,7 @@ class ManualReviewSummaries(
         val authorized = if (current?.facts == original.advice) original.advice else applications.advice(applicationId, authorization)
         if (current == null || authorized != current.facts) return UnderwritingSummarySource(authorized)
 
-        val input = UnderwritingSummaryInput.from(authorized)
+        val input = authorized.summary
         val cached = runCatching { cache.text(applicationId, current.revision) }.getOrNull()
         if (cached != null) return UnderwritingSummarySource(authorized, Answer(cached, AnswerMode.RULES, input.sources))
 
@@ -48,13 +64,9 @@ class ManualReviewSummaries(
         runCatching { cache.publish(applicationId, eventId, eventId, current.revision, answer.text) }
         return UnderwritingSummarySource(authorized, answer)
     }
-
-    companion object {
-        const val CHANNEL = "assistant-manual-review"
-    }
 }
 
-internal data class UnderwritingSummaryInput(val verdict: String, val items: List<String>, val modelVersion: Int) {
+data class UnderwritingSummaryInput(val verdict: String, val items: List<String>, val modelVersion: Int) {
     val sources get() = listOf("Экспертная система, модель v$modelVersion")
 
     fun rulesAnswer(): Answer = Answer(
@@ -62,12 +74,4 @@ internal data class UnderwritingSummaryInput(val verdict: String, val items: Lis
         AnswerMode.RULES,
         sources,
     )
-
-    companion object {
-        fun from(advice: JsonNode): UnderwritingSummaryInput = UnderwritingSummaryInput(
-            advice["verdict"].asText(),
-            advice["items"].map { "${it["title"].asText()}. ${it["text"].asText()}" },
-            advice["modelVersion"].asInt(),
-        )
-    }
 }

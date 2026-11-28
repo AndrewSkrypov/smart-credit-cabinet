@@ -20,6 +20,12 @@
 {{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    location = /healthz { access_log off; return 200; }" $gateway }}
 {{/* Kubernetes terminates public traffic at Traefik, without the Compose Caddy restrictions. */}}
 {{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    location = /sim { return 404; }\n    location = /swagger { return 404; }\n    location ~ ^/(?:sim|swagger|v3/api-docs|actuator|internal|ext)(?:/|$) { return 404; }" $gateway }}
+{{- if .Values.agentMcpCredit.enabled }}
+{{- $mcp := printf "http://cabinet-mcp.%s.svc.%s:8080" .Release.Namespace $domain }}
+{{- $gateway = replace "    server_tokens off;" (printf "    server_tokens off;\n    set $cabinet_mcp %s;\n    include /etc/nginx/cabinet-gateway/mcp.conf;" $mcp) $gateway }}
+{{- else }}
+{{- $gateway = replace "    server_tokens off;" "    server_tokens off;\n    location = /api/mcp { return 404; }\n    location ^~ /api/mcp/ { return 404; }\n    location = /.well-known/oauth-authorization-server { return 404; }\n    location = /.well-known/oauth-protected-resource/api/mcp { return 404; }" $gateway }}
+{{- end }}
 {{- if .Values.publicDemo.enabled }}
 {{- $demo := printf "http://cabinet-demo-proxy.%s.svc.%s:8080" .Release.Namespace $domain }}
 {{- $routes := printf "    server_tokens off;\n    set $cabinet_demo_proxy %s;\n    location = /demo/__ready { proxy_pass $cabinet_demo_proxy; }\n    location = /demo/api { return 404; }\n    location = /demo/api/v1 { return 404; }\n    location ^~ /demo/api/ { return 404; }\n    location ^~ /demo/api/v1/ { proxy_pass $cabinet_demo_proxy; }" $demo }}

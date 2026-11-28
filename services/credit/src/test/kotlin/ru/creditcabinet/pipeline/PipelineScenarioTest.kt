@@ -30,7 +30,7 @@ import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.domain.StorageBackend
-import ru.creditcabinet.document.generated.GeneratedArtifacts
+import ru.creditcabinet.document.generated.application.GeneratedArtifacts
 import ru.creditcabinet.offer.application.ContractTexts
 import java.time.Duration
 import java.time.Instant

@@ -1,6 +1,7 @@
 package ru.creditcabinet.assistant
 
 import ru.creditcabinet.assistant.domain.Knowledge
+import ru.creditcabinet.assistant.domain.referenceKeyMaterial
 import ru.creditcabinet.assistant.infrastructure.AssistantReferenceCache
 import ru.creditcabinet.assistant.infrastructure.ManualReviewSummaryCache
 import ru.creditcabinet.common.limits.ValkeyProperties
@@ -55,16 +56,16 @@ class AssistantReferenceCacheIntegrationTest {
                 val question = "Что такое овердрафт?"
                 val articles = Knowledge.relevant(question)
                 val model = "qwen2.5:1.5b"
-                val key = assertNotNull(first.key(question, articles, model))
+                val key = assertNotNull(referenceKeyMaterial(question, articles, model)?.let(first::key))
                 val answer = articles.first().text
                 first.save(key, answer)
                 assertEquals(answer, second.read(key))
                 val ttl = reader.eval("return redis.call('TTL', KEYS[1])", listOf(key), emptyList()).toString().toLong()
                 assertTrue(ttl in 1..1800)
-                assertNotEquals(key, second.key(question, articles, "qwen2.5:3b"))
+                assertNotEquals(key, referenceKeyMaterial(question, articles, "qwen2.5:3b")?.let(second::key))
                 val edited = articles.first().copy(text = articles.first().text + ".")
-                assertNotEquals(key, second.key(question, listOf(edited) + articles.drop(1), model))
-                assertNull(second.key("Мне уже одобрили овердрафт по моей заявке?", articles, model))
+                assertNotEquals(key, referenceKeyMaterial(question, listOf(edited) + articles.drop(1), model)?.let(second::key))
+                assertNull(referenceKeyMaterial("Мне уже одобрили овердрафт по моей заявке?", articles, model)?.let(second::key))
             }
         }
     }

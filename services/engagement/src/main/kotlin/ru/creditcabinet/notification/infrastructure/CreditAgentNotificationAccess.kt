@@ -27,6 +27,7 @@ class CreditAgentNotificationAccess(
         builder.clone().baseUrl(it).requestFactory(factory).build()
     }
 
+    // Not cached: a revoked mandate must hide the agent's notifications on the very next request.
     override fun check(applicationId: UUID, authorization: String): AgentNotificationAccess {
         val target = client ?: return AgentNotificationAccess.UNAVAILABLE
         return try {

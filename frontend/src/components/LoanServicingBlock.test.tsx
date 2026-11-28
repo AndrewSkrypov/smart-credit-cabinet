@@ -195,6 +195,9 @@ describe('LoanServicingBlock', () => {
     expect(await screen.findByText('Оплачен')).toBeInTheDocument();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Досрочно погасить' }));
+    expect(await screen.findByRole('dialog', { name: 'Погасить кредит досрочно?' })).toBeInTheDocument();
+    expect(loanServicingApi.repayEarly).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Погасить' }));
     await waitFor(() => expect(loanServicingApi.repayEarly).toHaveBeenCalledWith('loan-1'));
     expect(await screen.findByText('Погашен')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Внести очередной платёж' })).not.toBeInTheDocument();

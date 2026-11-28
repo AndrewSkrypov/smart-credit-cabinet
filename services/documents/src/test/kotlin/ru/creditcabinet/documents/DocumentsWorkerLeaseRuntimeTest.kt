@@ -16,6 +16,8 @@ import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.generated.ArtifactInput
 import ru.creditcabinet.document.generated.ArtifactPhase
 import ru.creditcabinet.document.generated.ArtifactRenderer
+import ru.creditcabinet.documents.infrastructure.DocumentsConfiguration
+import ru.creditcabinet.documents.infrastructure.JdbcDocumentMetadata
 import ru.creditcabinet.product.domain.LoanMath
 import java.math.BigDecimal
 import java.time.Instant
@@ -83,7 +85,7 @@ class DocumentsWorkerLeaseRuntimeTest {
                     "%PDF-1.4\nlease\n%%EOF".toByteArray()
                 }.whenever(renderer).render(any(), any())
                 val files = mock<FileStore>()
-                val store = DocumentsStore(jdbc, mapper, tx, files, DocumentScanner {}, renderer, JdbcDocumentMetadata(jdbc, mapper))
+                val store = DocumentsConfiguration().documentsStore(jdbc, mapper, tx, files, DocumentScanner {}, renderer, JdbcDocumentMetadata(jdbc, mapper))
                 val executor = Executors.newSingleThreadExecutor()
                 try {
                     val worker = executor.submit { store.generateOne() }

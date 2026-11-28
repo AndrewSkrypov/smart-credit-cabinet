@@ -38,7 +38,12 @@ parser.add_argument("--legacy-backup", action="store_true", help="Провери
 parser.add_argument("--expected-revision", help="Потребовать одинаковый OCI revision у всех пяти образов, например SHA текущего CI")
 parser.add_argument("--final-profiles", action="store_true", help="Проверить исходный стенд с профилями ai и monitoring")
 parser.add_argument("--host-memory-gib", type=int, default=8)
+parser.add_argument("--business-api-smoke", action="store_true", help="CI-only normal API business flow on the owned restored base stack; no Dev/REMOTE acceptance")
 args = parser.parse_args()
+if args.business_api_smoke:
+    from ci_business_api import ci_environment
+    ci_environment(os.environ, args.expected_revision)
+    assert not args.keep and not args.final_profiles and args.storage == "local" and not args.legacy_backup, "Business CI requires an ephemeral base-local stack"
 assert not args.legacy_backup or args.storage == "local", "Формат 1 не поддерживал S3"
 assert re.fullmatch(r"[a-z0-9][a-z0-9_.-]{2,80}", args.image_prefix)
 assert 1 <= args.companies <= 30 and 32 <= args.subnet_block < 250
@@ -344,6 +349,14 @@ try:
         report["containers"].append({"name": info["Name"], "image_id": info["Image"], "limit_bytes": info["HostConfig"]["Memory"],
                                      "restarts": info["RestartCount"], "oom_killed": info["State"]["OOMKilled"]})
     check("Нет OOM/restart при наблюдаемой нагрузке", all(item["restarts"] == 0 and not item["oom_killed"] for item in report["containers"]))
+    if args.business_api_smoke:
+        # Run last: retain every existing source/restore count and backup assertion.
+        # The provider's finally destroys only the two projects it created above.
+        stage = "isolated-business-api"
+        from ci_business_api import run as run_business_api
+        report["business_api"] = run_business_api(target, args.expected_revision, runtime, output)
+        check("Normal business APIs passed on owned base-local CI; Dev/4REMOTE acceptance remains separate",
+              report["business_api"]["passed"] is True and report["business_api"]["feature_restored_false"] is True)
     report["passed"] = True
 except Exception as error:
     report.update(failed_stage=stage, error_type=type(error).__name__)

@@ -2,10 +2,7 @@ package ru.creditcabinet.document.infrastructure
 
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
-import ru.creditcabinet.common.exception.ApiException
-import ru.creditcabinet.common.exception.BadRequestException
 import ru.creditcabinet.document.domain.DocumentScanner
 import java.io.DataOutputStream
 import java.io.IOException
@@ -29,9 +26,11 @@ class ClamDocumentScanner(
     @Value("\${cabinet.antivirus.port:3310}") private val port: Int,
     @Value("\${cabinet.antivirus.timeout:PT10S}") private val timeout: Duration,
     private val meters: MeterRegistry,
-    @Value("\${cabinet.antivirus.max-signature-age:PT160H}") private val maxSignatureAge: Duration = Duration.ofHours(160),
+    @Value("\${cabinet.antivirus.max-signature-age:P7D}") private val maxSignatureAge: Duration = Duration.ofDays(7),
     private val clock: Clock = Clock.systemUTC(),
+    errors: DocumentStorageErrors? = null,
 ) : DocumentScanner {
+    private val errors = errors ?: HttpDocumentStorageErrors
     init {
         require(host.isNotBlank() && port in 1..65535) { "Проверьте адрес сервиса проверки файлов" }
         require(timeout.toMillis() in 100..120_000) { "Время проверки файлов — от 100 мс до двух минут" }
@@ -52,11 +51,11 @@ class ClamDocumentScanner(
             reply.startsWith("stream: Heuristics.Limits.Exceeded") && reply.endsWith(" FOUND") -> unavailable()
             reply.startsWith("stream: Heuristics.") && reply.contains("Encrypted") && reply.endsWith(" FOUND") -> {
                 meters.counter(METRIC, "outcome", "uninspectable").increment()
-                throw BadRequestException("Файл не удалось проверить полностью. Снимите защиту паролем или выберите другой файл")
+                throw errors.invalidDocument("Файл не удалось проверить полностью. Снимите защиту паролем или выберите другой файл")
             }
             reply.startsWith("stream: ") && reply.endsWith(" FOUND") -> {
                 meters.counter(METRIC, "outcome", "infected").increment()
-                throw BadRequestException("Файл содержит угрозу и не сохранён. Выберите безопасный файл")
+                throw errors.invalidDocument("Файл содержит угрозу и не сохранён. Выберите безопасный файл")
             }
             else -> unavailable()
         }
@@ -113,7 +112,7 @@ class ClamDocumentScanner(
 
     private fun unavailable(): Nothing {
         meters.counter(METRIC, "outcome", "unavailable").increment()
-        throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Проверка файлов временно недоступна. Попробуйте загрузить файл позже")
+        throw errors.unavailable("Проверка файлов временно недоступна. Попробуйте загрузить файл позже")
     }
 
     private companion object {

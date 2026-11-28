@@ -30,6 +30,12 @@ describe('LandingPage', () => {
     expect(screen.queryByRole('link', { name: 'Войти как предприниматель' })).not.toBeInTheDocument();
     for (const link of screen.getAllByRole('link', { name: 'В кабинет банка' })) expect(link).toHaveAttribute('href', '/bank');
   });
+  it('links the phone app download from the first screen', async () => {
+    session = null;
+    render(<MemoryRouter><LandingPage /></MemoryRouter>);
+    await screen.findByRole('heading', { name: 'Кредит на пополнение оборота' });
+    expect(screen.getByRole('link', { name: 'Скачать приложение' })).toHaveAttribute('href', '/app');
+  });
   it('does not advertise unavailable products when the catalogue is empty', async () => {
     session = null;
     vi.mocked(productsApi.list).mockResolvedValueOnce([]);

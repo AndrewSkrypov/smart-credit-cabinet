@@ -4,6 +4,15 @@ set -euo pipefail
 image="cabinet-ci-${CI_JOB_ID:?}-scan:test"
 cache="cabinet-trivy-${CI_JOB_ID}"
 case "${1:?}" in
+    mcp)
+        source ci/gitlab/quality/mcp-image.sh
+        base=$(mcp_base_image)
+        docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" \
+            -t "$image" integrations/cabinet-mcp
+        image_id=$(mcp_image_provenance "$image" "$CI_COMMIT_SHA" "$base")
+        smoke_mcp_image "$image_id" "$base"
+        python3 security/scan.py --image "$image_id" --report-name image-mcp --cache-volume "$cache"
+        ;;
     app)
         if [[ "$SERVICE" = frontend ]]; then
             docker build -f frontend/Dockerfile --build-arg DIST_SOURCE=prebuilt \

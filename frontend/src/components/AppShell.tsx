@@ -66,7 +66,7 @@ export function AppShell() {
             <BrandMark to={roleHome[user.role]} compact inverted label={bank ? 'Рабочее место банка' : agent ? 'Кабинет агента' : 'Кабинет предпринимателя'} />
             {tabs({ display: { xs: 'none', lg: 'flex' }, flexGrow: 1, minWidth: 0 })}
             <Box sx={{ flexGrow: 1, display: { lg: 'none' } }} />
-            <Stack sx={{ display: { xs: 'none', sm: 'flex' }, textAlign: 'right', minWidth: 0, maxWidth: { lg: 130 } }}>
+            <Stack sx={{ display: { xs: 'none', sm: 'flex' }, textAlign: 'right', minWidth: 0, maxWidth: { lg: 170 } }} title={`${user.fullName} · ${roleLabels[user.role]}`}>
               <Typography variant="body2" fontWeight={500} noWrap>{user.fullName}</Typography>
               <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.64)' }} noWrap>{roleLabels[user.role]}</Typography>
             </Stack>

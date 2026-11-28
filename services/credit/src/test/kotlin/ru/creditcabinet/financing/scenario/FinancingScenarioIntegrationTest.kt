@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.mock.web.MockHttpServletResponse
+import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
@@ -23,6 +24,7 @@ import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
 import ru.creditcabinet.agent.domain.AgentAccessDecision
 import ru.creditcabinet.agent.domain.AgentAccessPort
+import ru.creditcabinet.agent.domain.AgentAccessUnavailable
 import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationJournal
@@ -56,7 +58,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-@SpringBootTest(properties = ["cabinet.outbox.worker-enabled=false"])
+@SpringBootTest(properties = ["cabinet.outbox.worker-enabled=false", "server.address=127.0.0.1"])
+@ActiveProfiles("agent-mcp-local")
 @AutoConfigureMockMvc
 class FinancingScenarioIntegrationTest {
     @Autowired private lateinit var mvc: MockMvc
@@ -101,6 +104,13 @@ class FinancingScenarioIntegrationTest {
              "delayDays":14,"alternativeTermMonths":24,"selectedTermMonths":24}
         """.trimIndent()
         assertEquals(400, put("$agentPath/financing-scenario", missingOpeningBalance).status)
+        val denied = putScenario(agentPath, auth = token(Roles.AGENT))
+        assertEquals(404, denied.status)
+        val deniedBody = mapper.readTree(denied.contentAsByteArray)
+        assertEquals(404, deniedBody["status"].asInt())
+        assertEquals("Not Found", deniedBody["error"].asText())
+        assertEquals("Заявка не найдена", deniedBody["message"].asText())
+        assertEquals("$agentPath/financing-scenario", deniedBody["path"].asText())
         val first = snapshot(putScenario(agentPath))
         assertEquals(1L, first["revision"].asLong())
         assertEquals("DRAFT", first["status"].asText())
@@ -121,6 +131,9 @@ class FinancingScenarioIntegrationTest {
         assertEquals("AWAITING_CLIENT", firstHandoff["status"].asText())
         assertEquals(1L, firstHandoff["revision"].asLong())
         assertEquals(24, applications.find(application.id)?.terms?.termMonths)
+        val afterHandoff = putScenario(agentPath)
+        assertEquals(409, afterHandoff.status)
+        assertEquals("Сценарий можно изменить только в черновике", mapper.readTree(afterHandoff.contentAsByteArray)["message"].asText())
         assertEquals(404, get(bankPath, bank).status)
         assertEquals(404, get("$clientPath/financing-scenario", token(Roles.CLIENT, companyId = UUID.randomUUID())).status)
         assertEquals(409, confirm(clientPath, revision = null).status)
@@ -309,21 +322,85 @@ class FinancingScenarioIntegrationTest {
         return output.toByteArray()
     }
 
+    @Test
+    fun `MCP projections use live access and saved preview matches web without writing`() {
+        val application = draft()
+        val id = application.id
+        val path = agentPath(id)
+        val summaryPath = "/api/v1/agent/mcp/applications/$id/summary"
+        val prioritiesPath = "/api/v1/agent/mcp/priorities?limit=1"
+        val previewPath = "$path/financing-scenario/preview"
+        whenever(mandates.listCompanyIds(agentId)).thenReturn(listOf(company.id))
+
+        fun request(delay: Int) = """{"mode":"SAVED_SCENARIO","delayDays":$delay,"alternativeTermMonths":24}"""
+
+        assertEquals(409, post(previewPath, agent, request(5)).status)
+        assertEquals("PREVIEW_NOT_READY", mapper.readTree(post(previewPath, agent, request(5)).contentAsString)["code"].asText())
+        val first = snapshot(putScenario(path, delayDays = 5))
+        val summary = snapshot(get(summaryPath, agent))
+        val priority = snapshot(get(prioritiesPath, agent))["items"].single()
+        assertEquals(priority, summary["application"])
+        assertEquals("AGENT", priority["actionOwner"].asText())
+        assertTrue(priority["actionLabel"].isTextual)
+        assertTrue(priority["number"].isNull || priority["number"].isTextual)
+        assertEquals(application.version.toString(), summary["applicationVersion"].asText())
+
+        val before = creditMcpSnapshot(jdbc, id)
+        val results = listOf(5, 6, 5).map { delay ->
+            val preview = snapshot(post(previewPath, agent, request(delay)))
+            assertTrue(preview["preview"].asBoolean())
+            assertEquals(first["revision"].asLong().toString(), preview["basis"]["savedScenarioRevision"].asText())
+            assertEquals(delay == 5, preview["inputsUsed"]["receiptIncludedByPayment"].asBoolean())
+            assertEquals(5, preview["inputsUsed"]["lastIncludedDelayDays"].asInt())
+            for ((web, trial) in first["options"].zip(preview["options"])) {
+                assertEquals(0, web["monthlyPayment"].decimalValue().compareTo(trial["monthlyPaymentRub"].asText().toBigDecimal()))
+                assertEquals(0, web["totalInterest"].decimalValue().compareTo(trial["totalInterestRub"].asText().toBigDecimal()))
+                val webBalance = web["balanceOnPaymentDate"].decimalValue()
+                val expected = if (delay == 6) webBalance - BigDecimal("140000") else webBalance
+                assertEquals(0, expected.compareTo(trial["balanceOnPaymentDateRub"].asText().toBigDecimal()))
+                assertTrue(trial["balanceOnPaymentDateRub"].isTextual)
+            }
+            assertEquals(before, creditMcpSnapshot(jdbc, id))
+            preview["options"]
+        }
+        assertEquals(results.first(), results.last())
+
+        assertEquals(400, post(previewPath, agent, request(5).replace("5,", "5.0,")).status)
+        assertEquals(400, post(previewPath, agent, request(5).dropLast(1) + ""","companyId":"extra"}""").status)
+        assertEquals(400, post(previewPath, agent, request(5).replace("24", "12")).status)
+        assertEquals(403, get(summaryPath, bank).status)
+        val denied = get("/api/v1/agent/mcp/applications/${UUID.randomUUID()}/summary", agent)
+        assertEquals(404, denied.status)
+        assertEquals(denied.contentAsString, get(summaryPath, token(Roles.AGENT)).contentAsString)
+        whenever(mandates.checkAccess(agentId, company.id)).thenReturn(AgentAccessDecision(allowed = false, company = null))
+        whenever(mandates.listCompanyIds(agentId)).thenReturn(emptyList())
+        assertEquals(denied.contentAsString, get(summaryPath, agent).contentAsString)
+        assertEquals(denied.contentAsString, post(previewPath, agent, request(5)).contentAsString)
+        assertTrue(snapshot(get(prioritiesPath, agent))["items"].isEmpty)
+        whenever(mandates.checkAccess(agentId, company.id)).thenThrow(AgentAccessUnavailable())
+        val unavailable = get(summaryPath, agent)
+        assertEquals(503, unavailable.status)
+        assertEquals("DEPENDENCY_UNAVAILABLE", mapper.readTree(unavailable.contentAsString)["code"].asText())
+        assertEquals(before, creditMcpSnapshot(jdbc, id))
+    }
+
     private fun draft(): LoanApplication {
         whenever(mandates.checkAccess(agentId, company.id)).thenReturn(AgentAccessDecision(allowed = true, company = company))
         whenever(sources.bank(company.inn)).thenReturn(BankInfo(client = true, settlementAccount = null, monthlyInflows = emptyList()))
+        val product = checkNotNull(products.find("WORKING_CAPITAL"))
         return applications.save(
             LoanApplication(
                 company = company,
                 createdBy = agentId,
                 terms = ApplicationTerms(
-                    "WORKING_CAPITAL",
+                    product.code,
                     FinancingPurpose.WORKING_CAPITAL,
                     amount = 2_000_000,
                     termMonths = 12,
                     declaredRevenue12m = 24_000_000,
                 ),
                 createdAt = clock.instant(),
+                productVersion = product.version,
                 agentId = agentId,
             ),
         )
@@ -369,13 +446,21 @@ class FinancingScenarioIntegrationTest {
         )
     }
 
-    private fun putScenario(path: String, openingBalance: Long = 150_000, delayDays: Int = 14, alternative: Int = 24, selected: Int = 24) =
+    private fun putScenario(
+        path: String,
+        openingBalance: Long = 150_000,
+        delayDays: Int = 14,
+        alternative: Int = 24,
+        selected: Int = 24,
+        auth: String = agent,
+    ) =
         put(
             "$path/financing-scenario",
             """
             {"openingBalance":$openingBalance,"expectedReceiptAmount":140000,"expectedReceiptDate":"2026-12-10",
              "paymentDate":"2026-12-15","delayDays":$delayDays,"alternativeTermMonths":$alternative,"selectedTermMonths":$selected}
             """.trimIndent(),
+            auth,
         )
 
     private fun confirm(path: String, revision: Long?, consent: Boolean = true) =
@@ -404,8 +489,8 @@ class FinancingScenarioIntegrationTest {
             }
         }.andReturn().response
 
-    private fun put(path: String, body: String) = mvc.put(path) {
-        header("Authorization", "Bearer $agent")
+    private fun put(path: String, body: String, auth: String = agent) = mvc.put(path) {
+        header("Authorization", "Bearer $auth")
         contentType = MediaType.APPLICATION_JSON
         content = body
     }.andReturn().response

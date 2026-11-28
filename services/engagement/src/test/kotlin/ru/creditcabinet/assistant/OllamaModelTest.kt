@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import org.springframework.web.client.RestClient
-import ru.creditcabinet.assistant.domain.ChatMessage
+import ru.creditcabinet.assistant.application.ChatMessage
 import ru.creditcabinet.assistant.infrastructure.OllamaModel
 import java.net.InetSocketAddress
 import java.time.Clock

@@ -1,8 +1,8 @@
 package ru.creditcabinet.document.infrastructure
 
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
-import ru.creditcabinet.common.exception.ApiException
+import ru.creditcabinet.application.application.CreditFailure.RateLimited
+import ru.creditcabinet.application.infrastructure.creditPortCall
 import ru.creditcabinet.common.limits.LimitWindow
 import ru.creditcabinet.common.limits.SharedLimits
 import ru.creditcabinet.document.application.DocumentUploadLimit
@@ -22,7 +22,12 @@ class UploadThrottle(private val shared: SharedLimits, private val clock: Clock 
 
     override fun acquire(userId: UUID) {
         if (shared.enabled) {
-            shared.acquire("Слишком много загрузок подряд. Попробуйте через несколько минут.", LimitWindow("upload", userId.toString(), MAX_UPLOADS, WINDOW))
+            creditPortCall {
+                shared.acquire(
+                    "Слишком много загрузок подряд. Попробуйте через несколько минут.",
+                    LimitWindow("upload", userId.toString(), MAX_UPLOADS, WINDOW),
+                )
+            }
             return
         }
         val now = clock.instant()
@@ -38,7 +43,7 @@ class UploadThrottle(private val shared: SharedLimits, private val clock: Clock 
                 recent + now
             }
         }
-        if (!allowed) throw ApiException(HttpStatus.TOO_MANY_REQUESTS, "Слишком много загрузок подряд. Попробуйте через несколько минут.")
+        if (!allowed) throw RateLimited("Слишком много загрузок подряд. Попробуйте через несколько минут.")
     }
 
     companion object {

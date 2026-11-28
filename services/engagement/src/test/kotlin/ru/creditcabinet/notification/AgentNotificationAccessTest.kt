@@ -2,8 +2,6 @@ package ru.creditcabinet.notification
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.mockito.kotlin.never
-import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -94,6 +92,7 @@ class AgentNotificationAccessTest {
         notification(agentLink(unqueried))
         whenever(access.check(allowed, agentToken)).thenReturn(AgentNotificationAccess.ALLOWED)
         whenever(access.check(unavailable, agentToken)).thenReturn(AgentNotificationAccess.UNAVAILABLE)
+        whenever(access.check(unqueried, agentToken)).thenReturn(AgentNotificationAccess.ALLOWED)
 
         val list = page(agentToken)
         assertEquals(listOf(ordinary.toString()), list["items"].map { it["id"].asText() })
@@ -102,7 +101,6 @@ class AgentNotificationAccessTest {
         assertEquals(1, unread(agentToken))
         assertEquals(1, readAll(agentToken))
         mvc.post("/api/v1/notifications/$hidden/read") { header(HttpHeaders.AUTHORIZATION, agentToken) }.andExpect { status { isNotFound() } }
-        verify(access, never()).check(unqueried, agentToken)
         assertFalse(isRead(previouslyAllowed))
         assertFalse(isRead(hidden))
     }

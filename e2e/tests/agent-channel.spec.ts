@@ -191,7 +191,7 @@ test('Агент и клиент проходят подтверждение и 
     await expect(welcome).toHaveCount(0);
     await page.goto(`/client/applications/${id}`);
     await page.getByRole('button', { name: 'Принять и перейти к подписанию', exact: true }).click();
-    const code = page.getByTestId('signing-code');
+    const code = page.getByTestId('signing-code-popup');
     await expect(code).toHaveText(/^\d{6}$/);
     await page.getByLabel('Код из 6 цифр', { exact: true }).fill((await code.innerText()).trim());
     await page.getByRole('button', { name: 'Подписать', exact: true }).click();

@@ -59,11 +59,15 @@ test('Клиент проходит подбор, черновик, решени
     await assertNotification(request, page, session, app);
     await page.getByRole('button', { name: 'Принять и перейти к подписанию', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Подписание договора', exact: true })).toBeVisible();
-    const code = page.getByTestId('signing-code');
     const popup = page.getByTestId('signing-code-popup');
-    await expect(code).toHaveText(/^\d{6}$/);
-    await expect(popup).toBeVisible();
-    expect((await popup.innerText()).trim() === (await code.innerText()).trim()).toBe(true);
+    await expect(popup).toHaveText(/^\d{6}$/);
+    await expect(page.getByText(/^\d{6}$/, { exact: true })).toHaveCount(1);
+    await noHorizontalOverflow(page);
+    const currentCode = (await popup.innerText()).trim();
+    await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
+    await expect(page.getByText(/^\d{6}$/, { exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Показать код', exact: true }).click();
+    await expect.poll(async () => (await popup.textContent())?.trim() === currentCode).toBe(true);
     const reissued = page.waitForResponse((response) => response.url().endsWith('/signing/code') && response.request().method() === 'POST');
     await page.getByRole('button', { name: 'Новый код', exact: true }).click();
     const response = await reissued;
@@ -71,7 +75,7 @@ test('Клиент проходит подбор, черновик, решени
     const nextCode = (await response.json() as Application).process.signing?.code;
     expect(Boolean(nextCode)).toBe(true);
     await expect.poll(async () => (await popup.textContent())?.trim() === nextCode).toBe(true);
-    await page.getByLabel('Код из 6 цифр', { exact: true }).fill((await code.innerText()).trim());
+    await page.getByLabel('Код из 6 цифр', { exact: true }).fill((await popup.innerText()).trim());
     await page.getByRole('button', { name: 'Подписать', exact: true }).click();
     await waitStatus(request, session, id, ['DISBURSED']);
     await expect(popup).toHaveCount(0);

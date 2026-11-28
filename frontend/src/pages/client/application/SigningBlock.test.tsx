@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -21,7 +21,7 @@ it('explains who must sign before showing any unavailable action to a representa
   expect(screen.queryByLabelText('Код из 6 цифр')).not.toBeInTheDocument();
   expect(applicationsApi.sign).not.toHaveBeenCalled();
   expect(screen.queryByTestId('signing-code-popup')).not.toBeInTheDocument();
-  expect(screen.queryByTestId('signing-code')).not.toBeInTheDocument();
+  expect(screen.queryByText('123456', { exact: true })).not.toBeInTheDocument();
 });
 
 function draft(id: string, code?: string, expiresAt = '2099-01-01T00:00:00Z'): Application {
@@ -42,7 +42,12 @@ it('shows the newly issued and replaced code and removes it as soon as signing s
   expect(screen.queryByTestId('signing-code-popup')).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Получить код' }));
   expect(await screen.findByTestId('signing-code-popup')).toHaveTextContent('123456');
-  expect(screen.getByTestId('signing-code')).toHaveTextContent('123456');
+  expect(screen.getAllByText('123456', { exact: true })).toHaveLength(1);
+  await userEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
+  expect(screen.queryByText('123456', { exact: true })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Показать код' }));
+  expect(screen.getByTestId('signing-code-popup')).toHaveTextContent('123456');
+  expect(applicationsApi.requestCode).toHaveBeenCalledTimes(1);
 
   await userEvent.click(screen.getByRole('button', { name: 'Новый код' }));
   await waitFor(() => expect(screen.getByTestId('signing-code-popup')).toHaveTextContent('654321'));
@@ -51,6 +56,17 @@ it('shows the newly issued and replaced code and removes it as soon as signing s
   await userEvent.click(screen.getByRole('button', { name: 'Подписать' }));
   expect(applicationsApi.sign).toHaveBeenCalledWith('draft', '654321');
   expect(screen.queryByText('654321', { exact: true })).not.toBeInTheDocument();
+});
+
+it('reopens an auto-hidden code without issuing another one', async () => {
+  vi.useFakeTimers();
+  vi.mocked(applicationsApi.contract).mockResolvedValue(loadedContract);
+  render(<SigningBlock application={draft('draft', '123456')} onChanged={vi.fn()} />);
+  await act(async () => { vi.advanceTimersByTime(12000); });
+  expect(screen.queryByText('123456', { exact: true })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Показать код' }));
+  expect(screen.getByTestId('signing-code-popup')).toHaveTextContent('123456');
+  expect(applicationsApi.requestCode).not.toHaveBeenCalled();
 });
 
 it('hides an expired code without waiting for polling and discards the notice when switching applications', async () => {
@@ -62,6 +78,8 @@ it('hides an expired code without waiting for polling and discards the notice wh
   expect(screen.getByTestId('signing-code-popup')).toHaveTextContent('111111');
   await act(async () => { vi.advanceTimersByTime(1000); });
   expect(screen.queryByText('111111', { exact: true })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Получить код' })).toBeEnabled();
+  expect(screen.queryByRole('button', { name: 'Показать код' })).not.toBeInTheDocument();
 
   ui.rerender(<SigningBlock application={draft('first', '222222')} {...props} />);
   expect(screen.getByTestId('signing-code-popup')).toHaveTextContent('222222');

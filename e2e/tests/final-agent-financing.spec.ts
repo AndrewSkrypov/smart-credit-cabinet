@@ -290,7 +290,7 @@ test.describe('Финальное агентское финансировани�
       await login(page, companies.vector.account);
       await page.goto(`/client/applications/${draft.id}`);
       await page.getByRole('button', { name: 'Принять и перейти к подписанию', exact: true }).click();
-      const code = page.getByTestId('signing-code');
+      const code = page.getByTestId('signing-code-popup');
       await expect(code).toHaveText(/^\d{6}$/);
       await page.getByLabel('Код из 6 цифр', { exact: true }).fill((await code.innerText()).trim());
       await page.getByRole('button', { name: 'Подписать', exact: true }).click();

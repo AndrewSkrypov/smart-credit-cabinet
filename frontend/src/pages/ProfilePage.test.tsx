@@ -2,23 +2,30 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { notificationsApi } from '../api/client';
+import { applicationsApi, notificationsApi } from '../api/client';
 import { ProfilePage } from './ProfilePage';
 
 vi.mock('../auth/AuthProvider', () => ({
   useAuth: () => ({ session: { user: { fullName: 'Представитель компании', email: 'synthetic@example.test', role: 'CLIENT' } } })
 }));
-vi.mock('../api/client', () => ({ notificationsApi: { settings: vi.fn(), saveSettings: vi.fn() } }));
+vi.mock('../api/client', () => ({
+  applicationsApi: { list: vi.fn() },
+  notificationsApi: { settings: vi.fn(), saveSettings: vi.fn() }
+}));
 
 const label = 'Дублировать важные уведомления на почту';
 
 describe('ProfilePage notification settings', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(applicationsApi.list).mockResolvedValue([]);
+  });
 
   it('hides the switch when the mail profile is absent', async () => {
     vi.mocked(notificationsApi.settings).mockResolvedValue({ emailAvailable: false, emailEnabled: false, version: 0 });
     render(<MemoryRouter><ProfilePage /></MemoryRouter>);
     expect(await screen.findByText(/Почтовый канал на этом стенде выключен/)).toBeInTheDocument();
+    expect(await screen.findByText(/Здесь появятся события, когда у компании будет кредитная заявка/)).toBeInTheDocument();
     expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
   });
 

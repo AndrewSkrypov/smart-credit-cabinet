@@ -11,6 +11,7 @@ import { useApi } from '../hooks/useApi';
 import { emailError, nameError, passwordError, requiredError, useFieldFeedback } from '../shared/authValidation';
 import { roleLabels } from '../shared/labels';
 import { NotificationSettings } from '../types';
+import { CreditTimeline } from './profile/CreditTimeline';
 
 export function ProfilePage() {
   const { session, signOut, updateSession } = useAuth();
@@ -106,6 +107,7 @@ export function ProfilePage() {
       <PageHeader title="Профиль" subtitle="Ваши данные и настройки кабинета" />
       <Stack spacing={3} sx={{ pb: 6 }}>
         <AvatarPicker user={session.user} onChanged={(user) => updateSession({ ...session, user })} />
+        {session.user.role === 'CLIENT' && <CreditTimeline key={`${session.user.id}:${session.user.companyId}`} />}
         <Paper sx={{ p: { xs: 3, md: 4 } }}>
           <Typography variant="h6">Личные данные</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>{roleLabels[session.user.role]}</Typography>

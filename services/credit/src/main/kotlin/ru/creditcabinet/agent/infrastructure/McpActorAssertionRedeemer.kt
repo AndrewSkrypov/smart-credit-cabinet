@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 import org.springframework.web.client.RestClientResponseException
+import ru.creditcabinet.agent.application.McpActorAssertionPort
 import ru.creditcabinet.application.application.CreditFailure
 import java.net.ProxySelector
 import java.net.URI
@@ -24,10 +25,16 @@ internal class McpActorAssertionRedeemer(
     @Value("\${cabinet.mcp.identity-origin}") identityOrigin: URI,
     @Value("\${cabinet.mcp.identity-ca}") identityCa: Path,
     @Value("\${MCP_CREDIT_SERVICE_TOKEN}") private val serviceToken: String,
-) {
+) : McpActorAssertionPort {
     init {
-        require(identityOrigin.scheme == "https" && identityOrigin.host != null && identityOrigin.rawUserInfo == null &&
-            identityOrigin.rawPath.isEmpty() && identityOrigin.rawQuery == null && identityOrigin.rawFragment == null)
+        require(
+            identityOrigin.scheme == "https" &&
+                identityOrigin.host != null &&
+                identityOrigin.rawUserInfo == null &&
+                identityOrigin.rawPath.isEmpty() &&
+                identityOrigin.rawQuery == null &&
+                identityOrigin.rawFragment == null,
+        )
         require(serviceToken.length in 32..1024 && serviceToken.all { it in '!'..'~' })
     }
 
@@ -45,7 +52,7 @@ internal class McpActorAssertionRedeemer(
         JdkClientHttpRequestFactory(transport).apply { setReadTimeout(Duration.ofSeconds(3)) },
     ).build()
 
-    fun redeem(assertion: String): UUID {
+    override fun redeem(assertion: String): UUID {
         if (assertion.length !in 32..8192 || assertion.any { it !in '!'..'~' || it == ',' }) {
             throw CreditFailure.Unauthenticated("Недействительный MCP assertion")
         }

@@ -54,7 +54,8 @@ class FinancingScenarios(
             application.productVersion != product.version ||
             !product.active ||
             saved.annualRatePercent.compareTo(product.baseRate) != 0 ||
-            !product.amountFits(terms.amount) || !product.termFits(terms.termMonths)
+            !product.amountFits(terms.amount) ||
+            !product.termFits(terms.termMonths)
         ) {
             throw SavedPreviewNotApplicable()
         }

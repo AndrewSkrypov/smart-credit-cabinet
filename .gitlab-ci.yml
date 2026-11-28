@@ -1,58 +1,41 @@
 workflow:
   rules:
-    - if: &quick_mr '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /^(dev|main)$/'
-      auto_cancel:
-        on_new_commit: interruptible
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true" && $PUMP_MAIN_RELEASE_ENABLED == "1"'
-      auto_cancel:
-        on_new_commit: none
-        on_job_failure: none
-    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE =~ /^(api|web)$/ && ($CABINET_ALPHA_PILOT == "1" || $CABINET_DEV_DIAGNOSTICS == "1")'
-    - if: '$CI_COMMIT_BRANCH == "main" && $PUMP_MAIN_RELEASE_ENABLED == "1" && $CI_PIPELINE_SOURCE != "schedule"'
-      when: never
-    - if: '$CI_COMMIT_BRANCH == "dev"'
-      when: never
-    - if: '$CI_COMMIT_REF_PROTECTED == "true"'
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
-      when: never
-    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_BRANCH == "ops/pump-worker-qualify-14" && $CI_COMMIT_REF_PROTECTED == "true"'
+    - when: never
 
-stages: [quality, verify, extended, release, main-activation, main-deploy, dev, prod]
+stages: [test]
 
-include:
-  - local: ci/gitlab/quick.yml
-    rules:
-      - if: *quick_mr
-  - local: ci/gitlab/runner-canary.yml
-    rules:
-      - if: &runner_canary '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-  - local: ci/gitlab/quality.yml
-    rules:
-      - if: *runner_canary
-        when: never
-      - if: *quick_mr
-        when: never
-      - when: always
-  - local: ci/gitlab/release.yml
-    rules:
-      - if: *runner_canary
-        when: never
-      - if: *quick_mr
-        when: never
-      - when: always
-  - local: ci/gitlab/vault/job-identity.yml
-  - local: ci/alpha/gitlab.yml
-    rules:
-      - if: *runner_canary
-        when: never
-      - if: *quick_mr
-        when: never
-      - when: always
-  - local: ci/alpha/release.yml
-    rules:
-      - if: *runner_canary
-        when: never
-      - if: *quick_mr
-        when: never
-      - if: '$CABINET_ALPHA_PILOT == "1" && $CI_COMMIT_REF_PROTECTED == "true"'
+variables:
+  GIT_STRATEGY: clone
+  GIT_DEPTH: "2"
+  GIT_SUBMODULE_STRATEGY: none
+  GIT_LFS_SKIP_SMUDGE: "1"
+
+worker-qualification:
+  stage: test
+  tags: [cabinet-ci-qualify-14]
+  timeout: 7 minutes
+  script:
+    - |
+      set -eu
+      test "$CI_RUNNER_ID" = "14"
+      test "$(id -un)" = pump-ci
+      test "$(git rev-parse HEAD)" = "$CI_COMMIT_SHA"
+      git config --get remote.origin.url | grep -Eq '^https://([^/@]+@)?gitlab\.credit-cabinet\.ru/'
+      test "$(git config --get http.sslVerify || true)" != false
+      test ! -r /etc/gitlab-runner-pump-ci/config.toml
+      test ! -w /run/docker.sock
+      for variable in CABINET_DEV_SSH_KEY CABINET_PROD_VALUES KUBECONFIG VAULT_ID_TOKEN GIT_SSL_NO_VERIFY; do
+        if printenv "$variable" >/dev/null; then exit 19; fi
+      done
+      test "$(node --version)" = v20.20.2
+      test "$(helm version --template '{{.Version}}')" = v3.19.0
+      test "$(docker version --format '{{.Server.Version}}')" = 29.8.2
+      docker info --format '{{json .Labels}} {{json .SecurityOptions}} {{.CgroupDriver}} {{.CgroupVersion}}' |
+        awk '/"cabinet-ci=true"/ && /name=rootless/ && /systemd 2$/ {ok=1} END {exit !ok}'
+      "$JAVA_HOME/bin/javac" -version 2>&1 | grep -F '21.0.13.1'
+      psql --version | grep -F '16.15'
+      chmod +x gradlew
+      ./gradlew --version | grep -Fx 'Gradle 8.10.2'
+      curl --proto '=https' --fail --silent --show-error -o /dev/null https://gitlab.credit-cabinet.ru/users/sign_in
+      printf '%s\n' 'PUMP quality worker verified'

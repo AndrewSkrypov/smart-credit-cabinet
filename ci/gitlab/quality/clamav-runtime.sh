@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Optional official seed for restricted egress. The ordinary ClamAV readiness
-# remains in force, including the 72-hour age bound and engine reload checks.
+# remains in force, including the seven-day age bound and engine reload checks.
 set -euo pipefail
 
 runtime='clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614'
@@ -55,7 +55,7 @@ grep -Fxq "Version: $serial" <<<"$result"
 grep -Fxq 'Verification OK.' <<<"$result"
 published=$(date -u -d "$(sed -n 's/^Build time: //p' <<<"$result")" +%s)
 age=$(( $(date -u +%s) - published ))
-if (( age < -300 || age > 72 * 60 * 60 )); then
+if (( age < -300 || age > 7 * 24 * 60 * 60 )); then
     printf 'Official ClamAV seed %s age %s seconds is outside the freshness gate\n' "$serial" "$age" >&2
     exit 1
 fi

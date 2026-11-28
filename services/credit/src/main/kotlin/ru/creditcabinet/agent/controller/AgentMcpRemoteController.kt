@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.agent.application.AgentClientStatusUnavailable
 import ru.creditcabinet.agent.application.AgentMcpReads
+import ru.creditcabinet.agent.application.McpActorAssertionPort
 import ru.creditcabinet.agent.domain.AgentAccessUnavailable
-import ru.creditcabinet.agent.infrastructure.McpActorAssertionRedeemer
 import ru.creditcabinet.application.application.CreditFailure
 import ru.creditcabinet.financing.scenario.application.SavedPreviewNotApplicable
 import ru.creditcabinet.financing.scenario.application.SavedPreviewNotReady
@@ -34,7 +34,7 @@ import java.util.UUID
 @RequestMapping("/internal/mcp/credit")
 internal class AgentMcpRemoteController(
     private val reads: AgentMcpReads,
-    private val actors: McpActorAssertionRedeemer,
+    private val actors: McpActorAssertionPort,
     mapper: ObjectMapper,
     @Value("\${cabinet.mcp.credit-port:8443}") private val port: Int,
     @Value("\${cabinet.mcp.credit-tls.peer-sha256}") peerSha256: String,

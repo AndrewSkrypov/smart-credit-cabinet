@@ -4,7 +4,7 @@
 SHA256 `8b33c2cfce27c785c0bddb45e26ebd70dc73cf5856c41d3bdef2fd6ae00b6e0d`.
 Это дополнение поверх `234986f`, в той же feature/cabinet-polish и PR #1.
 Исходные P00–P29, PCI, followup-вход и результаты сохранены отдельно.
-Новый goal, PR, merge и auto-merge не создаются.
+Новый PR, merge и auto-merge не создаются.
 
 ## Изменения
 

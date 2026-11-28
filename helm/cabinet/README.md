@@ -313,9 +313,9 @@ OAuth issuer совпадает с `app.publicURL` без пути и порта
 фактическая метка в кластере).
 
 - `identityTlsSecret` содержит `tls.crt` и `tls.key` для
-  `cabinet-mcp-identity.<namespace>.svc.<cluster-domain>`.
+  `cabinet-mcp-identity`.
 - `tlsSecret` содержит `tls.crt` и `tls.key` для
-  `cabinet-credit-mcp.<namespace>.svc.<cluster-domain>`, а также
+  `cabinet-credit-mcp`, а также
   `peer-ca.crt` для клиентских сертификатов MCP и `identity-ca.crt`.
 - `clientTlsSecret` содержит клиентские `tls.crt` и `tls.key` для MCP и
   отдельные цепочки `identity-ca.crt` и `credit-ca.crt`. В `peerSha256`

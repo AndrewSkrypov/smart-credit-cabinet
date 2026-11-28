@@ -16,7 +16,15 @@ export function serviceOrigin(value: string, service: Services) {
       "cabinet-credit-mcp.cabinet-prod.svc.cluster.local",
     ] : []),
   ]);
-  if (url.protocol !== "https:" || (service === "credit" && url.port !== "8443") || !allowedHosts.has(url.hostname)
+  const dedicatedIdentityPort = new Map([
+    ["identity-mcp", "8443"],
+    ["cabinet-mcp-identity", "8444"],
+  ]);
+  const dedicatedIdentity = service === "identity" && dedicatedIdentityPort.has(url.hostname);
+  const allowed = dedicatedIdentity
+    ? url.port === dedicatedIdentityPort.get(url.hostname)
+    : allowedHosts.has(url.hostname) && (service !== "credit" || url.port === "8443");
+  if (url.protocol !== "https:" || !allowed
     || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
     throw new Error("Expected the private Cabinet service origin.");
   }

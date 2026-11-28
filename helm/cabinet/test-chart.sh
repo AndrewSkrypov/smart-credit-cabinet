@@ -43,7 +43,7 @@ helm template cabinet "$chart" --namespace cabinet --is-upgrade "$@" \
 grep -F 'port: 8443' "$mcp_render" >/dev/null
 grep -F 'port: 8444' "$mcp_render" >/dev/null
 grep -F 'include /etc/nginx/cabinet-gateway/mcp.conf;' "$mcp_render" >/dev/null
-grep -F 'https://cabinet-mcp-identity.cabinet.svc.cluster.local:8444' "$mcp_render" >/dev/null
+grep -F 'https://cabinet-mcp-identity:8444' "$mcp_render" >/dev/null
 grep -F 'kind: NetworkPolicy' "$mcp_render" >/dev/null
 rm -f "$mcp_render"
 trap - EXIT

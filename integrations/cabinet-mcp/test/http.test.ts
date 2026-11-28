@@ -137,6 +137,19 @@ test("Credit allows the dedicated Kubernetes Service only at its configured priv
   assert.throws(() => serviceOrigin("https://cabinet-credit-mcp:8443", "identity"));
 });
 
+test("the private Identity adapter accepts only the exact installed DNS name and TLS port", async () => {
+  const { serviceOrigin } = await import("../dist/http-upstream.js");
+  for (const allowed of ["https://identity-mcp:8443", "https://cabinet-mcp-identity:8444"]) {
+    assert.equal(serviceOrigin(allowed, "identity").origin, allowed);
+    assert.throws(() => serviceOrigin(allowed, "credit"));
+  }
+  for (const denied of [
+    "https://identity-mcp:8444",
+    "https://cabinet-mcp-identity:8443",
+    "https://cabinet-mcp-identity.example.test:8444",
+  ]) assert.throws(() => serviceOrigin(denied, "identity"));
+});
+
 test("private hops keep external access tokens, service credentials and actor assertions separate", async () => {
   const { identityAuthorization } = await import("../dist/http-identity.js");
   const { creditForActor } = await import("../dist/http-credit.js");

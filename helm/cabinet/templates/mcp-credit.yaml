@@ -134,7 +134,7 @@ spec:
             - {name: MCP_ISSUER, value: {{ .Values.app.publicURL | quote }}}
             - {name: MCP_RESOURCE, value: {{ printf "%s/api/mcp" .Values.app.publicURL | quote }}}
             - {name: MCP_IDENTITY_ORIGIN, value: {{ include "cabinet.mcp.identityOrigin" . | quote }}}
-            - {name: MCP_CREDIT_ORIGIN, value: {{ printf "https://cabinet-credit-mcp.%s.svc.%s:8443" .Release.Namespace (.Values.gateway.clusterDomain | default "cluster.local") | quote }}}
+            - {name: MCP_CREDIT_ORIGIN, value: "https://cabinet-credit-mcp:8443"}
             - {name: MCP_IDENTITY_CA_FILE, value: /run/mcp-client-tls/identity-ca.crt}
             - {name: MCP_CREDIT_CA_FILE, value: /run/mcp-client-tls/credit-ca.crt}
             - {name: MCP_CREDIT_CERT_FILE, value: /run/mcp-client-tls/tls.crt}

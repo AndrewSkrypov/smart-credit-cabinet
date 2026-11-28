@@ -1,5 +1,5 @@
 {{- define "cabinet.mcp.identityOrigin" -}}
-https://cabinet-mcp-identity.{{ .Release.Namespace }}.svc.{{ .Values.gateway.clusterDomain | default "cluster.local" }}:8444
+https://cabinet-mcp-identity:8444
 {{- end -}}
 
 {{- define "cabinet.mcp.identitySidecar" -}}

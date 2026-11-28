@@ -387,18 +387,20 @@ class FinancingScenarioIntegrationTest {
     private fun draft(): LoanApplication {
         whenever(mandates.checkAccess(agentId, company.id)).thenReturn(AgentAccessDecision(allowed = true, company = company))
         whenever(sources.bank(company.inn)).thenReturn(BankInfo(client = true, settlementAccount = null, monthlyInflows = emptyList()))
+        val product = checkNotNull(products.find("WORKING_CAPITAL"))
         return applications.save(
             LoanApplication(
                 company = company,
                 createdBy = agentId,
                 terms = ApplicationTerms(
-                    "WORKING_CAPITAL",
+                    product.code,
                     FinancingPurpose.WORKING_CAPITAL,
                     amount = 2_000_000,
                     termMonths = 12,
                     declaredRevenue12m = 24_000_000,
                 ),
                 createdAt = clock.instant(),
+                productVersion = product.version,
                 agentId = agentId,
             ),
         )

@@ -114,6 +114,7 @@ function AgentApplicationCard({ id }: { id: string }) {
   const [purposeComment, setPurposeComment] = useState<string>('');
   const [declaredRevenue12m, setDeclaredRevenue12m] = useState<number | null>(null);
   const [declaredMonthlyDebtPayments, setDeclaredMonthlyDebtPayments] = useState<number | null>(null);
+  const [revenueVisited, setRevenueVisited] = useState(false);
 
   const draftSynced = useRef(false);
   const mounted = useRef(false);
@@ -188,6 +189,19 @@ function AgentApplicationCard({ id }: { id: string }) {
     application.actionOwner !== 'CLIENT' && !!application.process.infoRequest;
   const isDraft = application.status === 'DRAFT';
 
+  const amountMissing = !amount || amount <= 0;
+  const termMissing = !termMonths || termMonths < 1;
+  const amountOutside = Boolean(product && !amountMissing && (amount < product.minAmount || amount > product.maxAmount));
+  const termOutside = Boolean(product && !termMissing && (termMonths < product.minTermMonths || termMonths > product.maxTermMonths));
+  const revenueInvalid = declaredRevenue12m == null || declaredRevenue12m <= 0;
+  const showRevenueError = revenueInvalid && (revenueVisited || application.submissionProblems.some((problem) => /выручк/i.test(problem)));
+  const draftDirty =
+    amount !== application.amount ||
+    termMonths !== application.termMonths ||
+    purposeComment.trim() !== (application.purposeComment ?? '') ||
+    declaredRevenue12m !== application.declaredRevenue12m ||
+    declaredMonthlyDebtPayments !== application.declaredMonthlyDebtPayments;
+
   const persistDraft = async (): Promise<Application | null> => {
     const input: ApplicationInput = {
       productCode: application.product.code,
@@ -220,6 +234,7 @@ function AgentApplicationCard({ id }: { id: string }) {
 
   const handleRequestConfirmation = async () => {
     if (scenarioDirty) return;
+    setRevenueVisited(true);
     setBusyAction('confirm-request');
     setError(null);
     try {
@@ -307,7 +322,12 @@ function AgentApplicationCard({ id }: { id: string }) {
 
             {isDraft && application.editable && (
               <Paper data-tour="agent-app-draft" id="draft-financing" variant="outlined" sx={{ p: { xs: 2, md: 3 }, scrollMarginTop: 110 }}>
-                <Typography variant="h6" component="h2" gutterBottom>Параметры черновика</Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={2}>
+                  <Typography variant="h6" component="h2" gutterBottom>Параметры черновика</Typography>
+                  <Typography variant="body2" color={draftDirty ? 'warning.dark' : 'text.secondary'} aria-live="polite">
+                    {busyAction === 'save' ? 'Сохраняем…' : draftDirty ? 'Есть несохранённые изменения' : 'Сохранено'}
+                  </Typography>
+                </Stack>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   Заполните параметры заявки и приложите обязательные документы. Согласие на запрос в БКИ даст сам клиент на этапе подтверждения.
                 </Typography>
@@ -317,19 +337,39 @@ function AgentApplicationCard({ id }: { id: string }) {
                     <MoneyField
                       label="Сумма"
                       fullWidth
+                      required
                       value={amount}
                       onChange={(value) => setAmount(value ?? 0)}
-                      helperText={product ? `от ${rub(product.minAmount)} до ${rub(product.maxAmount)}` : ' '}
+                      error={amountMissing || amountOutside}
+                      helperText={
+                        amountMissing
+                          ? 'Укажите сумму кредита больше нуля'
+                          : amountOutside && product
+                            ? `Сумма должна быть от ${rub(product.minAmount)} до ${rub(product.maxAmount)}`
+                            : product
+                              ? `от ${rub(product.minAmount)} до ${rub(product.maxAmount)}`
+                              : ' '
+                      }
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <TextField
                       label="Срок, месяцев"
                       fullWidth
+                      required
                       inputProps={{ inputMode: 'numeric' }}
                       value={termMonths || ''}
                       onChange={(event) => setTermMonths(Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0)}
-                      helperText={product ? `от ${product.minTermMonths} до ${product.maxTermMonths}` : ' '}
+                      error={termMissing || termOutside}
+                      helperText={
+                        termMissing
+                          ? 'Укажите срок кредита в месяцах'
+                          : termOutside && product
+                            ? `Срок должен быть от ${product.minTermMonths} до ${product.maxTermMonths} мес.`
+                            : product
+                              ? `от ${product.minTermMonths} до ${product.maxTermMonths}`
+                              : ' '
+                      }
                     />
                   </Grid>
                   <Grid item xs={12}>
@@ -341,14 +381,24 @@ function AgentApplicationCard({ id }: { id: string }) {
                       inputProps={{ maxLength: 1000 }}
                       value={purposeComment}
                       onChange={(event) => setPurposeComment(event.target.value)}
+                      onBlur={() => setPurposeComment((value) => value.trim())}
+                      helperText="Необязательно, но помогает банку быстрее принять решение"
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <MoneyField
                       label="Выручка за последние 12 месяцев"
                       fullWidth
+                      required
                       value={declaredRevenue12m}
                       onChange={setDeclaredRevenue12m}
+                      onBlur={() => setRevenueVisited(true)}
+                      error={showRevenueError}
+                      helperText={
+                        showRevenueError
+                          ? 'Укажите годовую выручку больше нуля (по данным отчётности)'
+                          : 'Как в налоговой отчётности — банк сверит её с данными ФНС'
+                      }
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -357,6 +407,7 @@ function AgentApplicationCard({ id }: { id: string }) {
                       fullWidth
                       value={declaredMonthlyDebtPayments}
                       onChange={setDeclaredMonthlyDebtPayments}
+                      helperText="0, если кредитов нет"
                     />
                   </Grid>
                 </Grid>
@@ -433,6 +484,7 @@ function AgentApplicationCard({ id }: { id: string }) {
                     sx={{ mt: 2 }}
                     value={infoAnswer}
                     onChange={(event) => setInfoAnswer(event.target.value)}
+                    onBlur={() => setInfoAnswer((value) => value.trim())}
                     inputProps={{ maxLength: 2000 }}
                   />
                 )}

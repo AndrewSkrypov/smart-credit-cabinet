@@ -34,6 +34,7 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [revenueVisited, setRevenueVisited] = useState(false);
   const timer = useRef<number>();
   const latest = useRef(form);
   const revision = useRef(0);
@@ -99,6 +100,7 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
   };
 
   const submit = async () => {
+    setRevenueVisited(true);
     if (submitting.current || (changed && acceptedVersion !== product?.version) || product?.active === false) return;
     submitting.current = true;
     setSending(true);
@@ -122,8 +124,30 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
     }
   };
 
-  const termOutside = product && (form.termMonths < product.minTermMonths || form.termMonths > product.maxTermMonths);
-  const amountOutside = product && (form.amount < product.minAmount || form.amount > product.maxAmount);
+  const amountMissing = !form.amount || form.amount <= 0;
+  const termMissing = !form.termMonths || form.termMonths < 1;
+  const termOutside = Boolean(product && (form.termMonths < product.minTermMonths || form.termMonths > product.maxTermMonths));
+  const amountOutside = Boolean(product && (form.amount < product.minAmount || form.amount > product.maxAmount));
+  const revenueInvalid = form.declaredRevenue12m == null || form.declaredRevenue12m <= 0;
+  const showRevenueError = revenueInvalid && (revenueVisited || application.submissionProblems.some((problem) => /выручк/i.test(problem)));
+
+  const amountHelperText = amountMissing
+    ? 'Укажите сумму кредита больше нуля'
+    : amountOutside && product
+      ? `Сумма должна быть от ${rub(product.minAmount)} до ${rub(product.maxAmount)}`
+      : product
+        ? `от ${rub(product.minAmount)} до ${rub(product.maxAmount)}`
+        : ' ';
+
+  const termHelperText = termMissing
+    ? 'Укажите срок кредита в месяцах'
+    : termOutside && product
+      ? (product.minTermMonths === product.maxTermMonths
+          ? `Доступен только срок ${months(product.maxTermMonths)}`
+          : `Срок должен быть от ${product.minTermMonths} до ${product.maxTermMonths} мес.`)
+      : product
+        ? (product.minTermMonths === product.maxTermMonths ? `лимит на ${months(product.maxTermMonths)}` : `от ${product.minTermMonths} до ${product.maxTermMonths}`)
+        : ' ';
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
@@ -147,22 +171,31 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6}>
           <MoneyField label="Сумма" fullWidth value={form.amount} onChange={(value) => change({ amount: value ?? 0 })}
-            error={!!amountOutside} helperText={product ? `от ${rub(product.minAmount)} до ${rub(product.maxAmount)}` : ' '} />
+            error={amountMissing || amountOutside} helperText={amountHelperText} />
         </Grid>
         <Grid item xs={12} sm={6}>
           <TextField label="Срок, месяцев" fullWidth inputProps={{ inputMode: 'numeric' }} value={form.termMonths || ''}
             onChange={(event) => change({ termMonths: Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0 })}
-            error={!!termOutside}
-            helperText={product ? (product.minTermMonths === product.maxTermMonths ? `лимит на ${months(product.maxTermMonths)}` : `от ${product.minTermMonths} до ${product.maxTermMonths}`) : ' '} />
+            error={termMissing || termOutside}
+            helperText={termHelperText} />
         </Grid>
         <Grid item xs={12}>
           <TextField label="На что именно пойдут деньги" fullWidth multiline minRows={2} inputProps={{ maxLength: 1000 }}
-            value={form.purposeComment ?? ''} onChange={(event) => change({ purposeComment: event.target.value })}
+            value={form.purposeComment ?? ''}
+            onChange={(event) => change({ purposeComment: event.target.value })}
+            onBlur={() => {
+              const current = form.purposeComment ?? '';
+              const trimmed = current.trim();
+              if (trimmed !== current) change({ purposeComment: trimmed });
+            }}
             helperText="Необязательно, но помогает банку быстрее принять решение" />
         </Grid>
         <Grid item xs={12} sm={6}>
           <MoneyField label="Выручка за последние 12 месяцев" fullWidth required value={form.declaredRevenue12m ?? null}
-            onChange={(value) => change({ declaredRevenue12m: value })} helperText="Как в налоговой отчётности — банк сверит её с данными ФНС" />
+            onChange={(value) => change({ declaredRevenue12m: value })}
+            onBlur={() => setRevenueVisited(true)}
+            error={showRevenueError}
+            helperText={showRevenueError ? 'Укажите годовую выручку больше нуля (по данным отчётности)' : 'Как в налоговой отчётности — банк сверит её с данными ФНС'} />
         </Grid>
         <Grid item xs={12} sm={6}>
           <MoneyField label="Платежи по кредитам в других банках, в месяц" fullWidth value={form.declaredMonthlyDebtPayments ?? null}

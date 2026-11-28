@@ -27,6 +27,7 @@ import { formatDate, formatDateTime, months, percent, rub, rubExact } from '../s
 import { LoanAccount, User } from '../types';
 import { ErrorState } from './ErrorState';
 import { LoadingBlock } from './LoadingBlock';
+import { MoneyField } from './MoneyField';
 import { AgentPaymentReserveBlock, PaymentReserveBlock } from './PaymentReserveBlock';
 import { TableScrollRegion } from './TableScrollRegion';
 
@@ -92,7 +93,8 @@ function ScopedLoanServicingBlock({
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<'tranche' | 'pay' | 'repay' | null>(null);
-  const [trancheAmount, setTrancheAmount] = useState('');
+  const [trancheAmount, setTrancheAmount] = useState<number | null>(null);
+  const [trancheAmountVisited, setTrancheAmountVisited] = useState(false);
   const [tranchePurpose, setTranchePurpose] = useState('');
   const [confirmation, setConfirmation] = useState<LoanOperation | null>(null);
   const [pending, setPending] = useState(() => storageKey ? readPending(storageKey) : null);
@@ -133,10 +135,14 @@ function ScopedLoanServicingBlock({
   const remainingLimit = drawPeriodOpen ? loan.availableLimit : 0;
   const canDrawTranche = canMutate && loan.revolving && remainingLimit > 0;
 
+  const trancheExceeds = trancheAmount != null && trancheAmount > remainingLimit;
+  const trancheEmpty = trancheAmount == null || trancheAmount <= 0;
+
   const handleDrawTranche = (event: FormEvent) => {
     event.preventDefault();
     if (locked) return;
-    const numericAmount = Number(trancheAmount);
+    setTrancheAmountVisited(true);
+    const numericAmount = trancheAmount ?? 0;
     if (!Number.isSafeInteger(numericAmount) || numericAmount <= 0) {
       setActionError('Укажите сумму транша в целых рублях.');
       return;
@@ -176,7 +182,8 @@ function ScopedLoanServicingBlock({
       if (!retry) setLoan(updated);
       clearOperation();
       if (operation.kind === 'tranche') {
-        setTrancheAmount('');
+        setTrancheAmount(null);
+        setTrancheAmountVisited(false);
         setTranchePurpose('');
         setNotice(`Транш на ${rub(operation.amount)} выдан. График платежей пересчитан.`);
       } else {
@@ -315,14 +322,21 @@ function ScopedLoanServicingBlock({
                 Запросить дополнительный транш (доступно {rub(remainingLimit)})
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
-                <TextField
-                  label="Сумма транша, ₽"
-                  type="number"
+                <MoneyField
+                  label="Сумма транша"
                   size="small"
                   required
                   value={trancheAmount}
-                  onChange={(event) => setTrancheAmount(event.target.value)}
-                  inputProps={{ min: 1, max: remainingLimit, step: 1, inputMode: 'numeric' }}
+                  onChange={setTrancheAmount}
+                  onBlur={() => setTrancheAmountVisited(true)}
+                  error={trancheExceeds || (trancheAmountVisited && trancheEmpty)}
+                  helperText={
+                    trancheExceeds
+                      ? `Максимум ${rub(remainingLimit)}`
+                      : trancheAmountVisited && trancheEmpty
+                        ? 'Укажите сумму транша больше нуля'
+                        : undefined
+                  }
                   disabled={locked}
                   sx={{ flex: 1 }}
                 />
@@ -331,6 +345,7 @@ function ScopedLoanServicingBlock({
                   size="small"
                   value={tranchePurpose}
                   onChange={(event) => setTranchePurpose(event.target.value)}
+                  onBlur={() => setTranchePurpose((value) => value.trim())}
                   inputProps={{ maxLength: 255 }}
                   disabled={locked}
                   sx={{ flex: 1.5 }}

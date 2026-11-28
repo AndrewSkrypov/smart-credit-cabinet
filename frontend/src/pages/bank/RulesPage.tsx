@@ -123,8 +123,8 @@ export function RulesPage() {
             </Paper>
             {canEdit && (
               <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
-                <TextField label="Что и зачем меняется" fullWidth multiline minRows={2} value={comment} onChange={(event) => setComment(event.target.value)} inputProps={{ maxLength: 1000 }}
-                  helperText="Попадёт в историю версий" required />
+                <TextField label="Что и зачем меняется" fullWidth multiline minRows={2} value={comment} onChange={(event) => setComment(event.target.value)} onBlur={() => setComment((value) => value.trim())} inputProps={{ maxLength: 1000 }}
+                  helperText={changed && !comment.trim() ? 'Укажите причину изменений — она попадёт в историю версий' : 'Попадёт в историю версий'} required />
                 {error && <Alert severity="error" sx={{ mt: 2 }}>{error}. Черновик остался в форме.
                   <Button onClick={() => guard.request(() => { setDraft(null); setComment(''); setError(null); })}>Загрузить текущие условия</Button>
                 </Alert>}

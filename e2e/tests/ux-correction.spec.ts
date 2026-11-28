@@ -120,7 +120,7 @@ if (process.env.MAIL_TESTS !== '1') {
     await expect.poll(() => page.evaluate(() => scrollY)).toBeLessThanOrEqual(1);
     await login(page, 'client');
     await expect(page.getByText('С правом подписи', { exact: true })).toHaveCount(0);
-    await page.getByRole('link', { name: 'Профиль', exact: true }).click();
+    await page.getByRole('button', { name: 'Меню профиля' }).click().then(() => page.getByRole('menuitem', { name: 'Профиль', exact: true }).click());
     await expect(page.getByText('Подписание договоров: доступно', { exact: true })).toBeVisible();
     await noHorizontalOverflow(page);
   });

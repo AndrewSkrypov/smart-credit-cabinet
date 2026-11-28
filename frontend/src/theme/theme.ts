@@ -159,6 +159,30 @@ export const cabinetTheme = createTheme({
       }
     },
     MuiAlert: { styleOverrides: { root: { borderRadius: 16 } } },
+    // Every dropdown (profile, notifications, selects) is the same floating sheet.
+    MuiPopover: {
+      styleOverrides: {
+        paper: {
+          borderRadius: 14,
+          border: `1px solid ${alpha('#0b1f35', 0.08)}`,
+          boxShadow: '0 12px 32px rgba(3, 3, 6, 0.14), 0 2px 6px rgba(3, 3, 6, 0.06)',
+        }
+      }
+    },
+    MuiMenu: { styleOverrides: { list: { padding: 6 } } },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          borderRadius: 10,
+          minHeight: 40,
+          gap: 4,
+          '&.Mui-selected': { backgroundColor: tokens.secondaryFill, fontWeight: 500 },
+          '&.Mui-selected:hover': { backgroundColor: alpha('#0f1937', 0.14) },
+          '&:hover': { backgroundColor: alpha('#0f1937', 0.06) },
+        }
+      }
+    },
+    MuiListItemIcon: { styleOverrides: { root: { minWidth: 32, color: tokens.neutral } } },
     MuiDialog: { styleOverrides: { paper: { borderRadius: 24 } } },
     MuiAppBar: { styleOverrides: { root: { backgroundColor: '#ffffff', color: tokens.ink, borderBottom: `1px solid ${tokens.line}` } } },
     MuiLink: { defaultProps: { underline: 'hover' }, styleOverrides: { root: { color: tokens.ink, transition: 'opacity 0.15s ease-in-out' } } },

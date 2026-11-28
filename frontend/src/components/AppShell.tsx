@@ -1,14 +1,14 @@
-import { Box, Button, Container, IconButton, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
-import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
+import { Box, Container, Tab, Tabs } from '@mui/material';
 import { useRef } from 'react';
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import { roleHome, useAuth } from '../auth/AuthProvider';
-import { bankRoles, roleLabels } from '../shared/labels';
+import { bankRoles } from '../shared/labels';
 import { nightGlow, tokens } from '../theme/theme';
 import { DocumentSurface } from './DocumentSurface';
 import { BrandMark } from './BrandMark';
 import { AssistantPanel } from './AssistantPanel';
 import { NotificationBell } from './NotificationBell';
+import { ProfileMenu } from './ProfileMenu';
 import { OnboardingHeaderMenu, OnboardingProvider, OnboardingWelcomeBanner } from './onboarding/OnboardingTour';
 
 /** Sections of the bank workspace; the rules are changed by the risk administrator, read by all staff. */
@@ -29,12 +29,18 @@ const agentSections = [
   { path: '/agent', label: 'Портфель' }
 ];
 
-// Light tabs on the dark band; the current one is marked by the brand's red line.
+// Light tabs on the dark band: the current section is a soft pill, the others are muted.
 const darkTabs = {
-  minHeight: 48,
-  '& .MuiTab-root': { color: 'rgba(255, 255, 255, 0.72)', minHeight: 48, fontWeight: 500 },
-  '& .MuiTab-root.Mui-selected': { color: '#fff' },
-  '& .MuiTabs-indicator': { backgroundColor: tokens.red, height: 3, borderRadius: 3 }
+  minHeight: 44,
+  '& .MuiTabs-indicator': { display: 'none' },
+  '& .MuiTabs-flexContainer': { gap: 0.5 },
+  '& .MuiTab-root': {
+    color: 'rgba(255, 255, 255, 0.64)', minHeight: 36, minWidth: 0, my: 0.5, px: 2, py: 0.75, borderRadius: '99px', fontWeight: 500, fontSize: 15,
+    transition: 'background-color 0.2s ease, color 0.2s ease',
+    '&:hover': { color: '#fff', bgcolor: 'rgba(255, 255, 255, 0.06)' },
+  },
+  '& .MuiTab-root.Mui-selected': { color: '#fff', bgcolor: 'rgba(255, 255, 255, 0.14)' },
+  '& .MuiTab-root.Mui-focusVisible': { outline: `3px solid ${tokens.info}`, outlineOffset: -3 },
 } as const;
 
 /**
@@ -66,16 +72,9 @@ export function AppShell() {
             <BrandMark to={roleHome[user.role]} compact inverted label={bank ? 'Рабочее место банка' : agent ? 'Кабинет агента' : 'Кабинет предпринимателя'} />
             {tabs({ display: { xs: 'none', lg: 'flex' }, flexGrow: 1, minWidth: 0 })}
             <Box sx={{ flexGrow: 1, display: { lg: 'none' } }} />
-            <Stack sx={{ display: { xs: 'none', sm: 'flex' }, textAlign: 'right', minWidth: 0, maxWidth: { lg: 170 } }} title={`${user.fullName} · ${roleLabels[user.role]}`}>
-              <Typography variant="body2" fontWeight={500} noWrap>{user.fullName}</Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.64)' }} noWrap>{roleLabels[user.role]}</Typography>
-            </Stack>
             <OnboardingHeaderMenu />
-            <Tooltip title="Профиль">
-              <IconButton data-tour="profile-btn" component={RouterLink} to="/profile" aria-label="Профиль" sx={{ color: '#fff' }}><AccountCircleOutlinedIcon /></IconButton>
-            </Tooltip>
             <Box data-tour="notifications-bell" sx={{ color: '#fff', '& .MuiIconButton-root': { color: '#fff' } }}><NotificationBell /></Box>
-            <Button onClick={signOut} sx={{ borderRadius: '99px', paddingInline: { xs: 1.75, sm: 3 }, flexShrink: 0, whiteSpace: 'nowrap', bgcolor: tokens.nightButton, color: '#fff', '&:hover': { bgcolor: '#3a3a3f' } }}>Выйти</Button>
+            <ProfileMenu user={user} onSignOut={signOut} />
           </Box>
         </Container>
       </Box>

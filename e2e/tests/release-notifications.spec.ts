@@ -13,7 +13,7 @@ test('Профиль показывает почтовые настройки т
     expect(response.ok()).toBeTruthy();
     return (await response.json()).emailAvailable;
   }, { timeout: 20000 }).toBe(mailEnabled);
-  await page.getByRole('link', { name: 'Профиль', exact: true }).click();
+  await page.getByRole('button', { name: 'Меню профиля' }).click().then(() => page.getByRole('menuitem', { name: 'Профиль', exact: true }).click());
   await expect(page.getByRole('heading', { name: 'Профиль', exact: true })).toBeVisible();
   if (mailEnabled) {
     await expect(page.getByLabel(label, { exact: true })).toBeVisible();

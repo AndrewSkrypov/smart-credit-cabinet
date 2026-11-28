@@ -6,11 +6,13 @@ DDL and permissions are applied; history rows are explicitly test fixtures,
 not a claim that a targeted JVM/Flyway migration ran.
 """
 from hashlib import sha256
+from contextlib import nullcontext
 import importlib.util
 import json
 from pathlib import Path
 import re
 import subprocess
+from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 REPO = Path(__file__).resolve().parents[3]
@@ -90,12 +92,14 @@ def run(query):
                         f"values('{account}','{application}','{company}','LEGACY-OWN',400000,200000,200000.00,20.00,12,true,'2026-01-01T00:00:00Z','2027-01-01');"
                         f"insert into loan_tranches(id,loan_account_id,tranche_number,amount,disbursed_at) values('{tranche}','{account}',1,200000,'2026-01-01T00:00:00Z');")
         old_fences = {db: transfer.fence_info(db) for db in ("credit", "servicing")}
-        old_data = {db: transfer.snapshot(db) for db in ("credit", "servicing")}
+        old_data = {db: transfer.snapshot(db, legacy_backup=True) for db in ("credit", "servicing")}
         old_hash = {db: transfer.checksum(data) for db, data in old_data.items()}
         passed("legacy-seven-key-json-empty-operations", all(set(data) == set(transfer.TABLES) and data["loan_operations"] == [] for data in old_data.values()))
         passed("legacy-existing-aggregate-row", len(old_data["credit"]["loan_accounts"]) == len(old_data["credit"]["loan_tranches"]) == 1)
         for db, active in (("credit", True), ("servicing", False)):
-            transfer.require_grants(db, active)
+            denied(db + "-legacy-default-grants-strict", lambda db=db, active=active: transfer.require_grants(db, active))
+            denied(db + "-legacy-default-snapshot-strict", lambda db=db: transfer.snapshot(db))
+            transfer.require_grants(db, active, legacy_backup=True)
             passed(db + "-legacy-grants")
             privileges = [f"has_table_privilege('{db}_app','public.{table}','{right}')" for table in transfer.TABLES for right in ("SELECT", "INSERT", "UPDATE", "DELETE")]
             condition = " and ".join(privileges) if active else "not (" + " or ".join(privileges) + ")"
@@ -104,49 +108,49 @@ def run(query):
             for table in (name for name in transfer.TABLES if name != "loan_operations"):
                 query(db, f"alter table {table} rename to legacy_missing_table;")
                 try:
-                    denied(db + "-missing-" + table, lambda db=db, active=active: transfer.require_grants(db, active))
-                    denied(db + "-snapshot-missing-" + table, lambda db=db: transfer.snapshot(db))
+                    denied(db + "-missing-" + table, lambda db=db, active=active: transfer.require_grants(db, active, legacy_backup=True))
+                    denied(db + "-snapshot-missing-" + table, lambda db=db: transfer.snapshot(db, legacy_backup=True))
                 finally:
                     query(db, f"alter table legacy_missing_table rename to {table};")
             for right in ("SELECT", "INSERT", "UPDATE", "DELETE"):
                 wrong, restore = ("revoke", "grant") if active else ("grant", "revoke")
                 query(db, f"{wrong} {right} on loan_accounts {'from' if wrong == 'revoke' else 'to'} {db}_app;")
                 try:
-                    denied(db + "-legacy-wrong-" + right, lambda db=db, active=active: transfer.require_grants(db, active))
+                    denied(db + "-legacy-wrong-" + right, lambda db=db, active=active: transfer.require_grants(db, active, legacy_backup=True))
                 finally:
                     query(db, f"{restore} {right} on loan_accounts {'from' if restore == 'revoke' else 'to'} {db}_app;")
             for changed, restore in (("revoke SELECT", "grant SELECT"), ("grant UPDATE", "revoke UPDATE")):
                 query(db, f"{changed} on servicing_writer_fence {'from' if changed.startswith('revoke') else 'to'} {db}_app;")
                 try:
-                    denied(db + "-legacy-fence-" + changed.replace(" ", "-"), lambda db=db, active=active: transfer.require_grants(db, active))
+                    denied(db + "-legacy-fence-" + changed.replace(" ", "-"), lambda db=db, active=active: transfer.require_grants(db, active, legacy_backup=True))
                 finally:
                     query(db, f"{restore} on servicing_writer_fence {'from' if restore.startswith('revoke') else 'to'} {db}_app;")
             threshold = 27 if db == "credit" else 2
             history(db, threshold, 9000)
             try:
-                denied(db + "-modern-history-missing-operations-grants", lambda db=db, active=active: transfer.require_grants(db, active))
-                denied(db + "-modern-history-missing-operations-snapshot", lambda db=db: transfer.snapshot(db))
+                denied(db + "-modern-history-missing-operations-grants", lambda db=db, active=active: transfer.require_grants(db, active, legacy_backup=True))
+                denied(db + "-modern-history-missing-operations-snapshot", lambda db=db: transfer.snapshot(db, legacy_backup=True))
             finally:
                 query(db, "delete from flyway_schema_history where installed_rank=9000;")
             query(db, "alter table flyway_schema_history rename to missing_history;")
             try:
-                denied(db + "-missing-history", lambda db=db: transfer.snapshot(db))
+                denied(db + "-missing-history", lambda db=db: transfer.snapshot(db, legacy_backup=True))
             finally:
                 query(db, "alter table missing_history rename to flyway_schema_history;")
             query(db, "update flyway_schema_history set success=false where installed_rank=1;")
             try:
-                denied(db + "-failed-history", lambda db=db, active=active: transfer.require_grants(db, active))
+                denied(db + "-failed-history", lambda db=db, active=active: transfer.require_grants(db, active, legacy_backup=True))
             finally:
                 query(db, "update flyway_schema_history set success=true where installed_rank=1;")
             query(db, "update flyway_schema_history set version='unknown' where installed_rank=1;")
             try:
-                denied(db + "-unknown-version", lambda db=db: transfer.snapshot(db))
+                denied(db + "-unknown-version", lambda db=db: transfer.snapshot(db, legacy_backup=True))
             finally:
                 query(db, "update flyway_schema_history set version='1' where installed_rank=1;")
             query(db, "update flyway_schema_history set version=null where installed_rank=1;")
             try:
-                denied(db + "-null-version-grants", lambda db=db, active=active: transfer.require_grants(db, active))
-                denied(db + "-null-version-snapshot", lambda db=db: transfer.snapshot(db))
+                denied(db + "-null-version-grants", lambda db=db, active=active: transfer.require_grants(db, active, legacy_backup=True))
+                denied(db + "-null-version-snapshot", lambda db=db: transfer.snapshot(db, legacy_backup=True))
             finally:
                 query(db, "update flyway_schema_history set version='1' where installed_rank=1;")
         # Mutating owner operations still require every current table.
@@ -154,7 +158,49 @@ def run(query):
         denied("legacy-activate-still-strict-seven", lambda: transfer.activate("servicing", "REMOTE", old_hash["credit"]))
         denied("legacy-import-still-strict-seven", lambda: transfer.import_snapshot("servicing", old_data["servicing"]))
         passed("legacy-denials-kept-fences-and-rows", old_fences == {db: transfer.fence_info(db) for db in old_fences}
-               and old_hash == {db: transfer.checksum(transfer.snapshot(db)) for db in old_hash})
+               and old_hash == {db: transfer.checksum(transfer.snapshot(db, legacy_backup=True)) for db in old_hash})
+        # Exercise actual recover against real legacy SQL. This provider alone
+        # owns these fresh databases; only the external service-process lock is
+        # substituted, not SQL/grants/snapshots/fences/manifest verification.
+        original_lock, original_sql = transfer.control_lock, transfer.sql
+        transfer.control_lock = lambda database: nullcontext()
+        try:
+            with TemporaryDirectory(prefix="legacy-recovery-manifest-") as temporary:
+                directory = Path(temporary)
+                manifest = transfer.save(directory, "source-fenced.json", old_data["credit"])
+                transfer.save(directory, "target-before.json", old_data["servicing"])
+                digest = old_hash["credit"]
+                for phase, credit_writer, servicing_writer, abort in (
+                    ("completed-after-abort", "LOCAL", "FENCED", True),
+                    ("completed-after-activation", "FENCED", "REMOTE", False),
+                ):
+                    for db, writer in (("credit", credit_writer), ("servicing", servicing_writer)):
+                        query(db, f"update servicing_writer_fence set writer='{writer}',manifest_sha256='{digest}' where singleton;")
+                        active = writer == ("LOCAL" if db == "credit" else "REMOTE")
+                        rights = "grant select,insert,update,delete on " if active else "revoke select,insert,update,delete on "
+                        tables = ",".join("public." + table for table in transfer.TABLES if table != "loan_operations")
+                        query(db, rights + tables + (" to " if active else " from ") + db + "_app;")
+                        transfer.require_grants(db, active, legacy_backup=True)
+                    passed("legacy-recovery-" + phase + "-valid-old-grant-profiles")
+                    before = {db: transfer.fence_info(db) for db in old_fences}
+                    statements = []
+                    def recovery_query(database, statement):
+                        statements.append(statement)
+                        return query(database, statement)
+                    transfer.sql = recovery_query
+                    try:
+                        denied("legacy-recovery-" + phase + "-strict-no-write", lambda: transfer.recover("credit", "servicing", "remote", manifest, abort))
+                    finally:
+                        transfer.sql = original_sql
+                    passed("legacy-recovery-" + phase + "-only-selects", bool(statements) and all(statement.lstrip().lower().startswith("select ") for statement in statements))
+                    passed("legacy-recovery-" + phase + "-unchanged-fences", before == {db: transfer.fence_info(db) for db in old_fences})
+        finally:
+            transfer.control_lock, transfer.sql = original_lock, original_sql
+            for db, stamp in old_fences.items():
+                query(db, "update servicing_writer_fence set writer=" + transfer.literal(stamp["writer"]) + ",manifest_sha256=null where singleton;")
+                rights = "grant select,insert,update,delete on " if db == "credit" else "revoke select,insert,update,delete on "
+                tables = ",".join("public." + table for table in transfer.TABLES if table != "loan_operations")
+                query(db, rights + tables + (" to " if db == "credit" else " from ") + db + "_app;")
         for db, version, active in (("credit", 27, True), ("servicing", 2, False)):
             path, = (REPO / "services" / db / "src/main/resources/db/migration").glob(f"V{version}__*.sql")
             query(db, source(path)); history(db, version, version)
@@ -182,6 +228,7 @@ def run(query):
         passed("current-fences-unchanged", old_fences == {db: transfer.fence_info(db) for db in old_fences})
         return {"checks": checks, "sql_sources_sha256": files, "legacy_snapshot_sha256": old_hash,
                 "legacy_fences": old_fences, "history_fixture": "SQL-only actual source DDL plus explicit synthetic Flyway history; no targeted JVM migration",
+                "recovery_fixture_lock_scope": "exclusive fresh provider databases; only service-process control_lock substituted; actual SQL and recovery guards retained",
                 "schemaVersion": 1, "table_inventory": list(transfer.TABLES)}
     finally:
         if initialized:

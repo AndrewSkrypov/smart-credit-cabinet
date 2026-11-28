@@ -133,6 +133,13 @@ documentation:
       npm ci --prefix e2e
       npm ci --prefix contracts/postman
       npm ci --prefix scripts/license-tools
+    - |
+      source ci/gitlab/quality/mcp-image.sh
+      mcp_node=$(mcp_base_image)
+      docker run --rm --user "$(id -u):$(id -g)" \
+        --mount "type=bind,src=$CI_PROJECT_DIR/integrations/cabinet-mcp,dst=/module" \
+        --workdir /module --env npm_config_cache=/tmp/npm-cache \
+        "$mcp_node" npm ci --ignore-scripts
     - node scripts/generate-notices.mjs --check
     - python3 security/audit-dependencies.py
   artifacts:

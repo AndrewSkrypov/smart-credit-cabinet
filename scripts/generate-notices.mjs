@@ -51,7 +51,7 @@ for (const [key, item] of backend) {
 }
 
 const npm = [];
-for (const directory of ['frontend', 'e2e', 'contracts/postman', 'scripts/license-tools']) {
+for (const directory of ['frontend', 'e2e', 'contracts/postman', 'scripts/license-tools', 'integrations/cabinet-mcp']) {
   const installed = await new Promise((resolve, reject) => checker.init({
     start: path.join(root, directory), json: true,
   }, (error, data) => error ? reject(error) : resolve(data)));

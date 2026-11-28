@@ -24,6 +24,7 @@ from common import Deployment, ROOT, deploy_lock, lock_environment, replace_env
 from dev_diagnostics import diagnose, read_request
 from dev_payment_reserve import canonical_origin
 from business_smoke import run as run_business_smoke
+from mcp_business_smoke import run as run_mcp_business_smoke
 from jury import COMPANY, provision, read_credentials, verify
 from registry_release import RegistryRelease, REVISION
 import runtime_attempts
@@ -258,6 +259,10 @@ def deploy(args, state_dir, release):
             report["release"]["business_smoke"] = run_business_smoke(
                 deployment, state_dir, status, desired, report, lock_fd=args.deployment_fd,
             )
+            if getattr(deployment, "mcp", False) is True:
+                report["release"]["mcp_business_smoke"] = run_mcp_business_smoke(
+                    deployment, state_dir, status, desired, report, lock_fd=args.deployment_fd,
+                )
         if (not args.verify_only and pending_file.exists() and release.has_all_runtimes
                 and (deployment.runtime_modes or deployment.alpha_dev)):
             attempt = runtime_attempts.load(state_dir, release)
@@ -273,6 +278,8 @@ def deploy(args, state_dir, release):
                     fresh_alpha = verify_alpha_catchup(deployment, attempt["alpha"]["frozen"])
                     report["alpha_continuity"] = {**fresh_alpha, "manifest_sha256": release.checksum}
                     report["release"]["business_smoke"]["alpha_catchup_verified"] = True
+                    if "mcp_business_smoke" in report["release"]:
+                        report["release"]["mcp_business_smoke"]["alpha_catchup_verified"] = True
                 else:
                     report["alpha_continuity"] = alpha
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):

@@ -1,3 +1,4 @@
+import { createOperationId } from '../shared/operationId';
 import { Alert, Box, Button, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { paymentReserveApi, PaymentReserveInputs, PaymentReserveQuote } from '../api/financing';
@@ -102,7 +103,7 @@ export function PaymentReserveBlock({ loanId, active, onDrawn }: { loanId: strin
   }
 
   function recordReceipt(status: 'RECEIVED' | 'DELAYED') {
-    if (receiptEvent.current?.status !== status) receiptEvent.current = { id: crypto.randomUUID(), status };
+    if (receiptEvent.current?.status !== status) receiptEvent.current = { id: createOperationId(), status };
     const eventId = receiptEvent.current.id;
     void run(() => paymentReserveApi.receipt(loanId, eventId, status));
   }

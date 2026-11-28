@@ -1,8 +1,10 @@
+import { createOperationId } from '../shared/operationId';
 import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined';
 import { Alert, Box, Button, Chip, Dialog, DialogContent, DialogTitle, Paper, Stack, TextField, Typography } from '@mui/material';
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { agentApi, applicationsApi, chatApi } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
+import { useVisibleRefresh } from '../hooks/useVisibleRefresh';
 import { FINISHED_STATUSES } from '../shared/applicationText';
 import { fileSize, formatDateTime } from '../shared/format';
 import { bankRoles, roleLabels } from '../shared/labels';
@@ -35,7 +37,7 @@ export function MessagesBlock({ applicationId, status }: { applicationId: string
   const [auditOpen, setAuditOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const currentSeq = useRef(0);
-  const messageKey = useRef(crypto.randomUUID());
+  const messageKey = useRef(createOperationId());
   const historyBox = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -62,9 +64,9 @@ export function MessagesBlock({ applicationId, status }: { applicationId: string
   const cancelPending = useCallback(() => { ticket.current += 1; }, []);
   useEffect(() => {
     void load();
-    const timer = window.setInterval(() => void load(), POLL_MS);
-    return () => { cancelPending(); window.clearInterval(timer); };
+    return cancelPending;
   }, [load, status, cancelPending]);
+  useVisibleRefresh(load, POLL_MS);
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => setEndVisible(entry.isIntersecting));
     if (end.current) observer.observe(end.current);
@@ -111,17 +113,17 @@ export function MessagesBlock({ applicationId, status }: { applicationId: string
         : await chatApi.send(applicationId, messageKey.current, text, files.map((file) => file.id));
       atBottom.current = true;
       setMessages((current) => merge(current, [sent]));
-      setText(''); setFiles([]); messageKey.current = crypto.randomUUID();
+      setText(''); setFiles([]); messageKey.current = createOperationId();
       await load();
     } catch (next) { setError(next instanceof Error ? next.message : 'Не удалось отправить сообщение. Повторите отправку.'); }
     finally { setSending(false); }
   };
-  const upload = async (file: File, key: string = crypto.randomUUID()) => {
+  const upload = async (file: File, key: string = createOperationId()) => {
     setUploading(true); setError(null);
     try {
       const stored = isAgent ? await agentApi.chatUpload(applicationId, key, file) : await chatApi.upload(applicationId, key, file);
       setFiles((current) => current.some((entry) => entry.id === stored.id) ? current : [...current, stored]);
-      messageKey.current = crypto.randomUUID(); setFailedUpload(null);
+      messageKey.current = createOperationId(); setFailedUpload(null);
     } catch (next) { setFailedUpload({ file, key }); setError(next instanceof Error ? next.message : 'Не удалось загрузить вложение'); }
     finally { setUploading(false); }
   };
@@ -167,8 +169,8 @@ export function MessagesBlock({ applicationId, status }: { applicationId: string
         {writable && <Stack component="form" spacing={2} onSubmit={(event) => void send(event)}>
           <SensitiveDataNotice />
           <TextField label="Сообщение" multiline minRows={3} value={text} disabled={sending} inputProps={{ maxLength: 2000 }} helperText={`${text.length} из 2000 символов. Только простой текст.`}
-            onChange={(event) => { setText(event.target.value); messageKey.current = crypto.randomUUID(); }} />
-          {files.map((file) => <Chip key={file.id} label={file.fileName} sx={{ maxWidth: '100%', alignSelf: 'flex-start' }} disabled={sending || uploading} onDelete={() => { setFiles((current) => current.filter((entry) => entry.id !== file.id)); messageKey.current = crypto.randomUUID(); }} />)}
+            onChange={(event) => { setText(event.target.value); messageKey.current = createOperationId(); }} />
+          {files.map((file) => <Chip key={file.id} label={file.fileName} sx={{ maxWidth: '100%', alignSelf: 'flex-start' }} disabled={sending || uploading} onDelete={() => { setFiles((current) => current.filter((entry) => entry.id !== file.id)); messageKey.current = createOperationId(); }} />)}
           {failedUpload && <Stack spacing={1}>
             <Typography color="text.secondary">Вложение не загружено. Повторите загрузку или отмените её перед отправкой.</Typography>
             <Button disabled={uploading || sending} onClick={() => void upload(failedUpload.file, failedUpload.key)}>Повторить загрузку</Button>

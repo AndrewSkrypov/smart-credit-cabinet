@@ -48,9 +48,10 @@ message LoanAccount {
  string rate = 8; int32 term_months = 9; bool revolving = 10; string status = 11;
  string disbursed_at = 12; string maturity_date = 13; optional string repaid_at = 14;
  repeated LoanTranche tranches = 15; repeated LoanPayment payments = 16; int64 available_limit = 17;
+ bool operation_in_progress = 18;
 }
 message AccountResponse { optional LoanAccount account = 1; }
-message DrawCommand { ServicingActor actor = 1; int64 amount = 2; optional string purpose = 3; optional string operation_key = 4; }
+message DrawCommand { ServicingActor actor = 1; int64 amount = 2; optional string purpose = 3; optional string operation_key = 4; optional string expected_revision = 5; }
 message DrawRequest { string loan_id = 1; DrawCommand command = 2; }
 // operation_key and payment_id are used by PayNext only.
 message ActorRequest { string loan_id = 1; ServicingActor actor = 2; optional string operation_key = 3; optional string payment_id = 4; }

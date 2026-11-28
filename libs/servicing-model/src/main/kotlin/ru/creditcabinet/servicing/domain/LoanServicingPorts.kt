@@ -10,6 +10,7 @@ data class LoanOperationReceipt(val operationKey: UUID, val fingerprint: String,
 interface LoanAccountStore {
     fun existsByApplicationId(applicationId: UUID): Boolean
     fun findByApplicationId(applicationId: UUID): LoanAccount?
+    fun findByApplicationIdForView(applicationId: UUID): LoanAccount? = findByApplicationId(applicationId)
     fun findById(id: UUID): LoanAccount?
     fun findByIdForUpdate(id: UUID): LoanAccount?
     fun create(account: LoanAccount)

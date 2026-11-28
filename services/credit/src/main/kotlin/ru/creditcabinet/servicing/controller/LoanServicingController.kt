@@ -24,6 +24,7 @@ import java.util.UUID
 data class DrawTrancheRequest(
     val amount: Long,
     val purpose: String? = null,
+    val expectedRevision: String? = null,
 )
 
 data class PayNextRequest(val paymentId: UUID)
@@ -65,6 +66,8 @@ data class LoanAccountResponse(
     val repaidAt: Instant?,
     val tranches: List<LoanTrancheResponse>,
     val payments: List<LoanPaymentResponse>,
+    val operationInProgress: Boolean,
+    val operationRevision: String,
 )
 
 @Tag(name = "Обслуживание кредита и транши")
@@ -91,7 +94,7 @@ class LoanServicingController(
         @RequestHeader("Idempotency-Key") key: UUID,
         @RequestBody request: DrawTrancheRequest,
     ): LoanAccountResponse =
-        servicing.drawTranche(loanId, key, request.amount, request.purpose).toResponse()
+        servicing.drawTranche(loanId, key, request.amount, request.purpose, request.expectedRevision).toResponse()
 
     @Operation(summary = "Провести очередной плановый платёж по кредиту (только клиент)")
     @PostMapping("/api/v1/loans/{loanId}/payments/next")
@@ -124,6 +127,8 @@ class LoanServicingController(
         repaidAt = repaidAt,
         tranches = tranches.map { it.toResponse() },
         payments = payments.map { it.toResponse() },
+        operationInProgress = operationInProgress,
+        operationRevision = operationRevision(),
     )
 
     private fun LoanTranche.toResponse() = LoanTrancheResponse(

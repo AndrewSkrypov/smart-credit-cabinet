@@ -2,8 +2,8 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { setTimeout as pause } from 'node:timers/promises';
 
-// API fixtures and browser sign-ins share the gateway's 30 requests/minute budget in CI.
-// The limit-specific scenario sends its own requests to exercise the live 429 response.
+// Pace shared fixtures so an entire CI run stays within the gateway and Identity quotas.
+// The multisession scenario sends its own office-network sign-ins in parallel.
 const SIGN_IN_INTERVAL_MS = 2_100;
 let nextSignInAt = 0;
 
@@ -21,6 +21,7 @@ export interface Application {
   id: string;
   number: number;
   status: string;
+  version?: number;
   productCode?: string;
   process: {
     offer?: { kind: string; amount: number };
@@ -103,7 +104,9 @@ export async function createScenario(request: APIRequestContext, account: string
   const created = await request.post('/api/v1/applications', { headers: headers(session), data: { ...company.scenario.request, bureauConsent: true } });
   expect(created.status(), await created.text()).toBe(201);
   const app: Application = await created.json();
-  const submitted = await request.post(`/api/v1/applications/${app.id}/submit`, { headers: { ...headers(session), 'Idempotency-Key': randomUUID() } });
+  const submitted = await request.post(`/api/v1/applications/${app.id}/submit`, {
+    headers: { ...headers(session), 'Idempotency-Key': randomUUID() }, data: { expectedVersion: app.version }
+  });
   expect(submitted.ok(), await submitted.text()).toBeTruthy();
   return { session, app };
 }

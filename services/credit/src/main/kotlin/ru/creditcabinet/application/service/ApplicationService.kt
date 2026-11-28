@@ -72,12 +72,13 @@ class ApplicationService(
     }
 
     @Transactional
-    override fun updateDraft(id: UUID, terms: ApplicationTerms): LoanApplication {
+    override fun updateDraft(id: UUID, terms: ApplicationTerms, expectedVersion: Long?): LoanApplication {
         val (_, application) = own(id)
         if (application.status == ApplicationStatus.DRAFT && application.activeAgentId != null) throw notFound()
         if (application.agentId != null) {
             throw Conflict("Черновик агентской заявки может редактировать только агент")
         }
+        application.requireDraftVersion(expectedVersion)
         val product = product(application.terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
         val updated = preApprovedOffers.detachIfOutOfBounds(application.updateDraft(terms, clock.instant()), terms)
@@ -89,8 +90,8 @@ class ApplicationService(
      * returns the application as it is instead of a second attempt and its 409.
      */
     @Transactional
-    override fun submit(id: UUID, idempotencyKey: String?, acceptedProductVersion: Long?): LoanApplication {
-        val (claims, application) = own(id)
+    override fun submit(id: UUID, idempotencyKey: String?, acceptedProductVersion: Long?, expectedVersion: Long?): LoanApplication {
+        val (claims, application) = own(id, forUpdate = true)
         if (application.agentId != null) {
             throw Conflict("Агентскую заявку нельзя отправить напрямую — сначала требуется подтверждение клиента")
         }
@@ -99,6 +100,7 @@ class ApplicationService(
             if (previous == id) return application
             if (previous != null) throw Conflict("Этот Idempotency-Key уже использован для другой заявки")
         }
+        expectedVersion?.let(application::requireDraftVersion)
         val snapshot = submissionSnapshot(application, acceptedProductVersion)
         val selected = snapshot.selected
         val pinned = application.copy(productVersion = selected.version, productCatalogSnapshot = snapshot.versions)

@@ -7,7 +7,10 @@ import { UserSession } from '../../types';
 import { Application } from '../../types';
 import { FinancingScenarioEditor } from './FinancingScenarioEditor';
 
-vi.mock('../../api/client', () => ({ agentApi: { uploadDocument: vi.fn() } }));
+vi.mock('../../api/client', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../api/client')>(),
+  agentApi: { uploadDocument: vi.fn() }
+}));
 
 vi.mock('../../api/financing', () => ({
   extractInvoice: vi.fn(),
@@ -83,7 +86,7 @@ describe('FinancingScenarioEditor', () => {
       selectedTermMonths: 24,
       delayDays: 14,
       source: { page: 1, amountQuote: 'К оплате 140 000 руб.', dateQuote: 'Срок оплаты 10.12.2026', documentId: 'invoice-document' }
-    })));
+    }), 0));
     const uploads = vi.mocked(agentApi.uploadDocument).mock.calls;
     expect(uploads).toHaveLength(lostReply ? 2 : 1);
     expect(uploads[0][3]).toEqual(expect.any(String));

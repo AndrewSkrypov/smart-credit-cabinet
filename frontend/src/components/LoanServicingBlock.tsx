@@ -1,3 +1,4 @@
+import { createOperationId } from '../shared/operationId';
 import {
   Alert,
   Box,
@@ -23,6 +24,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { agentApi, ApiError, loanServicingApi } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
 import { readSession } from '../auth/session';
+import { useVisibleRefresh } from '../hooks/useVisibleRefresh';
 import { formatDate, formatDateTime, months, percent, rub, rubExact } from '../shared/format';
 import { LoanAccount, User } from '../types';
 import { ErrorState } from './ErrorState';
@@ -31,7 +33,7 @@ import { AgentPaymentReserveBlock, PaymentReserveBlock } from './PaymentReserveB
 import { TableScrollRegion } from './TableScrollRegion';
 
 type LoanOperation =
-  | { kind: 'tranche'; amount: number; purpose?: string }
+  | { kind: 'tranche'; amount: number; purpose?: string; expectedRevision?: string }
   | { kind: 'pay'; amount: number; paymentId: string; dueDate: string; paymentNumber: number };
 
 type PendingOperation = { loanId: string; key: string; operation: LoanOperation };
@@ -97,27 +99,36 @@ function ScopedLoanServicingBlock({
   const [confirmation, setConfirmation] = useState<LoanOperation | null>(null);
   const [pending, setPending] = useState(() => storageKey ? readPending(storageKey) : null);
   const inFlight = useRef(false);
+  const requestSequence = useRef(0);
 
   const ownsCurrentSession = () => storageKey !== null && operationStorageKey(readSession()?.user, applicationId) === storageKey;
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (background = false) => {
+    if (background && inFlight.current) return;
+    const request = ++requestSequence.current;
+    if (!background) setLoading(true);
     try {
       const data = agentScope
         ? await agentApi.getLoan(applicationId)
         : await loanServicingApi.getByApplication(applicationId);
+      if (request !== requestSequence.current) return;
       setLoan(data);
       setLoadError(null);
     } catch (nextError) {
-      setLoadError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить данные по обслуживанию кредита');
+      if (request === requestSequence.current) {
+        setLoadError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить данные по обслуживанию кредита');
+      }
     } finally {
-      setLoading(false);
+      if (request === requestSequence.current) setLoading(false);
     }
   }, [agentScope, applicationId]);
 
   useEffect(() => {
     void load();
+    return () => { requestSequence.current += 1; };
   }, [load]);
+  const refresh = useCallback(() => load(true), [load]);
+  useVisibleRefresh(refresh, loan?.operationInProgress ? 1500 : 15000);
 
   if (loading && !loan) return <LoadingBlock />;
   if (loadError && !loan) return <ErrorState message={loadError} onRetry={() => void load()} />;
@@ -126,7 +137,7 @@ function ScopedLoanServicingBlock({
   const isActive = loan.status === 'ACTIVE';
   const canMutate = storageKey !== null && isActive;
   const currentPending = pending?.loanId === loan.id ? pending : null;
-  const locked = busyAction !== null || currentPending !== null || loading || loadError !== null;
+  const locked = busyAction !== null || currentPending !== null || loading || loadError !== null || loan.operationInProgress === true;
   const nextPayment = loan.payments.find(payment => payment.status === 'SCHEDULED');
   const today = moscowDate.format(new Date());
   const drawPeriodOpen = today < loan.maturityDate && loan.payments.some(payment => payment.status === 'SCHEDULED' && payment.dueDate > today);
@@ -146,12 +157,13 @@ function ScopedLoanServicingBlock({
       return;
     }
     setActionError(null);
-    setConfirmation({ kind: 'tranche', amount: numericAmount, purpose: tranchePurpose.trim() || undefined });
+    setConfirmation({ kind: 'tranche', amount: numericAmount, purpose: tranchePurpose.trim() || undefined, expectedRevision: loan.operationRevision });
   };
 
   const applyOperation = async (attempt: PendingOperation, retry = false) => {
-    if (inFlight.current || !storageKey || !ownsCurrentSession()) return;
+    if (inFlight.current || !storageKey || !ownsCurrentSession() || (locked && !retry)) return;
     inFlight.current = true;
+    requestSequence.current += 1;
     const { operation, key, loanId } = attempt;
     const clearOperation = () => {
       setPending(current => current?.key === key ? null : current);
@@ -172,7 +184,7 @@ function ScopedLoanServicingBlock({
     try {
       const updated = operation.kind === 'pay'
         ? await loanServicingApi.payNext(loanId, operation.paymentId, key)
-        : await loanServicingApi.drawTranche(loanId, operation.amount, operation.purpose, key);
+        : await loanServicingApi.drawTranche(loanId, operation.amount, operation.purpose, key, operation.expectedRevision);
       if (!retry) setLoan(updated);
       clearOperation();
       if (operation.kind === 'tranche') {
@@ -196,7 +208,9 @@ function ScopedLoanServicingBlock({
   };
 
   const handleRepayEarly = async () => {
-    if (!ownsCurrentSession()) return;
+    if (locked || inFlight.current || !ownsCurrentSession()) return;
+    inFlight.current = true;
+    requestSequence.current += 1;
     setBusyAction('repay');
     setActionError(null);
     setNotice(null);
@@ -206,7 +220,9 @@ function ScopedLoanServicingBlock({
       setNotice('Кредит полностью погашен досрочно.');
     } catch (nextError) {
       setActionError(nextError instanceof Error ? nextError.message : 'Не удалось выполнить досрочное погашение');
+      if (nextError instanceof ApiError && nextError.status === 409 && ownsCurrentSession()) await load();
     } finally {
+      inFlight.current = false;
       setBusyAction(null);
     }
   };
@@ -248,6 +264,7 @@ function ScopedLoanServicingBlock({
             Не удалось обновить график платежей.
           </Alert>
         )}
+        {loan.operationInProgress && <Alert severity="info">Выполняется операция по кредиту. График обновится автоматически.</Alert>}
         {currentPending && (
           <Alert severity="info" action={<Button disabled={busyAction !== null} onClick={() => void applyOperation(currentPending, true)}>Повторить</Button>}>
             {busyAction ? 'Получаем результат операции.' : 'Результат операции пока неизвестен. Повторите запрос с теми же данными.'}
@@ -436,8 +453,8 @@ function ScopedLoanServicingBlock({
         )}
         <DialogActions>
           <Button onClick={() => setConfirmation(null)}>Назад</Button>
-          <Button variant="contained" onClick={() => confirmation && void applyOperation({
-            loanId: loan.id, key: crypto.randomUUID(), operation: confirmation,
+          <Button variant="contained" disabled={locked} onClick={() => confirmation && void applyOperation({
+            loanId: loan.id, key: createOperationId(), operation: confirmation,
           })}>Подтвердить</Button>
         </DialogActions>
       </Dialog>

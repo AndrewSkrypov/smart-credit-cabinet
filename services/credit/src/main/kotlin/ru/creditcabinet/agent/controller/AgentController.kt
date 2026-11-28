@@ -31,6 +31,7 @@ import ru.creditcabinet.application.controller.ApplicationSummary
 import ru.creditcabinet.application.controller.DocumentView
 import ru.creditcabinet.application.controller.JournalEntryView
 import ru.creditcabinet.application.controller.ProvideInfoRequest
+import ru.creditcabinet.application.controller.RequestClientConfirmation
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.chat.application.ChatService
@@ -137,12 +138,15 @@ class AgentController(
     @Operation(summary = "Изменить черновик агентской заявки")
     @PutMapping("/applications/{id}")
     fun updateApplication(@PathVariable id: UUID, @Valid @RequestBody request: ApplicationRequest): ApplicationResponse =
-        detail(service.updateDraft(id, request.toTerms()))
+        detail(service.updateDraft(id, request.toTerms(), request.expectedVersion))
 
-    @Operation(summary = "Отправить черновик клиенту на подтверждение и согласие БКИ (T22)")
+    @Operation(
+        summary = "Отправить черновик клиенту на подтверждение и согласие БКИ (T22)",
+        description = "Передайте версию черновика и ревизию проверенной примерки. При конфликте версий ответ 409 содержит X-Conflict-Code: draft-version.",
+    )
     @PostMapping("/applications/{id}/request-confirmation")
-    fun requestConfirmation(@PathVariable id: UUID): ApplicationResponse =
-        detail(service.requestClientConfirmation(id))
+    fun requestConfirmation(@PathVariable id: UUID, @RequestBody(required = false) request: RequestClientConfirmation?): ApplicationResponse =
+        detail(service.requestClientConfirmation(id, request?.expectedVersion, request?.expectedScenarioRevision))
 
     @Operation(summary = "Отменить агентскую заявку до отправки в банк (T25)")
     @PostMapping("/applications/{id}/cancel")

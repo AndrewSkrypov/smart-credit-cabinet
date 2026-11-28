@@ -298,6 +298,9 @@ components:
         declaredRevenue12m:
           format: int64
           type: integer
+        expectedVersion:
+          format: int64
+          type: integer
         productCode:
           minLength: 1
           type: string
@@ -1154,6 +1157,8 @@ components:
         amount:
           format: int64
           type: integer
+        expectedRevision:
+          type: string
         purpose:
           type: string
       required:
@@ -1240,6 +1245,10 @@ components:
         expectedReceiptDate:
           format: date
           type: string
+        expectedRevision:
+          format: int64
+          type: integer
+          writeOnly: true
         openingBalance:
           format: int64
           type: integer
@@ -1550,6 +1559,10 @@ components:
         maturityDate:
           format: date
           type: string
+        operationInProgress:
+          type: boolean
+        operationRevision:
+          type: string
         outstandingPrincipal:
           type: number
         payments:
@@ -1584,6 +1597,8 @@ components:
       - disbursedAt
       - id
       - maturityDate
+      - operationInProgress
+      - operationRevision
       - outstandingPrincipal
       - payments
       - rate
@@ -2501,6 +2516,15 @@ components:
       - unreliableAddress
       - unreliableDirector
       type: object
+    RequestClientConfirmation:
+      properties:
+        expectedScenarioRevision:
+          format: int64
+          type: integer
+        expectedVersion:
+          format: int64
+          type: integer
+      type: object
     RequestedItem:
       properties:
         documentType:
@@ -2702,6 +2726,9 @@ components:
     SubmitRequest:
       properties:
         acceptedProductVersion:
+          format: int64
+          type: integer
+        expectedVersion:
           format: int64
           type: integer
       type: object
@@ -3807,6 +3834,8 @@ paths:
       tags:
       - Сценарий финансирования
     put:
+      description: Передайте ожидаемую ревизию сценария. Для первого сохранения используйте 0. Устаревшая ревизия приводит
+        к 409.
       operationId: agentPut
       parameters:
       - in: path
@@ -4829,6 +4858,8 @@ paths:
       - Резерв к дате платежа на синтетической линии
   /api/v1/agent/applications/{id}/request-confirmation:
     post:
+      description: 'Передайте версию черновика и ревизию проверенной примерки. При конфликте версий ответ 409 содержит X-Conflict-Code:
+        draft-version.'
       operationId: requestConfirmation
       parameters:
       - in: path
@@ -4837,6 +4868,11 @@ paths:
         schema:
           format: uuid
           type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestClientConfirmation'
       responses:
         '200':
           content:
@@ -7925,6 +7961,8 @@ paths:
       - Заявки, документы и выдача
   /api/v1/applications/{id}/submit:
     post:
+      description: 'Передайте версию проверенного черновика в expectedVersion. При устаревшей версии ответ 409 содержит X-Conflict-Code:
+        draft-version.'
       operationId: submit
       parameters:
       - in: path

@@ -40,12 +40,12 @@ import { ChatAudit, ChatFile, ChatMessage, ChatPage, ChatRead } from '../types';
 import { CompanyInvitation, Employees, InvitationPreview } from '../types';
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly conflictCode?: string) {
     super(message);
   }
 }
 
-const baseURL = demoAccess.basename ? `${demoAccess.basename}/api/v1` : (import.meta.env.VITE_API_BASE_URL ?? '/api/v1');
+const baseURL = demoAccess.basename && !demoAccess.localDemo ? `${demoAccess.basename}/api/v1` : (import.meta.env.VITE_API_BASE_URL ?? '/api/v1');
 
 export const api = axios.create({
   baseURL,
@@ -82,7 +82,7 @@ api.interceptors.response.use(
     }
     const backendMessage = responseData?.message;
     if (typeof backendMessage === 'string' && backendMessage.trim()) {
-      return Promise.reject(new ApiError(backendMessage, error.response.status));
+      return Promise.reject(new ApiError(backendMessage, error.response.status, error.response.headers?.['x-conflict-code']));
     }
     if (error?.response?.status === 401) {
       return Promise.reject(new Error('Сессия истекла — войдите заново'));
@@ -178,8 +178,8 @@ export const productEditorApi = {
 
 export const loanServicingApi = {
   getByApplication: (applicationId: string) => get<LoanAccount>(`/applications/${applicationId}/loan`),
-  drawTranche: async (loanId: string, amount: number, purpose: string | undefined, key: string) =>
-    (await api.post<LoanAccount>(`/loans/${loanId}/tranches`, { amount, purpose }, { headers: { 'Idempotency-Key': key } })).data,
+  drawTranche: async (loanId: string, amount: number, purpose: string | undefined, key: string, expectedRevision?: string) =>
+    (await api.post<LoanAccount>(`/loans/${loanId}/tranches`, { amount, purpose, expectedRevision }, { headers: { 'Idempotency-Key': key } })).data,
   payNext: async (loanId: string, paymentId: string, key: string) =>
     (await api.post<LoanAccount>(`/loans/${loanId}/payments/next`, { paymentId }, { headers: { 'Idempotency-Key': key } })).data,
   repayEarly: (loanId: string) => post<LoanAccount>(`/loans/${loanId}/repay-early`)
@@ -204,10 +204,10 @@ export const applicationsApi = {
   list: () => get<ApplicationSummary[]>('/applications'),
   get: (id: string) => get<Application>(`/applications/${id}`),
   create: (input: ApplicationInput) => post<Application>('/applications', input),
-  update: (id: string, input: ApplicationInput) => put<Application>(`/applications/${id}`, input),
+  update: (id: string, input: ApplicationInput, expectedVersion: number) => put<Application>(`/applications/${id}`, { ...input, expectedVersion }),
   /** The key makes a repeated click or a retry after a timeout return the first result. */
-  submit: async (id: string, idempotencyKey: string, acceptedProductVersion?: number) =>
-    (await api.post<Application>(`/applications/${id}/submit`, { acceptedProductVersion }, { headers: { 'Idempotency-Key': idempotencyKey } })).data,
+  submit: async (id: string, idempotencyKey: string, expectedVersion: number, acceptedProductVersion?: number) =>
+    (await api.post<Application>(`/applications/${id}/submit`, { expectedVersion, acceptedProductVersion }, { headers: { 'Idempotency-Key': idempotencyKey } })).data,
   confirm: (id: string, bureauConsent: boolean, acceptedProductVersion?: number, acceptedScenarioRevision?: number) =>
     post<Application>(`/applications/${id}/confirm`, { bureauConsent, acceptedProductVersion, acceptedScenarioRevision }),
   returnToAgent: (id: string, comment?: string) =>
@@ -287,8 +287,9 @@ export const agentApi = {
   getApplication: (id: string) => get<Application>(`/agent/applications/${id}`),
   events: (id: string) => get<JournalEntry[]>(`/agent/applications/${id}/events`),
   getLoan: (id: string) => get<LoanAccount>(`/agent/applications/${id}/loan`),
-  updateApplication: (id: string, input: ApplicationInput) => put<Application>(`/agent/applications/${id}`, input),
-  requestConfirmation: (id: string) => post<Application>(`/agent/applications/${id}/request-confirmation`),
+  updateApplication: (id: string, input: ApplicationInput, expectedVersion: number) => put<Application>(`/agent/applications/${id}`, { ...input, expectedVersion }),
+  requestConfirmation: (id: string, expectedVersion: number, expectedScenarioRevision: number) =>
+    post<Application>(`/agent/applications/${id}/request-confirmation`, { expectedVersion, expectedScenarioRevision }),
   cancelApplication: (id: string) => post<Application>(`/agent/applications/${id}/cancel`),
   provideInfo: (id: string, answer?: string) => post<Application>(`/agent/applications/${id}/info-provided`, { answer }),
   listDocuments: (id: string) => get<ApplicationDocument[]>(`/agent/applications/${id}/documents`),

@@ -69,9 +69,9 @@ class AgentApplicationService(
     private fun draftProduct(code: String): Product = products.forDraft(code) ?: throw NotFound("Продукт не найден")
 
     @Transactional
-    fun saveFinancingScenario(id: UUID, inputs: ScenarioInputs): ScenarioSnapshot {
+    fun saveFinancingScenario(id: UUID, inputs: ScenarioInputs, expectedRevision: Long?): ScenarioSnapshot {
         val (_, application) = ownAgentApplication(id, forUpdate = true)
-        return scenarios.saveDraft(application, inputs)
+        return scenarios.saveDraft(application, inputs, expectedRevision)
     }
 
     fun portfolio(): AgentPortfolioSummary {
@@ -171,8 +171,9 @@ class AgentApplicationService(
         }
 
     @Transactional
-    fun updateDraft(id: UUID, terms: ApplicationTerms): LoanApplication {
+    fun updateDraft(id: UUID, terms: ApplicationTerms, expectedVersion: Long?): LoanApplication {
         val (_, application) = ownAgentApplication(id, forUpdate = true)
+        application.requireDraftVersion(expectedVersion)
         val product = draftProduct(application.terms.productCode)
         require(terms.purpose in product.purposes) { "Продукт «${product.name}» не подходит для этой цели" }
         val sanitizedTerms = terms.copy(bureauConsent = false)
@@ -185,8 +186,9 @@ class AgentApplicationService(
     }
 
     @Transactional
-    fun requestClientConfirmation(id: UUID): LoanApplication {
+    fun requestClientConfirmation(id: UUID, expectedVersion: Long?, expectedScenarioRevision: Long?): LoanApplication {
         val (caller, application) = ownAgentApplication(id, forUpdate = true)
+        expectedVersion?.let(application::requireDraftVersion)
         val product = draftProduct(application.terms.productCode)
         val commissionRateBps = product.agentCommissionRateBps
         val refreshed = application.copy(
@@ -194,7 +196,7 @@ class AgentApplicationService(
             agentCommissionRateBps = commissionRateBps,
             agentCommissionAmount = application.terms.amount * commissionRateBps / 10_000L,
         )
-        val prepared = scenarios.prepareHandoff(refreshed, product)
+        val prepared = scenarios.prepareHandoff(refreshed, product, expectedScenarioRevision)
         val ready = preApprovedOffers.detachIfOutOfBounds(prepared, prepared.terms)
         return transitions.commit(
             ready.requestClientConfirmation(product, Actor(ActorType.AGENT, caller.userId), clock.instant()),

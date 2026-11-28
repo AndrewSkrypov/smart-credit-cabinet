@@ -9,9 +9,9 @@ import java.util.UUID
 interface ApplicationOperations : ApplicationAccess {
     fun create(terms: ApplicationTerms): LoanApplication
 
-    fun updateDraft(id: UUID, terms: ApplicationTerms): LoanApplication
+    fun updateDraft(id: UUID, terms: ApplicationTerms, expectedVersion: Long?): LoanApplication
 
-    fun submit(id: UUID, idempotencyKey: String?, acceptedProductVersion: Long? = null): LoanApplication
+    fun submit(id: UUID, idempotencyKey: String?, acceptedProductVersion: Long? = null, expectedVersion: Long? = null): LoanApplication
 
     fun confirmByClient(
         id: UUID,

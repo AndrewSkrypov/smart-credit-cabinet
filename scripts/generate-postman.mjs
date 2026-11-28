@@ -49,12 +49,16 @@ pm.test("Активные демо-заявки сняты", function(done) {
   });
 }
 const input = (amount = 1000000, termMonths = 12, declaredRevenue12m = 14400000) => ({ productCode: 'WORKING_CAPITAL', purpose: 'WORKING_CAPITAL', amount, termMonths, declaredRevenue12m, bureauConsent: true });
+const versioned = (body, variable) => {
+  const expectedVersion = ref(`${variable}Version`);
+  return JSON.stringify({ ...body, expectedVersion }, null, 2).replace(JSON.stringify(expectedVersion), expectedVersion);
+};
 function create(name, token, body, variable) {
-  add(name, 'POST', '/applications', { token, data: body, status: 201, tests: `const app=pm.response.json();\npm.test("Создан новый черновик",()=>pm.expect(app.status).to.equal('DRAFT'));\npm.collectionVariables.set('${variable}',app.id);` });
+  add(name, 'POST', '/applications', { token, data: body, status: 201, tests: `const app=pm.response.json();\npm.test("Создан новый черновик",()=>pm.expect(app.status).to.equal('DRAFT'));\npm.collectionVariables.set('${variable}',app.id);\npm.collectionVariables.set('${variable}Version',app.version);` });
 }
 function submit(name, token, variable) {
   add(name, 'POST', `/applications/${ref(variable)}/submit`, {
-    token, data: {}, before: `pm.request.headers.upsert({key:'Idempotency-Key',value:'postman-'+pm.collectionVariables.get('${variable}')});`,
+    token, data: versioned({}, variable), before: `pm.request.headers.upsert({key:'Idempotency-Key',value:'postman-'+pm.collectionVariables.get('${variable}')});`,
     tests: `pm.test("Ответ относится к своей заявке",()=>pm.expect(pm.response.json().id).to.equal(pm.collectionVariables.get('${variable}')));`
   });
 }
@@ -80,7 +84,7 @@ cleanup('02. Подготовка клиентского сценария', 'cli
 add('03. Подбор продукта', 'POST', '/products/match', { data: { purpose: 'WORKING_CAPITAL', amount: 1000000, termMonths: 12 }, tests: "pm.test('Оборотный кредит присутствует',()=>pm.expect(pm.response.json().some(x=>x.product.code==='WORKING_CAPITAL')).to.equal(true));" });
 add('04. Расчёт платежа', 'GET', '/products/WORKING_CAPITAL/calculation?amount=1000000&termMonths=12', { tests: "pm.test('График на 12 месяцев',()=>pm.expect(pm.response.json().schedule).to.have.length(12));" });
 create('05. Создание черновика', 'clientToken', input(), 'clientApplication');
-add('06. Сохранение черновика', 'PUT', `/applications/${ref('clientApplication')}`, { data: { ...input(), purposeComment: 'Синтетическая заявка для проверки контракта' }, tests: "pm.test('Черновик сохранён',()=>pm.expect(pm.response.json().status).to.equal('DRAFT'));" });
+add('06. Сохранение черновика', 'PUT', `/applications/${ref('clientApplication')}`, { data: versioned({ ...input(), purposeComment: 'Синтетическая заявка для проверки контракта' }, 'clientApplication'), tests: "const app=pm.response.json();pm.test('Черновик сохранён',()=>pm.expect(app.status).to.equal('DRAFT'));pm.collectionVariables.set('clientApplicationVersion',app.version);" });
 add('07. Загрузка документа в черновик', 'POST', `/applications/${ref('clientApplication')}/documents?type=OTHER`, { file: true, status: 201, tests: "pm.test('Документ привязан к заявке',()=>pm.expect(pm.response.json().id).to.be.a('string'));" });
 submit('08. Отправка с Idempotency-Key', 'clientToken', 'clientApplication');
 submit('09. Повтор той же отправки', 'clientToken', 'clientApplication');

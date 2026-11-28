@@ -23,6 +23,7 @@ import { OfferBlock } from './OfferBlock';
 import { GeneratedFilesBlock } from '../../../components/GeneratedFilesBlock';
 import { LoanServicingBlock } from '../../../components/LoanServicingBlock';
 import { SigningBlock } from './SigningBlock';
+import { useVisibleRefresh } from '../../../hooks/useVisibleRefresh';
 import { StageStepper } from './StageStepper';
 
 function Fact({ label, value }: { label: string; value: string }) {
@@ -47,6 +48,7 @@ function ApplicationCard({ id }: { id: string }) {
   const location = useLocation();
   const [application, setApplication] = useState<Application | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [draftDirty, setDraftDirty] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawComment, setWithdrawComment] = useState('');
   const [confirmConsent, setConfirmConsent] = useState(false);
@@ -55,7 +57,7 @@ function ApplicationCard({ id }: { id: string }) {
   const [returnComment, setReturnComment] = useState('');
   const mounted = useRef(false);
   const requestSequence = useRef(0);
-  const inFlight = useRef(false);
+  const inFlight = useRef<number | null>(null);
 
   const apply = useCallback((next: Application) => {
     if (!mounted.current || next.id !== id) return;
@@ -66,9 +68,9 @@ function ApplicationCard({ id }: { id: string }) {
   }, [id]);
 
   const load = useCallback(async () => {
-    if (!mounted.current || inFlight.current) return;
-    inFlight.current = true;
+    if (!mounted.current || inFlight.current !== null) return;
     const sequence = ++requestSequence.current;
+    inFlight.current = sequence;
     try {
       const next = await applicationsApi.get(id);
       if (!mounted.current || sequence !== requestSequence.current || next.id !== id) return;
@@ -78,14 +80,14 @@ function ApplicationCard({ id }: { id: string }) {
       if (!mounted.current || sequence !== requestSequence.current) return;
       setError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить заявку');
     } finally {
-      inFlight.current = false;
+      if (inFlight.current === sequence) inFlight.current = null;
     }
   }, [id]);
 
   useEffect(() => {
     mounted.current = true;
     void load();
-    return () => { mounted.current = false; };
+    return () => { mounted.current = false; inFlight.current = null; requestSequence.current += 1; };
   }, [load]);
 
   const scenario = useApi(
@@ -96,11 +98,7 @@ function ApplicationCard({ id }: { id: string }) {
   useEffect(() => setConfirmConsent(false), [scenarioRevision]);
 
   const status = application?.status;
-  useEffect(() => {
-    if (!status || (status === 'DRAFT' && !application?.agentId)) return;
-    const timer = window.setInterval(() => void load(), SYSTEM_STATUSES.includes(status) ? FAST_REFRESH_MS : SLOW_REFRESH_MS);
-    return () => window.clearInterval(timer);
-  }, [status, application?.agentId, load]);
+  useVisibleRefresh(load, status && SYSTEM_STATUSES.includes(status) ? FAST_REFRESH_MS : SLOW_REFRESH_MS);
 
   if (error && !application) return <ErrorState message={error} onRetry={load} />;
   if (!application) return <LoadingBlock />;
@@ -138,8 +136,8 @@ function ApplicationCard({ id }: { id: string }) {
 
             {error && <Alert severity="warning">{error}</Alert>}
 
-            {application.status === 'DRAFT' && application.editable && !canResume && (
-              <DraftForm application={application} onSaved={apply} onSubmitted={apply} />
+            {(draftDirty || (application.status === 'DRAFT' && application.editable && !canResume)) && (
+              <DraftForm application={application} onSaved={apply} onSubmitted={apply} onDirtyChange={setDraftDirty} />
             )}
             {scenario.data && !scenario.error && <FinancingScenarioView applicationId={id} scenario={scenario.data} />}
             {application.agentId && scenario.error && (

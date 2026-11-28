@@ -576,13 +576,15 @@ class Smoke:
         document = self.call(role, "POST", path, 201, file=("private-smoke.pdf", content) if private else content, key=str(uuid4()))
         return self.ledger.created(intent, document["id"])
 
-    def hand(self, app):
+    def hand(self, app, scenario_revision=0):
         path = self.app_path(app, True)
         row = self.call("AGENT", "GET", path)
         for document in row["requiredDocuments"]:
             if not document["uploaded"]:
                 self.upload("AGENT", app, document["type"], pdf(["Synthetic required document"]))
-        row = self.call("AGENT", "POST", path + "/request-confirmation")
+        row = self.call("AGENT", "GET", path)
+        row = self.call("AGENT", "POST", path + "/request-confirmation",
+                        data={"expectedVersion": row["version"], "expectedScenarioRevision": scenario_revision})
         need(row["status"] == "PENDING_CLIENT_CONFIRMATION", "handoff_not_pending")
 
     def wait(self, alias, app, wanted, seconds=120):
@@ -645,15 +647,16 @@ class Smoke:
         inputs = {"openingBalance": 150000, "expectedReceiptAmount": 140000, "expectedReceiptDate": due.isoformat(),
                   "paymentDate": (due + timedelta(days=5)).isoformat(), "delayDays": 14,
                   "alternativeTermMonths": 24, "selectedTermMonths": 12, "source": source}
-        first = self.call("AGENT", "PUT", agent + "/financing-scenario", data=inputs)
+        first = self.call("AGENT", "PUT", agent + "/financing-scenario", data={**inputs, "expectedRevision": 0})
         checked_options(first)
-        self.hand(app)
+        self.hand(app, first["revision"])
         first = self.call("A", "GET", owner + "/financing-scenario")
         self.call("UNDERWRITER", "GET", bank + "/financing-scenario", 404)
         self.call("A", "POST", owner + "/return-to-agent", data={"comment": "Synthetic choose24 months"})
-        self.call("AGENT", "PUT", agent + "/financing-scenario", data={**inputs, "delayDays": 15, "selectedTermMonths": 24})
+        revised_draft = self.call("AGENT", "PUT", agent + "/financing-scenario",
+                                  data={**inputs, "delayDays": 15, "selectedTermMonths": 24, "expectedRevision": first["revision"]})
         need(self.call("A", "GET", owner + "/financing-scenario") == first, "private_edit_changed_handed_snapshot")
-        self.hand(app)
+        self.hand(app, revised_draft["revision"])
         revised = self.call("A", "GET", owner + "/financing-scenario")
         checked_options(revised)
         need(revised["revision"] > first["revision"] and revised["inputs"]["selectedTermMonths"] == 24, "scenario_revision_missing")

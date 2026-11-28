@@ -56,7 +56,11 @@ test('Агентский канал API: мандат, подтверждени�
     const { id: documentId } = await document.json();
     expect((await request.get(`${agentPath}/documents/${documentId}`, { headers: headers(other) })).status()).toBe(404);
 
-    const pending = await request.post(`${agentPath}/request-confirmation`, { headers: headers(agent) });
+    const agentDraft = await request.get(agentPath, { headers: headers(agent) });
+    expect(agentDraft.ok()).toBeTruthy();
+    const pending = await request.post(`${agentPath}/request-confirmation`, {
+      headers: headers(agent), data: { expectedVersion: (await agentDraft.json()).version, expectedScenarioRevision: 0 }
+    });
     expect(pending.status(), await pending.text()).toBe(200);
     expect((await pending.json()).status).toBe('PENDING_CLIENT_CONFIRMATION');
     expect((await request.post(`${clientPath}/submit`, { headers: { ...headers(client), 'Idempotency-Key': randomUUID() } })).status()).toBe(409);

@@ -1,12 +1,13 @@
 import { Alert, Box, Button, Checkbox, FormControlLabel, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { applicationsApi, productsApi } from '../../../api/client';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ApiError, applicationsApi, productsApi } from '../../../api/client';
+import { DraftConflictAlert } from '../../../components/DraftConflictAlert';
 import { MoneyField } from '../../../components/MoneyField';
 import { useApi } from '../../../hooks/useApi';
 import { months, rub, rubExact } from '../../../shared/format';
 import { Application, ApplicationInput } from '../../../types';
 
-type SaveState = 'saved' | 'saving' | 'dirty' | 'error';
+type SaveState = 'saved' | 'saving' | 'dirty' | 'error' | 'conflict';
 
 const toInput = (application: Application): ApplicationInput => ({
   productCode: application.product.code,
@@ -25,7 +26,13 @@ const SAVE_DELAY_MS = 700;
  * Debounced writes are serialized and coalesced to the latest revision. Submission freezes
  * input and waits for that revision; an older response cannot confirm newer edits.
  */
-export function DraftForm({ application, onSaved, onSubmitted }: { application: Application; onSaved: (next: Application) => void; onSubmitted: (next: Application) => void }) {
+export function DraftForm({ application, onSaved, onSubmitted, onDirtyChange }: {
+  application: Application;
+  onSaved: (next: Application) => void;
+  onSubmitted: (next: Application) => void;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
+  const editable = application.status === 'DRAFT' && application.editable;
   const products = useApi(productsApi.list);
   const product = application.currentProduct ?? products.data?.find((item) => item.code === application.product.code);
   const changed = product?.version !== undefined && product.version !== application.product.version;
@@ -34,6 +41,7 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [reviewRequired, setReviewRequired] = useState(false);
   const timer = useRef<number>();
   const latest = useRef(form);
   const revision = useRef(0);
@@ -41,15 +49,21 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
   const inFlight = useRef<Promise<Application | null> | null>(null);
   const mounted = useRef(true);
   const submitting = useRef(false);
-  const callbacks = useRef({ onSaved, onSubmitted });
-  callbacks.current = { onSaved, onSubmitted };
-  // Document uploads can refresh validation/estimate without editing the form revision.
-  if (confirmed.current.revision === revision.current && JSON.stringify(toInput(application)) === JSON.stringify(latest.current)) {
+  const conflicted = useRef(false);
+  const callbacks = useRef({ onSaved, onSubmitted, onDirtyChange });
+  callbacks.current = { onSaved, onSubmitted, onDirtyChange };
+
+  useLayoutEffect(() => {
+    if (submitting.current || confirmed.current.revision !== revision.current || conflicted.current) return;
+    if ((application.version ?? -1) < (confirmed.current.application.version ?? -1)) return;
     confirmed.current.application = application;
-  }
+    latest.current = toInput(application);
+    setForm(latest.current);
+  }, [application, sending]);
 
   const save = useCallback((): Promise<Application | null> => {
     window.clearTimeout(timer.current);
+    if (conflicted.current) return Promise.resolve(null);
     if (inFlight.current) return inFlight.current;
     const drain = async () => {
       while (mounted.current && confirmed.current.revision !== revision.current) {
@@ -57,16 +71,27 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
         const snapshot = { ...latest.current };
         setSaveState('saving');
         try {
-          const saved = await applicationsApi.update(application.id, snapshot);
+          const expectedVersion = confirmed.current.application.version;
+          if (expectedVersion == null) throw new Error('Обновите заявку, чтобы получить версию черновика.');
+          const saved = await applicationsApi.update(application.id, snapshot, expectedVersion);
           if (!mounted.current) return null;
           confirmed.current = { revision: snapshotRevision, application: saved };
           if (snapshotRevision === revision.current) {
+            latest.current = toInput(saved);
+            setForm(latest.current);
             setSaveState('saved');
             setError(null);
+            callbacks.current.onDirtyChange?.(false);
             callbacks.current.onSaved(saved);
           }
         } catch (nextError) {
           if (!mounted.current) return null;
+          if (nextError instanceof ApiError && nextError.status === 409) {
+            conflicted.current = true;
+            setSaveState('conflict');
+            setError(null);
+            return null;
+          }
           // A failed older write must not discard newer edits waiting behind it.
           if (snapshotRevision !== revision.current) continue;
           setSaveState('error');
@@ -88,29 +113,76 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
   }, []);
 
   const change = (patch: Partial<ApplicationInput>) => {
-    if (submitting.current) return;
+    if (submitting.current || !editable) return;
     latest.current = { ...latest.current, ...patch };
     revision.current += 1;
     setForm(latest.current);
+    callbacks.current.onDirtyChange?.(true);
+    if (conflicted.current) return;
     setSaveState('dirty');
     setError(null);
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => void save(), SAVE_DELAY_MS);
   };
 
+  const resolveConflict = async (overwrite: boolean) => {
+    if (submitting.current) return;
+    submitting.current = true;
+    setSending(true);
+    setError(null);
+    window.clearTimeout(timer.current);
+    try {
+      const current = await applicationsApi.get(application.id);
+      if (!mounted.current) return;
+      if (overwrite) {
+        if (current.status !== 'DRAFT' || !current.editable || current.version == null) {
+          callbacks.current.onSaved(current);
+          throw new Error('Редактирование заявки больше недоступно.');
+        }
+        confirmed.current.application = current;
+        conflicted.current = false;
+        await save();
+      } else {
+        conflicted.current = false;
+        setReviewRequired(false);
+        latest.current = toInput(current);
+        confirmed.current = { revision: revision.current, application: current };
+        setForm(latest.current);
+        setSaveState('saved');
+        callbacks.current.onDirtyChange?.(false);
+        callbacks.current.onSaved(current);
+      }
+    } catch (nextError) {
+      if (mounted.current) setError(nextError instanceof Error ? nextError.message : 'Не удалось обновить заявку');
+    } finally {
+      submitting.current = false;
+      if (mounted.current) setSending(false);
+    }
+  };
+
   const submit = async () => {
-    if (submitting.current || (changed && acceptedVersion !== product?.version) || product?.active === false) return;
+    if (submitting.current || conflicted.current || !editable || (changed && acceptedVersion !== product?.version) || product?.active === false) return;
     submitting.current = true;
     setSending(true);
     setError(null);
     try {
       const saved = await save();
       if (!saved || !mounted.current || saved.submissionProblems.length > 0) return;
+      if (saved.version == null) throw new Error('Обновите заявку, чтобы получить версию черновика.');
       // One key per application: a repeated click or a retry returns the first result.
-      const submitted = await applicationsApi.submit(application.id, `submit-${application.id}`, changed ? acceptedVersion ?? undefined : undefined);
+      const submitted = await applicationsApi.submit(
+        application.id, `submit-${application.id}`, saved.version, changed ? acceptedVersion ?? undefined : undefined
+      );
       if (mounted.current) callbacks.current.onSubmitted(submitted);
     } catch (nextError) {
       if (!mounted.current) return;
+      if (nextError instanceof ApiError && nextError.conflictCode === 'draft-version') {
+        conflicted.current = true;
+        setSaveState('conflict');
+        setReviewRequired(true);
+        callbacks.current.onDirtyChange?.(true);
+        return;
+      }
       setError(nextError instanceof Error ? nextError.message : 'Не удалось отправить заявку');
       try {
         const refreshed = await applicationsApi.get(application.id);
@@ -130,7 +202,7 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
       <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={2}>
         <Typography variant="h6" component="h2">Заявка</Typography>
         <Typography variant="body2" color={saveState === 'error' ? 'error' : 'text.secondary'} aria-live="polite">
-          {{ saved: 'Сохранено', saving: 'Сохраняем…', dirty: 'Изменения сохранятся автоматически', error: 'Не сохранено' }[saveState]}
+          {{ saved: 'Сохранено', saving: 'Сохраняем…', dirty: 'Изменения сохранятся автоматически', error: 'Не сохранено', conflict: 'Конфликт версий' }[saveState]}
         </Typography>
       </Stack>
       <Typography color="text.secondary" sx={{ mb: 2 }}>{application.product.name} · {application.purposeTitle}</Typography>
@@ -143,7 +215,10 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
         </Alert>
       )}
 
-      <Box component="fieldset" disabled={sending} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
+      {(saveState === 'conflict' || !editable) && (
+        <DraftConflictAlert busy={sending} canOverwrite={editable} reviewRequired={reviewRequired} onResolve={(overwrite) => void resolveConflict(overwrite)} />
+      )}
+      <Box component="fieldset" disabled={sending || !editable} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6}>
           <MoneyField label="Сумма" fullWidth value={form.amount} onChange={(value) => change({ amount: value ?? 0 })}
@@ -195,7 +270,7 @@ export function DraftForm({ application, onSaved, onSubmitted }: { application: 
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
-        <Button variant="contained" size="large" onClick={submit} disabled={sending || (changed && acceptedVersion !== product?.version) || product?.active === false || (saveState === 'saved' && application.submissionProblems.length > 0)}>
+        <Button variant="contained" size="large" onClick={submit} disabled={sending || !editable || saveState === 'conflict' || (changed && acceptedVersion !== product?.version) || product?.active === false || (saveState === 'saved' && application.submissionProblems.length > 0)}>
           {sending ? 'Отправляем…' : 'Отправить в банк'}
         </Button>
       </Stack>

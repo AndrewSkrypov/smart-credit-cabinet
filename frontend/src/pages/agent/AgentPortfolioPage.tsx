@@ -23,7 +23,7 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { agentApi } from '../../api/client';
 import { useAuth } from '../../auth/AuthProvider';
@@ -33,6 +33,7 @@ import { LoadingBlock } from '../../components/LoadingBlock';
 import { PageHeader } from '../../components/PageHeader';
 import { TableScrollRegion } from '../../components/TableScrollRegion';
 import { useApi } from '../../hooks/useApi';
+import { useVisibleRefresh } from '../../hooks/useVisibleRefresh';
 import { agentNextAction, statusTitle, statusTone } from '../../shared/applicationText';
 import { formatDate, formatDateTime, months, percent, rub } from '../../shared/format';
 import { commissionStatusLabels, legalFormLabels } from '../../shared/labels';
@@ -131,10 +132,7 @@ export function AgentPortfolioPage() {
   const state = useApi(loadAll);
 
   const { reload } = state;
-  useEffect(() => {
-    const timer = window.setInterval(() => void reload(), 15000);
-    return () => window.clearInterval(timer);
-  }, [reload]);
+  useVisibleRefresh(reload, 15000);
 
   if (state.loading && !state.data) return <LoadingBlock />;
   if (state.error || !state.data) return <ErrorState message={state.error ?? 'Не удалось загрузить портфель агента'} onRetry={reload} />;

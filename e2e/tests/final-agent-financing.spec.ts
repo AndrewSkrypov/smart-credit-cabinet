@@ -328,10 +328,12 @@ async function createDraft(request: APIRequestContext, agent: Session, company: 
   return draft;
 }
 
-async function sendToClient(request: APIRequestContext, agent: Session, draft: Draft) {
+async function sendToClient(request: APIRequestContext, agent: Session, draft: Draft, expectedScenarioRevision = 0) {
   await uploadRequiredDocuments(request, agent, draft);
-  const pending = await json<Draft>(await request.post(`${agentApplication(draft.id)}/request-confirmation`, {
-    headers: headers(agent),
+  const path = agentApplication(draft.id);
+  const current = await json<{ version: number }>(await request.get(path, { headers: headers(agent) }), 200);
+  const pending = await json<Draft>(await request.post(`${path}/request-confirmation`, {
+    headers: headers(agent), data: { expectedVersion: current.version, expectedScenarioRevision }
   }), 200);
   expect(pending.status).toBe('PENDING_CLIENT_CONFIRMATION');
 }
@@ -402,7 +404,7 @@ async function transferRevisedPackage(
     }), 201,
   );
   const clientDocumentPath = `${application(draft.id)}/documents/${packetDocumentId}`;
-  const originalInputs = { ...scenarioInput, source };
+  const originalInputs = { ...scenarioInput, source, expectedRevision: 0 };
   await status(await request.put(agentPath, {
     headers: headers(agent), data: { ...originalInputs, selectedTermMonths: 36 },
   }), 400);
@@ -419,7 +421,7 @@ async function transferRevisedPackage(
     expect(option.totalInterest).toBeGreaterThan(0);
   }
 
-  await sendToClient(request, agent, draft);
+  await sendToClient(request, agent, draft, original.revision);
   const first = await json<Scenario>(await request.get(clientPath, { headers: headers(client) }), 200);
   expect(first.status).toBe('AWAITING_CLIENT');
   expect(first.options).toEqual(original.options);
@@ -433,12 +435,20 @@ async function transferRevisedPackage(
   await status(handedDocument, 200);
   expect(await handedDocument.body()).toEqual(packetDocument.buffer);
   const revisedInputs = { ...originalInputs, delayDays: fixture.offer.delayDays + 1, selectedTermMonths: 24 };
-  await status(await request.put(agentPath, { headers: headers(agent), data: revisedInputs }), 200);
+  const recalculated = await json<Scenario>(await request.put(agentPath, {
+    headers: headers(agent), data: { ...revisedInputs, expectedRevision: first.revision }
+  }), 200);
   const duringEdit = await json<Scenario>(await request.get(clientPath, { headers: headers(client) }), 200);
   expect(duringEdit.revision).toBe(first.revision);
   expect(duringEdit.inputs).toEqual(first.inputs);
+  const currentDraft = await json<{ version: number }>(await request.get(agentApplication(draft.id), { headers: headers(agent) }), 200);
+  const staleHandoff = await request.post(`${agentApplication(draft.id)}/request-confirmation`, {
+    headers: headers(agent), data: { expectedVersion: currentDraft.version, expectedScenarioRevision: first.revision },
+  });
+  await status(staleHandoff, 409);
+  expect(staleHandoff.headers()['x-conflict-code']).toBe('draft-version');
   if (resendFromBrowser) await resendFromBrowser();
-  else await sendToClient(request, agent, draft);
+  else await sendToClient(request, agent, draft, recalculated.revision);
 
   const revised = await json<Scenario>(await request.get(clientPath, { headers: headers(client) }), 200);
   expect(revised.revision).toBeGreaterThan(first.revision);

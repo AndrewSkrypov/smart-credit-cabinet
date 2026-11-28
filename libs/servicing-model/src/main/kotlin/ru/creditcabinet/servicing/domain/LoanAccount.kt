@@ -58,7 +58,10 @@ data class LoanAccount(
     val repaidAt: Instant? = null,
     val tranches: List<LoanTranche> = emptyList(),
     val payments: List<LoanPayment> = emptyList(),
+    val operationInProgress: Boolean = false,
 ) {
+    fun operationRevision(): String = "${tranches.size}:${payments.count { it.status == LoanPaymentStatus.PAID }}:$status"
+
     val availableLimit: Long
         get() = if (revolving && status == LoanAccountStatus.ACTIVE) {
             (approvedLimit - disbursedAmount).coerceAtLeast(0L)

@@ -3,8 +3,8 @@ package ru.creditcabinet.auth.infrastructure
 import org.springframework.stereotype.Component
 import ru.creditcabinet.auth.application.SignInLimits
 import ru.creditcabinet.common.limits.LimitWindow
+import ru.creditcabinet.common.limits.SharedLimitExceeded
 import ru.creditcabinet.common.limits.SharedLimits
-import ru.creditcabinet.identity.domain.IdentityFailure.RateLimited
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -25,14 +25,14 @@ class SignInThrottle(private val shared: SharedLimits, private val clock: Clock 
             shared.acquire(
                 "Слишком много попыток входа. Попробуйте через несколько минут.",
                 LimitWindow("signin", email, MAX_FAILURES, WINDOW),
-                LimitWindow("signin-ip", address, 30, Duration.ofMinutes(1)),
+                LimitWindow("signin-ip", address, MAX_ATTEMPTS_PER_ADDRESS, Duration.ofMinutes(1)),
             )
             return
         }
         val recent = recent(email)
         if (recent.size >= MAX_FAILURES) {
-            val minutes = Duration.between(clock.instant(), recent.first().plus(WINDOW)).toMinutes() + 1
-            throw RateLimited("Слишком много попыток входа. Попробуйте через $minutes мин.")
+            val seconds = Duration.between(clock.instant(), recent.first().plus(WINDOW)).seconds + 1
+            throw SharedLimitExceeded("Слишком много попыток входа. Попробуйте через ${(seconds + 59) / 60} мин.", seconds, "signin")
         }
     }
 
@@ -62,6 +62,7 @@ class SignInThrottle(private val shared: SharedLimits, private val clock: Clock 
     companion object {
         const val MAX_FAILURES = 5
         val WINDOW: Duration = Duration.ofMinutes(15)
+        private const val MAX_ATTEMPTS_PER_ADDRESS = 120
         private const val MAX_TRACKED = 10_000
     }
 }

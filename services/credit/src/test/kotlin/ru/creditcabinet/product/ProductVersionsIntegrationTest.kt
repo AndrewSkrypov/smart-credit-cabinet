@@ -206,7 +206,7 @@ class ProductVersionsIntegrationTest {
             header("Authorization", "Bearer $client")
             contentType = MediaType.APPLICATION_JSON
             content =
-                """{"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":1000000,"termMonths":12,"declaredRevenue12m":14400000,"bureauConsent":true}"""
+                """{"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":1000000,"termMonths":12,"declaredRevenue12m":14400000,"bureauConsent":true,"expectedVersion":${loaded["version"].asLong()}}"""
         }.andReturn().response
         assertEquals(200, update.status)
         assertEquals(409, post("/api/v1/applications/$id/submit").status)

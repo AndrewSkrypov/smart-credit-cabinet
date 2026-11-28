@@ -8,6 +8,7 @@ WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend ./
+ARG VITE_DEMO_CABINET_ORIGIN
 RUN npm run build
 
 FROM scratch AS dist-prebuilt

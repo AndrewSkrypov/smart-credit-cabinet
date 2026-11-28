@@ -1,3 +1,4 @@
+import { createOperationId } from './operationId';
 import { readSession } from '../auth/session';
 
 export interface BusinessUploadOperation {
@@ -13,5 +14,5 @@ export function businessUploadScope(...flow: string[]): string {
 }
 
 export function createBusinessUpload(file: File, scope: string): BusinessUploadOperation {
-  return { file, scope, key: crypto.randomUUID() };
+  return { file, scope, key: createOperationId() };
 }

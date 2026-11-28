@@ -37,7 +37,9 @@
           "type": "text/javascript",
           "exec": [
             "pm.test(\"HTTP 201\",()=>pm.response.to.have.status(201));",
-            "pm.collectionVariables.set('chatApplication',pm.response.json().id);"
+            "const app=pm.response.json();",
+            "pm.collectionVariables.set('chatApplication',app.id);",
+            "pm.collectionVariables.set('chatApplicationVersion',app.version);"
           ]
         }
       }
@@ -66,7 +68,7 @@
       "url": "{{baseUrl}}/applications/{{chatApplication}}/submit",
       "body": {
         "mode": "raw",
-        "raw": "{}",
+        "raw": "{\"expectedVersion\":{{chatApplicationVersion}}}",
         "options": {
           "raw": {
             "language": "json"

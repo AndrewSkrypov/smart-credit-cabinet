@@ -26,8 +26,8 @@ class LoanServicingService(
         if (application.status != ApplicationStatus.DISBURSED) throw missing()
         return operations.byApplication(applicationId) ?: throw NotFound("Кредитный счёт по заявке не найден")
     }
-    fun drawTranche(loanId: UUID, key: UUID, amount: Long, purpose: String?): LoanAccount =
-        operations.draw(loanId, DrawCommand(readyActor(loanId), amount, purpose, operationKey = key))
+    fun drawTranche(loanId: UUID, key: UUID, amount: Long, purpose: String?, expectedRevision: String?): LoanAccount =
+        operations.draw(loanId, DrawCommand(readyActor(loanId), amount, purpose, operationKey = key, expectedRevision = expectedRevision))
     fun payNext(loanId: UUID, key: UUID, paymentId: UUID): LoanAccount =
         operations.payNext(loanId, PayNextCommand(readyActor(loanId), paymentId = paymentId, operationKey = key))
     fun repayEarly(loanId: UUID): LoanAccount = operations.repayEarly(loanId, readyActor(loanId))

@@ -27,7 +27,8 @@ import { BusinessUploadButton } from '../../components/BusinessUploadButton';
 import { businessUploadScope } from '../../shared/businessUpload';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
-import { agentApi, productsApi } from '../../api/client';
+import { agentApi, ApiError, productsApi } from '../../api/client';
+import { DraftConflictAlert } from '../../components/DraftConflictAlert';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingBlock } from '../../components/LoadingBlock';
 import { LoanServicingBlock } from '../../components/LoanServicingBlock';
@@ -37,6 +38,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { SecondaryActionButton } from '../../components/SecondaryActionButton';
 import { SensitiveDataNotice } from '../../components/SensitiveDataNotice';
 import { useApi } from '../../hooks/useApi';
+import { useVisibleRefresh } from '../../hooks/useVisibleRefresh';
 import { agentNextAction, SYSTEM_STATUSES, statusTitle, statusTone } from '../../shared/applicationText';
 import { fileSize, formatDateTime, months, percent, rub, rubExact } from '../../shared/format';
 import { commissionStatusLabels } from '../../shared/labels';
@@ -107,6 +109,8 @@ function AgentApplicationCard({ id }: { id: string }) {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [infoAnswer, setInfoAnswer] = useState('');
   const [scenarioDirty, setScenarioDirty] = useState(false);
+  const [scenarioRevision, setScenarioRevision] = useState<number | null>(null);
+  const [scenarioReload, setScenarioReload] = useState(0);
 
   // Draft editor local state
   const [amount, setAmount] = useState<number>(0);
@@ -115,9 +119,13 @@ function AgentApplicationCard({ id }: { id: string }) {
   const [declaredRevenue12m, setDeclaredRevenue12m] = useState<number | null>(null);
   const [declaredMonthlyDebtPayments, setDeclaredMonthlyDebtPayments] = useState<number | null>(null);
 
-  const draftSynced = useRef(false);
+  const [draftConflict, setDraftConflict] = useState<'save' | 'handoff' | null>(null);
+  const [draftDirty, setDraftDirty] = useState(false);
+  const draftVersion = useRef<number | null>(null);
+  const dirty = useRef(false);
+  const handingOff = useRef(false);
   const mounted = useRef(false);
-  const inFlight = useRef(false);
+  const inFlight = useRef<number | null>(null);
   const requestSequence = useRef(0);
 
   const syncDraftFields = useCallback((app: Application) => {
@@ -126,8 +134,17 @@ function AgentApplicationCard({ id }: { id: string }) {
     setPurposeComment(app.purposeComment ?? '');
     setDeclaredRevenue12m(app.declaredRevenue12m);
     setDeclaredMonthlyDebtPayments(app.declaredMonthlyDebtPayments);
-    draftSynced.current = true;
+    draftVersion.current = app.version;
+    dirty.current = false;
+    setDraftDirty(false);
   }, []);
+
+  const editDraft = (update: () => void) => {
+    if (busyAction !== null || !canEditDraft) return;
+    dirty.current = true;
+    setDraftDirty(true);
+    update();
+  };
 
   const apply = useCallback((next: Application) => {
     if (!mounted.current || next.id !== id) return;
@@ -137,37 +154,32 @@ function AgentApplicationCard({ id }: { id: string }) {
   }, [id]);
 
   const load = useCallback(async () => {
-    if (!mounted.current || inFlight.current) return;
-    inFlight.current = true;
+    if (!mounted.current || inFlight.current !== null) return;
     const sequence = ++requestSequence.current;
+    inFlight.current = sequence;
     try {
       const next = await agentApi.getApplication(id);
       if (!mounted.current || sequence !== requestSequence.current || next.id !== id) return;
       setApplication(next);
       setError(null);
-      if (!draftSynced.current) syncDraftFields(next);
+      if (!dirty.current && !handingOff.current) syncDraftFields(next);
     } catch (nextError) {
       if (!mounted.current || sequence !== requestSequence.current) return;
-      setApplication(null);
+      if (!dirty.current) setApplication(null);
       setError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить заявку');
     } finally {
-      inFlight.current = false;
+      if (inFlight.current === sequence) inFlight.current = null;
     }
   }, [id, syncDraftFields]);
 
   useEffect(() => {
-    draftSynced.current = false;
     mounted.current = true;
     void load();
-    return () => { mounted.current = false; };
-  }, [id, load]);
+    return () => { mounted.current = false; inFlight.current = null; requestSequence.current += 1; };
+  }, [load]);
 
   const status = application?.status;
-  useEffect(() => {
-    if (!status) return;
-    const timer = window.setInterval(() => void load(), SYSTEM_STATUSES.includes(status) ? FAST_REFRESH_MS : SLOW_REFRESH_MS);
-    return () => window.clearInterval(timer);
-  }, [status, load]);
+  useVisibleRefresh(load, status && SYSTEM_STATUSES.includes(status) ? FAST_REFRESH_MS : SLOW_REFRESH_MS);
 
   useEffect(() => {
     if (status && hash) document.getElementById(hash.slice(1))?.scrollIntoView?.({ block: 'start' });
@@ -187,8 +199,12 @@ function AgentApplicationCard({ id }: { id: string }) {
   const canProvideInfo = application.status === 'INFO_REQUESTED' && application.allowedActions.includes('INFO_PROVIDED') &&
     application.actionOwner !== 'CLIENT' && !!application.process.infoRequest;
   const isDraft = application.status === 'DRAFT';
+  const canEditDraft = isDraft && application.editable;
+  const needsResolution = draftConflict !== null || (draftDirty && !canEditDraft);
+  const expectedScenarioRevision = application.product.code === 'WORKING_CAPITAL' ? scenarioRevision : 0;
 
-  const persistDraft = async (): Promise<Application | null> => {
+  const persistDraft = async (expectedVersion = draftVersion.current): Promise<Application> => {
+    if (expectedVersion == null) throw new Error('Обновите заявку, чтобы получить версию черновика.');
     const input: ApplicationInput = {
       productCode: application.product.code,
       purpose: application.purpose,
@@ -199,38 +215,95 @@ function AgentApplicationCard({ id }: { id: string }) {
       declaredMonthlyDebtPayments,
       bureauConsent: false
     };
-    const saved = await agentApi.updateApplication(application.id, input);
-    apply(saved);
-    syncDraftFields(saved);
+    const saved = await agentApi.updateApplication(application.id, input, expectedVersion);
+    if (mounted.current) {
+      apply(saved);
+      syncDraftFields(saved);
+      setDraftConflict(null);
+    }
     return saved;
   };
 
+  const noteDraftConflict = (kind: 'save' | 'handoff') => {
+    dirty.current = true;
+    setDraftDirty(true);
+    setDraftConflict(kind);
+  };
+
+  const showDraftError = (nextError: unknown, fallback: string) => {
+    if (!mounted.current) return;
+    if (nextError instanceof ApiError && nextError.status === 409) {
+      noteDraftConflict('save');
+    } else {
+      setError(nextError instanceof Error ? nextError.message : fallback);
+    }
+  };
+
   const saveDraft = async (): Promise<Application | null> => {
+    if (needsResolution || !canEditDraft) return null;
     setBusyAction('save');
     setError(null);
     try {
       return await persistDraft();
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Не удалось сохранить черновик');
+      showDraftError(nextError, 'Не удалось сохранить черновик');
       return null;
     } finally {
       setBusyAction(null);
     }
   };
 
+  const resolveConflict = async (overwrite: boolean) => {
+    setBusyAction('resolve');
+    setError(null);
+    try {
+      const current = await agentApi.getApplication(id);
+      if (!mounted.current) return;
+      apply(current);
+      if (overwrite) {
+        if (current.status !== 'DRAFT' || !current.editable || current.version == null) {
+          throw new Error('Редактирование заявки больше недоступно.');
+        }
+        await persistDraft(current.version);
+      } else {
+        syncDraftFields(current);
+        if (draftConflict === 'handoff') {
+          setScenarioRevision(null);
+          setScenarioReload((revision) => revision + 1);
+        }
+        setDraftConflict(null);
+      }
+    } catch (nextError) {
+      showDraftError(nextError, 'Не удалось обновить заявку');
+    } finally {
+      if (mounted.current) setBusyAction(null);
+    }
+  };
+
   const handleRequestConfirmation = async () => {
-    if (scenarioDirty) return;
+    if (scenarioDirty || expectedScenarioRevision === null || needsResolution || !canEditDraft) return;
+    handingOff.current = true;
     setBusyAction('confirm-request');
     setError(null);
     try {
-      const saved = await persistDraft();
-      if (!saved || saved.submissionProblems.length > 0) return;
-      const next = await agentApi.requestConfirmation(application.id);
+      const saved = await persistDraft().catch((nextError) => {
+        showDraftError(nextError, 'Не удалось сохранить черновик');
+        return null;
+      });
+      if (!mounted.current || !saved || saved.submissionProblems.length > 0) return;
+      if (saved.version == null) throw new Error('Обновите заявку, чтобы получить версию черновика.');
+      const next = await agentApi.requestConfirmation(application.id, saved.version, expectedScenarioRevision);
       apply(next);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Не удалось отправить заявку клиенту');
+      if (!mounted.current) return;
+      if (nextError instanceof ApiError && nextError.conflictCode === 'draft-version') {
+        noteDraftConflict('handoff');
+      } else {
+        setError(nextError instanceof Error ? nextError.message : 'Не удалось отправить заявку клиенту');
+      }
     } finally {
-      setBusyAction(null);
+      handingOff.current = false;
+      if (mounted.current) setBusyAction(null);
     }
   };
 
@@ -305,20 +378,21 @@ function AgentApplicationCard({ id }: { id: string }) {
 
             {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
-            {isDraft && application.editable && (
+            {(canEditDraft || draftDirty) && (
               <Paper data-tour="agent-app-draft" id="draft-financing" variant="outlined" sx={{ p: { xs: 2, md: 3 }, scrollMarginTop: 110 }}>
                 <Typography variant="h6" component="h2" gutterBottom>Параметры черновика</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   Заполните параметры заявки и приложите обязательные документы. Согласие на запрос в БКИ даст сам клиент на этапе подтверждения.
                 </Typography>
 
-                <Grid container spacing={2}>
+                <Grid container spacing={2} component="fieldset" disabled={busyAction !== null || !canEditDraft}
+                  sx={{ border: 0, p: 0, minWidth: 0 }}>
                   <Grid item xs={12} sm={6}>
                     <MoneyField
                       label="Сумма"
                       fullWidth
                       value={amount}
-                      onChange={(value) => setAmount(value ?? 0)}
+                      onChange={(value) => editDraft(() => setAmount(value ?? 0))}
                       helperText={product ? `от ${rub(product.minAmount)} до ${rub(product.maxAmount)}` : ' '}
                     />
                   </Grid>
@@ -328,7 +402,7 @@ function AgentApplicationCard({ id }: { id: string }) {
                       fullWidth
                       inputProps={{ inputMode: 'numeric' }}
                       value={termMonths || ''}
-                      onChange={(event) => setTermMonths(Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0)}
+                      onChange={(event) => editDraft(() => setTermMonths(Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0))}
                       helperText={product ? `от ${product.minTermMonths} до ${product.maxTermMonths}` : ' '}
                     />
                   </Grid>
@@ -340,7 +414,7 @@ function AgentApplicationCard({ id }: { id: string }) {
                       minRows={2}
                       inputProps={{ maxLength: 1000 }}
                       value={purposeComment}
-                      onChange={(event) => setPurposeComment(event.target.value)}
+                      onChange={(event) => editDraft(() => setPurposeComment(event.target.value))}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -348,7 +422,7 @@ function AgentApplicationCard({ id }: { id: string }) {
                       label="Выручка за последние 12 месяцев"
                       fullWidth
                       value={declaredRevenue12m}
-                      onChange={setDeclaredRevenue12m}
+                      onChange={(value) => editDraft(() => setDeclaredRevenue12m(value))}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -356,7 +430,7 @@ function AgentApplicationCard({ id }: { id: string }) {
                       label="Платежи по кредитам, в месяц"
                       fullWidth
                       value={declaredMonthlyDebtPayments}
-                      onChange={setDeclaredMonthlyDebtPayments}
+                      onChange={(value) => editDraft(() => setDeclaredMonthlyDebtPayments(value))}
                     />
                   </Grid>
                 </Grid>
@@ -370,14 +444,18 @@ function AgentApplicationCard({ id }: { id: string }) {
                   </Alert>
                 )}
 
+                {needsResolution && (
+                  <DraftConflictAlert busy={busyAction !== null} canOverwrite={canEditDraft} reviewRequired={draftConflict === 'handoff'}
+                    onResolve={(overwrite) => void resolveConflict(overwrite)} />
+                )}
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 2.5 }}>
-                  <Button variant="outlined" disabled={busyAction !== null} onClick={() => void saveDraft()}>
+                  <Button variant="outlined" disabled={busyAction !== null || needsResolution} onClick={() => void saveDraft()}>
                     {busyAction === 'save' ? 'Сохраняем…' : 'Сохранить черновик'}
                   </Button>
                   {canRequestConfirmation && (
                     <Button
                       variant="contained"
-                      disabled={busyAction !== null || scenarioDirty}
+                      disabled={busyAction !== null || scenarioDirty || expectedScenarioRevision === null || needsResolution}
                       onClick={() => void handleRequestConfirmation()}
                     >
                       {busyAction === 'confirm-request' ? 'Отправляем…' : 'Отправить клиенту на подтверждение'}
@@ -388,8 +466,9 @@ function AgentApplicationCard({ id }: { id: string }) {
             )}
 
             {isDraft && application.editable && application.product.code === 'WORKING_CAPITAL' && (
-              <FinancingScenarioEditor application={application} amount={amount} baseTerm={termMonths}
-                savingDraft={busyAction !== null} saveDraft={saveDraft} onUncommittedChange={setScenarioDirty} />
+              <FinancingScenarioEditor key={scenarioReload} application={application} amount={amount} baseTerm={termMonths}
+                savingDraft={busyAction !== null} saveDraft={saveDraft} onUncommittedChange={setScenarioDirty}
+                onRevisionChange={setScenarioRevision} />
             )}
 
             {infoRequest && application.status === 'INFO_REQUESTED' && (

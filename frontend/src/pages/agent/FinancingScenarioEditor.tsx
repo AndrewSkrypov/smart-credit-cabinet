@@ -1,6 +1,6 @@
 import { Alert, Button, FormControlLabel, Grid, Paper, Radio, RadioGroup, Stack, TextField, Typography } from '@mui/material';
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
-import { agentApi } from '../../api/client';
+import { agentApi, ApiError } from '../../api/client';
 import { extractInvoice, financingApi, FinancingInputs, FinancingScenario, InvoiceExtraction } from '../../api/financing';
 import { FinancingComparison } from '../../components/FinancingScenarioView';
 import { MoneyField } from '../../components/MoneyField';
@@ -15,6 +15,7 @@ interface Props {
   savingDraft: boolean;
   saveDraft: () => Promise<Application | null>;
   onUncommittedChange: (dirty: boolean) => void;
+  onRevisionChange?: (revision: number | null) => void;
 }
 
 type ScenarioForm = Omit<FinancingInputs, 'openingBalance' | 'expectedReceiptAmount' | 'source'> & {
@@ -36,12 +37,15 @@ function defaultInputs(baseTerm: number): ScenarioForm {
 
 const invoiceError = 'Впишите сумму и дату вручную. Черновик заявки сохранится.';
 
-export function FinancingScenarioEditor({ application, amount, baseTerm, savingDraft, saveDraft, onUncommittedChange }: Props) {
+export function FinancingScenarioEditor({ application, amount, baseTerm, savingDraft, saveDraft, onUncommittedChange, onRevisionChange }: Props) {
   const id = application.id;
   const latestId = useRef(id);
   latestId.current = id;
   const fileInput = useRef<HTMLInputElement>(null);
   const [scenario, setScenario] = useState<FinancingScenario | null>(null);
+  const [revision, setRevision] = useState<number | null>(null);
+  const [conflicted, setConflicted] = useState(false);
+  const [reload, setReload] = useState(0);
   const [form, setForm] = useState<ScenarioForm>(() => defaultInputs(baseTerm));
   const invoiceUpload = useRef<BusinessUploadOperation | null>(null);
   const [invoiceDocumentId, setInvoiceDocumentId] = useState<string | null>(null);
@@ -61,23 +65,36 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
   useEffect(() => {
     let active = true;
     const scope = businessUploadScope('invoice', id);
-    invoiceUpload.current = null;
-    setInvoiceDocumentId(null);
+    setBusy('load');
+    setRevision(null);
     void financingApi.agent(id).then((previous) => {
-      if (!active || businessUploadScope('invoice', id) !== scope || !previous || previous.status === 'CONFIRMED') return;
-      setScenario(previous);
-      setForm(previous.inputs);
+      if (!active || businessUploadScope('invoice', id) !== scope) return;
+      const draft = previous?.status === 'CONFIRMED' ? null : previous;
+      setScenario(draft);
+      setRevision(previous?.revision ?? 0);
+      setForm(draft?.inputs ?? defaultInputs(savedTerms.current.baseTerm));
+      invoiceUpload.current = null;
+      setInvoiceDocumentId(null);
+      setExtraction(null);
+      setUseSourceAmount(false);
+      setSelectedSourceDate('');
+      setSourceManuallyEdited(false);
+      setInvoiceNotice(null);
+      setDirty(false);
+      setConflicted(false);
     }).catch((next) => {
       if (active && businessUploadScope('invoice', id) === scope) setError(next instanceof Error ? next.message : 'Не удалось прочитать примерку');
     }).finally(() => {
       if (active) setBusy(null);
     });
     return () => { active = false; onUncommittedChangeRef.current(false); };
-  }, [id]);
+  }, [id, reload]);
 
   useEffect(() => {
-    onUncommittedChangeRef.current(dirty || conflictingTerms || busy === 'calculate');
-  }, [dirty, conflictingTerms, busy]);
+    onUncommittedChangeRef.current(dirty || conflicted || conflictingTerms || busy === 'calculate' || busy === 'load');
+  }, [dirty, conflicted, conflictingTerms, busy]);
+
+  useEffect(() => { onRevisionChange?.(revision); }, [revision, onRevisionChange]);
 
   function change<K extends keyof ScenarioForm>(name: K, value: ScenarioForm[K]) {
     setForm((previous) => ({ ...previous, [name]: value }));
@@ -154,10 +171,10 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
 
   const enabled = !!baseTerm && !!form.alternativeTermMonths && form.alternativeTermMonths !== baseTerm &&
     form.openingBalance != null && form.expectedReceiptAmount != null &&
-    !!form.expectedReceiptDate && !!form.paymentDate && !busy && !savingDraft;
+    !!form.expectedReceiptDate && !!form.paymentDate && !busy && !savingDraft && !conflicted && revision !== null;
 
   async function calculate() {
-    if (!enabled || form.openingBalance == null || form.expectedReceiptAmount == null) return;
+    if (!enabled || revision === null || form.openingBalance == null || form.expectedReceiptAmount == null) return;
     const scope = businessUploadScope('invoice', id);
     if (invoiceUpload.current && invoiceUpload.current.scope !== scope) {
       discardInvoiceUpload();
@@ -188,14 +205,16 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
         expectedReceiptAmount: form.expectedReceiptAmount,
         selectedTermMonths,
         source
-      });
+      }, revision);
       if (!isCurrentInvoiceScope(scope)) return;
       setScenario(next);
+      setRevision(next.revision);
       setForm(next.inputs);
       savedTerms.current = { amount: saved.amount, baseTerm: saved.termMonths };
       setDirty(false);
     } catch (next) {
       if (!isCurrentInvoiceScope(scope)) return;
+      if (next instanceof ApiError && next.status === 409) setConflicted(true);
       setError(next instanceof Error ? next.message : 'Не удалось рассчитать варианты');
     } finally {
       setBusy(null);
@@ -209,7 +228,9 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
       <Stack spacing={2}>
         <Typography variant="h6" component="h2">Примерка кредита</Typography>
         <Typography variant="body2" color="text.secondary">Сравните, сколько денег останется в дату платежа при задержке оплаты по счёту. Для передачи сохраните выбранный вариант.</Typography>
-        {error && <Alert severity="warning">{error}</Alert>}
+        {error && <Alert severity="warning" action={(conflicted || revision === null) && (
+          <Button disabled={fieldDisabled} onClick={() => { setError(null); setReload((count) => count + 1); }}>Загрузить с сервера</Button>
+        )}>{error}</Alert>}
         {invoiceNotice && <Alert severity="info">{invoiceNotice}</Alert>}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button variant="outlined" disabled={fieldDisabled} onClick={() => fileInput.current?.click()}>

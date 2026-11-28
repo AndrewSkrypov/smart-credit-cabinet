@@ -15,6 +15,9 @@ import ru.creditcabinet.common.exception.GlobalExceptionHandler
 @RestControllerAdvice
 class ApplicationConflictHandler(private val errors: GlobalExceptionHandler) {
     @ExceptionHandler(ApplicationConflictException::class)
-    fun handle(exception: ApplicationConflictException, request: HttpServletRequest): ResponseEntity<ErrorResponse> =
-        errors.handleApiException(ConflictException(exception.message), request)
+    fun handle(exception: ApplicationConflictException, request: HttpServletRequest): ResponseEntity<ErrorResponse> {
+        val response = errors.handleApiException(ConflictException(exception.message), request)
+        val code = exception.code ?: return response
+        return ResponseEntity.status(response.statusCode).headers(response.headers).header("X-Conflict-Code", code).body(response.body)
+    }
 }

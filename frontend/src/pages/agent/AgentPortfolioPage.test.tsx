@@ -367,9 +367,11 @@ describe('AgentApplicationPage draft fetch & confirmation lock', () => {
     await screen.findByRole('heading', { name: 'Заявка № 301' });
     expect(mocks.getAgentApp).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Отправить клиенту на подтверждение' }));
+    const handoff = screen.getByRole('button', { name: 'Отправить клиенту на подтверждение' });
+    await waitFor(() => expect(handoff).toBeEnabled());
+    fireEvent.click(handoff);
 
-    await waitFor(() => expect(mocks.requestConfirmation).toHaveBeenCalledWith('app-draft-1'));
+    await waitFor(() => expect(mocks.requestConfirmation).toHaveBeenCalledWith('app-draft-1', 1, 0));
     expect(screen.getByRole('button', { name: 'Отправляем…' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Сохранить черновик' })).toBeDisabled();
 

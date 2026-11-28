@@ -16,6 +16,7 @@ data class FinancingScenarioInputs(
     @JsonProperty(required = true) @JsonSetter(nulls = Nulls.FAIL) val alternativeTermMonths: Int,
     @JsonProperty(required = true) @JsonSetter(nulls = Nulls.FAIL) val selectedTermMonths: Int,
     val source: FinancingScenarioSource? = null,
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY) val expectedRevision: Long? = null,
 )
 
 internal fun FinancingScenarioInputs.toDomain() = ScenarioInputs(

@@ -38,6 +38,8 @@ data class ApplicationRequest(
     @field:PositiveOrZero(message = "Платежи по кредитам не могут быть отрицательными")
     val declaredMonthlyDebtPayments: Long? = null,
     val bureauConsent: Boolean = false,
+    @field:PositiveOrZero(message = "Укажите текущую версию черновика")
+    val expectedVersion: Long? = null,
 ) {
     fun toTerms() =
         ApplicationTerms(
@@ -59,7 +61,9 @@ data class WithdrawRequest(
 
 data class CompanyView(val id: UUID, val inn: String, val name: String?, val legalForm: LegalForm)
 
-data class SubmitRequest(val acceptedProductVersion: Long? = null)
+data class SubmitRequest(val acceptedProductVersion: Long? = null, val expectedVersion: Long? = null)
+
+data class RequestClientConfirmation(val expectedVersion: Long? = null, val expectedScenarioRevision: Long? = null)
 
 data class ConfirmApplicationRequest(
     val bureauConsent: Boolean = false,

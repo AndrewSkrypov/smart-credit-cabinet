@@ -86,8 +86,23 @@ data class LoanApplication(
     val visibleToClient: Boolean get() =
         agentId == null || clientHandoffAt != null || submittedAt != null || status == ApplicationStatus.PENDING_CLIENT_CONFIRMATION
 
-    fun updateDraft(terms: ApplicationTerms, now: Instant): LoanApplication {
+    fun requireDraftVersion(expectedVersion: Long?) {
+        if (expectedVersion != null && expectedVersion != version) {
+            throw ApplicationConflictException(
+                "Черновик изменён на другом устройстве или другим сотрудником. Загрузите актуальную версию заявки.",
+                code = "draft-version",
+            )
+        }
+        requireDraft()
+        requireNotNull(expectedVersion) { "Укажите текущую версию черновика" }
+    }
+
+    private fun requireDraft() {
         if (status != ApplicationStatus.DRAFT) throw ApplicationConflictException("Заявка уже отправлена — изменить её можно только по запросу банка")
+    }
+
+    fun updateDraft(terms: ApplicationTerms, now: Instant): LoanApplication {
+        requireDraft()
         require(terms.productCode == this.terms.productCode) { "Продукт заявки не меняется — создайте новую заявку" }
         val updatedCommission = if (agentId != null && agentCommissionRateBps != null) {
             terms.amount * agentCommissionRateBps / 10_000L

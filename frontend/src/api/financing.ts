@@ -54,7 +54,7 @@ export const financingApi = {
   agent: (id: string) => readScenario(`/agent/applications/${id}/financing-scenario`),
   client: (id: string) => readScenario(`/applications/${id}/financing-scenario`),
   bank: (id: string) => readScenario(`/underwriting/applications/${id}/financing-scenario`),
-  save: (id: string, input: FinancingInputs) => put<FinancingScenario>(`/agent/applications/${id}/financing-scenario`, input)
+  save: (id: string, input: FinancingInputs, expectedRevision: number) => put<FinancingScenario>(`/agent/applications/${id}/financing-scenario`, { ...input, expectedRevision })
 };
 
 export const agentMandatesApi = {

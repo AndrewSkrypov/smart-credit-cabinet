@@ -332,6 +332,8 @@ export interface LoanPayment {
 
 export interface LoanAccount {
   id: string;
+  operationInProgress?: boolean;
+  operationRevision?: string;
   applicationId: string;
   contractNumber: string;
   status: LoanAccountStatus;

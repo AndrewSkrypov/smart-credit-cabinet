@@ -27,6 +27,7 @@ import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
+import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.JournalNote
@@ -111,6 +112,9 @@ class FinancingScenarioIntegrationTest {
         val first = snapshot(putScenario(agentPath))
         assertEquals(1L, first["revision"].asLong())
         assertEquals("DRAFT", first["status"].asText())
+        val staleDraft = putScenario(agentPath, openingBalance = 170_000, expectedRevision = 0)
+        assertEquals(409, staleDraft.status)
+        assertEquals(first, snapshot(get("$agentPath/financing-scenario", agent)))
         assertEquals(listOf(12, 24), first["options"].map { it["termMonths"].asInt() })
         val catalogueRate = checkNotNull(products.find(application.terms.productCode)).baseRate
         assertEquals(0, catalogueRate.compareTo(first["annualRatePercent"].decimalValue()))
@@ -123,7 +127,7 @@ class FinancingScenarioIntegrationTest {
         assertEquals(404, get(bankPath, bank).status)
         assertEquals(404, get("$agentPath/financing-scenario", token(Roles.AGENT)).status)
 
-        assertEquals(200, post("$agentPath/request-confirmation", agent).status)
+        assertEquals(200, handoff(application.id, 1).status)
         val firstHandoff = snapshot(get("$clientPath/financing-scenario", client))
         assertEquals("AWAITING_CLIENT", firstHandoff["status"].asText())
         assertEquals(1L, firstHandoff["revision"].asLong())
@@ -140,14 +144,19 @@ class FinancingScenarioIntegrationTest {
         assertEquals(200, post("$clientPath/return-to-agent", client, """{"comment":"Уточните задержку"}""").status)
         val publicDocument = document(application.id, privateToBank = false)
         val privateDocument = document(application.id, privateToBank = true)
-        val secondDraft = snapshot(putScenario(agentPath, openingBalance = 180_000, delayDays = 0, alternative = 12))
+        val secondDraft = snapshot(putScenario(agentPath, openingBalance = 180_000, delayDays = 0, alternative = 12, expectedRevision = 1))
         assertEquals(2L, secondDraft["revision"].asLong())
         val option = secondDraft["options"][0]
         val withReceipt = BigDecimal("320000").subtract(option["monthlyPayment"].decimalValue())
         assertEquals(0, withReceipt.compareTo(option["balanceOnPaymentDate"].decimalValue()))
         assertEquals(firstHandoff, snapshot(get("$clientPath/financing-scenario", client)))
         assertEquals(409, confirm(clientPath, revision = 1).status)
-        assertEquals(200, post("$agentPath/request-confirmation", agent).status)
+        val staleHandoff = handoff(application.id, 1)
+        assertEquals(409, staleHandoff.status)
+        assertEquals("draft-version", staleHandoff.getHeader("X-Conflict-Code"))
+        assertEquals(ApplicationStatus.DRAFT, applications.find(application.id)?.status)
+        assertEquals(firstHandoff, snapshot(get("$clientPath/financing-scenario", client)))
+        assertEquals(200, handoff(application.id, 2).status)
         val secondHandoff = snapshot(get("$clientPath/financing-scenario", client))
         assertEquals(2L, secondHandoff["revision"].asLong())
         assertTrue(secondHandoff["changes"].map(JsonNode::asText).containsAll(listOf("Исходный остаток", "Задержка поступления", "Документы")))
@@ -191,7 +200,7 @@ class FinancingScenarioIntegrationTest {
         val handedDocument = document(application.id, privateToBank = false)
         noteDocument(application, handedDocument)
         assertEquals(200, putScenario(agentPath).status)
-        assertEquals(200, post("$agentPath/request-confirmation", agent).status)
+        assertEquals(200, handoff(application.id, 1).status)
         assertEquals(200, post("$clientPath/return-to-agent", client).status)
         val unhandedDocument = document(application.id, privateToBank = false)
         noteDocument(application, unhandedDocument)
@@ -209,11 +218,11 @@ class FinancingScenarioIntegrationTest {
             agentPath,
             """
             {"productCode":"WORKING_CAPITAL","purpose":"CASH_GAP","amount":3000000,"termMonths":18,
-             "declaredRevenue12m":36000000}
+             "declaredRevenue12m":36000000,"expectedVersion":${applications.find(application.id)?.version}}
             """.trimIndent(),
         )
         assertEquals(200, changed.status, changed.contentAsString)
-        assertEquals(200, putScenario(agentPath, alternative = 12, selected = 18).status)
+        assertEquals(200, putScenario(agentPath, alternative = 12, selected = 18, expectedRevision = 1).status)
         whenever(mandates.checkAccess(agentId, company.id)).thenReturn(AgentAccessDecision(allowed = false))
         assertEquals(404, get("$agentPath/financing-scenario", agent).status)
         assertEquals(404, putScenario(agentPath, alternative = 12, selected = 18).status)
@@ -289,7 +298,7 @@ class FinancingScenarioIntegrationTest {
                 """
                 {"openingBalance":150000,"expectedReceiptAmount":140000,"expectedReceiptDate":"2026-12-10",
                  "paymentDate":"2026-12-15","delayDays":14,"alternativeTermMonths":24,"selectedTermMonths":24,
-                 "source":{"page":1,"amountQuote":"Amount due: 140000 RUB","dateQuote":"$quote","documentId":"$documentId"}}
+                 "expectedRevision":0,"source":{"page":1,"amountQuote":"Amount due: 140000 RUB","dateQuote":"$quote","documentId":"$documentId"}}
                 """.trimIndent(),
             )
 
@@ -386,14 +395,22 @@ class FinancingScenarioIntegrationTest {
         alternative: Int = 24,
         selected: Int = 24,
         auth: String = agent,
+        expectedRevision: Long = 0,
     ) =
         put(
             "$path/financing-scenario",
             """
             {"openingBalance":$openingBalance,"expectedReceiptAmount":140000,"expectedReceiptDate":"2026-12-10",
-             "paymentDate":"2026-12-15","delayDays":$delayDays,"alternativeTermMonths":$alternative,"selectedTermMonths":$selected}
+             "paymentDate":"2026-12-15","delayDays":$delayDays,"alternativeTermMonths":$alternative,"selectedTermMonths":$selected,"expectedRevision":$expectedRevision}
             """.trimIndent(),
             auth,
+        )
+
+    private fun handoff(id: UUID, revision: Long) =
+        post(
+            "${agentPath(id)}/request-confirmation",
+            agent,
+            """{"expectedVersion":${applications.find(id)?.version},"expectedScenarioRevision":$revision}""",
         )
 
     private fun confirm(path: String, revision: Long?, consent: Boolean = true) =

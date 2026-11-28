@@ -31,10 +31,13 @@ class FinancingScenarioController(
     fun agentGet(@PathVariable id: UUID): ResponseEntity<FinancingScenarioSnapshot> =
         response(scenarios.forAgent(agents.get(id)))
 
-    @Operation(summary = "Сравнить два срока и сохранить редакцию сценария")
+    @Operation(
+        summary = "Сравнить два срока и сохранить редакцию сценария",
+        description = "Передайте ожидаемую ревизию сценария. Для первого сохранения используйте 0. Устаревшая ревизия приводит к 409.",
+    )
     @PutMapping("/api/v1/agent/applications/{id}/financing-scenario")
     fun agentPut(@PathVariable id: UUID, @RequestBody inputs: FinancingScenarioInputs): FinancingScenarioSnapshot =
-        agents.saveFinancingScenario(id, inputs.toDomain()).toContract()
+        agents.saveFinancingScenario(id, inputs.toDomain(), inputs.expectedRevision).toContract()
 
     @Operation(summary = "Последний переданный клиенту пакет")
     @GetMapping("/api/v1/applications/{id}/financing-scenario")

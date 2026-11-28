@@ -115,6 +115,8 @@ def main():
                                  "max_request_seconds": max(r["seconds"] for r in replies)})
         assert actual == expected, f"{name}: {actual}, expected {expected}"
         assert all(int(r["headers"].get("retry-after", "0")) > 0 for r in replies if r["status"] == 429)
+        if name in {"signin", "signin-ip"}:
+            assert all(r["headers"].get("x-rate-limit-scope") == name for r in replies if r["status"] == 429)
         print(json.dumps(report["limits"][-1], ensure_ascii=False), flush=True)
 
     def sign_in(email, password="Test2026safe"):
@@ -166,9 +168,9 @@ def main():
         unknown = "shared-unknown-" + uuid4().hex + "@example.test"
         quota("signin", 12, lambda i: request(instances["identity"][i % 2], "POST", "/api/v1/auth/sign-in",
                                              {"email": unknown, "password": "Wrong2026safe"}, headers={"X-Real-IP": recovery_ips[0]}), {401: 5, 429: 7})
-        quota("signin-ip", 38, lambda i: request(instances["identity"][i % 2], "POST", "/api/v1/auth/sign-in",
+        quota("signin-ip", 128, lambda i: request(instances["identity"][i % 2], "POST", "/api/v1/auth/sign-in",
                                                  {"email": f"shared-{uuid4().hex}@example.test", "password": "Wrong2026safe"},
-                                                 headers={"X-Real-IP": recovery_ips[1]}), {401: 30, 429: 8})
+                                                 headers={"X-Real-IP": recovery_ips[1]}), {401: 120, 429: 8})
         quota("recovery-email", 8, lambda i: request(instances["identity"][i % 2], "POST", "/api/v1/auth/password-recovery",
                                                      {"email": unknown}, headers={"X-Real-IP": recovery_ips[0]}), {200: 3, 429: 5})
         quota("recovery-ip", 24, lambda i: request(instances["identity"][i % 2], "POST", "/api/v1/auth/password-recovery",

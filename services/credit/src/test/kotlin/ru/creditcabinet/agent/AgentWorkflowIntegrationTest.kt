@@ -224,6 +224,57 @@ class AgentWorkflowIntegrationTest {
     }
 
     @Test
+    fun `a stale agent draft update preserves the winning version and checks ownership`() {
+        val draft = json(createAgentDraft())
+        val id = draft["id"].asText()
+        val version = draft["version"].asLong()
+        fun update(token: String, amount: Long, expectedVersion: Long) = mockMvc.put("/api/v1/agent/applications/$id") {
+            header("Authorization", "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":$amount,"termMonths":12,"expectedVersion":$expectedVersion}"""
+        }.andReturn().response
+
+        val next = json(update(agentToken, 2_100_000, version))
+        assertTrue(next["version"].asLong() > version)
+        val stale = update(agentToken, 2_200_000, version)
+        assertEquals(409, stale.status)
+        assertTrue(json(stale)["message"].asText().contains("Черновик изменён"))
+        val after = mockMvc.get("/api/v1/agent/applications/$id") {
+            header("Authorization", "Bearer $agentToken")
+        }.andReturn().response
+        assertEquals(2_100_000, json(after)["amount"].asInt())
+        assertEquals(next["version"], json(after)["version"])
+        assertEquals(404, update(agent2Token, 2_300_000, next["version"].asLong()).status)
+    }
+
+    @Test
+    fun `handoff rejects a draft updated after the agent reviewed it`() {
+        val draft = json(createAgentDraft())
+        val id = draft["id"].asText()
+        val version = draft["version"].asLong()
+        val updated = mockMvc.put("/api/v1/agent/applications/$id") {
+            header("Authorization", "Bearer $agentToken")
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":2100000,"termMonths":12,
+                 "declaredRevenue12m":24000000,"declaredMonthlyDebtPayments":50000,"expectedVersion":$version}
+            """.trimIndent()
+        }.andReturn().response
+        assertEquals(200, updated.status)
+        fun handoff(expectedVersion: Long) = mockMvc.post("/api/v1/agent/applications/$id/request-confirmation") {
+            header("Authorization", "Bearer $agentToken")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"expectedVersion":$expectedVersion,"expectedScenarioRevision":0}"""
+        }.andReturn().response
+        val stale = handoff(version)
+        assertEquals(409, stale.status)
+        assertEquals("draft-version", stale.getHeader("X-Conflict-Code"))
+        assertEquals(ApplicationStatus.DRAFT, applications.find(UUID.fromString(id))?.status)
+        assertEquals(2_100_000L, applications.find(UUID.fromString(id))?.terms?.amount)
+        assertEquals(200, handoff(json(updated)["version"].asLong()).status)
+    }
+
+    @Test
     fun `full agent to client confirmation to submitted flow with document upload and notifications`() {
         val createResp = createAgentDraft(revenue = null)
         assertEquals(201, createResp.status, createResp.getContentAsString(Charsets.UTF_8))
@@ -245,7 +296,7 @@ class AgentWorkflowIntegrationTest {
             header("Authorization", "Bearer $agentToken")
             contentType = MediaType.APPLICATION_JSON
             content =
-                """{"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":2000000,"termMonths":12,"declaredRevenue12m":24000000,"declaredMonthlyDebtPayments":50000}"""
+                """{"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":2000000,"termMonths":12,"declaredRevenue12m":24000000,"declaredMonthlyDebtPayments":50000,"expectedVersion":${draft["version"].asLong()}}"""
         }.andReturn().response
         assertEquals(200, updateResp.status, updateResp.getContentAsString(Charsets.UTF_8))
         assertFalse(json(updateResp)["bureauConsent"].asBoolean())
@@ -635,7 +686,9 @@ class AgentWorkflowIntegrationTest {
             header("Authorization", "Bearer $agentToken")
         }.andReturn().response
         assertEquals(201, reapplyResp.status, reapplyResp.getContentAsString(Charsets.UTF_8))
-        val app2Id = UUID.fromString(json(reapplyResp)["id"].asText())
+        val reapplied = json(reapplyResp)
+        val app2Id = UUID.fromString(reapplied["id"].asText())
+        val reappliedVersion = reapplied["version"].asLong()
         createdApplicationIds += app2Id
         assertEquals(
             200,
@@ -643,7 +696,7 @@ class AgentWorkflowIntegrationTest {
                 header("Authorization", "Bearer $agentToken")
                 contentType = MediaType.APPLICATION_JSON
                 content =
-                    """{"productCode":"OVERDRAFT","purpose":"CASH_GAP","amount":2000000,"termMonths":12,"declaredRevenue12m":24000000}"""
+                    """{"productCode":"OVERDRAFT","purpose":"CASH_GAP","amount":2000000,"termMonths":12,"declaredRevenue12m":24000000,"expectedVersion":$reappliedVersion}"""
             }.andReturn().response.status,
         )
         assertEquals(

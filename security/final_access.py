@@ -85,7 +85,7 @@ def check(api):
                 "risk_admin": "risk", "agent": "agent", "other_agent": "agent2"}
     sessions = {}
     for role, account in accounts.items():
-        time.sleep(2.1)  # The real auth gateway enforces a 30/minute address limit.
+        time.sleep(2.1)  # Leave room in the shared auth budgets for other checks.
         sessions[role] = api.sign_in(f"{account}@demo.test")
     tokens = {role: session["token"] for role, session in sessions.items()}
 
@@ -128,7 +128,7 @@ def check(api):
                     body = {
                         "openingBalance": 150_000, "expectedReceiptAmount": 140_000,
                         "expectedReceiptDate": control_date, "paymentDate": payment_date,
-                        "delayDays": 14, "alternativeTermMonths": 24, "selectedTermMonths": 12,
+                        "delayDays": 14, "alternativeTermMonths": 24, "selectedTermMonths": 12, "expectedRevision": 0,
                     }
                 elif method == "PUT" and template.endswith("/payment-reserve"):
                     body = {

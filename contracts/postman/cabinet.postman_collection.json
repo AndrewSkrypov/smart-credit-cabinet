@@ -213,7 +213,8 @@
               "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
               "const app=pm.response.json();",
               "pm.test(\"Создан новый черновик\",()=>pm.expect(app.status).to.equal('DRAFT'));",
-              "pm.collectionVariables.set('clientApplication',app.id);"
+              "pm.collectionVariables.set('clientApplication',app.id);",
+              "pm.collectionVariables.set('clientApplicationVersion',app.version);"
             ]
           }
         }
@@ -242,7 +243,7 @@
         "url": "{{baseUrl}}/applications/{{clientApplication}}",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"productCode\": \"WORKING_CAPITAL\",\n  \"purpose\": \"WORKING_CAPITAL\",\n  \"amount\": 1000000,\n  \"termMonths\": 12,\n  \"declaredRevenue12m\": 14400000,\n  \"bureauConsent\": true,\n  \"purposeComment\": \"Синтетическая заявка для проверки контракта\"\n}",
+          "raw": "{\n  \"productCode\": \"WORKING_CAPITAL\",\n  \"purpose\": \"WORKING_CAPITAL\",\n  \"amount\": 1000000,\n  \"termMonths\": 12,\n  \"declaredRevenue12m\": 14400000,\n  \"bureauConsent\": true,\n  \"purposeComment\": \"Синтетическая заявка для проверки контракта\",\n  \"expectedVersion\": {{clientApplicationVersion}}\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -257,7 +258,7 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
-              "pm.test('Черновик сохранён',()=>pm.expect(pm.response.json().status).to.equal('DRAFT'));"
+              "const app=pm.response.json();pm.test('Черновик сохранён',()=>pm.expect(app.status).to.equal('DRAFT'));pm.collectionVariables.set('clientApplicationVersion',app.version);"
             ]
           }
         }
@@ -326,7 +327,7 @@
         "url": "{{baseUrl}}/applications/{{clientApplication}}/submit",
         "body": {
           "mode": "raw",
-          "raw": "{}",
+          "raw": "{\n  \"expectedVersion\": {{clientApplicationVersion}}\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -379,7 +380,7 @@
         "url": "{{baseUrl}}/applications/{{clientApplication}}/submit",
         "body": {
           "mode": "raw",
-          "raw": "{}",
+          "raw": "{\n  \"expectedVersion\": {{clientApplicationVersion}}\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -1056,7 +1057,8 @@
               "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
               "const app=pm.response.json();",
               "pm.test(\"Создан новый черновик\",()=>pm.expect(app.status).to.equal('DRAFT'));",
-              "pm.collectionVariables.set('manualApplication',app.id);"
+              "pm.collectionVariables.set('manualApplication',app.id);",
+              "pm.collectionVariables.set('manualApplicationVersion',app.version);"
             ]
           }
         }
@@ -1085,7 +1087,7 @@
         "url": "{{baseUrl}}/applications/{{manualApplication}}/submit",
         "body": {
           "mode": "raw",
-          "raw": "{}",
+          "raw": "{\n  \"expectedVersion\": {{manualApplicationVersion}}\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -1542,7 +1544,8 @@
               "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
               "const app=pm.response.json();",
               "pm.test(\"Создан новый черновик\",()=>pm.expect(app.status).to.equal('DRAFT'));",
-              "pm.collectionVariables.set('counterApplication',app.id);"
+              "pm.collectionVariables.set('counterApplication',app.id);",
+              "pm.collectionVariables.set('counterApplicationVersion',app.version);"
             ]
           }
         }
@@ -1571,7 +1574,7 @@
         "url": "{{baseUrl}}/applications/{{counterApplication}}/submit",
         "body": {
           "mode": "raw",
-          "raw": "{}",
+          "raw": "{\n  \"expectedVersion\": {{counterApplicationVersion}}\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -1853,7 +1856,8 @@
               "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
               "const app=pm.response.json();",
               "pm.test(\"Создан новый черновик\",()=>pm.expect(app.status).to.equal('DRAFT'));",
-              "pm.collectionVariables.set('rejectedApplication',app.id);"
+              "pm.collectionVariables.set('rejectedApplication',app.id);",
+              "pm.collectionVariables.set('rejectedApplicationVersion',app.version);"
             ]
           }
         }
@@ -1882,7 +1886,7 @@
         "url": "{{baseUrl}}/applications/{{rejectedApplication}}/submit",
         "body": {
           "mode": "raw",
-          "raw": "{}",
+          "raw": "{\n  \"expectedVersion\": {{rejectedApplicationVersion}}\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -3808,7 +3812,9 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP 201\",()=>pm.response.to.have.status(201));",
-              "pm.collectionVariables.set('chatApplication',pm.response.json().id);"
+              "const app=pm.response.json();",
+              "pm.collectionVariables.set('chatApplication',app.id);",
+              "pm.collectionVariables.set('chatApplicationVersion',app.version);"
             ]
           }
         }
@@ -3837,7 +3843,7 @@
         "url": "{{baseUrl}}/applications/{{chatApplication}}/submit",
         "body": {
           "mode": "raw",
-          "raw": "{}",
+          "raw": "{\"expectedVersion\":{{chatApplicationVersion}}}",
           "options": {
             "raw": {
               "language": "json"

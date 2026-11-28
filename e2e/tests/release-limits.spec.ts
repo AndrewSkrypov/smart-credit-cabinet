@@ -21,6 +21,7 @@ test('Общий лимит входа показывает понятную о�
     const response = await pending;
     expect(response.status()).toBe(429);
     expect(Number(response.headers()['retry-after'])).toBeGreaterThan(0);
+    expect(response.headers()['x-rate-limit-scope']).toBe('signin');
     await expect(page.getByText('Слишком много попыток входа. Попробуйте через несколько минут.', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Войти', exact: true })).toBeEnabled();
     await expect(page.getByLabel('Email', { exact: false })).toHaveValue(email);
@@ -28,7 +29,7 @@ test('Общий лимит входа показывает понятную о�
     await noHorizontalOverflow(page);
     await page.screenshot({ path: info.outputPath('shared-signin-limit.png'), fullPage: true });
   } finally {
-    // Six auth requests replenish at the unchanged gateway rate before the next viewport.
+    // Leave capacity for subsequent tests of the shared gateway budget.
     await pause(14000);
   }
 });

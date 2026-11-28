@@ -51,7 +51,13 @@ data class LoanOpenedReceipt(
 data class ServicingActor(val userId: UUID, val companyId: UUID)
 
 /** [operationKey] makes a retried request return the first result instead of drawing twice. */
-data class DrawCommand(val actor: ServicingActor, val amount: Long, val purpose: String? = null, val operationKey: UUID? = null)
+data class DrawCommand(
+    val actor: ServicingActor,
+    val amount: Long,
+    val purpose: String? = null,
+    val operationKey: UUID? = null,
+    val expectedRevision: String? = null,
+)
 
 /** The client pays the exact payment it saw; [operationKey] makes a retry safe. */
 data class PayNextCommand(val actor: ServicingActor, val paymentId: UUID? = null, val operationKey: UUID? = null)

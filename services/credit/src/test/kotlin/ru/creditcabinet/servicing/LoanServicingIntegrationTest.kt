@@ -435,14 +435,32 @@ class LoanServicingIntegrationTest {
         )
         assertEquals(1_000_000L, afterRejected["disbursedAmount"].asLong())
 
+        checkNotNull(jdbc.dataSource).connection.use { connection ->
+            connection.autoCommit = false
+            try {
+                connection.prepareStatement("select id from loan_accounts where id = ? for update").use { statement ->
+                    statement.setObject(1, UUID.fromString(loanId))
+                    assertTrue(statement.executeQuery().next())
+                }
+                val busy = mockMvc.get("/api/v1/applications/$revAppId/loan") {
+                    header("Authorization", "Bearer $clientToken")
+                }.andReturn().response
+                assertEquals(200, busy.status)
+                assertTrue(json(busy)["operationInProgress"].asBoolean())
+            } finally {
+                connection.rollback()
+            }
+        }
+        assertFalse(initialLoan["operationInProgress"].asBoolean())
+
         // Valid second tranche
         val firstPaymentBefore = initialLoan["payments"][0]["paymentAmount"].decimalValue()
         val trancheKey = UUID.randomUUID()
-        fun draw(amount: Long) = mockMvc.post("/api/v1/loans/$loanId/tranches") {
+        fun draw(amount: Long, key: UUID = trancheKey) = mockMvc.post("/api/v1/loans/$loanId/tranches") {
             header("Authorization", "Bearer $clientToken")
-            header("Idempotency-Key", trancheKey)
+            header("Idempotency-Key", key)
             contentType = MediaType.APPLICATION_JSON
-            content = """{"amount":$amount,"purpose":"Закупка сырья"}"""
+            content = """{"amount":$amount,"purpose":"Закупка сырья","expectedRevision":"${initialLoan["operationRevision"].asText()}"}"""
         }.andReturn().response
 
         val (trancheResp, replay) = Executors.newFixedThreadPool(2).use { pool ->
@@ -452,6 +470,7 @@ class LoanServicingIntegrationTest {
         assertEquals(200, replay.status, replay.getContentAsString(Charsets.UTF_8))
         assertEquals(json(trancheResp), json(replay))
         assertEquals(409, draw(300_000L).status)
+        assertEquals(409, draw(300_000L, UUID.randomUUID()).status)
         val afterTranche = json(trancheResp)
         assertEquals(1_500_000L, afterTranche["disbursedAmount"].asLong())
         assertEquals(0, afterTranche["outstandingPrincipal"].decimalValue().compareTo(BigDecimal("1500000.00")))

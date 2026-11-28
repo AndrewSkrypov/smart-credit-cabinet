@@ -26,13 +26,21 @@ class LoanServicingJdbcStore(
     override fun existsByApplicationId(applicationId: UUID): Boolean =
         (jdbc.queryForObject("select count(*) from loan_accounts where application_id = ?", Int::class.java, applicationId) ?: 0) > 0
 
-    override fun findByApplicationId(applicationId: UUID): LoanAccount? {
+    override fun findByApplicationId(applicationId: UUID): LoanAccount? = findByApplicationId(applicationId, "")
+
+    // Readers share the lock. When a writer owns it, expose the pending operation without waiting for commit.
+    override fun findByApplicationIdForView(applicationId: UUID): LoanAccount? =
+        findByApplicationId(applicationId, "for share skip locked")
+            ?: findByApplicationId(applicationId)?.copy(operationInProgress = true)
+
+    private fun findByApplicationId(applicationId: UUID, lock: String): LoanAccount? {
         val row = jdbc.query(
             """
             select id, application_id, company_id, contract_number, approved_limit, disbursed_amount,
                    outstanding_principal, rate, term_months, revolving, status, disbursed_at, maturity_date, repaid_at
               from loan_accounts
              where application_id = ?
+               $lock
             """.trimIndent(),
             { rs, _ -> mapAccount(rs) },
             applicationId,

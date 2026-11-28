@@ -91,16 +91,21 @@ class ApplicationController(
     @Operation(summary = "Изменить черновик")
     @PutMapping("/{id}")
     fun update(@PathVariable id: UUID, @Valid @RequestBody request: ApplicationRequest): ApplicationResponse =
-        detail(service.updateDraft(id, request.toTerms()))
+        detail(service.updateDraft(id, request.toTerms(), request.expectedVersion))
 
-    @Operation(summary = "Отправить заявку в банк (T2)")
+    @Operation(
+        summary = "Отправить заявку в банк (T2)",
+        description = "Передайте версию проверенного черновика в expectedVersion. При устаревшей версии ответ 409 содержит X-Conflict-Code: draft-version.",
+    )
     @PostMapping("/{id}/submit")
     fun submit(
         @PathVariable id: UUID,
         @Parameter(description = "Повтор с тем же ключом вернёт результат первого запроса")
         @RequestHeader("Idempotency-Key", required = false) idempotencyKey: String?,
         @RequestBody(required = false) request: SubmitRequest?,
-    ): ApplicationResponse = detail(service.submit(id, idempotencyKey?.trim()?.takeIf { it.isNotEmpty() }?.take(128), request?.acceptedProductVersion))
+    ): ApplicationResponse = detail(
+        service.submit(id, idempotencyKey?.trim()?.takeIf { it.isNotEmpty() }?.take(128), request?.acceptedProductVersion, request?.expectedVersion),
+    )
 
     @Operation(summary = "Подтвердить агентскую заявку, дать согласие на БКИ и отправить в банк (T23)")
     @PostMapping("/{id}/confirm")

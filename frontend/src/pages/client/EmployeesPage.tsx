@@ -1,3 +1,4 @@
+import { createOperationId } from '../../shared/operationId';
 import { Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Paper, Stack, TextField, Typography } from '@mui/material';
 import { FormEvent, useRef, useState } from 'react';
 import { employeesApi } from '../../api/client';
@@ -16,7 +17,7 @@ export function EmployeesPage() {
   const loaded = useApi(employeesApi.list);
   const [email, setEmail] = useState('');
   const [canSign, setCanSign] = useState(false);
-  const [inviteKey, setInviteKey] = useState(() => crypto.randomUUID());
+  const [inviteKey, setInviteKey] = useState(() => createOperationId());
   const keys = useRef(new Map<string, string>());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +27,7 @@ export function EmployeesPage() {
   const [copied, setCopied] = useState(false);
   const data = loaded.data;
   const keyFor = (operation: string) => {
-    const existing = keys.current.get(operation) ?? crypto.randomUUID();
+    const existing = keys.current.get(operation) ?? createOperationId();
     keys.current.set(operation, existing);
     return existing;
   };
@@ -41,7 +42,7 @@ export function EmployeesPage() {
     setBusy(true); setError(null); setNotice(null); setLink(null);
     try {
       showInvitation(await employeesApi.invite(email, canSign, inviteKey));
-      setEmail(''); setCanSign(false); setInviteKey(crypto.randomUUID());
+      setEmail(''); setCanSign(false); setInviteKey(createOperationId());
       await loaded.reload();
     } catch (next) { setError(next instanceof Error ? next.message : 'Не удалось создать приглашение'); }
     finally { setBusy(false); }
@@ -95,8 +96,8 @@ export function EmployeesPage() {
               <Paper sx={{ p: { xs: 3, md: 4 } }}>
                 <Typography variant="h6" sx={{ mb: 2 }}>Пригласить сотрудника</Typography>
                 <Stack component="form" spacing={2} onSubmit={invite}>
-                  <TextField label="Email сотрудника" type="email" required value={email} onChange={(event) => { setEmail(event.target.value); setInviteKey(crypto.randomUUID()); }} />
-                  <FormControlLabel control={<Checkbox checked={canSign} onChange={(_, checked) => { setCanSign(checked); setInviteKey(crypto.randomUUID()); }} />} label="Разрешить подписание от компании" />
+                  <TextField label="Email сотрудника" type="email" required value={email} onChange={(event) => { setEmail(event.target.value); setInviteKey(createOperationId()); }} />
+                  <FormControlLabel control={<Checkbox checked={canSign} onChange={(_, checked) => { setCanSign(checked); setInviteKey(createOperationId()); }} />} label="Разрешить подписание от компании" />
                   <Typography variant="body2" color="text.secondary">{data.mailAvailable ? 'Приглашение придёт сотруднику по почте.' : 'Почта выключена. После создания вы один раз увидите ссылку для передачи сотруднику.'}</Typography>
                   <Button type="submit" variant="contained" disabled={busy}>Отправить приглашение</Button>
                 </Stack>

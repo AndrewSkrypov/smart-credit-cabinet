@@ -32,7 +32,10 @@ class GlobalExceptionHandler {
     @ExceptionHandler(ApiException::class)
     fun handleApiException(exception: ApiException, request: HttpServletRequest): ResponseEntity<ErrorResponse> =
         ResponseEntity.status(exception.httpStatus).headers { headers ->
-            if (exception is SharedLimitExceeded) headers.set("Retry-After", exception.retryAfterSeconds.toString())
+            if (exception is SharedLimitExceeded) {
+                headers.set("Retry-After", exception.retryAfterSeconds.toString())
+                exception.scope?.let { headers.set("X-Rate-Limit-Scope", it) }
+            }
         }.body(
             ErrorResponse(
                 status = exception.httpStatus.value(),

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.domain.ApplicationConflictException
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.document.domain.DocumentContext
@@ -45,14 +46,16 @@ class FinancingScenarios(
 
     /** Caller locks and authorizes the application in the same transaction. */
     @Transactional(propagation = Propagation.MANDATORY)
-    fun saveDraft(application: LoanApplication, inputs: ScenarioInputs): ScenarioSnapshot {
+    fun saveDraft(application: LoanApplication, inputs: ScenarioInputs, expectedRevision: Long?): ScenarioSnapshot {
         if (application.status != ApplicationStatus.DRAFT) {
             throw Conflict("Сценарий можно изменить только в черновике")
         }
         val product = products.find(application.terms.productCode)
             ?: throw Conflict("Продукт заявки выключен из каталога")
-        val revision = (store.latest(application.id)?.snapshot?.revision ?: 0L) + 1
-        val snapshot = FinancingScenarioCalculation.draft(revision, inputs, application.terms, product)
+        require(expectedRevision != null && expectedRevision >= 0) { "Укажите текущую версию сценария" }
+        val revision = store.latest(application.id)?.snapshot?.revision ?: 0L
+        if (expectedRevision != revision) throw Conflict("Сценарий изменился на другом устройстве — загрузите актуальный расчёт")
+        val snapshot = FinancingScenarioCalculation.draft(revision + 1, inputs, application.terms, product)
         verifyInvoiceSource(application.id, inputs)
         store.append(application.id, ScenarioRevision(product.version, snapshot))
         return snapshot
@@ -60,8 +63,15 @@ class FinancingScenarios(
 
     /** Caller holds the application lock and commits the handoff in the same transaction. */
     @Transactional(propagation = Propagation.MANDATORY)
-    fun prepareHandoff(application: LoanApplication, product: Product): LoanApplication {
-        val latest = store.latest(application.id) ?: return application
+    fun prepareHandoff(application: LoanApplication, product: Product, expectedRevision: Long?): LoanApplication {
+        val latest = store.latest(application.id)
+        if ((expectedRevision ?: 0L) != (latest?.snapshot?.revision ?: 0L)) {
+            throw ApplicationConflictException(
+                "Сценарий изменился на другом устройстве — загрузите актуальный расчёт перед передачей",
+                code = "draft-version",
+            )
+        }
+        if (latest == null) return application
         val snapshot = latest.snapshot
         val selectedTerm = snapshot.inputs.selectedTermMonths
         val sameTerm = application.terms.termMonths == snapshot.options.first().termMonths ||

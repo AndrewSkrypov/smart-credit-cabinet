@@ -136,8 +136,10 @@ class RemoteCatalogIntegrationTest {
             previewFailures++
             throw DependencyUnavailable("Сбой чтения после записи")
         }.whenever(remote).latest(selected)
-        val directId = post(applications, directClient, request).json(201)["id"].asText()
-        assertEquals("DRAFT", put("$applications/$directId", directClient, request).json()["status"].asText())
+        val direct = post(applications, directClient, request).json(201)
+        val directId = direct["id"].asText()
+        val versioned = request + ("expectedVersion" to direct["version"].asLong())
+        assertEquals("DRAFT", put("$applications/$directId", directClient, versioned).json()["status"].asText())
         val agentId = post(agentApplications, agent, request + ("companyId" to represented.id)).json(201)["id"].asText()
         assertEquals("PENDING_CLIENT_CONFIRMATION", post("$agentApplications/$agentId/request-confirmation", agent).json()["status"].asText())
         assertEquals(4, previewFailures)

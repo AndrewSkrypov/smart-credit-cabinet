@@ -243,6 +243,8 @@ python3 scripts/run-scenarios.py
 | Переменная | По умолчанию | Назначение |
 | --- | --- | --- |
 | `GATEWAY_PORT` | 8080 | Порт кабинета на машине |
+| `PUBLIC_CABINET_URL` | `http://localhost:8080` | Адрес кабинета для ссылок в письмах. Для доступа из LAN укажите адрес и порт, доступные получателям |
+| `DEMO_CABINET_ORIGIN` | пусто | Точный origin локального или стейджингового кабинета для `/demo`. Нужна пересборка фронтенда. Режим использует API того же стенда |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD` | cabinet / cabinet | Администратор bootstrap/операторских команд, отсутствует в HTTP-сервисах |
 | `IDENTITY_DB_PASSWORD`, `CREDIT_DB_PASSWORD`, `ENGAGEMENT_DB_PASSWORD` | разные dev-значения | Пароли трёх runtime-ролей с доступом только к своей базе |
 | `IDENTITY_MIGRATION_PASSWORD`, `CREDIT_MIGRATION_PASSWORD`, `ENGAGEMENT_MIGRATION_PASSWORD` | отдельные dev-значения | Пароли владельцев для одноразовых миграторов; в prod все шесть секретов независимые |

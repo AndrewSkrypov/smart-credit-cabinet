@@ -14,7 +14,7 @@ data class LimitWindow(val scope: String, val subject: String, val maximum: Int,
     }
 }
 
-class SharedLimitExceeded(message: String, val retryAfterSeconds: Long) : ApiException(HttpStatus.TOO_MANY_REQUESTS, message)
+class SharedLimitExceeded(message: String, val retryAfterSeconds: Long, val scope: String? = null) : ApiException(HttpStatus.TOO_MANY_REQUESTS, message)
 
 /** One server-clock rolling window shared by every replica. No partial multi-key acquisition. */
 @Component
@@ -40,7 +40,10 @@ class SharedLimits(private val state: ValkeyState, private val metrics: MeterReg
         }
         val allowed = (result[0] as Number).toLong() == 1L
         metrics.counter("cabinet.shared_limits", "operation", windows.first().scope, "outcome", if (allowed) "allowed" else "limited").increment()
-        if (!allowed) throw SharedLimitExceeded(message, ((result[1] as Number).toLong() + 999) / 1000)
+        if (!allowed) {
+            val scope = windows[(result[2] as Number).toInt() - 1].scope
+            throw SharedLimitExceeded(message, ((result[1] as Number).toLong() + 999) / 1000, scope)
+        }
     }
 
     fun reset(scope: String, subject: String) {
@@ -58,16 +61,21 @@ class SharedLimits(private val state: ValkeyState, private val metrics: MeterReg
             local t = redis.call('TIME')
             local now = tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)
             local retry = 0
+            local limited = 0
             for i, key in ipairs(KEYS) do
                 local maximum = tonumber(ARGV[i * 2])
                 local window = tonumber(ARGV[i * 2 + 1])
                 redis.call('ZREMRANGEBYSCORE', key, '-inf', now - window)
                 if redis.call('ZCARD', key) >= maximum then
                     local first = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
-                    retry = math.max(retry, tonumber(first[2]) + window - now)
+                    local remaining = tonumber(first[2]) + window - now
+                    if remaining > retry then
+                        retry = remaining
+                        limited = i
+                    end
                 end
             end
-            if retry > 0 then return {0, retry} end
+            if retry > 0 then return {0, retry, limited} end
             for i, key in ipairs(KEYS) do
                 redis.call('ZADD', key, now, ARGV[1])
                 redis.call('PEXPIRE', key, tonumber(ARGV[i * 2 + 1]))

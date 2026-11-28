@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loanServicingApi } from '../api/client';
+import { ApiError, loanServicingApi } from '../api/client';
 import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { clearSession, readSession, writeSession } from '../auth/session';
 import { rubExact } from '../shared/format';
@@ -62,6 +62,7 @@ function LoanWithSessionControls() {
 
 const activeRevolvingLoan: LoanAccount = {
   id: 'loan-1',
+  operationRevision: '1:0:ACTIVE',
   applicationId: 'app-1',
   contractNumber: 'КД-2026-0001',
   status: 'ACTIVE',
@@ -160,9 +161,24 @@ describe('LoanServicingBlock', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
 
     await waitFor(() => {
-      expect(loanServicingApi.drawTranche).toHaveBeenCalledWith('loan-1', 500_000, 'Закупка сырья', expect.any(String));
+      expect(loanServicingApi.drawTranche).toHaveBeenCalledWith('loan-1', 500_000, 'Закупка сырья', expect.any(String), '1:0:ACTIVE');
     });
     expect(await screen.findByText('Закупка сырья')).toBeInTheDocument();
+  });
+
+  it('shows the server operation and clears local pending state after a conflict', async () => {
+    const load = vi.mocked(loanServicingApi.getByApplication);
+    load.mockResolvedValueOnce({ ...activeRevolvingLoan, operationInProgress: true }).mockResolvedValue(activeRevolvingLoan);
+    vi.mocked(loanServicingApi.payNext).mockRejectedValue(new ApiError('Очередной платёж изменился', 409));
+    renderLoan();
+    expect(await screen.findByText(/Выполняется операция по кредиту/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Внести очередной платёж' })).toBeDisabled();
+    await act(async () => { window.dispatchEvent(new Event('focus')); });
+    await userEvent.click(screen.getByRole('button', { name: 'Внести очередной платёж' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
+    expect(await screen.findByText('Очередной платёж изменился')).toBeInTheDocument();
+    expect(screen.queryByText(/Результат операции пока неизвестен/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Внести очередной платёж' })).toBeEnabled());
   });
 
   it('calls payNext and repayEarly and switches to repaid state', async () => {
@@ -294,7 +310,7 @@ describe('LoanServicingBlock', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Подтвердить' }));
     expect(await screen.findByText('Нет ответа для Б')).toBeInTheDocument();
     const requestB = drawTranche.mock.calls[2];
-    expect(requestB).toEqual(['loan-1', 350_000, undefined, expect.any(String)]);
+    expect(requestB).toEqual(['loan-1', 350_000, undefined, expect.any(String), '1:0:ACTIVE']);
     expect(requestB[3]).not.toBe(requestA[3]);
     const pendingB = sessionStorage.getItem(pendingKeyB);
     expect(JSON.parse(pendingB!).key).toBe(requestB[3]);

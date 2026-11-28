@@ -428,6 +428,7 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
+        VITE_DEMO_CABINET_ORIGIN: ${DEMO_CABINET_ORIGIN:-}
     mem_limit: 128m
     restart: unless-stopped
     networks:

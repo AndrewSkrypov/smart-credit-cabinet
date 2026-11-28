@@ -75,11 +75,14 @@ class ServicingEngine(
     }
 
     override fun byApplication(applicationId: UUID): LoanAccount? = checkedRead {
-        accounts.findByApplicationId(applicationId)?.let { accounts.findByIdForUpdate(it.id) }
+        accounts.findByApplicationIdForView(applicationId)
     }
     override fun byId(loanId: UUID): LoanAccount? = checkedRead { accounts.findByIdForUpdate(loanId) }
     override fun draw(loanId: UUID, command: DrawCommand): LoanAccount = tx.execute {
         once(loanId, command.actor, command.operationKey, "tranche:${command.amount}:${command.purpose?.trim().orEmpty()}") { account ->
+            if (command.expectedRevision != null && command.expectedRevision != account.operationRevision()) {
+                throw ServicingConflict("Кредит изменился на другом устройстве. Проверьте график и подтвердите операцию снова.")
+            }
             val updated = account.drawTranche(command.amount, command.purpose, clock.instant(), today())
             accounts.saveState(updated, updated.tranches.last())
             updated

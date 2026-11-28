@@ -270,23 +270,25 @@ class PreApprovedOfferTest {
         assertEquals(201, applyResp.status)
         val appId = UUID.fromString(json(applyResp)["id"].asText())
 
+        val initialVersion = checkNotNull(applications.find(appId)?.version)
         // Update within bounds -> stays attached
         val withinBounds = mockMvc.put("/api/v1/applications/$appId") {
             header("Authorization", "Bearer $client")
             contentType = MediaType.APPLICATION_JSON
             content =
-                """{"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":1500000,"termMonths":12,"declaredRevenue12m":20000000,"bureauConsent":true}"""
+                """{"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":1500000,"termMonths":12,"declaredRevenue12m":20000000,"bureauConsent":true,"expectedVersion":$initialVersion}"""
         }.andReturn().response
         assertEquals(200, withinBounds.status, withinBounds.getContentAsString(Charsets.UTF_8))
         assertEquals(offerId, applications.find(appId)?.preApprovedOfferId)
         assertEquals("USED", jdbc.queryForObject("select status from pre_approved_offers where id = ?", String::class.java, offerId))
 
+        val savedVersion = json(withinBounds)["version"].asLong()
         // Update above maxAmount -> detaches offer and returns it to ACTIVE
         val outOfBounds = mockMvc.put("/api/v1/applications/$appId") {
             header("Authorization", "Bearer $client")
             contentType = MediaType.APPLICATION_JSON
             content =
-                """{"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":2500000,"termMonths":12,"declaredRevenue12m":20000000,"bureauConsent":true}"""
+                """{"productCode":"WORKING_CAPITAL","purpose":"WORKING_CAPITAL","amount":2500000,"termMonths":12,"declaredRevenue12m":20000000,"bureauConsent":true,"expectedVersion":$savedVersion}"""
         }.andReturn().response
         assertEquals(200, outOfBounds.status, outOfBounds.getContentAsString(Charsets.UTF_8))
         assertNull(applications.find(appId)?.preApprovedOfferId)

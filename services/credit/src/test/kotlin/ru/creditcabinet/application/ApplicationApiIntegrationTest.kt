@@ -27,6 +27,8 @@ import ru.creditcabinet.common.security.TokenClaims
 import java.time.Instant
 import java.util.Date
 import java.util.UUID
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -79,9 +81,16 @@ class ApplicationApiIntegrationTest {
             .signWith(verifier.signingKey)
             .compact()
 
-    private fun body(product: String = "WORKING_CAPITAL", purpose: String = "WORKING_CAPITAL", amount: Long = 1_500_000, complete: Boolean = true) =
+    private fun body(
+        product: String = "WORKING_CAPITAL",
+        purpose: String = "WORKING_CAPITAL",
+        amount: Long = 1_500_000,
+        complete: Boolean = true,
+        expectedVersion: Long? = null,
+    ) =
         """{"productCode":"$product","purpose":"$purpose","amount":$amount,"termMonths":12""" +
-            (if (complete) ""","declaredRevenue12m":24000000,"declaredMonthlyDebtPayments":50000,"bureauConsent":true}""" else "}")
+            (if (complete) ""","declaredRevenue12m":24000000,"declaredMonthlyDebtPayments":50000,"bureauConsent":true""" else "") +
+            (expectedVersion?.let { ""","expectedVersion":$it""" } ?: "") + "}"
 
     private fun json(response: org.springframework.mock.web.MockHttpServletResponse): JsonNode = mapper.readTree(response.getContentAsString(Charsets.UTF_8))
 
@@ -95,10 +104,14 @@ class ApplicationApiIntegrationTest {
         return json(response)
     }
 
-    private fun submit(id: String, token: String = client, key: String? = null) =
+    private fun submit(id: String, token: String = client, key: String? = null, expectedVersion: Long? = null) =
         mockMvc.post("/api/v1/applications/$id/submit") {
             header("Authorization", "Bearer $token")
             key?.let { header("Idempotency-Key", it) }
+            expectedVersion?.let {
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"expectedVersion":$it}"""
+            }
         }.andReturn().response
 
     private fun get(id: String, token: String) = mockMvc.get("/api/v1/applications/$id") { header("Authorization", "Bearer $token") }.andReturn().response
@@ -119,7 +132,7 @@ class ApplicationApiIntegrationTest {
         mockMvc.put("/api/v1/applications/$id") {
             header("Authorization", "Bearer $client")
             contentType = MediaType.APPLICATION_JSON
-            content = body()
+            content = body(expectedVersion = draft["version"].asLong())
         }.andExpect { status { isOk() } }
 
         val first = submit(id, key = "submit-$id")
@@ -154,6 +167,59 @@ class ApplicationApiIntegrationTest {
         )
         assertEquals("WITHDRAWN", withdrawn["status"].asText())
         assertEquals(0, jdbc.queryForObject("select count(*) from pipeline_jobs where application_id = ?::uuid and status = 'PENDING'", Int::class.java, id))
+    }
+
+    @Test
+    fun `two devices updating the same draft version get one success and one conflict`() {
+        val draft = create()
+        val id = draft["id"].asText()
+        val version = draft["version"].asLong()
+
+        fun update(token: String, amount: Long, expectedVersion: Long?) = mockMvc.put("/api/v1/applications/$id") {
+            header("Authorization", "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = body(amount = amount, expectedVersion = expectedVersion)
+        }.andReturn().response
+
+        val results = Executors.newFixedThreadPool(2).use { pool ->
+            pool.invokeAll(listOf(Callable { update(client, 2_000_000, version) }, Callable { update(colleague, 3_000_000, version) }))
+                .map { it.get() }
+        }
+        assertEquals(listOf(200, 409), results.map { it.status }.sorted())
+        val winner = json(results.single { it.status == 200 })
+        val saved = json(get(id, client))
+        assertEquals(winner["amount"], saved["amount"])
+        assertTrue(saved["version"].asLong() > version)
+        assertEquals(409, update(client, 4_000_000, version).status)
+        assertEquals(400, update(client, 4_000_000, null).status)
+        assertEquals(404, update(stranger, 4_000_000, saved["version"].asLong()).status)
+        assertEquals(200, update(client, 4_000_000, saved["version"].asLong()).status)
+        assertEquals(4_000_000L, json(get(id, client))["amount"].asLong())
+    }
+
+    @Test
+    fun `submitting a version superseded after save leaves the draft intact and allows a valid replay`() {
+        val seen = create()
+        val id = seen["id"].asText()
+        val staleVersion = seen["version"].asLong()
+        val competingUpdate = mockMvc.put("/api/v1/applications/$id") {
+            header("Authorization", "Bearer $colleague")
+            contentType = MediaType.APPLICATION_JSON
+            content = body(amount = 2_000_000, expectedVersion = staleVersion)
+        }.andReturn().response
+        assertEquals(200, competingUpdate.status)
+        val winningVersion = json(competingUpdate)["version"].asLong()
+        val key = "submit-$id"
+        val stale = submit(id, key = key, expectedVersion = staleVersion)
+        assertEquals(409, stale.status)
+        assertEquals("draft-version", stale.getHeader("X-Conflict-Code"))
+        val saved = json(get(id, client))
+        assertEquals("DRAFT", saved["status"].asText())
+        assertEquals(2_000_000L, saved["amount"].asLong())
+        assertEquals(0, jdbc.queryForObject("select count(*) from pipeline_jobs where application_id = ?::uuid", Int::class.java, id))
+        assertEquals(200, submit(id, key = key, expectedVersion = winningVersion).status)
+        assertEquals(200, submit(id, key = key, expectedVersion = winningVersion).status)
+        assertEquals(1, jdbc.queryForObject("select count(*) from pipeline_jobs where application_id = ?::uuid", Int::class.java, id))
     }
 
     @Test

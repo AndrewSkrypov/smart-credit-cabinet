@@ -1,11 +1,15 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '../../../api/client';
 import { Application, ApplicationInput } from '../../../types';
 import { DraftForm } from './DraftForm';
 
-const { update, submit, products } = vi.hoisted(() => ({ update: vi.fn(), submit: vi.fn(), products: vi.fn() }));
-vi.mock('../../../api/client', () => ({ applicationsApi: { update, submit }, productsApi: { list: products } }));
+const { update, get, submit, products } = vi.hoisted(() => ({ update: vi.fn(), get: vi.fn(), submit: vi.fn(), products: vi.fn() }));
+vi.mock('../../../api/client', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../../api/client')>(),
+  applicationsApi: { update, get, submit }, productsApi: { list: products }
+}));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -14,7 +18,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 const initial = {
-  id: 'draft', product: { code: 'working', name: 'Кредит', version: 1 }, purpose: 'WORKING_CAPITAL', purposeTitle: 'Оборот',
+  id: 'draft', status: 'DRAFT', editable: true, version: 1, product: { code: 'working', name: 'Кредит', version: 1 }, purpose: 'WORKING_CAPITAL', purposeTitle: 'Оборот',
   amount: 1_000_000, termMonths: 12, declaredRevenue12m: 12_000_000, declaredMonthlyDebtPayments: 0,
   bureauConsent: false, submissionProblems: [], estimate: null
 } as unknown as Application;
@@ -33,14 +37,14 @@ const changeAmount = (value: string) => fireEvent.change(amount(), { target: { v
 const tick = () => act(async () => { vi.advanceTimersByTime(700); });
 
 describe('draft revision persistence', () => {
-  beforeEach(() => { vi.useFakeTimers(); update.mockReset(); submit.mockReset(); products.mockResolvedValue([]); });
+  beforeEach(() => { vi.useFakeTimers(); update.mockReset(); submit.mockReset(); get.mockReset(); products.mockResolvedValue([]); });
   afterEach(() => { vi.useRealTimers(); });
 
   it('serializes writes, coalesces edits and submits exactly the visible complete revision', async () => {
     const first = deferred<Application>(); const last = deferred<Application>();
     let server = initial;
-    update.mockImplementationOnce(async (_id, input: ApplicationInput) => { await first.promise; return server = { ...initial, ...input }; })
-      .mockImplementationOnce(async (_id, input: ApplicationInput) => { await last.promise; return server = { ...initial, ...input }; });
+    update.mockImplementationOnce(async (_id, input: ApplicationInput) => { await first.promise; return server = { ...initial, ...input, version: 2 }; })
+      .mockImplementationOnce(async (_id, input: ApplicationInput) => { await last.promise; return server = { ...initial, ...input, version: 3 }; });
     submit.mockImplementation(async () => server);
     const ui = mount();
     expect(screen.getByRole('textbox', { name: 'Срок, месяцев' })).toHaveAttribute('inputmode', 'numeric');
@@ -64,6 +68,7 @@ describe('draft revision persistence', () => {
     expect(update).toHaveBeenCalledTimes(2);
     const expected = { amount: 3_000_000, termMonths: 24, declaredRevenue12m: 36_000_000, declaredMonthlyDebtPayments: 25_000, bureauConsent: true };
     expect(update.mock.calls[1][1]).toMatchObject(expected);
+    expect(update.mock.calls.map((call) => call[2])).toEqual([1, 2]);
     await act(async () => last.resolve(initial));
     expect(ui.saved).toHaveBeenCalledTimes(1);
     expect(ui.saved.mock.calls[0][0]).toMatchObject(expected);
@@ -128,6 +133,65 @@ describe('draft revision persistence', () => {
     mount(); changeAmount(''); await act(async () => fireEvent.click(send()));
     expect(screen.getByText('Укажите сумму')).toBeInTheDocument();
     expect(submit).not.toHaveBeenCalled(); expect(amount()).not.toBeDisabled();
+  });
+
+  it('refreshes clean forms, keeps dirty values, and overwrites only after fetching a fresh version', async () => {
+    const saved = vi.fn();
+    const submitted = vi.fn();
+    const view = (application: Application) => <DraftForm application={application} onSaved={saved} onSubmitted={submitted} />;
+    const ui = render(view(initial));
+    ui.rerender(view({ ...initial, version: 2, amount: 2_000_000 }));
+    expect(amount()).toHaveValue('2\u00a0000\u00a0000');
+    changeAmount('3000000');
+    ui.rerender(view({ ...initial, version: 3, amount: 4_000_000 }));
+    update.mockRejectedValueOnce(new ApiError('Черновик изменён', 409));
+    await tick();
+    expect(update).toHaveBeenLastCalledWith('draft', expect.objectContaining({ amount: 3_000_000 }), 2);
+    expect(amount()).toHaveValue('3\u00a0000\u00a0000');
+    expect(send()).toBeDisabled();
+    get.mockResolvedValueOnce({ ...initial, version: 4 });
+    update.mockRejectedValueOnce(new ApiError('Черновик изменён снова', 409));
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Сохранить поверх' })));
+    expect(update).toHaveBeenLastCalledWith('draft', expect.objectContaining({ amount: 3_000_000 }), 4);
+    expect(amount()).toHaveValue('3\u00a0000\u00a0000');
+    get.mockResolvedValueOnce({ ...initial, version: 5 });
+    update.mockResolvedValueOnce({ ...initial, amount: 3_000_000, version: 6 });
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Сохранить поверх' })));
+    expect(update).toHaveBeenLastCalledWith('draft', expect.objectContaining({ amount: 3_000_000 }), 5);
+    expect(saved).toHaveBeenCalledWith(expect.objectContaining({ amount: 3_000_000, version: 6 }));
+  });
+
+  it('retains reviewed fields and requests a fresh review when the draft changes before submission', async () => {
+    update.mockResolvedValueOnce({ ...initial, amount: 3_000_000, version: 2 });
+    submit.mockRejectedValueOnce(new ApiError('Версия изменилась', 409, 'draft-version'));
+    get.mockResolvedValueOnce({ ...initial, amount: 4_000_000, version: 3 });
+    mount();
+    changeAmount('3000000');
+    await act(async () => fireEvent.click(send()));
+    expect(submit).toHaveBeenLastCalledWith('draft', 'submit-draft', 2, undefined);
+    expect(amount()).toHaveValue('3\u00a0000\u00a0000');
+    expect(send()).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Сохранить поверх' })).not.toBeInTheDocument();
+    expect(get).not.toHaveBeenCalled();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Загрузить с сервера' })));
+    expect(amount()).toHaveValue('4\u00a0000\u00a0000');
+    submit.mockResolvedValueOnce({ ...initial, status: 'SUBMITTED' });
+    await act(async () => fireEvent.click(send()));
+    expect(submit).toHaveBeenLastCalledWith('draft', 'submit-draft', 3, undefined);
+  });
+
+  it('reloads only on request and rechecks editing rights before overwriting', async () => {
+    update.mockRejectedValueOnce(new ApiError('Черновик изменён', 409));
+    mount();
+    changeAmount('3000000');
+    await tick();
+    const current = { ...initial, editable: false, version: 2 };
+    get.mockResolvedValue(current);
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Сохранить поверх' })));
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(amount()).toHaveValue('3\u00a0000\u00a0000');
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Загрузить с сервера' })));
+    expect(amount()).toHaveValue('1\u00a0000\u00a0000');
   });
 
   it('uses refreshed document validation for an unchanged confirmed form', async () => {

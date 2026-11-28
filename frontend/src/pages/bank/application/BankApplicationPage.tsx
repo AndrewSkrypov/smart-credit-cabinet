@@ -6,6 +6,7 @@ import { Link as RouterLink, useParams, useLocation } from 'react-router-dom';
 import { financingApi } from '../../../api/financing';
 import { FinancingScenarioView } from '../../../components/FinancingScenarioView';
 import { useApi } from '../../../hooks/useApi';
+import { useVisibleRefresh } from '../../../hooks/useVisibleRefresh';
 import { applicationsApi, underwritingApi } from '../../../api/client';
 import { ErrorState } from '../../../components/ErrorState';
 import { LoadingBlock } from '../../../components/LoadingBlock';
@@ -45,12 +46,12 @@ function BankApplicationCard({ id }: { id: string }) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const mounted = useRef(false);
   const requestSequence = useRef(0);
-  const inFlight = useRef(false);
+  const inFlight = useRef<number | null>(null);
 
-  const load = useCallback(async () => {
-    if (inFlight.current) return;
-    inFlight.current = true;
+  const load = useCallback(async (afterMutation = false) => {
+    if (inFlight.current !== null && !afterMutation) return;
     const sequence = ++requestSequence.current;
+    inFlight.current = sequence;
     try {
       const [nextApplication, nextAssessment] = await Promise.all([applicationsApi.get(id), underwritingApi.assessment(id)]);
       if (!mounted.current || sequence !== requestSequence.current) return;
@@ -61,16 +62,16 @@ function BankApplicationCard({ id }: { id: string }) {
       if (!mounted.current || sequence !== requestSequence.current) return;
       setError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить заявку');
     } finally {
-      inFlight.current = false;
+      if (inFlight.current === sequence) inFlight.current = null;
     }
   }, [id]);
 
   useEffect(() => {
     mounted.current = true;
     void load();
-    const timer = window.setInterval(() => void load(), REFRESH_MS);
-    return () => { mounted.current = false; window.clearInterval(timer); };
+    return () => { mounted.current = false; inFlight.current = null; requestSequence.current += 1; };
   }, [load]);
+  useVisibleRefresh(load, REFRESH_MS);
 
   const scenario = useApi(
     () => application?.agentId ? financingApi.bank(id) : Promise.resolve(null),
@@ -114,7 +115,7 @@ function BankApplicationCard({ id }: { id: string }) {
       <Grid container spacing={3}>
         <Grid item xs={12} lg={7}>
           <Stack spacing={3}>
-            {!error && <Box data-tour="bank-app-decision"><DecisionPanel application={application} assessment={assessment} onDone={() => { setNotice('Решение сохранено, клиент увидит его в кабинете'); void load(); }} /></Box>}
+            {!error && <Box data-tour="bank-app-decision"><DecisionPanel application={application} assessment={assessment} onDone={() => { setNotice('Решение сохранено, клиент увидит его в кабинете'); void load(true); }} /></Box>}
             <Box data-tour="bank-app-advice"><AdviceBlock applicationId={application.id} version={`${application.status}-${application.statusChangedAt}`} /></Box>
             <Box data-tour="bank-app-score"><ScoreBlock decision={assessment.automaticDecision} /></Box>
             {assessment.latestDecision && assessment.latestDecision.decidedByType !== 'SYSTEM' && (

@@ -27,8 +27,14 @@ internal class McpActorAssertionRedeemer(
     @Value("\${MCP_CREDIT_SERVICE_TOKEN}") private val serviceToken: String,
 ) : McpActorAssertionPort {
     init {
-        require(identityOrigin.scheme == "https" && identityOrigin.host != null && identityOrigin.rawUserInfo == null &&
-            identityOrigin.rawPath.isEmpty() && identityOrigin.rawQuery == null && identityOrigin.rawFragment == null)
+        require(
+            identityOrigin.scheme == "https" &&
+                identityOrigin.host != null &&
+                identityOrigin.rawUserInfo == null &&
+                identityOrigin.rawPath.isEmpty() &&
+                identityOrigin.rawQuery == null &&
+                identityOrigin.rawFragment == null,
+        )
         require(serviceToken.length in 32..1024 && serviceToken.all { it in '!'..'~' })
     }
 

@@ -125,17 +125,28 @@ def read_status(opener, origin, route, method="GET"):
 
 def verify_public(opener, origin):
     resource = origin + MCP_RESOURCE
-    for route, key, expected in (
-        (OAUTH_METADATA, "issuer", origin),
-        (MCP_METADATA, "resource", resource),
-    ):
+    scope = ["cabinet:mcp:read"]
+    oauth_metadata = {
+        "issuer": origin,
+        "scopes_supported": scope,
+        "code_challenge_methods_supported": ["S256"],
+        **{name + "_endpoint": origin + path for name, path in zip(
+            ("authorization", "token", "revocation"), OAUTH_PATHS, strict=True,
+        )},
+    }
+    mcp_metadata = {"resource": resource, "authorization_servers": [origin], "scopes_supported": scope}
+    for route, expected in ((OAUTH_METADATA, oauth_metadata), (MCP_METADATA, mcp_metadata)):
         status, _, body = read_status(opener, origin, route)
         try:
-            valid = status == 200 and len(body) <= 16384 and json.loads(body).get(key) == expected
+            data = json.loads(body) if status == 200 and len(body) <= 16384 else {}
+            valid = all(data.get(key) == value for key, value in expected.items())
         except (ValueError, AttributeError):
             valid = False
         if not valid:
-            raise RuntimeError("MCP metadata не совпадает с origin выпуска")
+            raise RuntimeError("MCP metadata не совпадает с origin и OAuth-профилем выпуска")
+    for route, expected in zip(OAUTH_PATHS, (400, 405, 405), strict=True):
+        if read_status(opener, origin, route)[0] != expected:
+            raise RuntimeError("Внешний gateway не подтвердил точный маршрут OAuth")
     status, headers, _ = read_status(opener, origin, MCP_RESOURCE, "POST")
     challenge = headers.get("WWW-Authenticate", "")
     if status != 401 or f'resource_metadata="{origin}{MCP_METADATA}"' not in challenge:

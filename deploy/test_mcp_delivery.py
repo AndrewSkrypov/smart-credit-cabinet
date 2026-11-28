@@ -75,6 +75,35 @@ class McpDeliveryTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.deploy()
 
+    def test_dev_acceptance_checks_route_auth_and_both_metadata_documents(self):
+        origin = "https://dev.credit-cabinet.ru"
+        routes = {
+            mcp_dev.OAUTH_METADATA: (200, {}, json.dumps({
+                "issuer": origin, "scopes_supported": ["cabinet:mcp:read"],
+                "code_challenge_methods_supported": ["S256"],
+                **{name + "_endpoint": origin + path for name, path in zip(
+                    ("authorization", "token", "revocation"), mcp_dev.OAUTH_PATHS, strict=True,
+                )},
+            }).encode()),
+            mcp_dev.MCP_METADATA: (200, {}, json.dumps({
+                "resource": origin + mcp_dev.MCP_RESOURCE,
+                "authorization_servers": [origin],
+                "scopes_supported": ["cabinet:mcp:read"],
+            }).encode()),
+            mcp_dev.MCP_RESOURCE: (401, {"WWW-Authenticate": f'Bearer resource_metadata="{origin}{mcp_dev.MCP_METADATA}"'}, b""),
+            **{path: (status, {}, b"") for path, status in zip(mcp_dev.OAUTH_PATHS, (400, 405, 405), strict=True)},
+        }
+        def probe(_opener, _origin, route, method="GET"):
+            self.assertEqual(_origin, origin)
+            self.assertEqual(method, "POST" if route == mcp_dev.MCP_RESOURCE else "GET")
+            return routes.get(route, (404, {}, b""))
+
+        with patch.object(mcp_dev, "read_status", side_effect=probe):
+            self.assertEqual(mcp_dev.verify_public(None, origin)["private_http"], 404)
+            routes[mcp_dev.OAUTH_PATHS[1]] = (200, {}, b"")
+            with self.assertRaisesRegex(RuntimeError, "маршрут OAuth"):
+                mcp_dev.verify_public(None, origin)
+
     @unittest.skipUnless(shutil.which("openssl"), "OpenSSL unavailable")
     def test_real_pem_chain_fingerprint_and_required_san(self):
         root = self.state / "mcp-tls"

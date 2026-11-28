@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 from urllib.parse import urlencode, urlsplit
 from uuid import uuid4
 
-from business_smoke import Context, Ledger, SmokeError
+from business_smoke import Context, Ledger, SmokeError, allowed_route
 import mcp_business_smoke as m
 
 
@@ -39,6 +39,8 @@ class FakeCredit:
         self.query = None
         self.redeemed = self.revoked = False
         self.break_grant = self.ambiguous_create = self.leak_statement = self.preview_mutation = False
+        self.web_preview_missing = self.web_preview_mismatch = self.web_preview_mutation = False
+        self.web_previews = []
         self.jury_agent = str(uuid4())
         self.foreign = None
         self.time = 0
@@ -125,20 +127,26 @@ class FakeCredit:
             else:
                 assert tool == m.TOOLS[2] and args["alternativeTermMonths"] == 24
                 days = args["delayDays"]
-                opts = self.web_options(days)
-                body.update(preview=True, basis={"applicationVersion": str(row["version"]), "productCode": "WORKING_CAPITAL",
-                    "productVersion": "7", "savedScenarioRevision": str(scn["revision"])},
-                    inputsUsed={"currency": "RUB", "paymentModel": "ANNUITY", "loanAmountRub": "2000000", "annualRatePercent": "20",
-                        "baseTermMonths": 12, "alternativeTermMonths": 24, "openingBalanceRub": "150000",
-                        "expectedReceiptAmountRub": "140000", "expectedReceiptDate": scn["inputs"]["expectedReceiptDate"],
-                        "paymentDate": scn["inputs"]["paymentDate"], "delayDays": days, "receiptIncludedByPayment": days == 5,
-                        "lastIncludedDelayDays": 5},
-                    options=[{"termMonths": o["termMonths"], **{key + "Rub": str(value) for key, value in o.items() if key != "termMonths"}}
-                             for o in opts],
-                    cabinetPath=f"/agent/applications/{app}#draft-financing")
+                body = self.preview_result(app, days)
                 if self.preview_mutation and days == 6:
                     row["events"].append({"event": "UNEXPECTED_WRITE"})
         return envelope({"structuredContent": body, "content": [{"type": "text", "text": json.dumps(body)}]})
+
+    def preview_result(self, app, days):
+        row = self.apps[app]
+        saved = row["scenario"]
+        return {"source": "credit", "asOf": f"2026-11-28T11:00:{self.time:02d}Z", "preview": True,
+            "basis": {"applicationVersion": str(row["version"]), "productCode": "WORKING_CAPITAL",
+                      "productVersion": "7", "savedScenarioRevision": str(saved["revision"])},
+            "inputsUsed": {"currency": "RUB", "paymentModel": "ANNUITY", "loanAmountRub": "2000000", "annualRatePercent": "20",
+                "baseTermMonths": 12, "alternativeTermMonths": 24, "openingBalanceRub": "150000",
+                "expectedReceiptAmountRub": "140000", "expectedReceiptDate": saved["inputs"]["expectedReceiptDate"],
+                "paymentDate": saved["inputs"]["paymentDate"], "delayDays": days, "receiptIncludedByPayment": days == 5,
+                "lastIncludedDelayDays": 5},
+            "options": [{"termMonths": option["termMonths"],
+                         **{key + "Rub": str(value) for key, value in option.items() if key != "termMonths"}}
+                        for option in self.web_options(days)],
+            "cabinetPath": f"/agent/applications/{app}#draft-financing"}
 
     def active_aliases(self):
         return {row["alias"] for row in self.mandates.values() if row["status"] == "ACTIVE"}
@@ -204,6 +212,24 @@ class FakeCredit:
             return reply({}, 404)
         if not is_agent and token == alias and row["status"] == "DRAFT":
             return reply({}, 404)
+        if suffix == "financing-scenario/preview":
+            assert method == "POST" and is_agent and token == self.browser
+            days = data["delayDays"]
+            assert data == {"mode": "WEB_FORM", "delayDays": days, "alternativeTermMonths": 24,
+                            "openingBalance": 150000, "expectedReceiptAmount": 140000,
+                            "expectedReceiptDate": row["scenario"]["inputs"]["expectedReceiptDate"],
+                            "paymentDate": row["scenario"]["inputs"]["paymentDate"],
+                            "draftTermsOverride": {"amount": 2000000, "baseTermMonths": 12}}
+            self.web_previews.append((app, days))
+            if self.web_preview_missing:
+                return reply({}, 404)
+            self.time += 1
+            value = self.preview_result(app, days)
+            if self.web_preview_mismatch:
+                value["options"][0]["monthlyPaymentRub"] = "0.01"
+            if self.web_preview_mutation:
+                row["events"].append({"event": "UNEXPECTED_WEB_PREVIEW_WRITE"})
+            return reply(value)
         if suffix == "financing-scenario":
             if method == "PUT":
                 row["scenario"] = {"revision": row.get("scenario", {}).get("revision", 0) + 1, "status": "DRAFT",
@@ -279,6 +305,7 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(result["retained"]["token"], {"revoked_count": 1, "http_after_revoke": 401})
         self.assertEqual({app["status"] for app in self.api.apps.values()}, {"WITHDRAWN"})
         self.assertEqual({mandate["status"] for mandate in self.api.mandates.values()}, {"REVOKED"})
+        self.assertEqual([days for _, days in self.api.web_previews], [5, 6])
         before = self.ledger().read_bytes()
         self.assertNotIn(b"private-smoke.pdf", before)
         for secret in (self.api.access, self.api.code, self.api.csrf, self.creds["AGENT"]["password"], self.api.browser):
@@ -290,6 +317,28 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.jury_credentials.call_count, 1)
         self.assertEqual(count, len(self.api.requests))
         self.assertEqual(before, self.ledger().read_bytes())
+
+    def test_web_preview_404_mismatch_and_mutation_fail_with_token_revoked(self):
+        for failure, code in (("web_preview_missing", "unexpected_http_status"),
+                              ("web_preview_mismatch", "mcp_web_preview_parity_mismatch"),
+                              ("web_preview_mutation", "mcp_preview_modified_saved_data")):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temp:
+                self.state = Path(temp)
+                self.verified_context.return_value = Context(self.context.revision, self.context.digest, self.state,
+                    self.context.current, self.context.desired, self.context.attempt_id)
+                self.api = FakeCredit()
+                self.SmokeAPI.return_value = self.api
+                self.api.before_mutation = self.check_intent
+                setattr(self.api, failure, True)
+                with self.assertRaisesRegex(SmokeError, code):
+                    self.run_probe()
+                self.assertTrue(self.api.web_previews)
+                self.assertTrue(self.api.revoked)
+                self.assertEqual(json.loads(self.ledger().read_bytes())["status"], "INCOMPLETE")
+                count = len(self.api.requests)
+                with self.assertRaises(SmokeError):
+                    self.run_probe()
+                self.assertEqual(len(self.api.requests), count)
 
     def test_private_leak_and_preview_write_fail_with_known_token_revoked(self):
         for failure, code in (("leak_statement", "mcp_private_statement_leak"),
@@ -359,6 +408,11 @@ class ControllerTests(unittest.TestCase):
         for suffix in ("confirm", "sign", "offer/accept"):
             with self.subTest(suffix=suffix), self.assertRaisesRegex(SmokeError, "unexpected_fixture_mutation"):
                 smoke.call("A", "POST", f"/api/v1/applications/{ident}/{suffix}")
+        preview = f"/api/v1/agent/applications/{ident}/financing-scenario/preview"
+        for role, method, route in (("A", "POST", preview), ("UNDERWRITER", "POST", preview),
+                                    ("AGENT", "PUT", preview), ("AGENT", "POST", preview + "?mode=WEB_FORM")):
+            with self.subTest(role=role, method=method), self.assertRaisesRegex(SmokeError, "unexpected_fixture_mutation"):
+                smoke.call(role, method, route)
         self.assertEqual(self.api.requests, [])
 
     def test_namespace_does_not_overlap_web_ledger(self):
@@ -408,6 +462,17 @@ class TransportTests(unittest.TestCase):
         with self.assertRaisesRegex(SmokeError, "mcp_tls_required"):
             self.api.exchange("GET", m.METADATA)
         self.connect.assert_not_called()
+
+    def test_web_preview_transport_allows_only_exact_agent_post_without_query(self):
+        own = str(uuid4())
+        route = f"/api/v1/agent/applications/{own}/financing-scenario/preview"
+        self.assertTrue(allowed_route("POST", route))
+        for method, path in (("GET", route), ("PUT", route), ("DELETE", route),
+                             ("POST", route + "?mode=WEB_FORM"),
+                             ("POST", route.replace("/agent/", "/underwriting/")),
+                             ("POST", route + "/"), ("POST", "https://unrelated.invalid" + route)):
+            with self.subTest(method=method, path=path):
+                self.assertFalse(allowed_route(method, path))
 
     def test_transport_never_follows_redirects_or_reads_unbounded_responses(self):
         for status, attributes, code in (

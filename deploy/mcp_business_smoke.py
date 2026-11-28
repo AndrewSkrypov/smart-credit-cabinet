@@ -381,6 +381,9 @@ class McpSmoke(Smoke):
         # operations to the exact fixture surface this smoke uses.
         route = path.split("?", 1)[0]
         if method != "GET":
+            preview = re.fullmatch(r"/api/v1/agent/applications/([a-f0-9-]{36})/financing-scenario/preview", route)
+            web_preview = (method == "POST" and role == "AGENT" and path == route and preview is not None
+                           and self.ledger.data["applications"].get(preview[1]) in {"A", "B"})
             match = re.fullmatch(r"/api/v1/(?:(agent|underwriting)/)?applications/([a-f0-9-]{36})/([a-z-]+)", route)
             web_action = (method, role, route) in {
                 ("POST", "AGENT", "/api/v1/auth/sign-in"), ("POST", "UNDERWRITER", "/api/v1/auth/sign-in"),
@@ -409,7 +412,7 @@ class McpSmoke(Smoke):
                             ("POST", "UNDERWRITER", "underwriting", "request-info"),
                         }
                     )
-            need(web_action or own_mandate or case_action, "mcp_unexpected_fixture_mutation")
+            need(web_preview or web_action or own_mandate or case_action, "mcp_unexpected_fixture_mutation")
         return super().call(role, method, path, *args, **kwargs)
 
     def revoke_owned(self, mandate):
@@ -472,6 +475,19 @@ class McpSmoke(Smoke):
                  and preview["preview"] is True and preview["basis"] == basis
                  and preview["cabinetPath"] == f"/agent/applications/{app}#draft-financing", "mcp_preview_basis_invalid")
             balances[days] = options_equivalent(preview, web[days], inputs, days)
+            trial = self.call("AGENT", "POST", agent + "/financing-scenario/preview", data={
+                "mode": "WEB_FORM", "delayDays": days, "alternativeTermMonths": ALT_TERM,
+                "openingBalance": OPENING, "expectedReceiptAmount": RECEIPT,
+                "expectedReceiptDate": inputs["expectedReceiptDate"], "paymentDate": inputs["paymentDate"],
+                "draftTermsOverride": {"amount": AMOUNT, "baseTermMonths": BASE_TERM},
+            })
+            need(isinstance(trial, dict) and set(trial) == set(preview) and isinstance(trial["asOf"], str),
+                 "mcp_web_preview_parity_mismatch")
+            timestamp = datetime.fromisoformat(trial["asOf"].replace("Z", "+00:00"))
+            need(timestamp.tzinfo is not None
+                 and digest({key: value for key, value in trial.items() if key != "asOf"}) ==
+                 digest({key: value for key, value in preview.items() if key != "asOf"}),
+                 "mcp_web_preview_parity_mismatch")
         after = self.preview_snapshot(agent)
         later = self.summary(token, app, "NOT_REQUESTED")
         need(before == after and {k: v for k, v in summary.items() if k != "asOf"} ==

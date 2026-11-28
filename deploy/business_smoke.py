@@ -196,6 +196,8 @@ def allowed_route(method, path):
     fixed = {"/api/v1/auth/sign-in", "/api/v1/auth/sign-up", "/api/v1/auth/options", "/api/v1/products",
              "/api/v1/companies/me", "/api/v1/companies/me/agent-mandates", "/api/v1/agent/applications"}
     uuid = r"[a-f0-9-]{36}"
+    if re.fullmatch(r"/api/v1/agent/applications/" + uuid + r"/financing-scenario/preview", p.path):
+        return method == "POST" and not p.query
     return (p.path in fixed or re.fullmatch(r"/api/v1/companies/me/agent-mandates/" + uuid, p.path) is not None
             or re.fullmatch(r"/api/v1/(?:agent/|underwriting/)?applications/" + uuid
                             + r"(?:/(?:financing-scenario|request-confirmation|return-to-agent|confirm|cancel|withdraw|submit|events|messages|info-provided|request-info|approve|signing/code|sign|offer/accept|loan|invoice-extraction|payment-reserve|documents(?:/" + uuid + r")?))?", p.path) is not None

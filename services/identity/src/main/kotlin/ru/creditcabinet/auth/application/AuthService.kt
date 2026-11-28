@@ -27,7 +27,11 @@ class AuthService(
     private val consents: PersonalDataConsents,
     private val transactions: IdentityTransactions,
 ) {
-    fun signIn(rawEmail: String, password: String, address: String): IdentitySession {
+    fun signIn(rawEmail: String, password: String, address: String): IdentitySession =
+        session(authenticateUser(rawEmail, password, address))
+
+    /** Verifies first-party credentials without issuing a browser session token. */
+    fun authenticateUser(rawEmail: String, password: String, address: String): User {
         val email = rawEmail.trim().lowercase()
         signInLimits.check(email, address)
         // An unknown e-mail costs the same password check as a known one, so the answer time
@@ -41,7 +45,7 @@ class AuthService(
         if (user.status != UserStatus.ACTIVE) throw Forbidden(BLOCKED)
         val at = Instant.now()
         if (!users.recordSignIn(user.id, user.credentialsVersion, at)) throw Unauthorized(REVOKED)
-        return session(user.copy(lastSignInAt = at))
+        return user.copy(lastSignInAt = at)
     }
 
     /**

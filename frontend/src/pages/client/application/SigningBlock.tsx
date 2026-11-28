@@ -1,5 +1,5 @@
-import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
-import { FormEvent, useState } from 'react';
+import { Alert, Box, Button, Paper, Snackbar, Stack, TextField, Typography } from '@mui/material';
+import { FormEvent, useEffect, useState } from 'react';
 import { applicationsApi } from '../../../api/client';
 import { useAuth } from '../../../auth/AuthProvider';
 import { formatDateTime } from '../../../shared/format';
@@ -20,6 +20,18 @@ export function SigningBlock({ application, onChanged }: { application: Applicat
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [, refreshExpiry] = useState(0);
+  const expiresAtText = signing?.expiresAt ?? '';
+  const expiresAt = Date.parse(expiresAtText);
+  const activeCode = application.status === 'SIGNING' && !signing?.signedAt && expiresAt > Date.now() ? signing?.code : null;
+  const noticeKey = activeCode ? JSON.stringify([application.id, expiresAt, activeCode]) : null;
+
+  useEffect(() => {
+    if (!session?.user.canSign || !activeCode) return;
+    const timer = window.setTimeout(() => refreshExpiry((revision) => revision + 1), Math.min(expiresAt - Date.now(), 2_147_483_647));
+    return () => window.clearTimeout(timer);
+  }, [activeCode, expiresAt, session?.user.canSign]);
 
   if (!session?.user.canSign) {
     return (
@@ -49,8 +61,6 @@ export function SigningBlock({ application, onChanged }: { application: Applicat
     void act(() => applicationsApi.sign(application.id, code));
   };
 
-  const expired = signing?.expiresAt ? new Date(signing.expiresAt).getTime() < Date.now() : true;
-
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main' }}>
       <Typography variant="h6" component="h2" gutterBottom>Подписание договора</Typography>
@@ -58,11 +68,11 @@ export function SigningBlock({ application, onChanged }: { application: Applicat
       {contract.loading && !contract.data && <LoadingBlock />}
       {contract.error && <ErrorState message={contract.error} onRetry={contract.reload} />}
       {contract.data && <ContractTextPanel contract={contract.data} />}
-      {signing?.code && !expired ? (
+      {activeCode ? (
         <Box sx={{ p: 2, mb: 2, borderRadius: 1, bgcolor: 'action.hover' }}>
           <Typography variant="body2" color="text.secondary">Код подтверждения (в реальном банке он пришёл бы в SMS)</Typography>
-          <Typography variant="h4" component="p" sx={{ letterSpacing: '0.2em', fontWeight: 700 }} data-testid="signing-code">{signing.code}</Typography>
-          <Typography variant="body2" color="text.secondary">Действует до {formatDateTime(signing.expiresAt!)}</Typography>
+          <Typography variant="h4" component="p" sx={{ letterSpacing: '0.2em', fontWeight: 700 }} data-testid="signing-code">{activeCode}</Typography>
+          <Typography variant="body2" color="text.secondary">Действует до {formatDateTime(expiresAtText)}</Typography>
         </Box>
       ) : (
         <Alert severity="info" sx={{ mb: 2 }}>Получите код подтверждения, чтобы подписать договор.</Alert>
@@ -71,10 +81,18 @@ export function SigningBlock({ application, onChanged }: { application: Applicat
         <TextField id="signing-code-input" name="signingCode" label="Код из 6 цифр" disabled={busy || !contract.data?.signable || !!contract.error} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputProps={{ inputMode: 'numeric', autoComplete: 'one-time-code' }} />
         <Button type="submit" variant="contained" size="large" disabled={busy || code.length !== 6 || !contract.data?.signable || !!contract.error} sx={{ minHeight: 56 }}>Подписать</Button>
         <Button variant="text" size="large" disabled={busy} onClick={() => act(() => applicationsApi.requestCode(application.id))} sx={{ minHeight: 56 }}>
-          {signing?.code && !expired ? 'Новый код' : 'Получить код'}
+          {activeCode ? 'Новый код' : 'Получить код'}
         </Button>
       </Stack>
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+      {noticeKey && noticeKey !== dismissed && (
+        <Snackbar key={noticeKey} open autoHideDuration={12000}
+          onClose={(_, reason) => { if (reason !== 'clickaway') setDismissed(noticeKey); }}>
+          <Alert severity="info" variant="filled" closeText="Закрыть" onClose={() => setDismissed(noticeKey)}>
+            Код подтверждения для подписи <strong data-testid="signing-code-popup">{activeCode}</strong>
+          </Alert>
+        </Snackbar>
+      )}
     </Paper>
   );
 }

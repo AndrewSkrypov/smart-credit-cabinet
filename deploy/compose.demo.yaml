@@ -10,6 +10,8 @@ services:
   credit:
     environment:
       DEMO_ACCOUNTS: "true"
+      DEV_PAYMENT_RESERVE_SIMULATION_ENABLED: "false"
+      CABINET_DEPLOYMENT_PROJECT: cabinet-dev-demo
   engagement:
     environment:
       CABINET_MAIL_MODE: "off"

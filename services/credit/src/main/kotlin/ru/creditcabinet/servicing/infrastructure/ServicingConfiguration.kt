@@ -97,8 +97,12 @@ class ServicingConfiguration {
         clock: Clock,
         @Value("\${DEMO_ACCOUNTS:false}") demo: Boolean,
         callerContext: CreditCaller,
-    ) =
-        PaymentReserveService(operations, applications, agentApplications, clock, demo, callerContext)
+        @Value("\${DEV_PAYMENT_RESERVE_SIMULATION_ENABLED:false}") devSimulationEnabled: Boolean,
+        @Value("\${CABINET_DEPLOYMENT_PROJECT:}") deploymentProject: String,
+    ): PaymentReserveService {
+        val simulation = PaymentReserveSimulationPolicy(demo, devSimulationEnabled, deploymentProject)
+        return PaymentReserveService(operations, applications, agentApplications, clock, simulation.enabled, callerContext)
+    }
 }
 
 @RestControllerAdvice

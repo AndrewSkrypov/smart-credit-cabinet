@@ -1,0 +1,8 @@
+# Versioned permission for the normal cabinet-dev release only. Deployment selects
+# this overlay after project/origin/release checks; no shell interpolation enables it.
+services:
+  credit:
+    environment:
+      DEV_PAYMENT_RESERVE_SIMULATION_ENABLED: "true"
+      CABINET_DEPLOYMENT_PROJECT: cabinet-dev
+      DEMO_ACCOUNTS: "false"

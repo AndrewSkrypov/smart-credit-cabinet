@@ -92,6 +92,37 @@ class ServicingEngineTest {
         assertFalse(received.canDraw)
     }
 
+    @Test fun `a repaid line keeps reserve reads and exact confirmation replay without another mutation`() {
+        val db = Memory()
+        val engine = db.engine(clock)
+        val id = engine.open(command()).accountId
+        val input = PaymentReserveInputs(20_000, 180_000, 100_000, 50_000, LocalDate.parse("2026-10-05"), LocalDate.parse("2026-10-10"))
+        engine.putReserve(id, ReserveCommand(actor, input))
+        val delayed = engine.receipt(id, ReceiptCommand(actor, ReceiptEvent("closed-replay-delay", ReceiptStatus.DELAYED)))
+        engine.confirmReserve(id, ConfirmReserveCommand(actor, delayed.version))
+        val closed = engine.repayEarly(id, actor)
+        assertEquals(LoanAccountStatus.REPAID, closed.status)
+        assertEquals(2, closed.tranches.size)
+
+        val accounts = db.accounts.toMap()
+        val plans = db.plans.toMap()
+        val events = db.events.toMap()
+        val commands = db.commands.toMap()
+        val operations = db.operations.toMap()
+        val saved = assertNotNull(engine.reserve(id))
+        assertEquals(130_000, saved.drawnAmount)
+        assertFalse(saved.canDraw)
+        assertEquals(saved, engine.putReserve(id, ReserveCommand(actor, input)))
+        repeat(2) {
+            assertEquals(saved, engine.confirmReserve(id, ConfirmReserveCommand(actor, delayed.version)))
+        }
+        assertEquals(accounts, db.accounts)
+        assertEquals(plans, db.plans)
+        assertEquals(events, db.events)
+        assertEquals(commands, db.commands)
+        assertEquals(operations, db.operations)
+    }
+
     @Test fun `shortfall 50000 prohibits partial reserve draw`() {
         val db = Memory()
         val engine = db.engine(clock)

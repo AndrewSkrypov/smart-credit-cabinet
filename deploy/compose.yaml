@@ -61,6 +61,8 @@ services:
     mem_limit: 768m
     environment:
       <<: *prod-env
+      DEV_PAYMENT_RESERVE_SIMULATION_ENABLED: "false"
+      CABINET_DEPLOYMENT_PROJECT: cabinet-prod
       DB_PASSWORD: ${CREDIT_DB_PASSWORD:?Задайте CREDIT_DB_PASSWORD}
       DEMO_ACCOUNTS: ${DEMO_ACCOUNTS:-false}
       SIM_API_KEY: ${SIM_API_KEY:?Задайте SIM_API_KEY в deploy/.env}

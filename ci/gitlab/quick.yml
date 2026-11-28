@@ -51,4 +51,6 @@ release-mr:
         exit 1
       fi
     - python3 -B -m unittest discover -s ci/gitlab -p test_release_evidence.py
+    - python3 -B -m unittest discover -s ci/gitlab -p test_publisher_receipt.py
+    - python3 -B -m unittest discover -s ci/gitlab -p test_main_release_activation.py
     - python3 -B -m unittest discover -s ci/gitlab/vault -p test_with_deploy_secrets.py

@@ -28,26 +28,57 @@ release-images:
 
 main-release-images:
   extends: [release-images, .main-release]
+  resource_group: cabinet-main-publisher
   script:
     - python3 -B ci/gitlab/release-evidence.py check
+    - |
+      if python3 -B ci/gitlab/publisher-receipt.py restore; then
+        python3 -B ci/gitlab/release-evidence.py verify
+        exit 0
+      else
+        status=$?
+        if [ "$status" -ne 3 ]; then exit "$status"; fi
+      fi
     - !reference [release-images, script]
     - python3 -B ci/gitlab/release-evidence.py write
+    - python3 -B ci/gitlab/publisher-receipt.py save
   artifacts:
     paths:
       - release.json
       - release-evidence.json
       - security/reports/
 
-.main-deploy:
-  extends: [.main-release, .pump-vault-job-identity]
-  stage: main-deploy
+main-release-activation:
+  extends: .main-release
+  stage: main-activation
+  when: manual
+  allow_failure: false
+  tags: [cabinet-deploy-prod]
+  resource_group: cabinet-prod
+  environment:
+    name: production
+    action: prepare
   dependencies: [main-release-images]
   before_script:
     - python3 -B ci/gitlab/release-evidence.py verify
+    - python3 -B ci/gitlab/publisher-receipt.py verify
+  script:
+    - python3 -B ci/gitlab/main-release-activation.py write
+  artifacts:
+    expire_in: 30 days
+    paths: [main-release-activation.json]
+
+.main-deploy:
+  extends: [.main-release, .pump-vault-job-identity]
+  stage: main-deploy
+  dependencies: [main-release-images, main-release-activation]
+  before_script:
+    - !reference [main-release-activation, before_script]
+    - python3 -B ci/gitlab/main-release-activation.py verify
 
 main-dev-deploy:
   extends: .main-deploy
-  tags: [cabinet-deploy]
+  tags: [cabinet-deploy, cabinet-deploy-main-dev]
   resource_group: cabinet-dev
   environment:
     name: dev
@@ -60,12 +91,16 @@ main-prod-deploy:
   extends: .main-deploy
   tags: [cabinet-deploy-prod]
   resource_group: cabinet-prod
+  timeout: 40 minutes
   environment:
     name: production
     action: start
     url: $CABINET_PROD_URL
   script:
-    - python3 ci/gitlab/vault/with-deploy-secrets.py production-main-release -- bash ci/gitlab/deploy-prod.sh
+    - >-
+      CABINET_PROD_KUBECONFIG="$CABINET_MAIN_PROD_KUBECONFIG"
+      CABINET_PROD_JURY_CREDENTIALS="$CABINET_MAIN_PROD_JURY_CREDENTIALS"
+      python3 ci/gitlab/vault/with-deploy-secrets.py production-main-release -- bash ci/gitlab/deploy-prod.sh
 
 dev-deploy:
   extends: [.release, .pump-vault-job-identity]

@@ -69,6 +69,23 @@ class SimulatorsTest {
     }
 
     @Test
+    fun `tax registration has its own result and can fail independently`() {
+        val url = "/ext/registry/v1/taxpayer-registration?inn="
+        mockMvc.get(url + "0001001014").andExpect { status { isUnauthorized() } }
+        assertEquals(true, call(url + "0001001014").json()["registered"].booleanValue())
+        assertEquals(true, call(url + "000100000004").json()["registered"].booleanValue())
+        assertEquals(false, call(url + "0000000018").json()["registered"].booleanValue())
+        assertEquals(400, status(call(url + "0001001015")))
+
+        mockMvc.put("/sim/control/sources/TAX_REGISTRY") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"mode":"DOWN"}"""
+        }.andExpect { status { isOk() } }
+        assertEquals(503, status(call(url + "0001001014")))
+        assertEquals(200, status(call("/ext/registry/v1/companies/0001001014")))
+    }
+
+    @Test
     fun `the bureau answers only with a consent and the agro company always fails`() {
         assertEquals(400, status(call("/ext/bureau/v1/reports/0001001014")))
         val report = call("/ext/bureau/v1/reports/0001001014", consent = true).json()

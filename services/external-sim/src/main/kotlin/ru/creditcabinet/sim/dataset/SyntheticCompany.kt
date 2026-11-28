@@ -78,6 +78,7 @@ data class Scenario(val code: String, val title: String, val expected: String, v
 /** The simulated external systems; each can be made slow or unavailable from the control panel. */
 enum class Source(val title: String) {
     REGISTRY("ЕГРЮЛ / ЕГРИП"),
+    TAX_REGISTRY("ЕГРН ФНС"),
     FNS("ФНС «Прозрачный бизнес»"),
     BUREAU("Бюро кредитных историй"),
     BANK("Внутренние данные банка"),

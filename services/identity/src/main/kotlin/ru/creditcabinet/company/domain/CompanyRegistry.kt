@@ -1,12 +1,14 @@
 package ru.creditcabinet.company.domain
 
-/** What the state registry (ЕГРЮЛ/ЕГРИП) says about a ИНН at sign-up. */
+/** The result of checking an ИНН in ЕГРЮЛ/ЕГРИП and ЕГРН at sign-up. */
 sealed interface RegistryAnswer {
     data class Found(val shortName: String) : RegistryAnswer
 
     data object NotFound : RegistryAnswer
 
-    /** The registry did not answer: sign-up goes on, the name is filled in later by the credit service. */
+    data object TaxpayerNotFound : RegistryAnswer
+
+    /** A check could not be completed: sign-up goes on without a registry-confirmed name. */
     data object Unavailable : RegistryAnswer
 }
 

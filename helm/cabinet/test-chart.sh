@@ -27,6 +27,13 @@ for name in identity credit engagement external-sim frontend swagger; do
 done
 helm lint "$chart" "$@"
 helm template cabinet "$chart" --namespace cabinet --is-upgrade "$@"
+helm template cabinet "$chart" --namespace cabinet --is-upgrade "$@" \
+  --set agentMcpCredit.enabled=true \
+  --set-string agentMcpCredit.identityOrigin=https://identity.example.invalid \
+  --set-string "agentMcpCredit.peerSha256=$digest" \
+  --set-string agentMcpCredit.tlsSecret=fixture-mcp-tls \
+  --set-string agentMcpCredit.redemptionSecret=fixture-mcp-redeem \
+  --show-only templates/mcp-credit.yaml | grep -F 'port: 8443' >/dev/null
 
 helm template cabinet "$chart" --namespace cabinet --is-upgrade "$@" \
   --set gateway.service.type=ClusterIP --set ingress.enabled=true \

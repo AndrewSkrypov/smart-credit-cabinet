@@ -1,0 +1,12 @@
+{
+  "android": {
+    "rustoreUrl": null,
+    "apkUrl": "/downloads/kabinet.apk",
+    "version": "1.0.0",
+    "sizeMb": 2.9
+  },
+  "ios": {
+    "otaManifestUrl": null,
+    "version": "1.0.0"
+  }
+}

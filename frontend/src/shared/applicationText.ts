@@ -1,7 +1,7 @@
 import { Application, ApplicationStatus, CloseReason, JournalEntry } from '../types';
 
 /** The path as the client sees it; internal steps are folded into these stages. */
-export const stages = ['Заявка', 'Проверка данных', 'Сведения о компании', 'Оценка', 'Решение', 'Подписание', 'Выдача'] as const;
+export const stages = ['Заявка', 'Проверка данных', 'Данные компании', 'Оценка', 'Решение', 'Подписание', 'Выдача'] as const;
 
 const stageOf: Record<ApplicationStatus, number> = {
   DRAFT: 0,
@@ -124,7 +124,7 @@ export function explainStatus(application: Application): StatusExplanation {
     case 'SUBMITTED':
       return { now: 'Банк получил заявку и проверяет, всё ли на месте. Обычно это несколько секунд.', action: null };
     case 'INFO_REQUESTED':
-      return { now: 'Для рассмотрения банку не хватает данных.', action: 'Загрузите документы из списка ниже и нажмите «Отправить». Без ответа заявка закроется в срок, указанный в запросе.' };
+      return { now: 'Для рассмотрения банку не хватает данных.', action: 'Загрузите документы из списка ниже и нажмите «Отправить в банк». Без ответа заявка закроется в срок, указанный в запросе.' };
     case 'ENRICHMENT':
       return { now: 'Запрашиваем сведения о компании в ЕГРЮЛ/ЕГРИП, ФНС и бюро кредитных историй. Если источник отвечает медленно, банк повторит запрос сам.', action: null };
     case 'SCORING':

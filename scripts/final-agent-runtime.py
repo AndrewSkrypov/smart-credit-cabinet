@@ -388,7 +388,7 @@ def start_clam(args, directory, address, launch, env):
             raise RuntimeError("ClamAV не подтвердил версию сигнатур")
         published = calendar.timegm(time.strptime(version.rsplit("/", 1)[1], "%a %b %d %H:%M:%S %Y"))
         age = time.time() - published
-        if not -300 <= age <= 160 * 60 * 60:
+        if not -300 <= age <= 7 * 24 * 60 * 60:
             raise RuntimeError("Сигнатуры ClamAV устарели")
         return True
 

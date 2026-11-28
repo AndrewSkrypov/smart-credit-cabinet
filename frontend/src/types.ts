@@ -330,6 +330,22 @@ export interface LoanPayment {
   paidAt: string | null;
 }
 
+export interface LoanClosureCertificate {
+  certificateNumber: string;
+  contractNumber: string;
+  loanAccountId: string;
+  applicationId: string;
+  approvedLimit: number;
+  totalDisbursed: number;
+  outstandingPrincipal: number;
+  paidPaymentsCount: number;
+  tranchesCount: number;
+  disbursedAt: string;
+  repaidAt: string;
+  issuedAt: string;
+  statement: string;
+}
+
 export interface LoanAccount {
   id: string;
   applicationId: string;

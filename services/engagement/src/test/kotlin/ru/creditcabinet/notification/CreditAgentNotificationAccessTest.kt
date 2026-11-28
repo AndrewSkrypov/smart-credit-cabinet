@@ -29,7 +29,6 @@ class CreditAgentNotificationAccessTest {
         }
         server.start()
         try {
-            val adapter = CreditAgentNotificationAccess("http://127.0.0.1:${server.address.port}", RestClient.builder())
             val statuses = mapOf(
                 204 to AgentNotificationAccess.ALLOWED,
                 404 to AgentNotificationAccess.DENIED,
@@ -38,6 +37,7 @@ class CreditAgentNotificationAccessTest {
             )
             for ((status, expected) in statuses) {
                 response.set(status)
+                val adapter = CreditAgentNotificationAccess("http://127.0.0.1:${server.address.port}", RestClient.builder())
                 assertEquals(expected, adapter.check(app, authorization))
             }
             assertEquals(List<Pair<String, String?>>(statuses.size) { path to authorization }, requests.toList())
@@ -50,5 +50,28 @@ class CreditAgentNotificationAccessTest {
     fun `missing private Credit URL fails closed`() {
         val adapter = CreditAgentNotificationAccess("", RestClient.builder())
         assertEquals(AgentNotificationAccess.UNAVAILABLE, adapter.check(UUID.randomUUID(), "Bearer synthetic-agent-token"))
+    }
+
+    @Test
+    fun `every check asks credit so a revoked mandate takes effect at once`() {
+        val app = UUID.randomUUID()
+        val calls = AtomicInteger()
+        val response = AtomicInteger(204)
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/") { exchange ->
+            calls.incrementAndGet()
+            exchange.sendResponseHeaders(response.get(), -1)
+            exchange.close()
+        }
+        server.start()
+        try {
+            val adapter = CreditAgentNotificationAccess("http://127.0.0.1:${server.address.port}", RestClient.builder())
+            assertEquals(AgentNotificationAccess.ALLOWED, adapter.check(app, "Bearer a"))
+            response.set(404)
+            assertEquals(AgentNotificationAccess.DENIED, adapter.check(app, "Bearer a"))
+            assertEquals(2, calls.get())
+        } finally {
+            server.stop(0)
+        }
     }
 }

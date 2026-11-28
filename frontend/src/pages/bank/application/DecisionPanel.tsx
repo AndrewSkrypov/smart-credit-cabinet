@@ -6,6 +6,13 @@ import { useApi } from '../../../hooks/useApi';
 import { months, percent, rub, rubExact } from '../../../shared/format';
 import { Application, AssessmentView, DocumentType, UnderwritingAction } from '../../../types';
 
+/** Continues a sentence with a reason title: only the first letter drops case, abbreviations like ФНС stay. */
+export function lowerFirst(text: string) {
+  const firstWord = text.match(/^[\p{L}]+/u)?.[0] ?? '';
+  if (firstWord.length > 1 && firstWord === firstWord.toUpperCase()) return text;
+  return text.charAt(0).toLocaleLowerCase('ru-RU') + text.slice(1);
+}
+
 export const outcomeTitles: Record<string, string> = {
   APPROVE: 'Одобрить на запрошенных условиях',
   COUNTER_OFFER: 'Предложить другие условия',
@@ -36,7 +43,7 @@ export function DecisionPanel({ application, assessment, onDone }: { application
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderColor: 'warning.main' }}>
       <Typography variant="h6" component="h2">Решение по заявке</Typography>
       {reasons.length > 0 && (
-        <Typography color="text.secondary" sx={{ mb: 1 }}>Почему на ручном рассмотрении: {reasons.map((reason) => reason.title.toLowerCase()).join('; ')}.</Typography>
+        <Typography color="text.secondary" sx={{ mb: 1 }}>Почему на ручном рассмотрении: {reasons.map((reason) => lowerFirst(reason.title)).join('; ')}.</Typography>
       )}
       <Box sx={{ p: 2, my: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
         <Typography variant="body2" color="text.secondary">Рекомендация системы</Typography>

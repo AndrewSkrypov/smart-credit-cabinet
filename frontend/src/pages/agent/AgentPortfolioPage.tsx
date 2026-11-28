@@ -20,7 +20,6 @@ import {
   useMediaQuery,
   useTheme
 } from '@mui/material';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -112,7 +111,8 @@ function PortfolioApplicationCard({ application, nextStep: next }: {
 export function AgentPortfolioPage() {
   const { session } = useAuth();
   const navigate = useNavigate();
-  const narrow = useMediaQuery(useTheme().breakpoints.down('md'));
+  // Seven columns need a full laptop width; on half a screen the list switches to cards.
+  const narrow = useMediaQuery(useTheme().breakpoints.down('lg'));
   const applicationsRef = useRef<HTMLDivElement>(null);
   const [onlyActionRequired, setOnlyActionRequired] = useState(false);
   const [applyingOfferId, setApplyingOfferId] = useState<string | null>(null);
@@ -219,7 +219,7 @@ export function AgentPortfolioPage() {
                 <Grid item xs={12} md={6} key={client.companyId}>
                   <Card variant="outlined" sx={{ height: '100%' }}>
                     <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1} flexWrap="wrap" useFlexGap>
+                      <Stack spacing={1} alignItems="flex-start">
                         <Box sx={{ minWidth: 0 }}>
                           <Typography variant="subtitle1" fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>
                             {client.name ?? `ИНН ${client.inn}`}
@@ -234,6 +234,7 @@ export function AgentPortfolioPage() {
                             color="success"
                             icon={<AutoAwesomeRoundedIcon />}
                             label={`Предодобрено до ${rub(primaryOffer.maxAmount)}`}
+                            sx={{ maxWidth: '100%' }}
                           />
                         )}
                       </Stack>
@@ -248,9 +249,9 @@ export function AgentPortfolioPage() {
                         <Button
                           component={RouterLink}
                           to={`/agent/clients/${client.companyId}`}
-                          variant="outlined"
+                          variant="contained"
+                          color="secondary"
                           size="small"
-                          startIcon={<AddRoundedIcon />}
                         >
                           Оформить заявку
                         </Button>
@@ -326,11 +327,11 @@ export function AgentPortfolioPage() {
                         <Typography variant="caption" color="text.secondary">ИНН {app.companyInn}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" fontWeight={600}>{rub(app.amount)}</Typography>
+                        <Typography variant="body2" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>{rub(app.amount)}</Typography>
                         <Typography variant="caption" color="text.secondary">{months(app.termMonths)}</Typography>
                       </TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
                           <Chip size="small" label={statusTitle(app.status)} color={tone === 'default' ? 'default' : tone} />
                           {(app.unreadChatCount ?? 0) > 0 && <Chip size="small" color="info" label={`Чат: ${app.unreadChatCount}`} />}
                         </Stack>
@@ -348,7 +349,7 @@ export function AgentPortfolioPage() {
                       <TableCell align="right">
                         {app.agentCommissionAmount != null && app.agentCommissionStatus && app.agentCommissionStatus !== 'NONE' ? (
                           <>
-                            <Typography variant="body2" fontWeight={600}>{rub(app.agentCommissionAmount)}</Typography>
+                            <Typography variant="body2" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>{rub(app.agentCommissionAmount)}</Typography>
                             <Typography variant="caption" color="text.secondary">{commissionStatusLabels[app.agentCommissionStatus]}</Typography>
                           </>
                         ) : (

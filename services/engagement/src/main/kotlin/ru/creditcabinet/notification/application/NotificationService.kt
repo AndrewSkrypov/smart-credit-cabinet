@@ -8,6 +8,7 @@ import ru.creditcabinet.notification.domain.agentApplicationId
 import ru.creditcabinet.notification.domain.isAgentApplicationLink
 import java.time.Clock
 import java.util.UUID
+import java.util.concurrent.Executors
 
 /** Who a notification is for: a person, everyone of a company, or everyone with a bank role. Exactly one is set. */
 data class Audience(val userId: UUID? = null, val companyId: UUID? = null, val role: String? = null) {
@@ -123,17 +124,23 @@ class NotificationService(
 
     private fun accessibleAgentLinks(caller: TokenClaims, authorization: String?, unreadOnly: Boolean): Set<String> {
         if (!caller.isAgent || authorization == null) return emptySet()
-        val checked = mutableMapOf<UUID, AgentNotificationAccess>()
-        val allowed = mutableSetOf<String>()
-        for (link in store.agentApplicationLinks(caller.userId, unreadOnly)) {
-            val application = link.agentApplicationId() ?: continue
-            when (checked.getOrPut(application) { agentAccess.check(application, authorization) }) {
-                AgentNotificationAccess.ALLOWED -> allowed.add(link)
-                AgentNotificationAccess.DENIED -> Unit
-                AgentNotificationAccess.UNAVAILABLE -> return emptySet()
-            }
+        val links = store.agentApplicationLinks(caller.userId, unreadOnly).mapNotNull { link -> link.agentApplicationId()?.let { link to it } }
+        // One credit round trip per application: checked concurrently, so the badge does not wait for them in a row.
+        val access = checkAll(links.map { it.second }.toSet(), authorization)
+        if (access.values.any { it == AgentNotificationAccess.UNAVAILABLE }) return emptySet()
+        return links.filter { (_, application) -> access[application] == AgentNotificationAccess.ALLOWED }.map { it.first }.toSet()
+    }
+
+    private fun checkAll(applications: Set<UUID>, authorization: String): Map<UUID, AgentNotificationAccess> {
+        if (applications.isEmpty()) return emptyMap()
+        // The first answer is a probe: when Credit is down, the rest are not asked at all.
+        val first = applications.first()
+        val probe = agentAccess.check(first, authorization)
+        if (probe == AgentNotificationAccess.UNAVAILABLE || applications.size == 1) return mapOf(first to probe)
+        return mapOf(first to probe) + Executors.newVirtualThreadPerTaskExecutor().use { executor ->
+            (applications - first).associateWith { executor.submit<AgentNotificationAccess> { agentAccess.check(it, authorization) } }
+                .mapValues { (_, task) -> runCatching { task.get() }.getOrDefault(AgentNotificationAccess.UNAVAILABLE) }
         }
-        return allowed
     }
 
     private fun notFound(): Nothing = throw NotificationNotFound()

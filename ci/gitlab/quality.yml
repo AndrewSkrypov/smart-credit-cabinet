@@ -207,6 +207,7 @@ mcp-image-security:
   dependencies: []
   script:
     - python3 -B -m unittest discover -s ci/gitlab -p test_mcp_release.py
+    - python3 -B -m unittest discover -s deploy -p test_mcp_business_smoke.py
     - bash ci/gitlab/quality/mcp-tests.sh
     - bash ci/gitlab/quality/image-scan.sh mcp
   after_script:

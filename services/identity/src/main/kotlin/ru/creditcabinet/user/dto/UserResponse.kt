@@ -13,8 +13,10 @@ data class UserResponse(
     val status: UserStatus,
     val companyId: UUID?,
     val canSign: Boolean,
+    /** `preset:<code>`, a data URL of a small photo, or null for initials. */
+    val avatar: String? = null,
 ) {
     companion object {
-        fun of(user: User) = UserResponse(user.id, user.fullName, user.email, user.role, user.status, user.companyId, user.canSign)
+        fun of(user: User) = UserResponse(user.id, user.fullName, user.email, user.role, user.status, user.companyId, user.canSign, user.avatar)
     }
 }

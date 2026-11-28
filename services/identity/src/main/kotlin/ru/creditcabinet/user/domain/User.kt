@@ -35,6 +35,8 @@ data class User(
     val credentialsVersion: Int = 0,
     val createdAt: Instant = Instant.now(),
     val lastSignInAt: Instant? = null,
+    /** `preset:<code>` or a small raster photo as a data URL; see [Avatar]. */
+    val avatar: String? = null,
 ) {
     init {
         require(fullName.isNotBlank()) { "Укажите имя" }

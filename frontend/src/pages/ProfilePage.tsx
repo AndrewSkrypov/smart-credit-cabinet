@@ -5,6 +5,7 @@ import { authApi, notificationsApi } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
 import { ErrorState } from '../components/ErrorState';
 import { LoadingBlock } from '../components/LoadingBlock';
+import { AvatarPicker } from '../components/AvatarPicker';
 import { PageHeader } from '../components/PageHeader';
 import { useApi } from '../hooks/useApi';
 import { emailError, nameError, passwordError, requiredError, useFieldFeedback } from '../shared/authValidation';
@@ -104,6 +105,7 @@ export function ProfilePage() {
     <>
       <PageHeader title="Профиль" subtitle="Ваши данные и настройки кабинета" />
       <Stack spacing={3} sx={{ pb: 6 }}>
+        <AvatarPicker user={session.user} onChanged={(user) => updateSession({ ...session, user })} />
         <Paper sx={{ p: { xs: 3, md: 4 } }}>
           <Typography variant="h6">Личные данные</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>{roleLabels[session.user.role]}</Typography>

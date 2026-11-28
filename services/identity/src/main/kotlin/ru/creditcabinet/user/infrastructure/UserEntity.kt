@@ -39,6 +39,8 @@ class UserEntity(
     val createdAt: Instant,
     @Column(name = "last_sign_in_at")
     val lastSignInAt: Instant?,
+    @Column(name = "avatar")
+    val avatar: String? = null,
 ) {
     fun toDomain(): User =
         User(
@@ -52,6 +54,7 @@ class UserEntity(
             credentialsVersion = credentialsVersion,
             createdAt = createdAt,
             lastSignInAt = lastSignInAt,
+            avatar = avatar,
         )
 
     companion object {
@@ -68,6 +71,7 @@ class UserEntity(
                 credentialsVersion = user.credentialsVersion,
                 createdAt = user.createdAt,
                 lastSignInAt = user.lastSignInAt,
+                avatar = user.avatar,
             )
     }
 }

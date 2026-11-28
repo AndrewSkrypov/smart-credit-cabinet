@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import { initials, ProfileMenu } from './ProfileMenu';
+import { ProfileMenu } from './ProfileMenu';
+import { initials } from './UserAvatar';
 import { User } from '../types';
 
 const user: User = { id: 'u1', fullName: 'Котова Ирина Сергеевна', email: 'client@demo.test', role: 'CLIENT', status: 'ACTIVE', companyId: 'c1', canSign: true };

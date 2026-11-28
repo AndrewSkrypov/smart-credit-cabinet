@@ -1,6 +1,8 @@
 package ru.creditcabinet.user.application
 
+import ru.creditcabinet.identity.domain.IdentityFailure.InvalidInput
 import ru.creditcabinet.identity.domain.IdentityFailure.NotFound
+import ru.creditcabinet.user.domain.Avatar
 import ru.creditcabinet.user.domain.User
 import ru.creditcabinet.user.domain.UserDataPort
 import ru.creditcabinet.user.domain.UserRole
@@ -18,6 +20,16 @@ class UserQueries(private val users: UserDataPort) {
 
     fun activeCredentialsVersion(id: UUID): Int? =
         users.findById(id)?.takeIf { it.status == UserStatus.ACTIVE }?.credentialsVersion
+
+    /** Replaces the caller's own picture; null returns to initials. */
+    fun changeAvatar(user: User, avatar: String?): User {
+        val stored = try {
+            Avatar.normalize(avatar)
+        } catch (invalid: IllegalArgumentException) {
+            throw InvalidInput(invalid.message ?: "Аватар не подходит")
+        }
+        return users.save(user.copy(avatar = stored))
+    }
 
     private companion object {
         const val MAX_IDS = 500

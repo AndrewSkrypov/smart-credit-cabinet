@@ -1,16 +1,12 @@
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
-import { Avatar, Box, ButtonBase, Divider, ListItemIcon, Menu, MenuItem, Typography } from '@mui/material';
+import { Box, ButtonBase, Divider, ListItemIcon, Menu, MenuItem, Typography } from '@mui/material';
 import { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { roleLabels } from '../shared/labels';
 import { tokens } from '../theme/theme';
 import { User } from '../types';
-
-export function initials(fullName: string) {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  return (parts.length > 1 ? parts[0][0] + parts[1][0] : (parts[0] ?? '?').slice(0, 2)).toLocaleUpperCase('ru-RU');
-}
+import { UserAvatar } from './UserAvatar';
 
 /**
  * One avatar instead of the name, role, profile link and sign-out in a row: the header stays light
@@ -37,7 +33,7 @@ export function ProfileMenu({ user, onSignOut }: { user: User; onSignOut: () => 
           '&.Mui-focusVisible': { outline: `3px solid ${tokens.info}`, outlineOffset: 2 },
         }}
       >
-        <Avatar sx={{ width: 36, height: 36, fontSize: 14, fontWeight: 600, bgcolor: tokens.red, color: '#fff' }}>{initials(user.fullName)}</Avatar>
+        <UserAvatar fullName={user.fullName} avatar={user.avatar} />
         <Box sx={{ display: { xs: 'none', md: 'block' }, textAlign: 'left', minWidth: 0, maxWidth: 160 }}>
           <Typography variant="body2" fontWeight={500} noWrap>{user.fullName.split(/\s+/).slice(0, 2).join(' ')}</Typography>
           <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.64)', display: 'block', lineHeight: 1.2 }} noWrap>{roleLabels[user.role]}</Typography>

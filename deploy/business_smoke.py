@@ -21,7 +21,8 @@ import time
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
-ORIGIN = "https://dev.credit-cabinet.ru"
+from dev_payment_reserve import ORIGIN, canonical_origin
+
 HOST = "dev.credit-cabinet.ru"
 MAX_RECORD = 128 * 1024
 MAX_RESPONSE = 1024 * 1024
@@ -128,7 +129,7 @@ def _verified_context(deployment, state, current, desired, report, lock_fd):
          and hashlib.sha256(release.path.read_bytes()).hexdigest() == release.checksum,
          "versioned_release_context_required")
     private_dir(state)
-    need(deployment.path == state / "cabinet.env" and deployment.values.get("PUBLIC_CABINET_URL") == ORIGIN
+    need(deployment.path == state / "cabinet.env" and canonical_origin(deployment.values.get("PUBLIC_CABINET_URL")) == ORIGIN
          and deployment.values.get("DEMO_ACCOUNTS") == "false"
          and deployment.values.get("SIM_CONTROL_ENABLED") == "false", "dev_origin_or_feature_policy_changed")
     need(type(lock_fd) is int and os.path.samestat((state / "deploy.lock").lstat(), os.fstat(lock_fd)),

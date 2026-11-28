@@ -16,6 +16,8 @@ held deploy.lock, реальные private current/pending, immutable attempt pr
 четыре REMOTE и успешный привязанный runtime report. Raw CLI/ENV-утверждения не
 включают harness. Новый config-owner включает отдельный
 DEV_PAYMENT_RESERVE_SIMULATION_ENABLED только своим scoped Dev overlay.
+Селектор и host-проверка используют один canonical origin: завершающий `/`
+в `PUBLIC_CABINET_URL` допускается, а путь, query, fragment и userinfo запрещены.
 
 Private jury.json0600 читается только на хосте: NOFOLLOW, regular file, owner,
 размер128KiB, точная схема трёх ролей. AGENT/UNDERWRITER входят обычным HTTPS.

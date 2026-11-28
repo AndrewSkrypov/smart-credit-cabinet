@@ -3,6 +3,11 @@
 FLAG = "DEV_PAYMENT_RESERVE_SIMULATION_ENABLED"
 CONTEXT = "CABINET_DEPLOYMENT_PROJECT"
 OVERLAY = "deploy/compose.dev-payment-reserve.yaml"
+ORIGIN = "https://dev.credit-cabinet.ru"
+
+
+def canonical_origin(value):
+    return ORIGIN if isinstance(value, str) and value in {ORIGIN, ORIGIN + "/"} else None
 
 
 def validate_overrides(values, environ):
@@ -20,5 +25,5 @@ def enabled(project, local, values, release, historical_backup=False):
     return (
         project == "cabinet-dev" and not local and release is not None and not historical_backup
         and values.get("CABINET_DOMAIN") == "dev.credit-cabinet.ru"
-        and values.get("PUBLIC_CABINET_URL") in {"https://dev.credit-cabinet.ru", "https://dev.credit-cabinet.ru/"}
+        and canonical_origin(values.get("PUBLIC_CABINET_URL")) == ORIGIN
     )

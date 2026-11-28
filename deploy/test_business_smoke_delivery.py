@@ -389,6 +389,30 @@ class VerifiedContext(unittest.TestCase):
     def invoke(self):
         return smoke.verified_context(self.deployment, self.state, self.current, self.desired, self.report, self.fd)
 
+    def test_selector_and_host_context_share_canonical_origin_with_optional_slash(self):
+        from dev_payment_reserve import enabled
+        for origin in (smoke.ORIGIN, smoke.ORIGIN + "/"):
+            with self.subTest(origin=origin), patch.object(smoke, "API") as api:
+                self.deployment.values["PUBLIC_CABINET_URL"] = origin
+                values = {**self.deployment.values, "CABINET_DOMAIN": smoke.HOST}
+                self.assertTrue(enabled("cabinet-dev", False, values, self.release))
+                self.assertEqual(self.invoke().revision, self.sha)
+                api.assert_not_called()
+
+    def test_selector_and_context_reject_extra_origin_components_before_api(self):
+        from dev_payment_reserve import enabled
+        origins = (smoke.ORIGIN + "//", smoke.ORIGIN + "/path", smoke.ORIGIN + "?x=1",
+                   smoke.ORIGIN + "#x", smoke.ORIGIN + ":443", "https://user@" + smoke.HOST,
+                   "http://" + smoke.HOST, "https://" + smoke.HOST + ".outside.invalid", None, [])
+        for origin in origins:
+            with self.subTest(origin=origin), patch.object(smoke, "API") as api:
+                self.deployment.values["PUBLIC_CABINET_URL"] = origin
+                values = {**self.deployment.values, "CABINET_DOMAIN": smoke.HOST}
+                self.assertFalse(enabled("cabinet-dev", False, values, self.release))
+                with self.assertRaisesRegex(smoke.SmokeError, "dev_origin_or_feature_policy_changed"):
+                    self.invoke()
+                api.assert_not_called()
+
     def test_actual_state_attempt_release_and_computed_feature_gate(self):
         self.assertIsInstance(self.release, RegistryRelease)
         self.assertNotIn("catalog", self.release.runtime)

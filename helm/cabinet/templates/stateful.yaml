@@ -96,7 +96,7 @@ spec:
           {{- else }}
           command: [/bin/sh, -ec, "cp /cabinet/clamd.conf /etc/clamav/clamd.conf && exec /init"]
           env:
-            - {name: ANTIVIRUS_MAX_SIGNATURE_AGE, value: PT72H}
+            - {name: ANTIVIRUS_MAX_SIGNATURE_AGE, value: PT160H}
           readinessProbe:
             exec: {command: [/bin/sh, /cabinet/healthcheck.sh]}
             timeoutSeconds: 5

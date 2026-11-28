@@ -36,7 +36,7 @@ SeaweedFS должен работать и при `STORAGE_BACKEND=local`; пр�
 | `S3_ADMIN_ACCESS_KEY`, `S3_ADMIN_SECRET_KEY` | Синтетические ключи демо | Отдельная учётная запись оператора |
 | `DOCUMENT_UPLOADS_ENABLED` | `true` | При `false` новые загрузки получают 503 |
 | `ANTIVIRUS_TIMEOUT` | `PT10S` | Общий дедлайн VERSION и INSTREAM |
-| `ANTIVIRUS_MAX_SIGNATURE_AGE` | `PT72H` | Максимальный возраст сигнатур |
+| `ANTIVIRUS_MAX_SIGNATURE_AGE` | `PT160H` | Максимальный возраст сигнатур |
 
 Внешние ключи не помещают в Git, команды общего журнала или отчёты. Демо-значения
 не предназначены для внешнего размещения. JSON ключей SeaweedFS создаётся внутри

@@ -17,7 +17,7 @@ try {
     resource: process.env.MCP_RESOURCE ?? "",
     issuer: process.env.MCP_ISSUER ?? "",
     identityOrigin: process.env.MCP_IDENTITY_ORIGIN ?? "",
-    serviceToken: process.env.MCP_IDENTITY_SERVICE_TOKEN ?? "",
+    serviceToken: process.env.CABINET_MCP_IDENTITY_SERVICE_TOKEN ?? "",
   };
   if (config.resource !== config.issuer + "/api/mcp") throw new Error("MCP resource must use the issuer origin.");
 

@@ -43,19 +43,71 @@ class FinancingScenarios(
 
     internal fun hasHandedPacket(applicationId: UUID): Boolean = store.latest(applicationId, handedOnly = true) != null
 
+    internal fun savedRevision(applicationId: UUID): Long? = store.latest(applicationId)?.snapshot?.revision
+
+    internal fun preview(
+        application: LoanApplication,
+        delayDays: Int,
+        alternativeTermMonths: Int,
+        form: FinancingPreviewForm?,
+    ): FinancingPreview {
+        require(delayDays in 0..365) { "Укажите задержку от 0 до 365 дней" }
+        val product = draftProduct(application)
+        val saved = store.latest(application.id)
+        val terms = form?.let { application.terms.copy(amount = it.amount, termMonths = it.baseTermMonths) } ?: application.terms
+        val inputs = form?.inputs ?: savedInputs(saved, application, product)
+        val previewInputs = inputs.copy(
+            delayDays = delayDays,
+            alternativeTermMonths = alternativeTermMonths,
+            selectedTermMonths = terms.termMonths,
+            source = null,
+        )
+        return FinancingPreview(
+            application.copy(terms = terms),
+            product,
+            saved?.snapshot?.revision,
+            previewInputs,
+            FinancingScenarioCalculation.calculate(previewInputs, terms, product),
+        )
+    }
+
     /** Caller locks and authorizes the application in the same transaction. */
     @Transactional(propagation = Propagation.MANDATORY)
     fun saveDraft(application: LoanApplication, inputs: ScenarioInputs): ScenarioSnapshot {
-        if (application.status != ApplicationStatus.DRAFT) {
-            throw Conflict("Сценарий можно изменить только в черновике")
-        }
-        val product = products.find(application.terms.productCode)
-            ?: throw Conflict("Продукт заявки выключен из каталога")
+        val product = draftProduct(application)
         val revision = (store.latest(application.id)?.snapshot?.revision ?: 0L) + 1
-        val snapshot = FinancingScenarioCalculation.draft(revision, inputs, application.terms, product)
+        val calculation = FinancingScenarioCalculation.calculate(inputs, application.terms, product)
+        val snapshot = ScenarioSnapshot(
+            revision,
+            FinancingScenarioStatus.DRAFT,
+            inputs,
+            application.terms.amount,
+            product.baseRate,
+            calculation.options,
+        )
         verifyInvoiceSource(application.id, inputs)
         store.append(application.id, ScenarioRevision(product.version, snapshot))
         return snapshot
+    }
+
+    private fun draftProduct(application: LoanApplication): Product {
+        if (application.status != ApplicationStatus.DRAFT) {
+            throw Conflict("Сценарий можно изменить только в черновике")
+        }
+        return products.find(application.terms.productCode)?.takeIf { it.active }
+            ?: throw Conflict("Продукт заявки выключен из каталога")
+    }
+
+    private fun savedInputs(saved: ScenarioRevision?, application: LoanApplication, product: Product): ScenarioInputs {
+        if (saved == null) throw Conflict("Сначала сохраните исходные данные в «Примерке кредита»")
+        val snapshot = saved.snapshot
+        if (saved.productVersion != product.version ||
+            snapshot.loanAmount != application.terms.amount ||
+            snapshot.options.first().termMonths != application.terms.termMonths
+        ) {
+            throw staleScenario()
+        }
+        return snapshot.inputs
     }
 
     /** Caller holds the application lock and commits the handoff in the same transaction. */

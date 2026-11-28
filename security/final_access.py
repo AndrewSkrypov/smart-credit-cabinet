@@ -39,6 +39,7 @@ ROUTES = (
     ("credit", "GET", "/api/v1/agent/applications/{id}/notification-access", AGENT_MISSING),
     ("credit", "GET", "/api/v1/agent/applications/{id}/financing-scenario", AGENT_MISSING),
     ("credit", "PUT", "/api/v1/agent/applications/{id}/financing-scenario", AGENT_MISSING),
+    ("credit", "POST", "/api/v1/agent/applications/{id}/financing-scenario/preview", AGENT_MISSING),
     ("credit", "POST", "/api/v1/agent/applications/{id}/invoice-extraction", AGENT_MISSING),
     ("credit", "GET", "/api/v1/agent/applications/{id}/payment-reserve", AGENT_MISSING),
     ("credit", "PUT", "/api/v1/agent/applications/{id}", AGENT_MISSING),
@@ -53,6 +54,8 @@ ROUTES = (
     ("credit", "POST", "/api/v1/agent/applications/{id}/messages/attachments", AGENT_MISSING),
     ("credit", "POST", "/api/v1/agent/applications/{id}/messages/read", AGENT_MISSING),
     ("credit", "POST", "/api/v1/agent/applications/{id}/request-confirmation", AGENT_MISSING),
+    ("credit", "GET", "/api/v1/agent/mcp/priorities", AGENT_ONLY),
+    ("credit", "GET", "/api/v1/agent/mcp/applications/{id}/summary", AGENT_MISSING),
     ("credit", "GET", "/api/v1/agent/portfolio", AGENT_ONLY),
     ("credit", "GET", "/api/v1/agent/pre-approved-offers", AGENT_ONLY),
     ("credit", "POST", "/api/v1/agent/pre-approved-offers/{id}/apply", AGENT_MISSING),
@@ -130,6 +133,8 @@ def check(api):
                         "expectedReceiptDate": control_date, "paymentDate": payment_date,
                         "delayDays": 14, "alternativeTermMonths": 24, "selectedTermMonths": 12,
                     }
+                elif template.endswith("/financing-scenario/preview"):
+                    body = {"mode": "SAVED_SCENARIO", "delayDays": 14, "alternativeTermMonths": 24}
                 elif method == "PUT" and template.endswith("/payment-reserve"):
                     body = {
                         "openingBalance": 1_900_000, "expectedReceiptAmount": 140_000,

@@ -85,6 +85,52 @@ components:
       - rulesTotal
       - verdict
       type: object
+    AgentCaseItem:
+      properties:
+        actionDeadline:
+          format: date-time
+          type: string
+        actionLabel:
+          type: string
+        actionOwner:
+          enum:
+          - AGENT
+          - CLIENT
+          - BANK
+          - SYSTEM
+          type: string
+        applicationId:
+          format: uuid
+          type: string
+        cabinetPath:
+          type: string
+        companyName:
+          type: string
+        number:
+          format: int64
+          type: integer
+        status:
+          enum:
+          - DRAFT
+          - PENDING_CLIENT_CONFIRMATION
+          - SUBMITTED
+          - INFO_REQUESTED
+          - ENRICHMENT
+          - SCORING
+          - MANUAL_REVIEW
+          - OFFER_ISSUED
+          - SIGNING
+          - DISBURSING
+          - DISBURSED
+          - REJECTED
+          - WITHDRAWN
+          - CLOSED
+          type: string
+      required:
+      - applicationId
+      - cabinetPath
+      - status
+      type: object
     AgentCreateApplicationRequest:
       properties:
         amount:
@@ -127,6 +173,48 @@ components:
       - productCode
       - purpose
       - termMonths
+      type: object
+    AgentMcpApplicationSummary:
+      properties:
+        application:
+          $ref: '#/components/schemas/AgentCaseItem'
+        applicationVersion:
+          type: string
+        asOf:
+          format: date-time
+          type: string
+        savedScenarioRevision:
+          type: string
+        source:
+          type: string
+        statementRequirement:
+          enum:
+          - OPEN
+          - SATISFIED
+          - NOT_REQUESTED
+          type: string
+      required:
+      - application
+      - applicationVersion
+      - asOf
+      - source
+      - statementRequirement
+      type: object
+    AgentMcpPriorities:
+      properties:
+        asOf:
+          format: date-time
+          type: string
+        items:
+          items:
+            $ref: '#/components/schemas/AgentCaseItem'
+          type: array
+        source:
+          type: string
+      required:
+      - asOf
+      - items
+      - source
       type: object
     AgentPaymentReserveSummary:
       properties:
@@ -1226,6 +1314,18 @@ components:
       - title
       - value
       type: object
+    FinancingDraftTermsOverride:
+      properties:
+        amount:
+          format: int64
+          type: integer
+        baseTermMonths:
+          format: int32
+          type: integer
+      required:
+      - amount
+      - baseTermMonths
+      type: object
     FinancingScenarioInputs:
       properties:
         alternativeTermMonths:
@@ -1276,6 +1376,149 @@ components:
       - monthlyPayment
       - termMonths
       - totalInterest
+      type: object
+    FinancingScenarioPreview:
+      properties:
+        asOf:
+          format: date-time
+          type: string
+        basis:
+          $ref: '#/components/schemas/FinancingScenarioPreviewBasis'
+        cabinetPath:
+          type: string
+        inputsUsed:
+          $ref: '#/components/schemas/FinancingScenarioPreviewInputs'
+        options:
+          items:
+            $ref: '#/components/schemas/FinancingScenarioPreviewOption'
+          type: array
+        preview:
+          type: boolean
+        source:
+          type: string
+      required:
+      - asOf
+      - basis
+      - cabinetPath
+      - inputsUsed
+      - options
+      - preview
+      - source
+      type: object
+    FinancingScenarioPreviewBasis:
+      properties:
+        applicationVersion:
+          type: string
+        productCode:
+          type: string
+        productVersion:
+          type: string
+        savedScenarioRevision:
+          type: string
+      required:
+      - applicationVersion
+      - productCode
+      - productVersion
+      type: object
+    FinancingScenarioPreviewInputs:
+      properties:
+        alternativeTermMonths:
+          format: int32
+          type: integer
+        annualRatePercent:
+          type: string
+        baseTermMonths:
+          format: int32
+          type: integer
+        currency:
+          type: string
+        delayDays:
+          format: int32
+          type: integer
+        expectedReceiptAmountRub:
+          type: string
+        expectedReceiptDate:
+          format: date
+          type: string
+        lastIncludedDelayDays:
+          format: int64
+          type: integer
+        loanAmountRub:
+          type: string
+        openingBalanceRub:
+          type: string
+        paymentDate:
+          format: date
+          type: string
+        paymentModel:
+          enum:
+          - ANNUITY
+          - REVOLVING
+          type: string
+        receiptIncludedByPayment:
+          type: boolean
+      required:
+      - alternativeTermMonths
+      - annualRatePercent
+      - baseTermMonths
+      - currency
+      - delayDays
+      - expectedReceiptAmountRub
+      - expectedReceiptDate
+      - loanAmountRub
+      - openingBalanceRub
+      - paymentDate
+      - paymentModel
+      - receiptIncludedByPayment
+      type: object
+    FinancingScenarioPreviewOption:
+      properties:
+        balanceOnPaymentDateRub:
+          type: string
+        monthlyPaymentRub:
+          type: string
+        termMonths:
+          format: int32
+          type: integer
+        totalInterestRub:
+          type: string
+      required:
+      - balanceOnPaymentDateRub
+      - monthlyPaymentRub
+      - termMonths
+      - totalInterestRub
+      type: object
+    FinancingScenarioPreviewRequest:
+      properties:
+        alternativeTermMonths:
+          format: int32
+          type: integer
+        delayDays:
+          format: int32
+          type: integer
+        draftTermsOverride:
+          $ref: '#/components/schemas/FinancingDraftTermsOverride'
+        expectedReceiptAmount:
+          format: int64
+          type: integer
+        expectedReceiptDate:
+          format: date
+          type: string
+        mode:
+          enum:
+          - WEB_FORM
+          - SAVED_SCENARIO
+          type: string
+        openingBalance:
+          format: int64
+          type: integer
+        paymentDate:
+          format: date
+          type: string
+      required:
+      - alternativeTermMonths
+      - delayDays
+      - mode
       type: object
     FinancingScenarioSnapshot:
       properties:
@@ -3911,6 +4154,112 @@ paths:
       summary: Сравнить два срока и сохранить редакцию сценария
       tags:
       - Сценарий финансирования
+  /api/v1/agent/applications/{id}/financing-scenario/preview:
+    post:
+      operationId: agentPreview
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinancingScenarioPreviewRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/FinancingScenarioPreview'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/agent/applications/{id}/financing-scenario/preview
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/agent/applications/{id}/financing-scenario/preview
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/agent/applications/{id}/financing-scenario/preview
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/agent/applications/{id}/financing-scenario/preview
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/agent/applications/{id}/financing-scenario/preview
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/agent/applications/{id}/financing-scenario/preview
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Рассчитать примерку без сохранения
+      tags:
+      - Сценарий финансирования
   /api/v1/agent/applications/{id}/info-provided:
     post:
       operationId: provideInfo_1
@@ -4925,6 +5274,144 @@ paths:
       security:
       - bearerAuth: []
       summary: Отправить черновик клиенту на подтверждение и согласие БКИ (T22)
+      tags:
+      - 'Агентский канал: заявки, портфель, документы и чат'
+  /api/v1/agent/mcp/applications/{id}/summary:
+    get:
+      operationId: mcpApplicationSummary
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AgentMcpApplicationSummary'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/agent/mcp/applications/{id}/summary
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/agent/mcp/applications/{id}/summary
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '404':
+          content:
+            application/json:
+              example:
+                error: Not Found
+                message: Объект не найден
+                path: /api/v1/agent/mcp/applications/{id}/summary
+                requestId: example-request-id
+                status: 404
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Объект не найден или принадлежит другой компании
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/agent/mcp/applications/{id}/summary
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Краткая сводка доступной заявки агента
+      tags:
+      - 'Агентский канал: заявки, портфель, документы и чат'
+  /api/v1/agent/mcp/priorities:
+    get:
+      operationId: mcpPriorities
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 10
+          format: int32
+          maximum: 20
+          minimum: 1
+          type: integer
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AgentMcpPriorities'
+          description: OK
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/agent/mcp/priorities
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/agent/mcp/priorities
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/agent/mcp/priorities
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: Ближайшие действия по доступным заявкам агента
       tags:
       - 'Агентский канал: заявки, портфель, документы и чат'
   /api/v1/agent/portfolio:

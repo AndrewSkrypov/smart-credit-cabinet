@@ -35,6 +35,48 @@ export interface FinancingScenario {
   changes?: string[];
 }
 
+export interface FinancingPreviewRequest extends Omit<FinancingInputs, 'selectedTermMonths' | 'source'> {
+  mode: 'WEB_FORM';
+  draftTermsOverride: {
+    amount: number;
+    baseTermMonths: number;
+  };
+}
+
+export interface FinancingPreview {
+  source: 'credit';
+  asOf: string;
+  preview: true;
+  basis: {
+    applicationVersion: string;
+    productCode: string;
+    productVersion: string;
+    savedScenarioRevision: string | null;
+  };
+  inputsUsed: {
+    currency: 'RUB';
+    paymentModel: 'ANNUITY' | 'REVOLVING';
+    loanAmountRub: string;
+    annualRatePercent: string;
+    baseTermMonths: number;
+    alternativeTermMonths: number;
+    openingBalanceRub: string;
+    expectedReceiptAmountRub: string;
+    expectedReceiptDate: string;
+    paymentDate: string;
+    delayDays: number;
+    receiptIncludedByPayment: boolean;
+    lastIncludedDelayDays: number | null;
+  };
+  options: {
+    termMonths: number;
+    monthlyPaymentRub: string;
+    totalInterestRub: string;
+    balanceOnPaymentDateRub: string;
+  }[];
+  cabinetPath: string;
+}
+
 export interface AgentMandate {
   id: string;
   agentUserId: string;
@@ -54,6 +96,8 @@ export const financingApi = {
   agent: (id: string) => readScenario(`/agent/applications/${id}/financing-scenario`),
   client: (id: string) => readScenario(`/applications/${id}/financing-scenario`),
   bank: (id: string) => readScenario(`/underwriting/applications/${id}/financing-scenario`),
+  preview: (id: string, input: FinancingPreviewRequest) =>
+    post<FinancingPreview>(`/agent/applications/${id}/financing-scenario/preview`, input),
   save: (id: string, input: FinancingInputs) => put<FinancingScenario>(`/agent/applications/${id}/financing-scenario`, input)
 };
 

@@ -27,8 +27,12 @@ import ru.creditcabinet.application.domain.Actor
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationJournal
 import ru.creditcabinet.application.domain.ApplicationRepository
+import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.ApplicationTerms
 import ru.creditcabinet.application.domain.CompanySnapshot
+import ru.creditcabinet.application.domain.InfoItem
+import ru.creditcabinet.application.domain.InfoRequest
+import ru.creditcabinet.application.domain.InfoRequests
 import ru.creditcabinet.application.domain.JournalNote
 import ru.creditcabinet.application.domain.LegalForm
 import ru.creditcabinet.application.domain.LoanApplication
@@ -79,6 +83,8 @@ class FinancingScenarioIntegrationTest {
 
     @Autowired private lateinit var products: ProductCatalog
 
+    @Autowired private lateinit var infoRequests: InfoRequests
+
     @MockitoBean private lateinit var mandates: AgentAccessPort
 
     @MockitoBean private lateinit var sources: CompanySources
@@ -88,6 +94,111 @@ class FinancingScenarioIntegrationTest {
     private val agent by lazy { token(Roles.AGENT, agentId) }
     private val client by lazy { token(Roles.CLIENT, companyId = company.id) }
     private val bank by lazy { token(Roles.UNDERWRITER) }
+
+    @Test
+    fun `preview compares the fifth and sixth days without writing draft or packet`() {
+        val draft = draft()
+        val path = agentPath(draft.id)
+        val previewPath = "$path/financing-scenario/preview"
+        val original = applications.find(draft.id)
+        val originalJournal = journal.list(draft.id)
+        val originalDocuments = documents.list(draft.id)
+        val originalDeliveryCount = jdbc.queryForObject("select count(*) from delivery_outbox", Long::class.java)
+
+        fun web(delay: Int, amount: Long = 2_000_000) = """
+            {"mode":"WEB_FORM","openingBalance":150000,"expectedReceiptAmount":140000,
+             "expectedReceiptDate":"2026-12-10","paymentDate":"2026-12-15","delayDays":$delay,"alternativeTermMonths":24,
+             "draftTermsOverride":{"amount":$amount,"baseTermMonths":12}}
+        """.trimIndent()
+
+        val dayFive = snapshot(post(previewPath, agent, web(5)))
+        val daySix = snapshot(post(previewPath, agent, web(6)))
+        assertTrue(dayFive.at("/inputsUsed/receiptIncludedByPayment").asBoolean())
+        assertFalse(daySix.at("/inputsUsed/receiptIncludedByPayment").asBoolean())
+        assertEquals(5, daySix.at("/inputsUsed/lastIncludedDelayDays").asInt())
+        assertTrue(daySix["preview"].asBoolean())
+        assertEquals("credit", daySix["source"].asText())
+        assertEquals("/agent/applications/${draft.id}#draft-financing", daySix["cabinetPath"].asText())
+        assertTrue(daySix.at("/basis/savedScenarioRevision").isNull)
+        val rate = checkNotNull(products.find(draft.terms.productCode)).baseRate
+        for ((i, term) in listOf(12, 24).withIndex()) {
+            val calculation = LoanMath.calculate(2_000_000, rate, term, false)
+            val before = dayFive["options"][i]
+            val after = daySix["options"][i]
+            assertEquals(term, after["termMonths"].asInt())
+            assertEquals(calculation.monthlyPayment.toPlainString(), after["monthlyPaymentRub"].asText())
+            assertEquals(calculation.overpayment.toPlainString(), after["totalInterestRub"].asText())
+            assertEquals(BigDecimal("150000").subtract(calculation.monthlyPayment).toPlainString(), after["balanceOnPaymentDateRub"].asText())
+            assertEquals(BigDecimal("290000").subtract(calculation.monthlyPayment).toPlainString(), before["balanceOnPaymentDateRub"].asText())
+        }
+        assertEquals("2100000", snapshot(post(previewPath, agent, web(6, 2_100_000))).at("/inputsUsed/loanAmountRub").asText())
+        assertEquals(400, post(previewPath, agent, web(366)).status)
+        assertEquals(403, post(previewPath, client, web(6)).status)
+        assertEquals(404, post(previewPath, token(Roles.AGENT), web(6)).status)
+        assertEquals(204, get("$path/financing-scenario", agent).status)
+        assertEquals(original, applications.find(draft.id))
+        assertEquals(originalJournal, journal.list(draft.id))
+        assertEquals(originalDocuments, documents.list(draft.id))
+        assertEquals(originalDeliveryCount, jdbc.queryForObject("select count(*) from delivery_outbox", Long::class.java))
+
+        val savedRequest = """{"mode":"SAVED_SCENARIO","delayDays":6,"alternativeTermMonths":24}"""
+        assertEquals(409, post(previewPath, agent, savedRequest).status)
+        assertEquals(400, post(previewPath, agent, web(6).replace("WEB_FORM", "SAVED_SCENARIO")).status)
+        val saved = snapshot(putScenario(path, delayDays = 5))
+        val fromSaved = snapshot(post(previewPath, agent, savedRequest))
+        assertEquals("1", fromSaved.at("/basis/savedScenarioRevision").asText())
+        assertEquals(daySix["inputsUsed"], fromSaved["inputsUsed"])
+        assertEquals(daySix["options"], fromSaved["options"])
+        assertEquals(saved, snapshot(get("$path/financing-scenario", agent)))
+        assertEquals(200, post("$path/request-confirmation", agent).status)
+        assertEquals(409, post(previewPath, agent, savedRequest).status)
+    }
+
+    @Test
+    fun `agent MCP views respect revoked access and only report statement readiness`() {
+        val draft = draft()
+        whenever(mandates.listCompanyIds(agentId)).thenReturn(listOf(company.id))
+        val summaryPath = "/api/v1/agent/mcp/applications/${draft.id}/summary"
+        val prioritiesPath = "/api/v1/agent/mcp/priorities"
+        val summary = snapshot(get(summaryPath, agent))
+        assertEquals("NOT_REQUESTED", summary["statementRequirement"].asText())
+        assertEquals(summary["application"], snapshot(get("$prioritiesPath?limit=1", agent))["items"].single())
+        assertEquals(400, get("$prioritiesPath?limit=21", agent).status)
+        assertEquals(403, get(summaryPath, bank).status)
+        assertEquals(404, get(summaryPath, token(Roles.AGENT)).status)
+
+        val now = clock.instant()
+        applications.save(
+            draft.copy(
+                status = ApplicationStatus.INFO_REQUESTED,
+                submittedAt = now,
+                statusChangedAt = now,
+                productCatalogSnapshot = mapOf(draft.terms.productCode to draft.productVersion),
+            ),
+        )
+        infoRequests.save(
+            InfoRequest(
+                applicationId = draft.id,
+                items = listOf(InfoItem(documentType = DocumentType.BANK_STATEMENT)),
+                comment = "synthetic bank comment",
+                deadline = now.plusSeconds(3600),
+                requestedBy = Actor(ActorType.UNDERWRITER, UUID.randomUUID()),
+                createdAt = now.minusSeconds(1),
+            ),
+        )
+        assertEquals("OPEN", snapshot(get(summaryPath, agent))["statementRequirement"].asText())
+        val documentId = document(draft.id, privateToBank = true)
+        val ready = snapshot(get(summaryPath, agent))
+        assertEquals("SATISFIED", ready["statementRequirement"].asText())
+        assertFalse(ready.toString().contains(documentId.toString()))
+        assertFalse(ready.toString().contains("synthetic.pdf"))
+        assertFalse(ready.toString().contains("synthetic bank comment"))
+
+        whenever(mandates.checkAccess(agentId, company.id)).thenReturn(AgentAccessDecision(allowed = false))
+        whenever(mandates.listCompanyIds(agentId)).thenReturn(emptyList())
+        assertEquals(404, get(summaryPath, agent).status)
+        assertTrue(snapshot(get(prioritiesPath, agent))["items"].isEmpty)
+    }
 
     @Test
     fun `the client sees only handed revisions and an exact confirmation creates one submission`() {

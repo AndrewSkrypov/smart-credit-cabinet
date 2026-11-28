@@ -79,8 +79,6 @@ class FinancingScenarios(
 
     internal fun hasHandedPacket(applicationId: UUID): Boolean = store.latest(applicationId, handedOnly = true) != null
 
-    internal fun savedRevision(applicationId: UUID): Long? = store.latest(applicationId)?.snapshot?.revision
-
     internal fun preview(
         application: LoanApplication,
         delayDays: Int,
@@ -137,9 +135,14 @@ class FinancingScenarios(
     private fun savedInputs(saved: ScenarioRevision?, application: LoanApplication, product: Product): ScenarioInputs {
         if (saved == null) throw Conflict("Сначала сохраните исходные данные в «Примерке кредита»")
         val snapshot = saved.snapshot
-        if (saved.productVersion != product.version ||
+        if (snapshot.status != FinancingScenarioStatus.DRAFT ||
+            saved.productVersion != product.version ||
+            application.productVersion != product.version ||
             snapshot.loanAmount != application.terms.amount ||
-            snapshot.options.first().termMonths != application.terms.termMonths
+            snapshot.options.firstOrNull()?.termMonths != application.terms.termMonths ||
+            snapshot.annualRatePercent.compareTo(product.baseRate) != 0 ||
+            !product.amountFits(application.terms.amount) ||
+            !product.termFits(application.terms.termMonths)
         ) {
             throw staleScenario()
         }

@@ -162,6 +162,19 @@ class FinancingScenarioIntegrationTest {
     }
 
     @Test
+    fun `saved web preview refuses changed application terms without writing`() {
+        val draft = draft()
+        val path = agentPath(draft.id)
+        putScenario(path, delayDays = 5)
+        val current = checkNotNull(applications.find(draft.id))
+        applications.save(current.copy(productVersion = current.productVersion + 1))
+        val before = creditMcpSnapshot(jdbc, draft.id)
+        val input = """{"mode":"SAVED_SCENARIO","delayDays":6,"alternativeTermMonths":24}"""
+        assertEquals(409, post("$path/financing-scenario/preview", agent, input).status)
+        assertEquals(before, creditMcpSnapshot(jdbc, draft.id))
+    }
+
+    @Test
     fun `agent MCP views respect revoked access and only report statement readiness`() {
         val draft = draft()
         whenever(mandates.listCompanyIds(agentId)).thenReturn(listOf(company.id))

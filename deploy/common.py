@@ -18,6 +18,7 @@ from servicing_dev import ServicingDev, OVERLAY as SERVICING_OVERLAY
 from catalog import requested_mode, state_path, validate_secrets
 from dev_diagnostics import error_category
 import dev_payment_reserve
+import jury_atf
 import mcp_dev
 from registry_release import RegistryRelease
 
@@ -214,6 +215,8 @@ class Deployment:
             self.command.extend(["-f", str(ROOT / "deploy/compose.demo.yaml")])
         if demo_edge == "true":
             self.command.extend(["-f", str(ROOT / "deploy/compose.dev-demo-edge.yaml")])
+            if not historical_backup and jury_atf.active(self.path.parent) is not None:
+                self.command.extend(["-f", str(ROOT / "deploy/compose.dev-jury-edge.yaml")])
         if self.ollama_ssh:
             self.command.extend(["-f", str(ROOT / "deploy/compose.ollama-ssh.yaml")])
         if self.mcp:

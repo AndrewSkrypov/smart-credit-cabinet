@@ -1,0 +1,24 @@
+# Scoped to the synthetic cabinet-dev-jury project by jury_atf.py.
+services:
+  identity:
+    environment:
+      JURY_LOGIN_ENABLED: "true"
+      CABINET_MAIL_MODE: "off"
+  engagement:
+    environment:
+      CABINET_MAIL_MODE: "off"
+      OLLAMA_URL: ""
+  gateway:
+    networks: !override
+      cabinet: {}
+      named-jury-edge:
+        ipv4_address: 172.30.42.3
+        aliases: [named-jury-gateway]
+  caddy:
+    profiles: !override [named-jury-disabled]
+    ports: !override []
+
+networks:
+  named-jury-edge:
+    name: cabinet-dev-named-jury-edge
+    external: true

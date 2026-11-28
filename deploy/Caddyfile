@@ -12,6 +12,7 @@
     header Strict-Transport-Security "max-age=31536000"
     {$CABINET_DEMO_RESTRICTIONS}
     {$CABINET_DEV_DEMO_API}
+    {$CABINET_DEV_JURY_API}
     {$CABINET_GRAFANA_INCLUDE}
     reverse_proxy gateway:80
 }

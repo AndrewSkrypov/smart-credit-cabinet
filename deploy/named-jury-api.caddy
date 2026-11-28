@@ -1,0 +1,30 @@
+@named_jury_scope path /demo/jury /demo/jury/*
+@named_jury_api path /demo/jury/api/v1/*
+@named_jury_account_writes path /demo/jury/api/v1/auth/sign-up* /demo/jury/api/v1/auth/sign-in* /demo/jury/api/v1/auth/password* /demo/jury/api/v1/auth/invitations* /demo/jury/api/v1/companies/me/invitations*
+@named_jury_profile_writes {
+    method PUT PATCH POST DELETE
+    path /demo/jury/api/v1/users/me* /demo/jury/api/v1/companies/me/employees*
+}
+@named_jury_private path /demo/jury/api /demo/jury/api/* /demo/jury/internal /demo/jury/internal/* /demo/jury/sim /demo/jury/sim/* /demo/jury/actuator /demo/jury/actuator/* /demo/jury/v3 /demo/jury/v3/* /demo/jury/swagger /demo/jury/swagger/* /demo/jury/ext /demo/jury/ext/*
+
+handle @named_jury_scope {
+    route {
+        header {
+            Cache-Control no-store
+            Referrer-Policy no-referrer
+            defer
+        }
+        respond @named_jury_account_writes 404
+        respond @named_jury_profile_writes 404
+        handle @named_jury_api {
+            uri strip_prefix /demo/jury
+            reverse_proxy named-jury-gateway:80 {
+                header_up -Cookie
+                header_down -Set-Cookie
+                header_down -Location
+            }
+        }
+        respond @named_jury_private 404
+        reverse_proxy gateway:80
+    }
+}

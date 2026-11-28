@@ -1,0 +1,20 @@
+# Adds one private upstream to the canonical HTTPS ingress without changing public demo routing.
+services:
+  caddy:
+    environment:
+      CABINET_DEV_JURY_API: import /etc/caddy/named-jury-api.caddy
+    volumes:
+      - type: bind
+        source: ./deploy/named-jury-api.caddy
+        target: /etc/caddy/named-jury-api.caddy
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      named-jury-edge:
+        ipv4_address: 172.30.42.2
+
+networks:
+  named-jury-edge:
+    name: cabinet-dev-named-jury-edge
+    external: true

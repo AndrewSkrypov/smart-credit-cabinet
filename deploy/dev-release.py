@@ -18,6 +18,7 @@ from alpha_dev import PROJECT, SECRET_KEYS, stop_alpha
 from catalog import SECRET_KEYS as CATALOG_SECRET_KEYS, append_secrets, ensure_tls, requested_mode
 from catalog_rollout import store as write_state, validated_journal
 from runtime_delivery_support import ensure_private, fsync_dir, read_record
+import jury_atf
 import mcp_dev
 from common import Deployment, ROOT, deploy_lock, lock_environment, replace_env
 from dev_diagnostics import diagnose, read_request
@@ -280,6 +281,10 @@ def deploy(args, state_dir, release):
         fsync_dir(state_dir)
         if need_attempt:
             runtime_attempts.close_enrollment(state_dir, enrollment)
+    if not args.verify_only and (ROOT / jury_atf.STAGED_BATCH).is_file():
+        report["jury_atf"] = jury_atf.publish(ROOT, state_dir, release, deployment, args.host_memory_gib)
+    elif (jury_receipt := jury_atf.active(state_dir)) is not None:
+        report["jury_atf"] = jury_atf.verify_route(jury_receipt)
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
 

@@ -130,8 +130,6 @@
 | credit | `POST /api/v1/agent/applications/{id}/messages/attachments` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `POST /api/v1/agent/applications/{id}/messages/read` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `POST /api/v1/agent/applications/{id}/request-confirmation` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
-| credit | `GET /api/v1/agent/mcp/priorities` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
-| credit | `GET /api/v1/agent/mcp/applications/{id}/summary` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |
 | credit | `GET /api/v1/agent/portfolio` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
 | credit | `GET /api/v1/agent/pre-approved-offers` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
 | credit | `POST /api/v1/agent/pre-approved-offers/{id}/apply` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |

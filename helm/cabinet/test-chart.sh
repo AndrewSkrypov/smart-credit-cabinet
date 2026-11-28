@@ -27,6 +27,26 @@ for name in identity credit engagement external-sim frontend swagger; do
 done
 helm lint "$chart" "$@"
 helm template cabinet "$chart" --namespace cabinet --is-upgrade "$@"
+mcp_render=$(mktemp)
+trap 'rm -f "$mcp_render"' EXIT
+helm template cabinet "$chart" --namespace cabinet --is-upgrade "$@" \
+  --set agentMcpCredit.enabled=true \
+  --set-string "images.mcp=example.invalid/mcp@sha256:$digest" \
+  --set-string "agentMcpCredit.peerSha256=$digest" \
+  --set-string agentMcpCredit.tlsSecret=fixture-mcp-tls \
+  --set-string agentMcpCredit.redemptionSecret=fixture-mcp-redeem \
+  --set-string agentMcpCredit.identityAuthSecret=fixture-mcp-auth \
+  --set-string agentMcpCredit.identityTlsSecret=fixture-mcp-identity-tls \
+  --set-string agentMcpCredit.clientTlsSecret=fixture-mcp-client-tls \
+  --set-string agentMcpCredit.oauth.clientId=cabinet-local-fixture \
+  --set-string agentMcpCredit.oauth.redirectUri=http://127.0.0.1:8912/callback >"$mcp_render"
+grep -F 'port: 8443' "$mcp_render" >/dev/null
+grep -F 'port: 8444' "$mcp_render" >/dev/null
+grep -F 'include /etc/nginx/cabinet-gateway/mcp.conf;' "$mcp_render" >/dev/null
+grep -F 'https://cabinet-mcp-identity:8444' "$mcp_render" >/dev/null
+grep -F 'kind: NetworkPolicy' "$mcp_render" >/dev/null
+rm -f "$mcp_render"
+trap - EXIT
 
 helm template cabinet "$chart" --namespace cabinet --is-upgrade "$@" \
   --set gateway.service.type=ClusterIP --set ingress.enabled=true \

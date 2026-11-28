@@ -119,7 +119,7 @@ InitContainer открывает каталог образа и PVC раздел
 и официальный сертификат в `/etc/clamav/certs`. InitContainer
 проверяет detached-подпись перед публикацией файлов на PVC и не
 обращается к сети. Основной контейнер продолжает проверять возраст
-загруженной базы по правилу `PT72H`. Для проверки готовности
+загруженной базы по правилу `P7D`. Для проверки готовности
 учитывайте дату сборки базы `daily`, а не дату образа.
 
 ## Двухэтапная установка и обновление
@@ -294,3 +294,39 @@ resolver pod. При включённом `app.otlpEndpoint` укажите name
 проверьте, что открытие демо не меняет основную сессию и что демо-токен
 отклоняется обычным API. Для отключения при следующем обновлении задайте
 `publicDemo.enabled=false`.
+
+## Удалённый MCP агента
+
+По умолчанию агентский MCP выключен. При `agentMcpCredit.enabled=true`
+chart получает `images.mcp` из штатного `release.json` и разворачивает два
+MCP Pod. Публичный gateway пропускает точные MCP/OAuth и discovery маршруты
+через существующее HTTPS. Внутренние маршруты остаются закрыты. Режим
+`app.demoAccounts=true` несовместим с этой опцией.
+
+Перед включением укажите `agentMcpCredit.oauth.clientId`,
+`agentMcpCredit.oauth.clientName` и точный `agentMcpCredit.oauth.redirectUri`.
+OAuth issuer совпадает с `app.publicURL` без пути и порта. Секреты
+`identityAuthSecret` и `redemptionSecret` должны быть разными. Каждый
+содержит ключ `token` со своим URL-safe случайным значением, отдельным от
+обычного JWT. Для DNS укажите проверенные namespace/labels резолверов в
+`agentMcpCredit.dns` (например, label `k8s-app: coredns`, если это
+фактическая метка в кластере).
+
+- `identityTlsSecret` содержит `tls.crt` и `tls.key` для
+  `cabinet-mcp-identity`.
+- `tlsSecret` содержит `tls.crt` и `tls.key` для
+  `cabinet-credit-mcp`, а также
+  `peer-ca.crt` для клиентских сертификатов MCP и `identity-ca.crt`.
+- `clientTlsSecret` содержит клиентские `tls.crt` и `tls.key` для MCP и
+  отдельные цепочки `identity-ca.crt` и `credit-ca.crt`. В `peerSha256`
+  укажите SHA-256 DER клиентского leaf, 64 hex, несколько через запятую
+  при ротации. Root CA private keys хранятся вне кластера.
+
+После защищённого выпуска сначала принять Dev с тем же manifest. Обычная
+проверка Prod сверяет запущенный digest, readiness обоих MCP Pod,
+частные TLS маршруты и CAs, запрет Credit без клиентского сертификата,
+публичные OAuth metadata, 401 без токена и 404 для внутренних путей.
+Для приёмки прикладного пути запустите `oauth-credit-live.ts` с отдельным
+синтетическим агентом и кейсами. Для отключения верните
+`agentMcpCredit.enabled=false` и выполните штатный release с последующими
+проверками. OAuth миграция аддитивна, данные кабинета сохраняются.

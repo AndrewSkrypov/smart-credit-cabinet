@@ -18,6 +18,7 @@ from alpha_dev import PROJECT, SECRET_KEYS, stop_alpha
 from catalog import SECRET_KEYS as CATALOG_SECRET_KEYS, append_secrets, ensure_tls, requested_mode
 from catalog_rollout import store as write_state, validated_journal
 from runtime_delivery_support import ensure_private, fsync_dir, read_record
+import mcp_dev
 from common import Deployment, ROOT, deploy_lock, lock_environment, replace_env
 from dev_diagnostics import diagnose, read_request
 from dev_payment_reserve import canonical_origin
@@ -59,6 +60,8 @@ def release_at(releases, revision):
 
 def rollout_metadata(deployment, state_dir, release, status, pending):
     desired = {"revision": release.revision, "manifest_sha256": release.checksum}
+    if deployment.values.get(mcp_dev.FLAG) == "true":
+        desired["mcp"] = {"enabled": True}
     if deployment.catalog_enabled:
         desired["catalog"] = {"mode": deployment.catalog_mode}
     elif status.get("catalog") or pending.get("catalog") or (deployment.catalog_state / "authority.json").exists():
@@ -229,6 +232,8 @@ def deploy(args, state_dir, release):
             write_state(history_file, sorted(history))
         run(ROOT, "start.py", *env_args, *release_args, "--no-build",
             "--host-memory-gib", str(args.host_memory_gib), lock_fd=getattr(args, "deployment_fd", None))
+        if status.get("mcp") and not desired.get("mcp"):
+            mcp_dev.remove_inactive_services(PROJECT)
         if status.get("alpha_dev") and deployment.alpha_dev is None:
             stop_alpha()
 

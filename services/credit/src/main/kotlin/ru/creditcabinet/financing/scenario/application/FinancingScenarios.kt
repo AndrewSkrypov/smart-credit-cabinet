@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.InvalidInput
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.document.domain.DocumentContext
@@ -33,6 +34,41 @@ class FinancingScenarios(
             return store.latest(application.id)?.snapshot?.copy(status = FinancingScenarioStatus.DRAFT)
         }
         return handed(application.id) ?: store.latest(application.id)?.snapshot
+    }
+
+    internal fun previewSavedDraft(
+        application: LoanApplication,
+        delayDays: Int,
+        alternativeTermMonths: Int,
+    ): Pair<Product, ScenarioSnapshot> {
+        if (application.status != ApplicationStatus.DRAFT || application.version == null) throw SavedPreviewNotApplicable()
+        val latest = store.latest(application.id) ?: throw SavedPreviewNotReady()
+        val saved = latest.snapshot
+        // forDraft() can persist catalog revisions in REMOTE mode; preview only reads.
+        val product = products.find(application.terms.productCode) ?: throw SavedPreviewNotApplicable()
+        val terms = application.terms
+        if (saved.status != FinancingScenarioStatus.DRAFT ||
+            saved.options.firstOrNull()?.termMonths != terms.termMonths ||
+            saved.loanAmount != terms.amount ||
+            latest.productVersion != product.version ||
+            application.productVersion != product.version ||
+            !product.active ||
+            saved.annualRatePercent.compareTo(product.baseRate) != 0 ||
+            !product.amountFits(terms.amount) ||
+            !product.termFits(terms.termMonths)
+        ) {
+            throw SavedPreviewNotApplicable()
+        }
+        if (delayDays !in 0..365 || alternativeTermMonths == terms.termMonths || !product.termFits(alternativeTermMonths)) {
+            throw InvalidInput("Недопустимая задержка или срок")
+        }
+        val inputs = saved.inputs.copy(
+            delayDays = delayDays,
+            alternativeTermMonths = alternativeTermMonths,
+            selectedTermMonths = terms.termMonths,
+            source = null,
+        )
+        return product to FinancingScenarioCalculation.draft(saved.revision, inputs, terms, product)
     }
 
     fun handed(applicationId: UUID): ScenarioSnapshot? {
@@ -203,3 +239,7 @@ class FinancingScenarios(
 
     private fun staleScenario() = Conflict("Пакет финансирования изменился — откройте переданную версию и подтвердите её")
 }
+
+internal class SavedPreviewNotReady : RuntimeException()
+
+internal class SavedPreviewNotApplicable : RuntimeException()

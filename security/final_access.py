@@ -54,8 +54,6 @@ ROUTES = (
     ("credit", "POST", "/api/v1/agent/applications/{id}/messages/attachments", AGENT_MISSING),
     ("credit", "POST", "/api/v1/agent/applications/{id}/messages/read", AGENT_MISSING),
     ("credit", "POST", "/api/v1/agent/applications/{id}/request-confirmation", AGENT_MISSING),
-    ("credit", "GET", "/api/v1/agent/mcp/priorities", AGENT_ONLY),
-    ("credit", "GET", "/api/v1/agent/mcp/applications/{id}/summary", AGENT_MISSING),
     ("credit", "GET", "/api/v1/agent/portfolio", AGENT_ONLY),
     ("credit", "GET", "/api/v1/agent/pre-approved-offers", AGENT_ONLY),
     ("credit", "POST", "/api/v1/agent/pre-approved-offers/{id}/apply", AGENT_MISSING),

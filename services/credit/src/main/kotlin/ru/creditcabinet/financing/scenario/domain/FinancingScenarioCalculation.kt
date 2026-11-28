@@ -13,6 +13,9 @@ internal data class FinancingCalculation(
 )
 
 internal object FinancingScenarioCalculation {
+    fun draft(revision: Long, inputs: ScenarioInputs, terms: ApplicationTerms, product: Product): ScenarioSnapshot =
+        ScenarioSnapshot(revision, FinancingScenarioStatus.DRAFT, inputs, terms.amount, product.baseRate, calculate(inputs, terms, product).options)
+
     fun calculate(inputs: ScenarioInputs, terms: ApplicationTerms, product: Product): FinancingCalculation {
         val comparisonTerms = listOf(terms.termMonths, inputs.alternativeTermMonths)
         require(product.amountFits(terms.amount)) { "Сумма черновика выходит за пределы продукта" }

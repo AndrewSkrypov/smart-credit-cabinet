@@ -61,6 +61,7 @@ interface TourTarget {
 
 interface OnboardingContextValue {
   bannerVisible: boolean;
+  tourRunning: boolean;
   welcomeTitle: string;
   welcomeSubtitle: string;
   hasPageTour: boolean;
@@ -75,6 +76,10 @@ interface OnboardingContextValue {
 const MOBILE_HEADER_OFFSET = 88;
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
+
+export function useOnboardingRunning() {
+  return useContext(OnboardingContext)?.tourRunning ?? false;
+}
 
 function findVisibleTarget(root: HTMLElement, selector: string): HTMLElement | null {
   const candidates = root.querySelectorAll<HTMLElement>(selector);
@@ -192,6 +197,7 @@ export function OnboardingProvider({ children, targetRootRef }: { children: Reac
 
   const value = useMemo<OnboardingContextValue>(() => ({
     bannerVisible,
+    tourRunning: !!runningTour,
     welcomeTitle: screenConfig?.welcomeTitle ?? homeConfig.welcomeTitle,
     welcomeSubtitle: screenConfig?.welcomeSubtitle ?? homeConfig.welcomeSubtitle,
     hasPageTour: Boolean(pageTour),
@@ -199,7 +205,7 @@ export function OnboardingProvider({ children, targetRootRef }: { children: Reac
     startCabinetTour,
     dismissBanner,
     resetTour
-  }), [bannerVisible, dismissBanner, homeConfig, pageTour, resetTour, screenConfig, startCabinetTour, startTour]);
+  }), [bannerVisible, dismissBanner, homeConfig, pageTour, resetTour, runningTour, screenConfig, startCabinetTour, startTour]);
 
   return (
     <OnboardingContext.Provider value={value}>

@@ -1,9 +1,10 @@
-import { Alert, Button, FormControlLabel, Grid, Paper, Radio, RadioGroup, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, FormControlLabel, Grid, Paper, Radio, RadioGroup, Stack, TextField, Typography } from '@mui/material';
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { agentApi } from '../../api/client';
 import { extractInvoice, financingApi, FinancingInputs, FinancingScenario, InvoiceExtraction } from '../../api/financing';
 import { FinancingComparison } from '../../components/FinancingScenarioView';
 import { MoneyField } from '../../components/MoneyField';
+import { KeshaDelayHint } from '../../components/kesha/KeshaDelayHint';
 import { formatDate, months, rub } from '../../shared/format';
 import { Application } from '../../types';
 import { BusinessUploadOperation, businessUploadScope, createBusinessUpload } from '../../shared/businessUpload';
@@ -52,6 +53,13 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'load' | 'calculate' | 'extract' | null>('load');
   const [dirty, setDirty] = useState(false);
+  const delayTarget = useRef<HTMLDivElement>(null);
+  const delayInput = useRef<HTMLInputElement>(null);
+  const delayRevision = useRef(0);
+  const undoKesha = useRef<{ previousDays: number; revision: number } | null>(null);
+  const [scenarioLoadedFor, setScenarioLoadedFor] = useState<string | null>(null);
+  const [keshaPatched, setKeshaPatched] = useState(false);
+  const modified = dirty || keshaPatched;
   const [sourceManuallyEdited, setSourceManuallyEdited] = useState(false);
   const savedTerms = useRef({ amount, baseTerm });
   const onUncommittedChangeRef = useRef(onUncommittedChange);
@@ -64,7 +72,9 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
     invoiceUpload.current = null;
     setInvoiceDocumentId(null);
     void financingApi.agent(id).then((previous) => {
-      if (!active || businessUploadScope('invoice', id) !== scope || !previous || previous.status === 'CONFIRMED') return;
+      if (!active || businessUploadScope('invoice', id) !== scope || previous?.status === 'CONFIRMED') return;
+      setScenarioLoadedFor(id);
+      if (!previous) return;
       setScenario(previous);
       setForm(previous.inputs);
     }).catch((next) => {
@@ -76,10 +86,17 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
   }, [id]);
 
   useEffect(() => {
-    onUncommittedChangeRef.current(dirty || conflictingTerms || busy === 'calculate');
-  }, [dirty, conflictingTerms, busy]);
+    onUncommittedChangeRef.current(modified || conflictingTerms || busy === 'calculate');
+  }, [modified, conflictingTerms, busy]);
+
+  function invalidateDelayOffer() {
+    delayRevision.current += 1;
+    undoKesha.current = null;
+    setKeshaPatched(false);
+  }
 
   function change<K extends keyof ScenarioForm>(name: K, value: ScenarioForm[K]) {
+    if (name === 'delayDays') invalidateDelayOffer();
     setForm((previous) => ({ ...previous, [name]: value }));
     setDirty(true);
     if (name === 'expectedReceiptAmount') {
@@ -193,6 +210,7 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
       setScenario(next);
       setForm(next.inputs);
       savedTerms.current = { amount: saved.amount, baseTerm: saved.termMonths };
+      invalidateDelayOffer();
       setDirty(false);
     } catch (next) {
       if (!isCurrentInvoiceScope(scope)) return;
@@ -203,6 +221,25 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
   }
 
   const fieldDisabled = busy !== null || savingDraft;
+  const keshaAvailable = !fieldDisabled && scenarioLoadedFor === id && application.editable && application.status === 'DRAFT' &&
+    application.product.code === 'WORKING_CAPITAL';
+
+  function applyKeshaDelay(expectedDays: number, revision: number) {
+    if (!keshaAvailable || latestId.current !== id || undoKesha.current || revision !== delayRevision.current ||
+      form.delayDays !== expectedDays) return false;
+    undoKesha.current = { previousDays: expectedDays, revision };
+    setKeshaPatched(true);
+    setForm((previous) => ({ ...previous, delayDays: 2 }));
+    return true;
+  }
+
+  function undoKeshaDelay() {
+    const patch = undoKesha.current;
+    if (!keshaAvailable || latestId.current !== id || !patch || patch.revision !== delayRevision.current) return false;
+    invalidateDelayOffer();
+    setForm((previous) => ({ ...previous, delayDays: patch.previousDays }));
+    return true;
+  }
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, scrollMarginTop: 110 }}>
@@ -245,7 +282,14 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
           <Grid item xs={12} sm={6}><MoneyField fullWidth label="Сумма ожидаемого поступления" disabled={fieldDisabled} value={form.expectedReceiptAmount} onChange={(value) => change('expectedReceiptAmount', value)} /></Grid>
           <Grid item xs={12} sm={6}><TextField fullWidth label="Дата ожидаемого поступления" type="date" InputLabelProps={{ shrink: true }} value={form.expectedReceiptDate} disabled={fieldDisabled} onChange={(event) => change('expectedReceiptDate', event.target.value)} /></Grid>
           <Grid item xs={12} sm={6}><TextField fullWidth label="Дата платежа" type="date" InputLabelProps={{ shrink: true }} value={form.paymentDate} disabled={fieldDisabled} onChange={(event) => change('paymentDate', event.target.value)} /></Grid>
-          <Grid item xs={12} sm={6}><TextField fullWidth label="Задержка поступления, дней" type="number" inputProps={{ min: 0, max: 365 }} value={form.delayDays} disabled={fieldDisabled} onChange={(event) => change('delayDays', Number(event.target.value))} /></Grid>
+          <Grid item xs={12} sm={6}>
+            <Box ref={delayTarget} data-testid="kesha-delay-target">
+              <TextField fullWidth label="Задержка поступления, дней" type="number" inputRef={delayInput} inputProps={{ min: 0, max: 365 }}
+                value={form.delayDays} disabled={fieldDisabled} onChange={(event) => change('delayDays', Number(event.target.value))} />
+            </Box>
+            <KeshaDelayHint applicationId={id} target={delayTarget} delayInput={delayInput} delayDays={form.delayDays}
+              delayRevision={delayRevision.current} available={keshaAvailable} patched={keshaPatched} applyDelay={applyKeshaDelay} undoDelay={undoKeshaDelay} />
+          </Grid>
           <Grid item xs={12} sm={6}><TextField fullWidth label="Второй срок, месяцев" type="number" inputProps={{ min: 1, max: 120 }} value={form.alternativeTermMonths || ''} disabled={fieldDisabled} onChange={(event) => change('alternativeTermMonths', Number(event.target.value))} /></Grid>
         </Grid>
         {scenario && <FinancingComparison scenario={scenario} onDownloadSource={(documentId) => agentApi.downloadDocument(id, documentId, 'Счёт.pdf')} />}
@@ -255,12 +299,12 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
           {!!form.alternativeTermMonths && form.alternativeTermMonths !== baseTerm &&
             <FormControlLabel value={form.alternativeTermMonths} control={<Radio />} disabled={fieldDisabled} label={months(form.alternativeTermMonths)} />}
         </RadioGroup>
-        {(dirty || conflictingTerms) && <Typography variant="body2" color="text.secondary">Сохраните новый расчёт перед передачей клиенту.</Typography>}
+        {(modified || conflictingTerms) && <Typography variant="body2" color="text.secondary">Сохраните новый расчёт перед передачей клиенту.</Typography>}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button variant="outlined" disabled={!enabled} onClick={() => void calculate()}>
             {busy === 'calculate' ? 'Считаем…' : 'Рассчитать и сохранить варианты'}
           </Button>
-          {dirty && <Button disabled={fieldDisabled} onClick={() => {
+          {modified && <Button disabled={fieldDisabled} onClick={() => {
             setForm(scenario?.inputs ?? defaultInputs(baseTerm));
             setExtraction(null);
             invoiceUpload.current = null;
@@ -268,6 +312,7 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
             setSelectedSourceDate('');
             setUseSourceAmount(false);
             setSourceManuallyEdited(false);
+            invalidateDelayOffer();
             setDirty(false);
             setInvoiceNotice(null);
             setError(null);

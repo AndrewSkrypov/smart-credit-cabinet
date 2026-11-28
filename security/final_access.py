@@ -81,6 +81,7 @@ ROUTES = (
     ("credit", "GET", "/api/v1/loans/{loanId}/closure-certificate", CLIENT_MISSING),
     ("engagement", "POST", "/api/v1/assistant/messages/stream", SIGNED_IN),
     ("engagement", "GET", "/api/v1/assistant/next-steps", HINTS_MISSING),
+    ("engagement", "GET", "/api/v1/assistant/ui-config", SIGNED_IN),
     ("engagement", "POST", "/api/v1/assistant/reminders", AGENT_MISSING),
 )
 
@@ -191,6 +192,11 @@ def check(api):
                         assert grant["agentUserId"] == body["agentUserId"] and grant["status"] == "ACTIVE"
                 if expected == 200 and template.endswith("/stream"):
                     assert "event: answer" in response["body"] and "event: failure" not in response["body"], "Ответ SSE не завершён"
+                if expected == 200 and template == "/api/v1/assistant/ui-config":
+                    config = response["body"]
+                    assert set(config) == {"keshaEnabled"} and isinstance(config["keshaEnabled"], bool)
+                    if role in {"manager", "underwriter", "risk_admin"}:
+                        assert config["keshaEnabled"] is False
         failures = [row for row in checks if row["actual"] != row["expected"]]
         assert not failures, f"Несовпадения в новых маршрутах: {json.dumps(failures[:12], ensure_ascii=False)}"
         for role, own_id in issued_mandates.items():

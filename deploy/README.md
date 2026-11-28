@@ -56,6 +56,15 @@ python3 "/srv/cabinet-dev/releases/$SHA/deploy/dev-release.py" \
 создаются один раз. Пароли остаются в `/var/lib/cabinet-dev/jury.json` с правами 0600.
 Отдавайте жюри только назначенные учётные данные через закрытый канал.
 
+Кеша по умолчанию выключен. Для пилота задайте в закрытом `cabinet.env`
+`ASSISTANT_GITLAB_API_URL` (HTTPS API URL из GitLab Deploy → Feature flags → Configure)
+и `ASSISTANT_GITLAB_INSTANCE_ID` (Instance ID из того же раздела). Обычный `cabinet-dev`
+передаёт их только сервису engagement с именем окружения `dev`. На GitLab настройте флаг
+`assistant_launcher_fantech` со стратегией User IDs или User List и областью `dev`. Для идентификаторов
+используйте UUID тестовых аккаунтов кабинета. Стратегия All users включает флаг для всех клиентов и
+агентов выбранного окружения. Сервис опрашивает GitLab раз в 30 секунд и выключает Кешу при ошибке
+синхронизации или истечении 60 секунд с последнего снимка.
+
 Добавьте `--verify-only` к команде для повторной проверки текущего выпуска и входа трёх ролей.
 JSON-отчёт показывает digest манифеста, OCI revision и локальные ID работающих образов,
 SHA-256 JavaScript по HTTPS, статусы входа, мандат агента и проверки запрета доступа.

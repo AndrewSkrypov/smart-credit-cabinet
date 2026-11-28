@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -22,6 +23,7 @@ import ru.creditcabinet.assistant.application.AssistantFailure
 import ru.creditcabinet.assistant.application.AssistantFailureReason
 import ru.creditcabinet.assistant.application.AssistantNextSteps
 import ru.creditcabinet.assistant.application.AssistantService
+import ru.creditcabinet.assistant.application.AssistantUiFlags
 import ru.creditcabinet.assistant.application.HintType
 import ru.creditcabinet.assistant.domain.AnswerMode
 import ru.creditcabinet.common.exception.ApiException
@@ -76,6 +78,8 @@ private fun NextStep.toResponse() = AssistantHint(type, title, detail, applicati
 
 data class AssistantStatus(val mode: AnswerMode, val model: String?)
 
+data class AssistantUiConfig(val keshaEnabled: Boolean)
+
 data class SummaryRequest(val applicationId: UUID)
 
 data class ReminderRequest(val applicationId: UUID, val infoRequestId: UUID)
@@ -87,10 +91,19 @@ class AssistantController(
     private val service: AssistantService,
     private val nextSteps: AssistantNextSteps,
     private val mapper: ObjectMapper,
+    private val uiFlags: AssistantUiFlags,
 ) {
     @Operation(summary = "Режим помощника: модель с открытыми весами или справочные ответы по правилам")
     @GetMapping("/status")
     fun status(): AssistantStatus = service.status().let { (mode, model) -> AssistantStatus(mode, model) }
+
+    @Operation(summary = "Конфигурация интерфейса помощника")
+    @GetMapping("/ui-config")
+    fun uiConfig(): ResponseEntity<AssistantUiConfig> {
+        val caller = CurrentCaller.claims()
+        val enabled = (caller.isClient || caller.isAgent) && uiFlags.isKeshaEnabled(caller.userId)
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store").body(AssistantUiConfig(enabled))
+    }
 
     @Operation(summary = "Вопрос помощнику о продуктах, статусе и решении по заявке")
     @PostMapping("/messages")

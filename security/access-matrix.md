@@ -157,4 +157,5 @@
 | credit | `GET /api/v1/loans/{loanId}/closure-certificate` | 401 | 404 | 404 | 403 | 403 | 403 | 403 | 403 |
 | engagement | `POST /api/v1/assistant/messages/stream` | 401 | 200 | 200 | 200 | 200 | 200 | 200 | 200 |
 | engagement | `GET /api/v1/assistant/next-steps` | 401 | 404 | 404 | 200 | 200 | 200 | 404 | 404 |
+| engagement | `GET /api/v1/assistant/ui-config` | 401 | 200 | 200 | 200 | 200 | 200 | 200 | 200 |
 | engagement | `POST /api/v1/assistant/reminders` | 401 | 403 | 403 | 403 | 403 | 403 | 404 | 404 |

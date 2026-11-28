@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--helm-values", type=Path)
     parser.add_argument("--require-catalog", action="store_true")
     parser.add_argument("--require-runtimes", action="store_true")
+    parser.add_argument("--require-mcp", action="store_true")
     args = parser.parse_args()
     try:
         manifest = RegistryRelease(args.manifest)
@@ -30,6 +31,8 @@ def main():
         parser.error("a new release requires Catalog image provenance")
     if args.require_runtimes and not manifest.has_all_runtimes:
         parser.error("a new release requires all four runtime images and Kafka provenance")
+    if args.require_mcp and not manifest.mcp:
+        parser.error("a new release requires the MCP image and its OCI provenance")
     images = manifest.images
     if not SERVICES <= set(images) <= (SERVICES | OPTIONAL_IMAGES):
         parser.error("release images have unexpected service names")

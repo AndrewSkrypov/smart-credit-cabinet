@@ -105,7 +105,7 @@ test('Банковский итог, история и редакторы чит
       }
       const state = await request.get(`/api/v1/applications/${prepared.app.id}`, { headers: headers(prepared.session) });
       expect((await state.json()).status).toBe('MANUAL_REVIEW');
-      await page.getByRole('button', { name: 'Выйти', exact: true }).click();
+      await page.getByRole('button', { name: 'Меню профиля' }).click().then(() => page.getByRole('menuitem', { name: 'Выйти', exact: true }).click());
     }
   } finally { await clearActive(request, prepared.session); }
 });

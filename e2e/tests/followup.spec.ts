@@ -36,7 +36,7 @@ if (process.env.MAIL_TESTS !== '1') {
     await expect(page.getByText('Новые условия B', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Показать обновления' })).toHaveCount(0, { timeout: 12000 });
     await expect(page.getByText('Контрольный продукт A', { exact: true })).toBeVisible();
-    await page.getByRole('link', { name: 'Профиль', exact: true }).click();
+    await page.getByRole('button', { name: 'Меню профиля' }).click().then(() => page.getByRole('menuitem', { name: 'Профиль', exact: true }).click());
     await expect(page.getByText('Подписание договоров: недоступно', { exact: true })).toBeVisible();
     await expect(page.getByText('Договор должен подписать представитель компании с правом подписи.', { exact: true })).toBeVisible();
   });
@@ -148,7 +148,7 @@ if (process.env.MAIL_TESTS !== '1') {
     await page.keyboard.press('Escape');
     await page.setViewportSize({ width: 720, height: 450 });
     await noHorizontalOverflow(page); // 1440x900 at a 200% layout-equivalent viewport; not a native gesture claim.
-    await page.getByRole('button', { name: 'Выйти', exact: true }).click();
+    await page.getByRole('button', { name: 'Меню профиля' }).click().then(() => page.getByRole('menuitem', { name: 'Выйти', exact: true }).click());
     await expect(page.locator('html')).toHaveAttribute('data-surface', 'auth');
   });
 }

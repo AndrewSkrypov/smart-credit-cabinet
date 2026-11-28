@@ -16,6 +16,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 import ru.creditcabinet.auth.application.SessionTokens
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.company.domain.CompanyRegistry
@@ -197,6 +198,43 @@ class AuthIntegrationTest {
         mockMvc.get("/api/v1/companies/me") { header("Authorization", "Bearer $staff") }.andExpect { status { isForbidden() } }
         mockMvc.get("/api/v1/companies/me").andExpect { status { isUnauthorized() } }
         mockMvc.get("/api/v1/users/me") { header("Authorization", "Bearer forged") }.andExpect { status { isUnauthorized() } }
+    }
+
+    @Test
+    fun `a person picks a preset or their own photo as avatar and can return to initials`() {
+        val token = tokenOf(signUp(randomInn12()).getContentAsString(Charsets.UTF_8))
+        fun put(avatar: String?) = mockMvc.put("/api/v1/users/me/avatar") {
+            header("Authorization", "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(mapOf("avatar" to avatar))
+        }.andReturn().response
+        fun current() = mapper.readTree(
+            mockMvc.get("/api/v1/users/me") {
+                header("Authorization", "Bearer $token")
+            }.andReturn().response.getContentAsString(Charsets.UTF_8),
+        )["avatar"]
+
+        assertEquals(200, put("preset:rocket").status)
+        assertEquals("preset:rocket", current().asText())
+        val pngBytes = byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0)
+        val png = "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(pngBytes)
+        assertEquals(200, put(png).status)
+        assertEquals(png, current().asText())
+
+        val svg = put("data:image/svg+xml;base64," + java.util.Base64.getEncoder().encodeToString("<svg onload=alert(1)>".toByteArray()))
+        assertEquals(400, svg.status)
+        assertEquals("Аватар принимается в PNG, JPEG или WebP", message(svg.getContentAsString(Charsets.UTF_8)))
+        val disguised = put("data:image/png;base64," + java.util.Base64.getEncoder().encodeToString("<html>".toByteArray()))
+        assertEquals(400, disguised.status)
+        assertEquals(400, put("preset:unknown").status)
+        assertEquals(png, current().asText())
+
+        assertEquals(200, put(null).status)
+        assertTrue(current().isNull)
+        mockMvc.put("/api/v1/users/me/avatar") {
+            contentType = MediaType.APPLICATION_JSON
+            content = "{}"
+        }.andExpect { status { isUnauthorized() } }
     }
 
     @Test

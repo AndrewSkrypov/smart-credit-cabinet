@@ -22,6 +22,8 @@ export interface User {
   status: 'ACTIVE' | 'BLOCKED';
   companyId: string | null;
   canSign: boolean;
+  /** `preset:<code>`, a small photo as a data URL, or null for initials. */
+  avatar?: string | null;
 }
 
 export interface UserSession {

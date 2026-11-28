@@ -28,6 +28,7 @@ MANDATES = "/api/v1/companies/me/agent-mandates"
 
 ROUTES = (
     ("identity", "GET", "/api/v1/agent/clients", AGENT_ONLY),
+    ("identity", "PUT", "/api/v1/users/me/avatar", SIGNED_IN),
     ("identity", "GET", MANDATES, CLIENT_ONLY),
     ("identity", "POST", MANDATES, MANDATE_CREATED),
     ("identity", "DELETE", MANDATES + "/{id}", MANDATE_REVOKED),
@@ -162,6 +163,9 @@ def check(api):
                     body, headers = {"paymentId": missing}, {"Idempotency-Key": str(uuid4())}
                 elif template.endswith("/messages") and method == "POST":
                     body, headers = {"text": "Синтетическая проверка доступа"}, {"Idempotency-Key": str(uuid4())}
+                elif template == "/api/v1/users/me/avatar":
+                    # Initials again: harmless for every synthetic account the matrix signs in.
+                    body = {"avatar": None}
                 elif template.endswith("/messages/read"):
                     body = {"lastReadSeq": 1}
                 elif template.endswith("/next-steps"):

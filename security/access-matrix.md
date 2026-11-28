@@ -104,6 +104,7 @@
 | Сервис | Операция | Без токена | Клиент | Другой клиент | Менеджер | Андеррайтер | Риск-администратор | Агент | Другой агент |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | identity | `GET /api/v1/agent/clients` | 401 | 403 | 403 | 403 | 403 | 403 | 200 | 200 |
+| identity | `PUT /api/v1/users/me/avatar` | 401 | 200 | 200 | 200 | 200 | 200 | 200 | 200 |
 | identity | `GET /api/v1/companies/me/agent-mandates` | 401 | 200 | 200 | 403 | 403 | 403 | 403 | 403 |
 | identity | `POST /api/v1/companies/me/agent-mandates` | 401 | 201 | 201 | 403 | 403 | 403 | 403 | 403 |
 | identity | `DELETE /api/v1/companies/me/agent-mandates/{id}` | 401 | 204 | 404 | 403 | 403 | 403 | 403 | 403 |

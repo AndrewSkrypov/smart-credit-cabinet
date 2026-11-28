@@ -146,7 +146,7 @@ test('Агент и клиент проходят подтверждение и 
   const draft = (await draftResponse.json()) as Application & { requiredDocuments: Array<{ uploaded: boolean }> };
   const id = draft.id;
   expect(draft.status).toBe('DRAFT');
-  const logout = () => page.getByRole('button', { name: 'Выйти', exact: true }).click();
+  const logout = () => page.getByRole('button', { name: 'Меню профиля' }).click().then(() => page.getByRole('menuitem', { name: 'Выйти', exact: true }).click());
   try {
     await expect(page).toHaveURL(new RegExp(`/agent/applications/${id}$`));
     await noHorizontalOverflow(page);

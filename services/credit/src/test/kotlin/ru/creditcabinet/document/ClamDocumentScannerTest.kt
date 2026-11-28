@@ -20,7 +20,14 @@ import kotlin.test.assertTrue
 
 class ClamDocumentScannerTest {
     private fun scanner(port: Int, timeout: Duration = Duration.ofSeconds(10)) =
-        ClamDocumentScanner(true, "127.0.0.1", port, timeout, SimpleMeterRegistry())
+        ClamDocumentScanner(
+            true,
+            "127.0.0.1",
+            port,
+            timeout,
+            SimpleMeterRegistry(),
+            maxSignatureAge = Duration.parse(System.getenv("ANTIVIRUS_MAX_SIGNATURE_AGE") ?: "PT72H"),
+        )
 
     @Test
     fun `real clamd accepts a clean PDF and finds EICAR inside an allowed archive`() {
@@ -81,10 +88,17 @@ class ClamDocumentScannerTest {
     }
 
     @Test
-    fun `the default scans with four-day signatures and rejects signatures older than seven days`() {
+    fun `the default rejects four-day signatures and the explicit Dev policy rejects signatures older than seven days`() {
         val clock = Clock.fixed(Instant.parse("2026-11-28T12:00:00Z"), ZoneOffset.UTC)
-        fun scannerAt(port: Int) =
-            ClamDocumentScanner(true, "127.0.0.1", port, Duration.ofSeconds(3), SimpleMeterRegistry(), clock = clock)
+        fun scannerAt(port: Int, age: Duration) =
+            ClamDocumentScanner(true, "127.0.0.1", port, Duration.ofSeconds(3), SimpleMeterRegistry(), maxSignatureAge = age, clock = clock)
+
+        val defaultStreamed = java.util.concurrent.atomic.AtomicBoolean(false)
+        withServer({ defaultStreamed.set(true) }, "ClamAV 1.5.5/28194/Tue Nov 24 12:00:00 2026") { port ->
+            val defaultScanner = ClamDocumentScanner(true, "127.0.0.1", port, Duration.ofSeconds(3), SimpleMeterRegistry(), clock = clock)
+            assertEquals(HttpStatus.SERVICE_UNAVAILABLE, assertFailsWith<ApiException> { defaultScanner.scan(ByteArray(4)) }.httpStatus)
+        }
+        assertTrue(!defaultStreamed.get(), "The ordinary default must reject four-day signatures before sending content")
 
         withServer({ socket ->
             val input = DataInputStream(socket.getInputStream())
@@ -94,12 +108,12 @@ class ClamDocumentScannerTest {
             assertEquals(0, input.readInt())
             socket.getOutputStream().write("stream: OK\u0000".toByteArray(Charsets.US_ASCII))
         }, "ClamAV 1.5.5/28194/Tue Nov 24 12:00:00 2026") { port ->
-            scannerAt(port).scan(ByteArray(4))
+            scannerAt(port, Duration.ofDays(7)).scan(ByteArray(4))
         }
 
         val streamed = java.util.concurrent.atomic.AtomicBoolean(false)
         withServer({ streamed.set(true) }, "ClamAV 1.5.5/28194/Sat Nov 21 11:59:59 2026") { port ->
-            val failure = assertFailsWith<ApiException> { scannerAt(port).scan(ByteArray(4)) }
+            val failure = assertFailsWith<ApiException> { scannerAt(port, Duration.ofDays(7)).scan(ByteArray(4)) }
             assertEquals(HttpStatus.SERVICE_UNAVAILABLE, failure.httpStatus)
         }
         assertTrue(!streamed.get(), "A stale scanner must receive no document content")

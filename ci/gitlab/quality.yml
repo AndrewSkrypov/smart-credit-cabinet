@@ -5,6 +5,8 @@
     - cabinet-ci
   variables:
     SOURCE_REVISION: $CI_COMMIT_SHA
+    # Disposable synthetic CI uses the explicit Dev age policy; ordinary/Prod defaults stay PT72H.
+    ANTIVIRUS_MAX_SIGNATURE_AGE: P7D
     COMPOSE_ANSI: never
     COMPOSE_PROGRESS: plain
   before_script:

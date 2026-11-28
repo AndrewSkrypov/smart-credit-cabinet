@@ -288,6 +288,7 @@ spec:
             - {name: DOCUMENTS_CREDIT_PEER, value: "spiffe://credit-cabinet/credit"}
             - {name: CABINET_ANTIVIRUS_ENABLED, value: "true"}
             - {name: CABINET_ANTIVIRUS_HOST, value: clamav}
+            - {name: CABINET_ANTIVIRUS_MAX_SIGNATURE_AGE, value: {{ .Values.antivirus.maxSignatureAge | quote }}}
             {{- include "cabinet.secretFrom" (list $appS3 "CABINET_STORAGE_S3_ACCESS_KEY" "S3_ACCESS_KEY") | nindent 12 }}
             {{- include "cabinet.secretFrom" (list $appS3 "CABINET_STORAGE_S3_SECRET_KEY" "S3_SECRET_KEY") | nindent 12 }}
             - name: SPRING_APPLICATION_JSON

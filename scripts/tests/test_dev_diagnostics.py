@@ -560,10 +560,29 @@ class RuntimeTopologyTest(unittest.TestCase):
             overlay = yaml.safe_load((ROOT / "deploy" / f"compose.{name}.yaml").read_text())
             services.update(overlay.get("services", {}))
             networks.update(overlay.get("networks", {}))
+        mcp = yaml.safe_load((ROOT / "deploy/compose.mcp-credit.yaml").read_text())
+        services.update(mcp["services"])
+        networks.update(mcp["networks"])
         self.assertLessEqual(services, diagnostics.SERVICES)
         self.assertLessEqual(networks, diagnostics.NETWORKS)
         self.assertGreaterEqual(diagnostics.MAX_NETWORKS, len(diagnostics.NETWORKS))
-        self.assertLessEqual({"catalog-grpc", "assessment", "servicing", "documents"}, diagnostics.IMAGE_COMPONENTS)
+        self.assertLessEqual({"catalog-grpc", "assessment", "servicing", "documents", "mcp"}, diagnostics.IMAGE_COMPONENTS)
+
+    def test_mcp_state_preserves_only_the_boolean_activation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "current.json"
+            record = {"revision": "a" * 40, "manifest_sha256": "b" * 64}
+            for enabled in (True, False):
+                record["mcp"] = {"enabled": enabled, "token": SECRET}
+                path.write_text(json.dumps(record))
+                summary = diagnostics.state_summary(path)
+                self.assertEqual(summary["mcp"], {"enabled": enabled})
+                self.assertNotIn(SECRET, json.dumps(summary))
+            for invalid in (None, [], "true", {}, {"enabled": "true"}, {"enabled": 1}):
+                record["mcp"] = invalid
+                path.write_text(json.dumps(record))
+                with self.assertRaisesRegex(ValueError, "^Повреждено состояние MCP$"):
+                    diagnostics.state_summary(path)
 
     def test_state_reports_only_allowlisted_runtime_modes(self):
         with tempfile.TemporaryDirectory() as temporary:

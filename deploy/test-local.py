@@ -76,6 +76,7 @@ def configure(path, index):
     block = args.subnet_block + index
     values.update(CABINET_RELEASE="local-verification-" + suffix, HTTPS_PORT=str(args.https_port + index), HTTP_PORT=str(args.http_port + index),
                   PUBLIC_CABINET_URL="https://localhost:" + str(args.https_port + index),
+                  ANTIVIRUS_MAX_SIGNATURE_AGE="P7D",
                   EDGE_SUBNET=f"172.30.{block}.0/28", CADDY_EDGE_IP=f"172.30.{block}.2", GATEWAY_EDGE_IP=f"172.30.{block}.3")
     if args.final_profiles and index == 0:
         values.update(CABINET_OPTIONAL_PROFILES="ai,monitoring", ASSISTANT_MODEL="qwen2.5:1.5b",

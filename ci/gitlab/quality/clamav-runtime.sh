@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Optional official seed for restricted egress. The ordinary ClamAV readiness
-# remains in force, including the seven-day age bound and engine reload checks.
+# Optional official seed for isolated CI and the explicitly approved Dev policy.
+# Seed admission is bounded to seven days. Destination defaults remain 72 hours;
+# signature-age policy, engine reload and content scanning are still enforced there.
 set -euo pipefail
 
 runtime='clamav/clamav:1.5.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614'

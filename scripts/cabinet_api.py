@@ -29,9 +29,10 @@ def synthetic_inn():
 
 
 class Cabinet:
-    def __init__(self, base="http://localhost:8080", ssl_context=None):
+    def __init__(self, base="http://localhost:8080", ssl_context=None, *, opener=None):
         self.base = base.rstrip("/")
         self.ssl_context = ssl_context
+        self.opener = opener
 
     def request(self, method, path, body=None, token=None, expected=(200,), headers=None, raw=None, timeout=30):
         request_headers = dict(headers or {})
@@ -44,7 +45,10 @@ class Cabinet:
         request = local_request(self.base + path, method=method, headers=request_headers, data=data)
         started = time.monotonic()
         try:
-            response = urlopen(request, timeout=timeout, context=self.ssl_context)
+            if self.opener is None:
+                response = urlopen(request, timeout=timeout, context=self.ssl_context)
+            else:
+                response = self.opener.open(request, timeout=timeout)
         except HTTPError as error:
             response = error
         with response:

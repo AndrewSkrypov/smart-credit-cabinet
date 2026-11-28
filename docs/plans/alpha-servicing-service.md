@@ -1,6 +1,6 @@
 # R3. Самостоятельный Servicing
 
-База: `830448d6712a32d50bbabff2333f94fda15bea92`. Worktree: `/var/tmp/alpha-servicing-service-completion`, ветка `feature/alpha-servicing-service`.
+База: `830448d6712a32d50bbabff2333f94fda15bea92`. Ветка: `feature/alpha-servicing-service`.
 
 ## Граница и владение
 
@@ -30,7 +30,7 @@ Credit атомарно сохраняет неизменяемую команд
 
 ## Состояние
 
-Дизайн зафиксирован до реализации. Реализация сохранена отдельными коммитами. По согласованию с основным чатом PipelineSteps изменён только в DISBURSEMENT и его зависимости LoanOpening; интеграция отдельным коммитом `6f73a16` и последующим форматированием. Enrich/score и общий run(Unit) не менялись. Shared settings/root Gradle/CI объединяет основной чат.
+Дизайн зафиксирован до реализации. Реализация сохранена отдельными коммитами. По согласованию с интегратором PipelineSteps изменён только в DISBURSEMENT и его зависимости LoanOpening; интеграция отдельным коммитом `6f73a16` и последующим форматированием. Enrich/score и общий run(Unit) не менялись. Shared settings/root Gradle/CI объединяет интегратор.
 
 Предварительные локальные доказательства: core 7/7, 0 skips/failures/errors; main/test compilation всех новых модулей, Servicing и Credit прошла. Собственный native PostgreSQL16 подтвердил V25/V1, forward/reverse checksum, последние SQL-платежи, запрет retired writer/read, owner-only fence, resume/abort и защиту прав после повторного migration grants. Small receipts и hashes в `/var/tmp/alpha-servicing-sql-evidence`. Эти SQL-storage проверки не считаются живой цепочкой runtime.
 

@@ -81,7 +81,7 @@
 
 ---
 
-## 3. Команды полной верификации трека оркестратора
+## 3. Команды полной верификации финального релиза
 
 ```bash
 # Backend (identity, credit, engagement, external-sim, JaCoCo domain >= 75%)

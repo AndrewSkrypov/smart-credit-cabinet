@@ -47,7 +47,9 @@ class PaymentReserveService(
             application.company.id != current.companyId ||
             application.status != ApplicationStatus.DISBURSED ||
             !application.company.inn.startsWith("00")
-        ) throw missing()
+        ) {
+            throw missing()
+        }
         return account
     }
     private fun actor(): ServicingActor {

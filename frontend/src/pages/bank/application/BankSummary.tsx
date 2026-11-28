@@ -2,7 +2,6 @@ import { Paper, Stack, Typography } from '@mui/material';
 import { Application, AssessmentView } from '../../../types';
 import { statusTitle } from '../../../shared/applicationText';
 import { formatDateTime, months, rub } from '../../../shared/format';
-import { outcomeTitles } from './DecisionPanel';
 
 const decisions: Record<string, string> = {
   APPROVE: 'Одобрено на запрошенных условиях', COUNTER_OFFER: 'Предложены другие условия',
@@ -21,9 +20,13 @@ export function BankSummary({ application, assessment, stale }: { application: A
     assessment.bank && !assessment.bank.client ? 'Обороты по счёту в банке неизвестны: у компании нет счёта в этом банке.' : '']
     .filter(Boolean).join(' ');
   const terminal = ({ DISBURSED: 'Кредит выдан.', REJECTED: 'Отказано.', WITHDRAWN: 'Заявка отозвана.', CLOSED: 'Заявка закрыта.' } as Record<string, string>)[application.status];
+  // Interactive action buttons are rendered right below in DecisionPanel; do not duplicate their list as plain text.
   const next = stale ? 'Дождитесь обновления данных или нажмите «Повторить».'
     : terminal ? terminal
-    : assessment.actions.length ? `${assessment.actions.map((action) => outcomeTitles[action]).join(' · ')}${application.status === 'MANUAL_REVIEW' && !assessment.actions.includes('APPROVE') ? '. Кредитное решение принимает андеррайтер.' : ''}`
+    : assessment.actions.length
+      ? (application.status === 'MANUAL_REVIEW' && !assessment.actions.includes('APPROVE')
+          ? 'Кредитное решение принимает андеррайтер.'
+          : null)
       : application.status === 'INFO_REQUESTED' ? 'Ожидаются данные клиента.'
         : ['OFFER_ISSUED', 'SIGNING'].includes(application.status) ? 'Ожидается ответ или подпись клиента.'
           : ['ENRICHMENT', 'SCORING', 'DISBURSING', 'SUBMITTED'].includes(application.status) ? 'Идёт автоматическая обработка.'
@@ -36,7 +39,7 @@ export function BankSummary({ application, assessment, stale }: { application: A
       <Typography><b>Последнее решение:</b> {latest ? `${decisions[latest.outcome] ?? latest.outcome} · ${latest.decidedByType === 'SYSTEM' ? 'автоматически' : 'специалистом'} · ${formatDateTime(latest.createdAt)}` : 'ещё нет'}.</Typography>
       {explanation && <Typography><b>Основание:</b> {explanation}</Typography>}
       {unknown && <Typography color="text.secondary"><b>Неизвестно:</b> {unknown}</Typography>}
-      <Typography><b>{assessment.actions.length && !stale ? 'Доступно вам' : 'Следующий шаг'}:</b> {next}</Typography>
+      {next && <Typography><b>Следующий шаг:</b> {next}</Typography>}
     </Stack>
   </Paper>;
 }

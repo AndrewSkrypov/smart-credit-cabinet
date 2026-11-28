@@ -89,6 +89,7 @@ interface ActionDialogProps {
 function ActionDialog({ action, application, recommendationOutcome, recommended, onClose, onDone }: ActionDialogProps) {
   const products = useApi(productsApi.list);
   const [comment, setComment] = useState('');
+  const [commentVisited, setCommentVisited] = useState(false);
   const [productCode, setProductCode] = useState(recommended?.productCode ?? application.product.code);
   const [amount, setAmount] = useState<number | null>(recommended?.amount ?? application.amount);
   const [termMonths, setTermMonths] = useState(recommended?.termMonths ?? application.termMonths);
@@ -104,7 +105,15 @@ function ActionDialog({ action, application, recommendationOutcome, recommended,
   const commentRequired = action !== 'REQUEST_INFO' && differsFromRecommendation;
   const product = products.data?.find((item) => item.code === productCode);
 
+  const amountMissing = action === 'COUNTER_OFFER' && (!amount || amount <= 0);
+  const termMissing = action === 'COUNTER_OFFER' && (!termMonths || termMonths < 1);
+  const amountOutside = Boolean(action === 'COUNTER_OFFER' && product && !amountMissing && amount && (amount < product.minAmount || amount > product.maxAmount));
+  const termOutside = Boolean(action === 'COUNTER_OFFER' && product && !termMissing && (termMonths < product.minTermMonths || termMonths > product.maxTermMonths));
+  const commentMissing = commentRequired && comment.trim().length === 0;
+  const infoEmpty = action === 'REQUEST_INFO' && documents.length === 0 && question.trim().length === 0;
+
   const send = async () => {
+    setCommentVisited(true);
     setBusy(true);
     setError(null);
     try {
@@ -124,9 +133,12 @@ function ActionDialog({ action, application, recommendationOutcome, recommended,
   };
 
   const ready =
-    (!commentRequired || comment.trim().length > 0) &&
-    (action !== 'REQUEST_INFO' || documents.length > 0 || question.trim().length > 0) &&
-    (action !== 'COUNTER_OFFER' || !!amount);
+    !commentMissing &&
+    !infoEmpty &&
+    !amountMissing &&
+    !termMissing &&
+    !amountOutside &&
+    !termOutside;
 
   const titles: Record<UnderwritingAction, string> = {
     APPROVE: 'Одобрить заявку',
@@ -148,9 +160,37 @@ function ActionDialog({ action, application, recommendationOutcome, recommended,
               <TextField select label="Продукт" value={productCode} onChange={(event) => setProductCode(event.target.value)}>
                 {(products.data ?? []).map((item) => <MenuItem key={item.code} value={item.code}>{item.name}</MenuItem>)}
               </TextField>
-              <MoneyField label="Сумма" value={amount} onChange={setAmount} helperText={product ? `от ${rub(product.minAmount)} до ${rub(product.maxAmount)}` : ' '} />
-              <TextField label="Срок, месяцев" inputProps={{ inputMode: 'numeric' }} value={termMonths || ''} onChange={(event) => setTermMonths(Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0)}
-                helperText={product ? `от ${product.minTermMonths} до ${product.maxTermMonths}` : ' '} />
+              <MoneyField
+                label="Сумма"
+                value={amount}
+                onChange={setAmount}
+                error={amountMissing || amountOutside}
+                helperText={
+                  amountMissing
+                    ? 'Укажите сумму предложения больше нуля'
+                    : amountOutside && product
+                      ? `Сумма должна быть от ${rub(product.minAmount)} до ${rub(product.maxAmount)}`
+                      : product
+                        ? `от ${rub(product.minAmount)} до ${rub(product.maxAmount)}`
+                        : ' '
+                }
+              />
+              <TextField
+                label="Срок, месяцев"
+                inputProps={{ inputMode: 'numeric' }}
+                value={termMonths || ''}
+                onChange={(event) => setTermMonths(Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0)}
+                error={termMissing || termOutside}
+                helperText={
+                  termMissing
+                    ? 'Укажите срок в месяцах'
+                    : termOutside && product
+                      ? `Срок должен быть от ${product.minTermMonths} до ${product.maxTermMonths} мес.`
+                      : product
+                        ? `от ${product.minTermMonths} до ${product.maxTermMonths}`
+                        : ' '
+                }
+              />
             </>
           )}
           {action === 'REQUEST_INFO' && (
@@ -164,7 +204,16 @@ function ActionDialog({ action, application, recommendationOutcome, recommended,
                   />
                 ))}
               </FormGroup>
-              <TextField label="Вопрос клиенту" multiline minRows={2} value={question} onChange={(event) => setQuestion(event.target.value)} inputProps={{ maxLength: 500 }} />
+              <TextField
+                label="Вопрос клиенту"
+                multiline
+                minRows={2}
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                onBlur={() => setQuestion((value) => value.trim())}
+                inputProps={{ maxLength: 500 }}
+                helperText={infoEmpty ? 'Выберите хотя бы один документ выше или напишите вопрос клиенту' : undefined}
+              />
             </>
           )}
           <TextField
@@ -173,8 +222,18 @@ function ActionDialog({ action, application, recommendationOutcome, recommended,
             minRows={3}
             value={comment}
             onChange={(event) => setComment(event.target.value)}
+            onBlur={() => {
+              setComment((value) => value.trim());
+              setCommentVisited(true);
+            }}
             inputProps={{ maxLength: 2000 }}
             required={commentRequired}
+            error={commentVisited && commentMissing}
+            helperText={
+              commentVisited && commentMissing
+                ? (action === 'REJECT' ? 'Укажите причину отказа — без неё нельзя отклонить заявку' : 'Укажите обоснование решения, расходящегося с рекомендацией системы')
+                : undefined
+            }
           />
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>

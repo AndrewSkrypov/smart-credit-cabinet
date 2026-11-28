@@ -177,7 +177,7 @@ export function SignInPage() {
         {params.get('expired') && <Alert severity="info">Сессия истекла — войдите снова.</Alert>}
         {params.get('security') && <Alert severity="success">Все сессии завершены. Войдите заново.</Alert>}
         {visibleError && <Alert severity="error">{visibleError}</Alert>}
-        <TextField {...feedback.field('email')} label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+        <TextField {...feedback.field('email', undefined, () => setEmail((value) => value.trim()))} label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         <TextField {...feedback.field('password')} label="Пароль" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
         <Typography id="signin-readiness" variant="body2" color="text.secondary">{ready ? 'Данные заполнены — можно войти.' : 'Для входа укажите корректный email и пароль.'}</Typography>
         <Button type="submit" variant="contained" size="large" disabled={busy || pendingDemo || !ready} aria-describedby="signin-readiness">Войти</Button>
@@ -258,7 +258,7 @@ export function SignUpPage() {
     <AuthFrame title="Подключение компании">
       <Stack component="form" spacing={2} onSubmit={submit} noValidate>
         {error && <Alert severity="error">{error}</Alert>}
-        <TextField {...feedback.field('inn', '10 цифр для организации, 12 — для ИП')} label="ИНН компании или ИП" inputProps={{ inputMode: 'numeric' }} autoComplete="off" value={form.inn}
+        <TextField {...feedback.field('inn', '10 цифр для организации, 12 — для ИП', () => setForm((current) => ({ ...current, inn: current.inn.trim() })))} label="ИНН компании или ИП" inputProps={{ inputMode: 'numeric' }} autoComplete="off" value={form.inn}
           onChange={(event) => setForm({ ...form, inn: event.target.value })} required />
         {demo && (
           <Typography variant="body2" color="text.secondary">
@@ -269,8 +269,8 @@ export function SignUpPage() {
             {' '}— такого региона нет, данные не совпадут с реальным бизнесом.
           </Typography>
         )}
-        <TextField {...feedback.field('fullName')} label="Ваше имя" autoComplete="name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} required />
-        <TextField {...feedback.field('email')} label="Email" type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required />
+        <TextField {...feedback.field('fullName', undefined, () => setForm((current) => ({ ...current, fullName: current.fullName.trim() })))} label="Ваше имя" autoComplete="name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} required />
+        <TextField {...feedback.field('email', undefined, () => setForm((current) => ({ ...current, email: current.email.trim() })))} label="Email" type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required />
         <TextField {...feedback.field('password', passwordHint)} label="Пароль" type="password" autoComplete="new-password" value={form.password}
           onChange={(event) => setForm({ ...form, password: event.target.value })} required />
         <FormControlLabel

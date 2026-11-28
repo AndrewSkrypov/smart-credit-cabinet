@@ -1315,6 +1315,7 @@ components:
       - value
       type: object
     FinancingDraftTermsOverride:
+      additionalProperties: false
       properties:
         amount:
           format: int64
@@ -1489,6 +1490,7 @@ components:
       - totalInterestRub
       type: object
     FinancingScenarioPreviewRequest:
+      additionalProperties: false
       properties:
         alternativeTermMonths:
           format: int32

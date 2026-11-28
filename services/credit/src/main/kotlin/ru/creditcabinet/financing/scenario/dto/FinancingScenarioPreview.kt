@@ -1,8 +1,16 @@
 package ru.creditcabinet.financing.scenario.dto
 
+import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSetter
 import com.fasterxml.jackson.annotation.Nulls
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.core.JsonToken
+import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JsonDeserializer
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import io.swagger.v3.oas.annotations.media.Schema
 import ru.creditcabinet.financing.scenario.application.FinancingPreview
 import ru.creditcabinet.financing.scenario.application.FinancingPreviewForm
 import ru.creditcabinet.financing.scenario.domain.ScenarioInputs
@@ -11,21 +19,67 @@ import java.time.LocalDate
 
 enum class FinancingScenarioPreviewMode { WEB_FORM, SAVED_SCENARIO }
 
+@Schema(additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 data class FinancingDraftTermsOverride(
-    @JsonProperty(required = true) @JsonSetter(nulls = Nulls.FAIL) val amount: Long,
-    @JsonProperty(required = true) @JsonSetter(nulls = Nulls.FAIL) val baseTermMonths: Int,
-)
+    @JsonProperty(required = true)
+    @JsonSetter(nulls = Nulls.FAIL)
+    @JsonDeserialize(using = PreviewLongDeserializer::class)
+    val amount: Long,
+    @JsonProperty(required = true)
+    @JsonSetter(nulls = Nulls.FAIL)
+    @JsonDeserialize(using = PreviewIntDeserializer::class)
+    val baseTermMonths: Int,
+) {
+    @JsonAnySetter
+    @Suppress("UNUSED_PARAMETER")
+    fun unknownField(name: String, value: JsonNode) {
+        throw IllegalArgumentException("Неизвестное поле в условиях черновика")
+    }
+}
 
+@Schema(additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 data class FinancingScenarioPreviewRequest(
     val mode: FinancingScenarioPreviewMode,
-    @JsonProperty(required = true) @JsonSetter(nulls = Nulls.FAIL) val delayDays: Int,
-    @JsonProperty(required = true) @JsonSetter(nulls = Nulls.FAIL) val alternativeTermMonths: Int,
+    @JsonProperty(required = true)
+    @JsonSetter(nulls = Nulls.FAIL)
+    @JsonDeserialize(using = PreviewIntDeserializer::class)
+    val delayDays: Int,
+    @JsonProperty(required = true)
+    @JsonSetter(nulls = Nulls.FAIL)
+    @JsonDeserialize(using = PreviewIntDeserializer::class)
+    val alternativeTermMonths: Int,
+    @JsonDeserialize(using = PreviewLongDeserializer::class)
     val openingBalance: Long? = null,
+    @JsonDeserialize(using = PreviewLongDeserializer::class)
     val expectedReceiptAmount: Long? = null,
     val expectedReceiptDate: LocalDate? = null,
     val paymentDate: LocalDate? = null,
     val draftTermsOverride: FinancingDraftTermsOverride? = null,
-)
+) {
+    @JsonAnySetter
+    @Suppress("UNUSED_PARAMETER")
+    fun unknownField(name: String, value: JsonNode) {
+        throw IllegalArgumentException("Неизвестное поле в параметрах примерки")
+    }
+}
+
+internal class PreviewIntDeserializer : JsonDeserializer<Int>() {
+    override fun deserialize(parser: JsonParser, context: DeserializationContext): Int =
+        if (parser.hasToken(JsonToken.VALUE_NUMBER_INT)) {
+            parser.intValue
+        } else {
+            context.reportInputMismatch(Int::class.java, "Для расчёта требуется целое число")
+        }
+}
+
+internal class PreviewLongDeserializer : JsonDeserializer<Long>() {
+    override fun deserialize(parser: JsonParser, context: DeserializationContext): Long =
+        if (parser.hasToken(JsonToken.VALUE_NUMBER_INT)) {
+            parser.longValue
+        } else {
+            context.reportInputMismatch(Long::class.java, "Для расчёта требуется целое число")
+        }
+}
 
 internal fun FinancingScenarioPreviewRequest.webForm(): FinancingPreviewForm? = when (mode) {
     FinancingScenarioPreviewMode.SAVED_SCENARIO -> {

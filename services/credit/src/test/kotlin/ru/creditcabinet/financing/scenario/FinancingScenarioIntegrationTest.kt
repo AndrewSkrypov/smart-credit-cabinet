@@ -133,6 +133,9 @@ class FinancingScenarioIntegrationTest {
         }
         assertEquals("2100000", snapshot(post(previewPath, agent, web(6, 2_100_000))).at("/inputsUsed/loanAmountRub").asText())
         assertEquals(400, post(previewPath, agent, web(366)).status)
+        assertEquals(400, post(previewPath, agent, web(5).replace("\"delayDays\":5", "\"delayDays\":5.9")).status)
+        assertEquals(400, post(previewPath, agent, web(6).replace("\"amount\":2000000", "\"amount\":2000000.5")).status)
+        assertEquals(400, post(previewPath, agent, web(6).replace("\"baseTermMonths\":12", "\"baseTermMonths\":12,\"rate\":1")).status)
         assertEquals(403, post(previewPath, client, web(6)).status)
         assertEquals(404, post(previewPath, token(Roles.AGENT), web(6)).status)
         assertEquals(204, get("$path/financing-scenario", agent).status)
@@ -143,6 +146,7 @@ class FinancingScenarioIntegrationTest {
 
         val savedRequest = """{"mode":"SAVED_SCENARIO","delayDays":6,"alternativeTermMonths":24}"""
         assertEquals(409, post(previewPath, agent, savedRequest).status)
+        assertEquals(400, post(previewPath, agent, savedRequest.dropLast(1) + ",\"companyId\":\"foreign\"}").status)
         assertEquals(400, post(previewPath, agent, web(6).replace("WEB_FORM", "SAVED_SCENARIO")).status)
         val saved = snapshot(putScenario(path, delayDays = 5))
         val fromSaved = snapshot(post(previewPath, agent, savedRequest))

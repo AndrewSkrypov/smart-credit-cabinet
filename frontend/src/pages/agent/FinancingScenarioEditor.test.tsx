@@ -270,4 +270,31 @@ describe('FinancingScenarioEditor', () => {
     expect(screen.queryByRole('region', { name: 'Предварительный расчёт' })).not.toBeInTheDocument();
     expect(financingApi.save).not.toHaveBeenCalled();
   });
+
+  it.each(['application version', 'catalog version', 'catalog availability'])('hides a displayed preview after a change to %s', async (changed) => {
+    vi.resetAllMocks();
+    setActor('A');
+    vi.mocked(financingApi.agent).mockResolvedValue(null);
+    vi.mocked(financingApi.preview).mockResolvedValue(previewAt(5));
+    const application = {
+      id: 'app-1', amount: 2_000_000, termMonths: 12, version: 3, product: { version: 2 }, currentProduct: { version: 2 }
+    } as Application;
+    const saveDraft = vi.fn();
+    const onUncommittedChange = vi.fn();
+    const editor = (current: Application) => <FinancingScenarioEditor application={current} baseTerm={12} amount={current.amount}
+      savingDraft={false} saveDraft={saveDraft} onUncommittedChange={onUncommittedChange} />;
+    const { rerender } = render(editor(application));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Прочитать счёт PDF' })).toBeEnabled());
+    fillPreviewForm();
+    fireEvent.click(screen.getByRole('button', { name: 'Рассчитать примерку' }));
+    expect(await screen.findByRole('region', { name: 'Предварительный расчёт' })).toBeInTheDocument();
+
+    const updated: Application = { ...application };
+    if (changed === 'application version') updated.version = 4;
+    else if (changed === 'catalog version') updated.currentProduct = { ...application.currentProduct!, version: 3 };
+    else updated.currentProduct = null;
+    rerender(editor(updated));
+    expect(screen.queryByRole('region', { name: 'Предварительный расчёт' })).not.toBeInTheDocument();
+    expect(financingApi.save).not.toHaveBeenCalled();
+  });
 });

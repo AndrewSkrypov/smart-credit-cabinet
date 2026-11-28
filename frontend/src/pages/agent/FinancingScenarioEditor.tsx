@@ -178,7 +178,12 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
   };
   const fieldDisabled = busy !== null || savingDraft;
   const enabled = !!assumptions && !fieldDisabled;
-  const previewKey = previewInput ? JSON.stringify(previewInput) : null;
+  const previewKey = previewInput ? JSON.stringify({
+    input: previewInput,
+    applicationVersion: application.version,
+    productVersion: application.product?.version,
+    currentProductVersion: application.currentProduct?.version ?? null
+  }) : null;
   latestPreviewKey.current = previewKey;
   const previewScope = businessUploadScope('financing-preview', id);
   const currentPreview = preview?.key === previewKey && preview.scope === previewScope ? preview.result : null;

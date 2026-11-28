@@ -52,8 +52,8 @@ class AuthService(
      * Registers a business and the person who connects it. That person represents the company
      * and may sign for it; colleagues are added by them later. A company is connected once:
      * a second sign-up with the same ИНН is refused, so nobody joins someone else's company
-     * by knowing its ИНН. The name comes from ЕГРЮЛ/ЕГРИП, so the client does not type it; a ИНН
-     * the registry does not know is refused, a registry outage does not stop the sign-up.
+     * by knowing its ИНН. The name comes from ЕГРЮЛ/ЕГРИП after checking tax registration in ЕГРН.
+     * A confirmed missing record is refused, a registry outage does not stop the sign-up.
      */
     fun signUp(fullName: String, rawEmail: String, password: String, rawInn: String, personalDataConsent: Boolean): IdentitySession = transactions.write {
         if (!personalDataConsent) throw InvalidInput("Без согласия на обработку персональных данных зарегистрироваться нельзя")
@@ -66,6 +66,7 @@ class AuthService(
         val name = when (val answer = registry.lookup(inn)) {
             is RegistryAnswer.Found -> answer.shortName
             RegistryAnswer.NotFound -> throw InvalidInput("Компания с таким ИНН не найдена в ЕГРЮЛ и ЕГРИП — проверьте номер")
+            RegistryAnswer.TaxpayerNotFound -> throw InvalidInput("ИНН не найден в ЕГРН ФНС — проверьте номер")
             RegistryAnswer.Unavailable -> null
         }
         val company = companies.save(Company(inn = inn, name = name))

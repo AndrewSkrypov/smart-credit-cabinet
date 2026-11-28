@@ -133,8 +133,17 @@ class AuthIntegrationTest {
         assertEquals(400, unknown.status)
         assertEquals("Компания с таким ИНН не найдена в ЕГРЮЛ и ЕГРИП — проверьте номер", message(unknown.getContentAsString(Charsets.UTF_8)))
 
+        whenever(registry.lookup(any())).thenReturn(RegistryAnswer.TaxpayerNotFound)
+        val noTaxRegistration = signUp(randomInn12())
+        assertEquals(400, noTaxRegistration.status)
+        assertEquals("ИНН не найден в ЕГРН ФНС — проверьте номер", message(noTaxRegistration.getContentAsString(Charsets.UTF_8)))
+
         whenever(registry.lookup(any())).thenReturn(RegistryAnswer.Unavailable)
-        assertEquals(200, signUp(randomInn12()).status)
+        val unavailable = signUp(randomInn12())
+        assertEquals(200, unavailable.status)
+        mockMvc.get("/api/v1/companies/me") {
+            header("Authorization", "Bearer ${tokenOf(unavailable.getContentAsString(Charsets.UTF_8))}")
+        }.andExpect { jsonPath("$.name") { doesNotExist() } }
     }
 
     @Test

@@ -468,6 +468,7 @@ components:
         source:
           enum:
           - REGISTRY
+          - TAX_REGISTRY
           - FNS
           - BUREAU
           - BANK
@@ -495,6 +496,13 @@ components:
       - status
       - error
       - message
+      type: object
+    TaxpayerRegistration:
+      properties:
+        registered:
+          type: boolean
+      required:
+      - registered
       type: object
   securitySchemes:
     bearerAuth:
@@ -782,6 +790,49 @@ paths:
       summary: Выписка из ЕГРЮЛ/ЕГРИП по ИНН
       tags:
       - ЕГРЮЛ / ЕГРИП (симулятор)
+  /ext/registry/v1/taxpayer-registration:
+    get:
+      operationId: taxpayerRegistration
+      parameters:
+      - in: query
+        name: inn
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxpayerRegistration'
+          description: Результат проверки записи
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректный ИНН
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Нужен ключ системы-клиента в заголовке X-Api-Key
+                status: 401
+              schema:
+                $ref: '#/components/schemas/SystemKeyError'
+          description: Нет корректного ключа системы
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: ЕГРН ФНС временно недоступен
+      security:
+      - systemKey: []
+      summary: Проверка постановки на налоговый учёт в ЕГРН ФНС по ИНН
+      tags:
+      - ЕГРН ФНС (симулятор)
   /ext/signing/v1/sessions:
     post:
       operationId: start
@@ -999,6 +1050,7 @@ paths:
         schema:
           enum:
           - REGISTRY
+          - TAX_REGISTRY
           - FNS
           - BUREAU
           - BANK

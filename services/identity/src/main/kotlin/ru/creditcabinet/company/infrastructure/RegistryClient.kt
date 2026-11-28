@@ -11,7 +11,7 @@ import ru.creditcabinet.company.domain.RegistryAnswer
 import java.time.Duration
 
 /**
- * ЕГРЮЛ/ЕГРИП through the registry gateway (the external-sim service locally). Short timeouts:
+ * ЕГРЮЛ/ЕГРИП and ЕГРН through the registry gateway (the external-sim service locally). Short timeouts:
  * sign-up must not hang on a slow registry, it goes on without the name instead.
  */
 @Component
@@ -31,16 +31,26 @@ class RegistryClient(
     }
 
     private data class Extract(val shortName: String)
+    private data class TaxpayerCheck(val registered: Boolean?)
 
     override fun lookup(inn: String): RegistryAnswer {
         val client = client ?: return RegistryAnswer.Unavailable
         return try {
-            client.get().uri("/ext/registry/v1/companies/{inn}", inn).retrieve().body(Extract::class.java)
-                ?.let { RegistryAnswer.Found(it.shortName) } ?: RegistryAnswer.Unavailable
-        } catch (exception: HttpClientErrorException.NotFound) {
-            RegistryAnswer.NotFound
+            val extract = try {
+                client.get().uri("/ext/registry/v1/companies/{inn}", inn).retrieve().body(Extract::class.java)
+            } catch (_: HttpClientErrorException.NotFound) {
+                return RegistryAnswer.NotFound
+            } ?: return RegistryAnswer.Unavailable
+
+            val taxpayer = client.get().uri("/ext/registry/v1/taxpayer-registration?inn={inn}", inn)
+                .retrieve().body(TaxpayerCheck::class.java)
+            when (taxpayer?.registered) {
+                true -> RegistryAnswer.Found(extract.shortName)
+                false -> RegistryAnswer.TaxpayerNotFound
+                null -> RegistryAnswer.Unavailable
+            }
         } catch (exception: Exception) {
-            log.warn("Registry lookup failed, sign-up continues without the company name: {}", exception.message)
+            log.warn("Registry lookup failed, sign-up continues without the company name: {}", exception.javaClass.simpleName)
             RegistryAnswer.Unavailable
         }
     }

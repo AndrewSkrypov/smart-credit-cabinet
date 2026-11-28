@@ -27,3 +27,159 @@ spec:
       ports:
         - {protocol: TCP, port: 8443}
 {{- end }}
+
+{{- if and .Values.app.enabled .Values.agentMcpCredit.enabled }}
+{{- $root := . }}
+{{- $mcp := .Values.agentMcpCredit }}
+{{- if or .Values.app.demoAccounts (not (regexMatch "^https://[a-zA-Z0-9.-]+(:[0-9]+)?$" .Values.app.publicURL)) }}
+{{- fail "Remote MCP requires a canonical HTTPS origin and ordinary sign-in" }}
+{{- end }}
+{{- if not (regexMatch "^[a-fA-F0-9]{64}([ ]*,[ ]*[a-fA-F0-9]{64})*$" $mcp.peerSha256) }}
+{{- fail "agentMcpCredit.peerSha256 must contain client certificate SHA-256 pins" }}
+{{- end }}
+{{- if eq $mcp.identityAuthSecret $mcp.redemptionSecret }}
+{{- fail "Remote MCP requires separate Identity authorization and redemption Secrets" }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cabinet-mcp-identity-config
+data:
+  nginx.conf: |
+    {{- .Files.Get "files/mcp-identity-nginx.conf" | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cabinet-mcp-identity
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cabinet.selector" (list . "identity") | nindent 4 }}
+  ports:
+    - {name: tls, port: 8444, targetPort: mcp-tls}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-mcp-identity-ingress
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . "identity") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports: [{protocol: TCP, port: 8444}]
+      from:
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list . "cabinet-mcp") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list . "credit") | nindent 14 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cabinet-mcp
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cabinet.selector" (list . "cabinet-mcp") | nindent 4 }}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cabinet-mcp
+  annotations:
+    cabinet.release/revision: {{ .Values.release.revision | quote }}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . "cabinet-mcp") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cabinet.selector" (list . "cabinet-mcp") | nindent 8 }}
+      annotations:
+        cabinet.release/revision: {{ .Values.release.revision | quote }}
+    spec:
+      {{- include "cabinet.pod" . | nindent 6 }}
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: cabinet-mcp
+          image: {{ include "cabinet.image" (list . "mcp") | quote }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          ports:
+            - {name: http, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /.well-known/oauth-protected-resource/api/mcp, port: http}
+            timeoutSeconds: 2
+          livenessProbe:
+            tcpSocket: {port: http}
+          resources:
+            {{- toYaml $mcp.resources | nindent 12 }}
+          env:
+            - {name: MCP_ISSUER, value: {{ .Values.app.publicURL | quote }}}
+            - {name: MCP_RESOURCE, value: {{ printf "%s/api/mcp" .Values.app.publicURL | quote }}}
+            - {name: MCP_IDENTITY_ORIGIN, value: {{ include "cabinet.mcp.identityOrigin" . | quote }}}
+            - {name: MCP_CREDIT_ORIGIN, value: {{ printf "https://cabinet-credit-mcp.%s.svc.%s:8443" .Release.Namespace (.Values.gateway.clusterDomain | default "cluster.local") | quote }}}
+            - {name: MCP_IDENTITY_CA_FILE, value: /run/mcp-client-tls/identity-ca.crt}
+            - {name: MCP_CREDIT_CA_FILE, value: /run/mcp-client-tls/credit-ca.crt}
+            - {name: MCP_CREDIT_CERT_FILE, value: /run/mcp-client-tls/tls.crt}
+            - {name: MCP_CREDIT_KEY_FILE, value: /run/mcp-client-tls/tls.key}
+            {{- include "cabinet.secretFrom" (list (required "agentMcpCredit.identityAuthSecret is required" $mcp.identityAuthSecret) "CABINET_MCP_IDENTITY_SERVICE_TOKEN" "token") | nindent 12 }}
+          volumeMounts:
+            - {name: mcp-client-tls, mountPath: /run/mcp-client-tls, readOnly: true}
+      volumes:
+        - name: mcp-client-tls
+          secret:
+            secretName: {{ required "agentMcpCredit.clientTlsSecret is required" $mcp.clientTlsSecret | quote }}
+            defaultMode: 0440
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-mcp-transport
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . "cabinet-mcp") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - ports: [{protocol: TCP, port: 8080}]
+      from:
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list . "gateway") | nindent 14 }}
+  egress:
+    - ports: [{protocol: TCP, port: 8444}]
+      to:
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list . "identity") | nindent 14 }}
+    - ports: [{protocol: TCP, port: 8443}]
+      to:
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list . "credit") | nindent 14 }}
+    - ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ required "agentMcpCredit.dns.namespace is required" $mcp.dns.namespace | quote }}
+          podSelector:
+            matchLabels:
+              {{- toYaml (required "agentMcpCredit.dns.podLabels is required" $mcp.dns.podLabels) | nindent 14 }}
+{{- end }}

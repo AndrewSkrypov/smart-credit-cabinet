@@ -14,6 +14,7 @@
 {{- $db := and $backend (ne $name "external-sim") }}
 {{- $documents := and (eq $name "credit") (($root.Values.documents | default dict).enabled) }}
 {{- $catalog := and (eq $name "credit") $root.Values.catalog.enabled }}
+{{- $identityMcp := and (eq $name "identity") $root.Values.agentMcpCredit.enabled }}
 {{- $mcp := and (eq $name "credit") $root.Values.agentMcpCredit.enabled }}
 {{- $assessment := and (eq $name "credit") (($root.Values.assessment | default dict).enabled) }}
 {{- $replicas := int $workload.replicas }}
@@ -99,15 +100,18 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/path: /actuator/prometheus
         {{- end }}
+        {{- if $identityMcp }}
+        checksum/mcp-identity: {{ $root.Files.Get "files/mcp-identity-nginx.conf" | sha256sum | quote }}
+        {{- end }}
         {{- if eq $name "gateway" }}
         checksum/gateway: {{ include (print $root.Template.BasePath "/gateway-config.yaml") $root | sha256sum | quote }}
         {{- end }}
     spec:
       {{- include "cabinet.pod" $root | nindent 6 }}
       {{- $bridge := and (eq $name "engagement") $root.Values.ollamaBridge.enabled }}
-      {{- if $bridge }}
+      {{- if or $bridge $identityMcp $mcp }}
       securityContext:
-        fsGroup: 10002
+        fsGroup: {{ ternary 10002 10001 $bridge }}
       {{- end }}
       {{- if has $name (list "gateway" "engagement") }}
       terminationGracePeriodSeconds: 150
@@ -154,7 +158,7 @@ spec:
             - {name: SPRING_PROFILES_ACTIVE, value: {{ ternary "prod,agent-mcp-remote" "prod" $mcp | quote }}}
             {{- if $mcp }}
             - {name: SERVER_FORWARD_HEADERS_STRATEGY, value: none}
-            - {name: CABINET_MCP_IDENTITY_ORIGIN, value: {{ required "agentMcpCredit.identityOrigin is required" $root.Values.agentMcpCredit.identityOrigin | quote }}}
+            - {name: CABINET_MCP_IDENTITY_ORIGIN, value: {{ include "cabinet.mcp.identityOrigin" $root | quote }}}
             - {name: CABINET_MCP_IDENTITY_CA, value: /run/mcp-credit-tls/identity-ca.crt}
             - {name: CABINET_MCP_CREDIT_TLS_CERT, value: /run/mcp-credit-tls/tls.crt}
             - {name: CABINET_MCP_CREDIT_TLS_KEY, value: /run/mcp-credit-tls/tls.key}
@@ -189,6 +193,15 @@ spec:
             - {name: SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE, value: "130s"}
             {{- end }}
             {{- if eq $name "identity" }}
+            {{- if $identityMcp }}
+            - {name: CABINET_MCP_OAUTH_ENABLED, value: "true"}
+            - {name: CABINET_MCP_OAUTH_ISSUER, value: {{ $publicURL | quote }}}
+            - {name: CABINET_MCP_OAUTH_CLIENT_ID, value: {{ required "agentMcpCredit.oauth.clientId is required" $root.Values.agentMcpCredit.oauth.clientId | quote }}}
+            - {name: CABINET_MCP_OAUTH_CLIENT_NAME, value: {{ required "agentMcpCredit.oauth.clientName is required" $root.Values.agentMcpCredit.oauth.clientName | quote }}}
+            - {name: CABINET_MCP_OAUTH_REDIRECT_URI, value: {{ required "agentMcpCredit.oauth.redirectUri is required" $root.Values.agentMcpCredit.oauth.redirectUri | quote }}}
+            {{- include "cabinet.secretFrom" (list (required "agentMcpCredit.identityAuthSecret is required" $root.Values.agentMcpCredit.identityAuthSecret) "CABINET_MCP_IDENTITY_SERVICE_TOKEN" "token") | nindent 12 }}
+            {{- include "cabinet.secretFrom" (list (required "agentMcpCredit.redemptionSecret is required" $root.Values.agentMcpCredit.redemptionSecret) "CABINET_MCP_CREDIT_SERVICE_TOKEN" "token") | nindent 12 }}
+            {{- end }}
             - {name: DEMO_ACCOUNTS, value: {{ $root.Values.app.demoAccounts | quote }}}
             - {name: REGISTRY_URL, value: "http://external-sim:8080"}
             - {name: ENGAGEMENT_URL, value: "http://engagement:8080"}
@@ -263,7 +276,7 @@ spec:
         - name: mcp-credit-tls
           secret:
             secretName: {{ required "agentMcpCredit.tlsSecret is required" $root.Values.agentMcpCredit.tlsSecret | quote }}
-            defaultMode: 0444
+            defaultMode: 0440
         {{- end }}
         {{- if $catalog }}
         - name: catalog-credit-tls
@@ -282,6 +295,18 @@ spec:
       volumes:
         - name: gateway-config
           configMap: {name: cabinet-gateway}
+          {{- end }}
+          {{- if $identityMcp }}
+        {{- include "cabinet.mcp.identitySidecar" $root | nindent 8 }}
+      volumes:
+        - name: mcp-identity-config
+          configMap: {name: cabinet-mcp-identity-config}
+        - name: mcp-identity-server
+          secret:
+            secretName: {{ required "agentMcpCredit.identityTlsSecret is required" $root.Values.agentMcpCredit.identityTlsSecret | quote }}
+            defaultMode: 0440
+        - name: mcp-identity-tmp
+          emptyDir: {sizeLimit: 16Mi}
           {{- end }}
           {{- if $bridge }}
         {{- include "cabinet.ollamaBridge.container" $root | nindent 8 }}

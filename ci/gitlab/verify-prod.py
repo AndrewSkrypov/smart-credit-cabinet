@@ -8,7 +8,8 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-from urllib.request import HTTPRedirectHandler, build_opener
+from urllib.error import HTTPError
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "deploy"))
 from catalog import probe_mtls
@@ -46,6 +47,36 @@ def verify_catalog_deployment(kubectl, release):
         raise SystemExit("catalog-grpc: Deployment has not reached the expected release and image")
 
 
+def verify_mcp_routes(origin, opener, fetch):
+    resource = origin + "/api/mcp"
+    scope = "cabinet:mcp:read"
+    a = json.loads(fetch("/.well-known/oauth-authorization-server", 8192))
+    b = json.loads(fetch("/.well-known/oauth-protected-resource/api/mcp", 8192))
+    if (a.get("issuer") != origin or a.get("authorization_endpoint") != origin + "/api/mcp/oauth/authorize"
+            or a.get("token_endpoint") != origin + "/api/mcp/oauth/token"
+            or a.get("revocation_endpoint") != origin + "/api/mcp/oauth/revoke"
+            or a.get("scopes_supported") != [scope] or "S256" not in a.get("code_challenge_methods_supported", [])
+            or b.get("resource") != resource or b.get("authorization_servers") != [origin]
+            or b.get("scopes_supported") != [scope]):
+        raise SystemExit("MCP OAuth metadata does not match the selected public origin and read scope")
+
+    for path, status in (("/api/mcp", 401), ("/api/mcp/oauth/other", 404),
+                         ("/internal/mcp/authorize", 404), ("/internal/mcp/redeem", 404),
+                         ("/internal/mcp/credit/priorities", 404)):
+        request = Request(origin + path, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with opener.open(request, timeout=15):
+                raise SystemExit(f"MCP route {path} unexpectedly accepted an unauthenticated request")
+        except HTTPError as error:
+            with error:
+                if error.code != status:
+                    raise SystemExit(f"MCP route {path} expected HTTP {status}, received HTTP {error.code}") from None
+                if status == 401 and 'resource_metadata="' + origin + '/.well-known/oauth-protected-resource/api/mcp"' not in (
+                    error.headers.get("WWW-Authenticate", "")
+                ):
+                    raise SystemExit("MCP bearer challenge is missing the exact protected resource metadata URL") from None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifest", type=Path)
@@ -62,6 +93,7 @@ def main():
     kubectl = ["kubectl", "--context", args.context, "--namespace", args.namespace, "--request-timeout=20s"]
     frontend_pods = []
     credit_pods = []
+    mcp_modes = set()
     pod_counts = {}
     workloads = dict(WORKLOAD_IMAGES)
     if args.catalog_mode:
@@ -92,6 +124,17 @@ def main():
                 raise SystemExit(f"{name}: active Pod is not ready with the expected digest")
             if name == "catalog-grpc" and not catalog_image_matches(expected, release.catalog["config_digest"], running[0]["imageID"]):
                 raise SystemExit("catalog-grpc: runtime imageID does not match the release OCI manifest or config")
+            if name == "identity":
+                mcp_options = [item.get("value") for item in matching[0].get("env", [])
+                               if item["name"] == "CABINET_MCP_OAUTH_ENABLED"]
+                if mcp_options not in ([], ["false"], ["true"]):
+                    raise SystemExit("identity: invalid MCP activation mode")
+                mcp_modes.add(mcp_options == ["true"])
+                if mcp_options == ["true"]:
+                    sidecar = [item for item in pod["status"].get("containerStatuses", [])
+                               if item["name"] == "mcp-identity-tls" and item["ready"] and item.get("imageID")]
+                    if len(sidecar) != 1:
+                        raise SystemExit("identity: MCP TLS sidecar is not ready")
             if name == "credit" and args.catalog_mode:
                 mode = [e.get("value") for e in matching[0].get("env", []) if e["name"] == "CABINET_CATALOG_MODE"]
                 if mode != [args.catalog_mode]:
@@ -101,6 +144,24 @@ def main():
                 frontend_pods.append((metadata["name"], matching[0]["name"]))
         pod_counts[name] = len(active)
 
+    if len(mcp_modes) != 1:
+        raise SystemExit("identity: inconsistent MCP activation mode")
+    mcp_enabled = True in mcp_modes
+    if mcp_enabled:
+        if "mcp" not in release.images:
+            raise SystemExit("The immutable release has no MCP image")
+        selector = "app.kubernetes.io/instance=cabinet,app.kubernetes.io/name=cabinet-mcp"
+        pods = json.loads(subprocess.check_output([*kubectl, "get", "pods", "-l", selector, "-o", "json"]))["items"]
+        active = [pod for pod in pods if not pod["metadata"].get("deletionTimestamp")]
+        if len(active) < 2 or any(
+            pod["metadata"].get("annotations", {}).get("cabinet.release/revision") != release.revision
+            or [c["image"] for c in pod["spec"]["containers"] if c["name"] == "cabinet-mcp"] != [release.images["mcp"]]
+            or not any(c["name"] == "cabinet-mcp" and c["ready"] and c.get("imageID")
+                       for c in pod["status"].get("containerStatuses", []))
+            for pod in active
+        ):
+            raise SystemExit("MCP: active Pods are not ready with the expected release image")
+        pod_counts["cabinet-mcp"] = len(active)
     report = {"revision": release.revision, "readyPods": pod_counts}
     if args.catalog_mode:
         for pod, container in credit_pods:
@@ -123,6 +184,9 @@ def main():
                 raise SystemExit(f"Invalid HTTPS response at {path}")
             return result
 
+    if mcp_enabled:
+        verify_mcp_routes(args.url.rstrip("/"), opener, fetch)
+        report["mcpPublicReadiness"] = True
     fetch("/healthz", 1024)
     entries = ENTRY.findall(fetch("/", 1024 * 1024))
     if len(entries) != 1:

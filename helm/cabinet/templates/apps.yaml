@@ -14,6 +14,7 @@
 {{- $db := and $backend (ne $name "external-sim") }}
 {{- $documents := and (eq $name "credit") (($root.Values.documents | default dict).enabled) }}
 {{- $catalog := and (eq $name "credit") $root.Values.catalog.enabled }}
+{{- $mcp := and (eq $name "credit") $root.Values.agentMcpCredit.enabled }}
 {{- $assessment := and (eq $name "credit") (($root.Values.assessment | default dict).enabled) }}
 {{- $replicas := int $workload.replicas }}
 {{- if or (lt $replicas 1) (and (eq $name "external-sim") (ne $replicas 1)) }}
@@ -150,7 +151,17 @@ spec:
             - configMapRef: {name: assessment-credit-transport}
           {{- end }}
           env:
-            - {name: SPRING_PROFILES_ACTIVE, value: prod}
+            - {name: SPRING_PROFILES_ACTIVE, value: {{ ternary "prod,agent-mcp-remote" "prod" $mcp | quote }}}
+            {{- if $mcp }}
+            - {name: SERVER_FORWARD_HEADERS_STRATEGY, value: none}
+            - {name: CABINET_MCP_IDENTITY_ORIGIN, value: {{ required "agentMcpCredit.identityOrigin is required" $root.Values.agentMcpCredit.identityOrigin | quote }}}
+            - {name: CABINET_MCP_IDENTITY_CA, value: /run/mcp-credit-tls/identity-ca.crt}
+            - {name: CABINET_MCP_CREDIT_TLS_CERT, value: /run/mcp-credit-tls/tls.crt}
+            - {name: CABINET_MCP_CREDIT_TLS_KEY, value: /run/mcp-credit-tls/tls.key}
+            - {name: CABINET_MCP_CREDIT_TLS_PEER_CA, value: /run/mcp-credit-tls/peer-ca.crt}
+            - {name: CABINET_MCP_CREDIT_TLS_PEER_SHA256, value: {{ required "agentMcpCredit.peerSha256 is required" $root.Values.agentMcpCredit.peerSha256 | quote }}}
+            {{- include "cabinet.secretFrom" (list (required "agentMcpCredit.redemptionSecret is required" $root.Values.agentMcpCredit.redemptionSecret) "MCP_CREDIT_SERVICE_TOKEN" "token") | nindent 12 }}
+            {{- end }}
             - {name: JAVA_TOOL_OPTIONS, value: "-XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"}
             - {name: LOGGING_STRUCTURED_FORMAT_CONSOLE, value: logstash}
             {{- if $root.Values.app.otlpEndpoint }}
@@ -236,8 +247,11 @@ spec:
             - name: URLS
               value: '[{"url":"/v3/api-docs/identity","name":"identity"},{"url":"/v3/api-docs/credit","name":"credit"},{"url":"/v3/api-docs/engagement","name":"engagement"},{"url":"/v3/api-docs/external-sim","name":"external-sim"}]'
           {{- end }}
-          {{- if or $catalog $documents }}
+          {{- if or $catalog $documents $mcp }}
           volumeMounts:
+            {{- if $mcp }}
+            - {name: mcp-credit-tls, mountPath: /run/mcp-credit-tls, readOnly: true}
+            {{- end }}
             {{- if $catalog }}
             - {name: catalog-credit-tls, mountPath: /run/catalog-tls, readOnly: true}
             {{- end }}
@@ -245,6 +259,12 @@ spec:
             {{- include "cabinet.documents.creditMounts" $root | nindent 12 }}
             {{- end }}
       volumes:
+        {{- if $mcp }}
+        - name: mcp-credit-tls
+          secret:
+            secretName: {{ required "agentMcpCredit.tlsSecret is required" $root.Values.agentMcpCredit.tlsSecret | quote }}
+            defaultMode: 0444
+        {{- end }}
         {{- if $catalog }}
         - name: catalog-credit-tls
           secret:

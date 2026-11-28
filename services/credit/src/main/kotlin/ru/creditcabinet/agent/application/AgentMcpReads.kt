@@ -26,10 +26,10 @@ internal class AgentMcpReads(
     private val documents: DocumentRepository,
     private val clock: Clock,
 ) {
-    fun priorities(limit: Int): AgentMcpPriorities =
+    fun priorities(limit: Int, agentId: UUID? = null): AgentMcpPriorities =
         AgentMcpPriorities(
             clock.instant(),
-            agents.listApplications().asSequence()
+            (agentId?.let(agents::listForAgent) ?: agents.listApplications()).asSequence()
                 .map(::caseItem)
                 .filter { it.actionOwner != null }
                 .sortedWith(
@@ -41,8 +41,8 @@ internal class AgentMcpReads(
                 .toList(),
         )
 
-    fun summary(id: UUID): AgentMcpSummary {
-        val application = agents.get(id)
+    fun summary(id: UUID, agentId: UUID? = null): AgentMcpSummary {
+        val application = readCase(id, agentId)
         return AgentMcpSummary(
             clock.instant(),
             caseItem(application),
@@ -52,8 +52,8 @@ internal class AgentMcpReads(
         )
     }
 
-    fun preview(id: UUID, delayDays: Int, alternativeTermMonths: Int): AgentMcpPreview {
-        val application = agents.get(id)
+    fun preview(id: UUID, delayDays: Int, alternativeTermMonths: Int, agentId: UUID? = null): AgentMcpPreview {
+        val application = readCase(id, agentId)
         val (product, calculation) = scenarios.previewSavedDraft(application, delayDays, alternativeTermMonths)
         val saved = calculation.inputs
         val lastIncluded = ChronoUnit.DAYS.between(saved.expectedReceiptDate, saved.paymentDate).takeIf { it >= 0 }
@@ -80,6 +80,9 @@ internal class AgentMcpReads(
             "/agent/applications/$id#draft-financing",
         )
     }
+
+    private fun readCase(id: UUID, agentId: UUID?): LoanApplication =
+        if (agentId == null) agents.get(id) else agents.authorizedCase(id, agentId)
 
     private fun caseItem(application: LoanApplication): AgentMcpCase {
         val action = agents.action(application)

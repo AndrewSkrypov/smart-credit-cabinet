@@ -1,0 +1,29 @@
+{{- if and .Values.app.enabled .Values.agentMcpCredit.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: cabinet-credit-mcp
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cabinet.selector" (list . "credit") | nindent 4 }}
+  ports:
+    - {name: mtls, port: 8443, targetPort: 8443}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cabinet-credit-mcp-ingress
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cabinet.selector" (list . "credit") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "cabinet.selector" (list . "cabinet-mcp") | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: 8443}
+{{- end }}

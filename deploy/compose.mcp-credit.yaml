@@ -1,0 +1,21 @@
+# Explicit opt-in. Do not pass this overlay to a demo project.
+services:
+  credit:
+    environment:
+      SPRING_PROFILES_ACTIVE: prod,agent-mcp-remote
+      SERVER_FORWARD_HEADERS_STRATEGY: none
+      CABINET_MCP_IDENTITY_ORIGIN: ${CABINET_MCP_IDENTITY_ORIGIN:?Private HTTPS Identity origin required}
+      CABINET_MCP_IDENTITY_CA: /run/mcp-credit-tls/identity-ca.crt
+      CABINET_MCP_CREDIT_TLS_CERT: /run/mcp-credit-tls/tls.crt
+      CABINET_MCP_CREDIT_TLS_KEY: /run/mcp-credit-tls/tls.key
+      CABINET_MCP_CREDIT_TLS_PEER_CA: /run/mcp-credit-tls/peer-ca.crt
+      CABINET_MCP_CREDIT_TLS_PEER_SHA256: ${CABINET_MCP_CREDIT_TLS_PEER_SHA256:?Verified workload certificate pins required}
+      MCP_CREDIT_SERVICE_TOKEN: ${MCP_CREDIT_SERVICE_TOKEN:?Scoped Identity redemption credential required}
+    volumes:
+      - ${CABINET_MCP_CREDIT_TLS_DIR:?Protected TLS directory required}:/run/mcp-credit-tls:ro
+    networks:
+      mcp-credit: {}
+
+networks:
+  mcp-credit:
+    internal: true

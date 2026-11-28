@@ -4,6 +4,8 @@
 
 ## Установка и запуск
 
+В текущем MCP закреплён `zod@4.6.7`, устраняющий High advisory [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) для версий ниже 4.6.6. SDK остаётся `1.32.2`; остальные зависимости не обновлялись. Историческая квитанция в `acceptance/README.md` описывает прежнюю проверку с Zod 4.3.6.
+
 Версии закреплены в `.nvmrc`, `package.json` и `package-lock.json`. Текущая закреплённая версия Node.js — 24.22.3, официальный SDK — `@modelcontextprotocol/sdk@1.32.2`. Stdio-клиент и сервер согласовали редакцию `2025-11-25`.
 
 Node.js 24.22.3 — [security release от 11 ноября 2026 года](https://nodejs.org/en/blog/release/v24.22.3) с исправлениями TLS/mTLS и HTTP/2. Dockerfile закрепляет multi-platform OCI index `sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530`; linux/amd64 manifest — `sha256:e0e989b967dacc279681ed81774b2ce9eeebbb0efb8e0c427573235bebf1eda1`. [Метаданные upstream](acceptance/node-24.22.3-provenance.json). Версии SDK и зависимостей сохранены. Исторический отчёт в `acceptance/README.md` относится к прежнему Node 24.13.0 и не переатрибутируется новому runtime; текущие проверки выполняются на 24.22.3.

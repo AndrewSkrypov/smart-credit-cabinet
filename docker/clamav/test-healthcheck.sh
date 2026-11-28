@@ -3,7 +3,7 @@ set -eu
 
 # Exercise the packaged shell/date implementation without changing the actual scanner.
 temporary=$(mktemp -d /tmp/cabinet-health-XXXXXXXX)
-trap 'rm -f "$temporary/nc" "$temporary/reloads"; rmdir "$temporary"' EXIT
+trap 'rm -f "$temporary/nc" "$temporary/date" "$temporary/reloads"; rmdir "$temporary"' EXIT
 export TEST_SCANNER_RELOAD_LOG="$temporary/reloads"
 cat > "$temporary/nc" <<'EOF'
 #!/bin/sh
@@ -16,6 +16,17 @@ else
 fi
 EOF
 chmod 700 "$temporary/nc"
+export TEST_HEALTH_DATE=$(command -v date)
+export TEST_HEALTH_NOW=$("$TEST_HEALTH_DATE" -u +%s)
+cat > "$temporary/date" <<'EOF'
+#!/bin/sh
+if [ "$#" -eq 2 ] && [ "$1" = -u ] && [ "$2" = +%s ]; then
+    printf '%s\n' "$TEST_HEALTH_NOW"
+else
+    exec "$TEST_HEALTH_DATE" "$@"
+fi
+EOF
+chmod 700 "$temporary/date"
 export PATH="$temporary:$PATH"
 now=$(date -u +%s)
 serial=0
@@ -46,11 +57,17 @@ verify() {
 
 verify 0 3600 PT72H
 verify 1 345600 PT72H
-verify 0 345600
+verify 1 345600
+verify 0 259200
+verify 1 259201
 verify 1 604801
 verify 0 345600 P7D
+verify 0 604800 P7D
+verify 1 604801 P7D
 verify 0 345600 PT168H
 verify 1 -600 PT72H
+verify 0 -300 PT72H
+verify 1 -301 PT72H
 verify 0 -120 PT72H
 verify 1 7200 PT1H
 verify 0 90000 P1DT2H

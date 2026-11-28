@@ -72,6 +72,15 @@ The job verifies the digest, signature, version and age before seeding
 the pinned scanner runtime. The normal scanner health gate still checks
 the loaded database. Unset or refresh these values when the seed expires.
 
+Disposable synthetic CI explicitly admits signatures up to seven days old
+(`P7D` in its versioned job/Compose configuration and test-local environment).
+The optional release seed uses that same fixed seven-day bound, with signature,
+SHA-256, serial and future-time checks retained. This does not establish that
+the seed is younger than 72 hours. Ordinary application, scanner and Helm
+defaults remain `PT72H`; the canonical HTTPS Compose Dev exception is documented
+in `docs/document-storage.md`. A seeded release does not automatically change
+the policy of a destination environment or authorize a Prod rollout.
+
 For a signed CVD downloaded by FreshClam over an approved network, put
 `daily.cvd` and `daily-<serial>.cvd.sign` in the pre-provisioned read-only
 `/var/lib/pump-ci/clamav-official/<serial>` directory on every selected quality

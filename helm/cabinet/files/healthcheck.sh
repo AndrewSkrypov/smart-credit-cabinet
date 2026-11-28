@@ -35,7 +35,7 @@ if [ "$loaded" -lt "$disk" ]; then
 fi
 published=$(date -u -D '%a %b %d %H:%M:%S %Y' -d "$stamp" +%s)
 # Use the same whole-second ISO-8601 duration as credit, bounded to its 1h..7d policy.
-maximum=$(printf '%s\n' "${ANTIVIRUS_MAX_SIGNATURE_AGE:-P7D}" | awk '
+maximum=$(printf '%s\n' "${ANTIVIRUS_MAX_SIGNATURE_AGE:-PT72H}" | awk '
   /^P([0-9]+D)?(T([0-9]+H)?([0-9]+M)?([0-9]+S)?)?$/ {
     value=$0; gsub(/[PT]/,"",value); total=0
     while (match(value,/^[0-9]+[DHMS]/)) {

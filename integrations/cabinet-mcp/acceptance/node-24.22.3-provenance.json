@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "observed_at": "2026-11-28T14:06:11.797173+00:00",
+  "release_notes": "https://nodejs.org/en/blog/release/v24.22.3",
+  "release_date": "2026-11-11",
+  "security_release": true,
+  "image": "docker.io/library/node:24.22.3-bookworm-slim",
+  "registry_manifest_url": "https://registry-1.docker.io/v2/library/node/manifests/24.22.3-bookworm-slim",
+  "tag_http_status": 200,
+  "index_digest": "sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530",
+  "index_media_type": "application/vnd.oci.image.index.v1+json",
+  "index_response_sha256": "873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530",
+  "linux_amd64_digest": "sha256:e0e989b967dacc279681ed81774b2ce9eeebbb0efb8e0c427573235bebf1eda1",
+  "amd64_manifest_http_status": 200,
+  "amd64_manifest_response_sha256": "e0e989b967dacc279681ed81774b2ce9eeebbb0efb8e0c427573235bebf1eda1",
+  "config_digest": "sha256:bf02aa31cbbc82abe0aa534d4cb1be22ea108bd3afd9087dfac4deb691be30d0",
+  "layers_count": 5,
+  "tls_verified": true,
+  "images_built_or_deployed": false,
+  "runtime_tested": {
+    "node": "v24.22.3",
+    "node_executable_sha256": "a7ec1b37e6ff9d187e4198c5b6df9a4eb1c74dd31804fb3bac55cc4ceca1ac01",
+    "sdk": "1.32.2",
+    "mcp_protocol": "2025-11-25",
+    "typescript_build": "PASS",
+    "sdk_tests": {
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0
+    },
+    "release_manifest_tests": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    "test_scope": "local process and loopback tests; not an OCI build or Dev deployment"
+  },
+  "test_evidence": [
+    {
+      "label": "sdk-tests",
+      "sha256": "5fa4bcb362f7a7abf0ee8cc81d8849f0e6cac76f268a032d8e471812cfd803f0"
+    },
+    {
+      "label": "release-tests",
+      "sha256": "7e573c049e10ca6c58b70dccbd25ade2f3e9e1ec12c50e1010fb6a0991c017d5"
+    }
+  ]
+}

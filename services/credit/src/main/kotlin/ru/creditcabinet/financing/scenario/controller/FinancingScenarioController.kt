@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
@@ -14,9 +15,13 @@ import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.financing.scenario.application.FinancingScenarios
 import ru.creditcabinet.financing.scenario.domain.ScenarioSnapshot
 import ru.creditcabinet.financing.scenario.dto.FinancingScenarioInputs
+import ru.creditcabinet.financing.scenario.dto.FinancingScenarioPreview
+import ru.creditcabinet.financing.scenario.dto.FinancingScenarioPreviewRequest
 import ru.creditcabinet.financing.scenario.dto.FinancingScenarioSnapshot
 import ru.creditcabinet.financing.scenario.dto.toContract
 import ru.creditcabinet.financing.scenario.dto.toDomain
+import ru.creditcabinet.financing.scenario.dto.webForm
+import java.time.Clock
 import java.util.UUID
 
 @Tag(name = "Сценарий финансирования")
@@ -25,6 +30,7 @@ class FinancingScenarioController(
     private val agents: AgentApplicationService,
     private val applications: ApplicationAccess,
     private val scenarios: FinancingScenarios,
+    private val clock: Clock,
 ) {
     @Operation(summary = "Сценарий агентской заявки")
     @GetMapping("/api/v1/agent/applications/{id}/financing-scenario")
@@ -35,6 +41,12 @@ class FinancingScenarioController(
     @PutMapping("/api/v1/agent/applications/{id}/financing-scenario")
     fun agentPut(@PathVariable id: UUID, @RequestBody inputs: FinancingScenarioInputs): FinancingScenarioSnapshot =
         agents.saveFinancingScenario(id, inputs.toDomain()).toContract()
+
+    @Operation(summary = "Рассчитать примерку без сохранения")
+    @PostMapping("/api/v1/agent/applications/{id}/financing-scenario/preview")
+    fun agentPreview(@PathVariable id: UUID, @RequestBody request: FinancingScenarioPreviewRequest): FinancingScenarioPreview =
+        scenarios.preview(agents.get(id), request.delayDays, request.alternativeTermMonths, request.webForm())
+            .toContract(clock.instant())
 
     @Operation(summary = "Последний переданный клиенту пакет")
     @GetMapping("/api/v1/applications/{id}/financing-scenario")

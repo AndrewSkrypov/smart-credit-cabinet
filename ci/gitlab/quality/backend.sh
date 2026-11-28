@@ -58,7 +58,7 @@ clamav_image=$(bash ci/gitlab/quality/clamav-runtime.sh)
 docker run -d --name "$clamav" --memory 2g -p 127.0.0.1::3310 \
     --mount type=bind,source="$PWD/docker/clamav/clamd.conf",target=/cabinet/clamd.conf,readonly \
     --mount type=bind,source="$PWD/docker/clamav/healthcheck.sh",target=/cabinet/healthcheck.sh,readonly \
-    -e TZ=UTC --entrypoint /bin/sh "$clamav_image" \
+    -e TZ=UTC -e ANTIVIRUS_MAX_SIGNATURE_AGE=P7D --entrypoint /bin/sh "$clamav_image" \
     -c 'cp /cabinet/clamd.conf /etc/clamav/clamd.conf && exec /init'
 retry 120 3 docker exec "$clamav" sh /cabinet/healthcheck.sh
 docker run --rm --network none \

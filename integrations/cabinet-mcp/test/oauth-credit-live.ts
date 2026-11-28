@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { open, constants } from "node:fs/promises";
 import { applicationId, listOutput, previewOutput, summaryOutput } from "../dist/contract.js";
 import { names } from "./client.ts";
+import { assertFinancialParity, assertStableSummary, webPreviewRequest } from "./live-assertions.ts";
 
 const scope = "cabinet:mcp:read";
 let stage = "configuration";
@@ -127,7 +128,35 @@ async function run() {
     assert.equal(day5.inputsUsed.receiptIncludedByPayment, true);
     assert.equal(day6.inputsUsed.receiptIncludedByPayment, false);
     assert.deepEqual(day5.basis, day6.basis);
-    assert.deepEqual(summaryOutput.parse((await invoke(names.summary, { applicationId: id })).structuredContent), summary);
+    assertStableSummary(summary, summaryOutput.parse((await invoke(names.summary, { applicationId: id })).structuredContent));
+
+    stage = "WEB and MCP financial parity without saving";
+    // This first-party synthetic session is separate from the MCP OAuth token.
+    // It is used only against the ordinary WEB routes and never sent to /api/mcp.
+    const signedIn = await request("/api/v1/auth/sign-in", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: fixture.email, password: fixture.password }),
+    });
+    assert.equal(signedIn.status, 200);
+    const browserToken = (await signedIn.json()).token;
+    assert.ok(typeof browserToken === "string" && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(browserToken));
+    const webPath = "/api/v1/agent/applications/" + id + "/financing-scenario";
+    const web = async (path: string, body?: unknown) => {
+      const result = await request(path, {
+        method: body === undefined ? "GET" : "POST",
+        headers: { Authorization: "Bearer " + browserToken, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      assert.equal(result.status, 200);
+      return result.json();
+    };
+    const savedBefore = await web(webPath);
+    for (const mcp of [day5, day6]) {
+      const webPreview = previewOutput.parse(await web(webPath + "/preview", webPreviewRequest(mcp)));
+      assertFinancialParity(mcp, webPreview);
+    }
+    assert.deepEqual(await web(webPath), savedBefore);
+    assertStableSummary(summary, summaryOutput.parse((await invoke(names.summary, { applicationId: id })).structuredContent));
     const foreign = await invoke(names.summary, { applicationId: foreignId });
     assert.equal(foreign.isError, true);
     assert.equal(JSON.parse(foreign.content[0].text).code, "CASE_NOT_FOUND");
@@ -141,7 +170,8 @@ async function run() {
 }
 try {
   await run();
-  console.log(JSON.stringify({ result: "PASS", flow: "OAuth PKCE → MCP → Credit", tools: 3, revoked: true }));
+  console.log(JSON.stringify({ result: "PASS", flow: "OAuth PKCE → MCP → Credit", tools: 3,
+    webFinancialParity: true, savedWebScenarioUnchanged: true, revoked: true }));
 } catch {
   console.error(JSON.stringify({ result: "FAIL", stage }));
   process.exitCode = 1;

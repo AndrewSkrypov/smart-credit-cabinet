@@ -1,17 +1,20 @@
 import { Alert, Box, Button, Chip, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { useState } from 'react';
 import { applicationsApi } from '../api/client';
-import { FinancingScenario } from '../api/financing';
-import { formatDate, months, percent, rub } from '../shared/format';
+import { FinancingPreview, FinancingScenario } from '../api/financing';
+import { formatDate, months, percent, rub, rubExact } from '../shared/format';
 import { TableScrollRegion } from './TableScrollRegion';
 
 interface ComparisonProps {
-  scenario: FinancingScenario;
+  scenario: Pick<FinancingScenario, 'inputs' | 'loanAmount' | 'annualRatePercent' | 'options'>;
   onDownloadSource?: (documentId: string) => Promise<void>;
+  exact?: boolean;
+  paymentLabel?: string;
 }
 
-export function FinancingComparison({ scenario, onDownloadSource }: ComparisonProps) {
+export function FinancingComparison({ scenario, onDownloadSource, exact = false, paymentLabel = 'Платёж в месяц' }: ComparisonProps) {
   const { inputs } = scenario;
+  const formatResult = exact ? rubExact : rub;
   const sourceDocumentId = inputs.source?.documentId;
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
@@ -37,7 +40,7 @@ export function FinancingComparison({ scenario, onDownloadSource }: ComparisonPr
           <TableHead>
             <TableRow>
               <TableCell>Срок</TableCell>
-              <TableCell align="right">Платёж в месяц</TableCell>
+              <TableCell align="right">{paymentLabel}</TableCell>
               <TableCell align="right">Остаток после платежа</TableCell>
               <TableCell align="right">Проценты за весь срок</TableCell>
             </TableRow>
@@ -49,11 +52,11 @@ export function FinancingComparison({ scenario, onDownloadSource }: ComparisonPr
                   {months(option.termMonths)}
                   {option.termMonths === inputs.selectedTermMonths && <Chip size="small" label="Выбран" sx={{ ml: 1 }} />}
                 </TableCell>
-                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{rub(option.monthlyPayment)}</TableCell>
+                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{formatResult(option.monthlyPayment)}</TableCell>
                 <TableCell align="right" sx={{ color: option.balanceOnPaymentDate < 0 ? 'error.main' : 'text.primary', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                  {rub(option.balanceOnPaymentDate)}
+                  {formatResult(option.balanceOnPaymentDate)}
                 </TableCell>
-                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{rub(option.totalInterest)}</TableCell>
+                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{formatResult(option.totalInterest)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -70,6 +73,59 @@ export function FinancingComparison({ scenario, onDownloadSource }: ComparisonPr
           {downloadError && <Alert severity="warning">{downloadError}</Alert>}
         </Box>
       )}
+    </Stack>
+  );
+}
+
+export function FinancingPreviewComparison({ preview, selectedTermMonths }: { preview: FinancingPreview; selectedTermMonths: number }) {
+  const { inputsUsed } = preview;
+  const scenario = {
+    inputs: {
+      openingBalance: Number(inputsUsed.openingBalanceRub),
+      expectedReceiptAmount: Number(inputsUsed.expectedReceiptAmountRub),
+      expectedReceiptDate: inputsUsed.expectedReceiptDate,
+      paymentDate: inputsUsed.paymentDate,
+      delayDays: inputsUsed.delayDays,
+      alternativeTermMonths: inputsUsed.alternativeTermMonths,
+      selectedTermMonths
+    },
+    loanAmount: Number(inputsUsed.loanAmountRub),
+    annualRatePercent: Number(inputsUsed.annualRatePercent),
+    options: preview.options.map((option) => ({
+      termMonths: option.termMonths,
+      monthlyPayment: Number(option.monthlyPaymentRub),
+      totalInterest: Number(option.totalInterestRub),
+      balanceOnPaymentDate: Number(option.balanceOnPaymentDateRub)
+    }))
+  };
+  const deficits = scenario.options.filter((option) => option.balanceOnPaymentDate < 0);
+  const hasExpectedReceipt = scenario.inputs.expectedReceiptAmount !== 0;
+
+  return (
+    <Stack spacing={1.5} role="region" aria-label="Предварительный расчёт">
+      <Typography variant="subtitle1" fontWeight={600}>Предварительный расчёт</Typography>
+      <Typography variant="body2">
+        {hasExpectedReceipt ? (
+          <>
+            {inputsUsed.receiptIncludedByPayment
+              ? 'Поступление учтено в остатке на дату платежа.'
+              : 'Поступление ожидается после даты платежа. Остаток рассчитан до зачисления.'}
+            {' '}{inputsUsed.lastIncludedDelayDays === null
+              ? 'Поступление ожидается после платежа даже без задержки.'
+              : `Поступление успевает к платежу при задержке до ${inputsUsed.lastIncludedDelayDays} дн. включительно.`}
+          </>
+        ) : 'Ожидаемое поступление равно нулю. Задержка не меняет остаток.'}
+      </Typography>
+      <FinancingComparison
+        scenario={scenario}
+        exact
+        paymentLabel={inputsUsed.paymentModel === 'REVOLVING' ? 'Первый минимальный платёж' : undefined}
+      />
+      {deficits.map((option) => (
+        <Typography key={option.termMonths} variant="body2" color="error.main">
+          При сроке {months(option.termMonths)} на дату платежа не хватает {rubExact(-option.balanceOnPaymentDate)}.
+        </Typography>
+      ))}
     </Stack>
   );
 }

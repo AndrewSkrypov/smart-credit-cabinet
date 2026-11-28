@@ -2,11 +2,6 @@ package ru.creditcabinet.mcp.http
 
 import io.swagger.v3.oas.annotations.Hidden
 import jakarta.servlet.http.HttpServletRequest
-import java.net.URI
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets.UTF_8
-import java.time.Duration
-import java.util.Collections
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -33,6 +28,11 @@ import ru.creditcabinet.mcp.config.opaqueSecret
 import ru.creditcabinet.mcp.config.pkceVerifier
 import ru.creditcabinet.mcp.persistence.McpOAuthStore
 import ru.creditcabinet.user.domain.UserRole
+import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets.UTF_8
+import java.time.Duration
+import java.util.Collections
 
 @Hidden
 @RestController

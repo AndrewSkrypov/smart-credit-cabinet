@@ -113,10 +113,11 @@ class AgentMcpHttpIntegrationTest {
         val prioritiesPath = "$base/mcp/priorities"
         val summaryPath = "$base/mcp/applications/${application.id}/summary"
         val webPath = "$base/applications/${application.id}/financing-scenario"
-        val previewPath = "$webPath/preview"
+        val previewPath = "$base/mcp/applications/${application.id}/financing-scenario/preview"
         val paths = json(request("GET", "/v3/api-docs/credit"))["paths"]
         assertTrue(paths.path("$base/mcp/priorities").has("get"))
         assertTrue(paths.path("$base/mcp/applications/{id}/summary").has("get"))
+        assertTrue(paths.path("$base/mcp/applications/{id}/financing-scenario/preview").has("post"))
         assertTrue(paths.path("$base/applications/{id}/financing-scenario/preview").has("post"))
 
         assertEquals(401, request("GET", summaryPath).statusCode())

@@ -40,8 +40,8 @@ smoke_mcp_image() (
         -e "EXPECTED_NODE_VERSION=v$version" \
         -e MCP_ISSUER=https://mcp-smoke.invalid \
         -e MCP_RESOURCE=https://mcp-smoke.invalid/api/mcp \
-        -e MCP_CREDIT_ORIGIN=https://credit-smoke.invalid:8443 \
-        -e MCP_IDENTITY_ORIGIN=https://identity-smoke.invalid:8443 \
+        -e MCP_CREDIT_ORIGIN=https://credit:8443 \
+        -e MCP_IDENTITY_ORIGIN=https://identity-mcp:8443 \
         -e "CABINET_MCP_IDENTITY_SERVICE_TOKEN=$token" \
         -e MCP_CREDIT_CA_FILE=/mcp-smoke/client.crt -e MCP_IDENTITY_CA_FILE=/mcp-smoke/client.crt \
         -e MCP_CREDIT_CERT_FILE=/mcp-smoke/client.crt -e MCP_CREDIT_KEY_FILE=/mcp-smoke/client.key \

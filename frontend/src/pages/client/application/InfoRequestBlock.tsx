@@ -12,12 +12,14 @@ import { SensitiveDataNotice } from '../../../components/SensitiveDataNotice';
 export function InfoRequestBlock({ application, onChanged, onSent }: { application: Application; onChanged: () => void; onSent: (next: Application) => void }) {
   const request = application.process.infoRequest!;
   const [answer, setAnswer] = useState('');
+  const [answerVisited, setAnswerVisited] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const requestedAt = new Date(request.requestedAt).getTime();
   const uploadedSince = (type: string) => application.documents.some((document) => document.type === type && new Date(document.uploadedAt).getTime() >= requestedAt);
   const hasQuestions = request.items.some((item) => item.question);
-  const ready = request.items.every((item) => !item.documentType || (item.satisfied ?? uploadedSince(item.documentType))) && (!hasQuestions || answer.trim().length > 0);
+  const answerMissing = hasQuestions && answer.trim().length === 0;
+  const ready = request.items.every((item) => !item.documentType || (item.satisfied ?? uploadedSince(item.documentType))) && !answerMissing;
 
   const send = async () => {
     setSending(true);
@@ -59,7 +61,27 @@ export function InfoRequestBlock({ application, onChanged, onSent }: { applicati
         })}
       </Stack>
       {hasQuestions && (
-        <TextField label="Ваш ответ" helperText="Это общий ответ на вопросы банка. Перед отправкой проверьте, что ответили на каждый из них." fullWidth multiline minRows={3} sx={{ mt: 2 }} value={answer} onChange={(event) => setAnswer(event.target.value)} inputProps={{ maxLength: 2000 }} />
+        <TextField
+          label="Ваш ответ"
+          required
+          error={answerVisited && answerMissing}
+          helperText={
+            answerVisited && answerMissing
+              ? 'Напишите ответ на вопросы банка, чтобы отправить заявку'
+              : 'Это общий ответ на вопросы банка. Перед отправкой проверьте, что ответили на каждый из них.'
+          }
+          fullWidth
+          multiline
+          minRows={3}
+          sx={{ mt: 2 }}
+          value={answer}
+          onChange={(event) => setAnswer(event.target.value)}
+          onBlur={() => {
+            setAnswer((value) => value.trim());
+            setAnswerVisited(true);
+          }}
+          inputProps={{ maxLength: 2000 }}
+        />
       )}
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
       <Button variant="contained" size="large" sx={{ mt: 2 }} disabled={!ready || sending} onClick={send}>

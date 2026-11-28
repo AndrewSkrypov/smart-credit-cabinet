@@ -53,6 +53,7 @@ export function AgentClientPage() {
   const [purposeComment, setPurposeComment] = useState('');
   const [declaredRevenue12m, setDeclaredRevenue12m] = useState<number | null>(null);
   const [declaredMonthlyDebtPayments, setDeclaredMonthlyDebtPayments] = useState<number | null>(0);
+  const [revenueVisited, setRevenueVisited] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [applyingOfferId, setApplyingOfferId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +88,12 @@ export function AgentClientPage() {
   const activeProducts = state.data.products.filter((item) => item.active !== false);
   const selectedProduct = activeProducts.find((item) => item.code === productCode) ?? activeProducts[0];
 
+  const amountMissing = !amount || amount <= 0;
+  const termMissing = !termMonths || termMonths < 1;
+  const amountOutside = Boolean(selectedProduct && !amountMissing && (amount < selectedProduct.minAmount || amount > selectedProduct.maxAmount));
+  const termOutside = Boolean(selectedProduct && !termMissing && (termMonths < selectedProduct.minTermMonths || termMonths > selectedProduct.maxTermMonths));
+  const revenueMissing = declaredRevenue12m == null || declaredRevenue12m <= 0;
+
   const handleApplyOffer = async (offerId: string) => {
     setApplyingOfferId(offerId);
     setError(null);
@@ -101,8 +108,13 @@ export function AgentClientPage() {
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
-    if (!selectedProduct || !amount || amount <= 0 || termMonths < 1) {
-      setError('Укажите корректные продукт, сумму и срок.');
+    setRevenueVisited(true);
+    if (!selectedProduct || amountMissing || termMissing || amountOutside || termOutside) {
+      setError('Проверьте сумму и срок: значения должны входить в допустимые границы выбранного продукта.');
+      return;
+    }
+    if (revenueMissing) {
+      setError('Укажите выручку компании за последние 12 месяцев — это обязательный параметр для оценки заявки.');
       return;
     }
     setSubmitting(true);
@@ -222,7 +234,16 @@ export function AgentClientPage() {
                     required
                     value={amount}
                     onChange={setAmount}
-                    helperText={selectedProduct ? `от ${rub(selectedProduct.minAmount)} до ${rub(selectedProduct.maxAmount)}` : ' '}
+                    error={amountMissing || amountOutside}
+                    helperText={
+                      amountMissing
+                        ? 'Укажите сумму кредита больше нуля'
+                        : amountOutside && selectedProduct
+                          ? `Сумма должна быть от ${rub(selectedProduct.minAmount)} до ${rub(selectedProduct.maxAmount)}`
+                          : selectedProduct
+                            ? `от ${rub(selectedProduct.minAmount)} до ${rub(selectedProduct.maxAmount)}`
+                            : ' '
+                    }
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -233,7 +254,16 @@ export function AgentClientPage() {
                     inputProps={{ inputMode: 'numeric' }}
                     value={termMonths || ''}
                     onChange={(event) => setTermMonths(Number(event.target.value.replace(/\D/g, '').slice(0, 3)) || 0)}
-                    helperText={selectedProduct ? `от ${selectedProduct.minTermMonths} до ${selectedProduct.maxTermMonths}` : ' '}
+                    error={termMissing || termOutside}
+                    helperText={
+                      termMissing
+                        ? 'Укажите срок в месяцах'
+                        : termOutside && selectedProduct
+                          ? `Срок должен быть от ${selectedProduct.minTermMonths} до ${selectedProduct.maxTermMonths} мес.`
+                          : selectedProduct
+                            ? `от ${selectedProduct.minTermMonths} до ${selectedProduct.maxTermMonths}`
+                            : ' '
+                    }
                   />
                 </Grid>
               </Grid>
@@ -246,6 +276,8 @@ export function AgentClientPage() {
                 inputProps={{ maxLength: 1000 }}
                 value={purposeComment}
                 onChange={(event) => setPurposeComment(event.target.value)}
+                onBlur={() => setPurposeComment((value) => value.trim())}
+                helperText="Необязательно, но помогает банку быстрее принять решение"
               />
 
               <Grid container spacing={2}>
@@ -253,9 +285,16 @@ export function AgentClientPage() {
                   <MoneyField
                     label="Выручка за 12 месяцев"
                     fullWidth
+                    required
                     value={declaredRevenue12m}
                     onChange={setDeclaredRevenue12m}
-                    helperText="По данным налоговой отчётности"
+                    onBlur={() => setRevenueVisited(true)}
+                    error={revenueVisited && revenueMissing}
+                    helperText={
+                      revenueVisited && revenueMissing
+                        ? 'Укажите годовую выручку больше нуля (по данным отчётности)'
+                        : 'Как в налоговой отчётности — банк сверит её с данными ФНС'
+                    }
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>

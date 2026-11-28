@@ -347,7 +347,7 @@ export function AssistantPanel() {
         <Box sx={{ px: 2, pt: 1 }}><SensitiveDataNotice compact /></Box>
         {error && <Alert severity="error" sx={{ mx: 2 }} action={<Button disabled={busy} onClick={() => void ask(messages.at(-1)?.text ?? '')}>Повторить вопрос</Button>}>{error}</Alert>}
         <Stack component="form" onSubmit={submit} direction="row" spacing={1} sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-          <TextField label="Ваш вопрос" value={question} onChange={(event) => setQuestion(event.target.value)} fullWidth size="small" inputProps={{ maxLength: 500 }} />
+          <TextField label="Ваш вопрос" value={question} onChange={(event) => setQuestion(event.target.value)} onBlur={() => setQuestion((value) => value.trim())} fullWidth size="small" inputProps={{ maxLength: 500 }} />
           <Button type="submit" variant="contained" disabled={busy || !question.trim()}>Спросить</Button>
         </Stack>
       </Drawer>

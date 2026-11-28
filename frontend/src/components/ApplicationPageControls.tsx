@@ -36,7 +36,7 @@ export function ApplicationPageFilters({ state, bank, status = true }: { state: 
       xs: bank ? 'minmax(0, 1fr) minmax(0, 110px)' : '1fr',
       sm: bank ? 'minmax(0, 1fr) 190px 110px' : 'minmax(0, 1fr) 190px',
     } }}>
-      <TextField label={bank ? 'Поиск по номеру, компании или ИНН' : 'Поиск по номеру или продукту'} value={state.search} onChange={(event) => state.setSearch(event.target.value)} inputProps={{ maxLength: 100 }} fullWidth size="small"
+      <TextField label={bank ? 'Поиск по номеру, компании или ИНН' : 'Поиск по номеру или продукту'} value={state.search} onChange={(event) => state.setSearch(event.target.value)} onBlur={() => state.setSearch(state.search.trim())} inputProps={{ maxLength: 100 }} fullWidth size="small"
         sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }} />
       <TextField select label="Сортировка" size="small" value={state.query.sort} onChange={(event) => state.update({ sort: event.target.value, page: 0 })}>
         {[['default', 'По очереди'], ['oldest', 'Изменены раньше'], ['newest', 'Изменены позже'], ['number_desc', 'Новые номера'], ['number_asc', 'Ранние номера']].map(([value, text]) => <MenuItem key={value} value={value}>{text}</MenuItem>)}

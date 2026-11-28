@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { ErrorState } from '../components/ErrorState';
 import { LoadingBlock } from '../components/LoadingBlock';
 import { useApi } from '../hooks/useApi';
+import { emailError, nameError, passwordError, passwordHint, useFieldFeedback } from '../shared/authValidation';
 import { AuthFrame } from './AuthPages';
 
 /** Fragments never reach the server, and must leave browser history once the page captures the capability. */
@@ -23,13 +24,16 @@ export function PasswordRecoveryPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const errors = { email: emailError(email) };
+  const feedback = useFieldFeedback(errors, 'recovery');
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (busy) return;
+    if (errors.email) { feedback.visitAll(); return; }
     setBusy(true);
     setError(null);
     try {
-      setMessage((await authApi.recoverPassword(email)).message);
+      setMessage((await authApi.recoverPassword(email.trim())).message);
     } catch (next) {
       setError(next instanceof Error ? next.message : 'Не удалось запросить восстановление');
     } finally { setBusy(false); }
@@ -40,10 +44,10 @@ export function PasswordRecoveryPage() {
         {options.loading ? <LoadingBlock /> : options.error ? <ErrorState message={options.error} onRetry={options.reload} /> : (
           options.data?.mailAvailable ? (
             message ? <Alert severity="success">{message}</Alert> : (
-              <Stack component="form" spacing={2} onSubmit={submit}>
+              <Stack component="form" spacing={2} onSubmit={submit} noValidate>
                 <Typography color="text.secondary">Укажите адрес из вашего профиля. Ссылка для нового пароля действует 30 минут.</Typography>
                 {error && <Alert severity="error">{error}</Alert>}
-                <TextField id="recovery-email" name="email" label="Email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
+                <TextField {...feedback.field('email', undefined, () => setEmail((value) => value.trim()))} label="Email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
                 <Button type="submit" variant="contained" disabled={busy}>Отправить ссылку</Button>
               </Stack>
             )
@@ -62,9 +66,12 @@ export function PasswordResetPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const errors = { newPassword: passwordError(password) };
+  const feedback = useFieldFeedback(errors, 'reset');
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (busy) return;
+    if (errors.newPassword) { feedback.visitAll(); return; }
     setBusy(true);
     setError(null);
     try {
@@ -82,10 +89,10 @@ export function PasswordResetPage() {
         {message ? <Alert severity="success">{message}</Alert> : !token ? (
           <Alert severity="warning">Ссылка не найдена. Откройте ссылку из письма или запросите новую.</Alert>
         ) : (
-          <Stack component="form" spacing={2} onSubmit={submit}>
+          <Stack component="form" spacing={2} onSubmit={submit} noValidate>
             <Typography color="text.secondary">После смены пароля все прежние сессии завершатся.</Typography>
             {error && <Alert severity="error">{error}</Alert>}
-            <TextField id="reset-password" name="newPassword" label="Новый пароль" type="password" autoComplete="new-password" required helperText="От 8 до 72 символов, буквы и цифры; максимум 72 байта UTF-8"
+            <TextField {...feedback.field('newPassword', `От 8 до 72 символов, буквы и цифры; максимум 72 байта UTF-8`)} id="reset-password" label="Новый пароль" type="password" autoComplete="new-password" required
               value={password} onChange={(event) => setPassword(event.target.value)} />
             <Button type="submit" variant="contained" disabled={busy}>Установить пароль</Button>
           </Stack>
@@ -106,13 +113,16 @@ export function AcceptInvitationPage() {
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errors = { fullName: nameError(fullName), newPassword: passwordError(password) };
+  const feedback = useFieldFeedback(errors, 'invitation');
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (busy) return;
+    if (errors.fullName || errors.newPassword || !consent) { feedback.visitAll(); return; }
     setBusy(true);
     setError(null);
     try {
-      const session = await authApi.acceptInvitation(token, fullName, password, consent);
+      const session = await authApi.acceptInvitation(token, fullName.trim(), password, consent);
       clearToken();
       setPassword('');
       acceptSession(session);
@@ -125,13 +135,13 @@ export function AcceptInvitationPage() {
     <AuthFrame title="Приглашение в компанию">
       <Stack spacing={2}>
         {preview.loading ? <LoadingBlock /> : preview.error ? <Alert severity="warning">{preview.error}</Alert> : preview.data && (
-          <Stack component="form" spacing={2} onSubmit={submit}>
+          <Stack component="form" spacing={2} onSubmit={submit} noValidate>
             <Typography fontWeight={600}>{preview.data.companyName}</Typography>
             <Typography sx={{ overflowWrap: 'anywhere' }}>{preview.data.email}</Typography>
             <Alert severity="info">{preview.data.canSign ? 'С правом подписи от компании.' : 'Без права подписи от компании.'} После принятия вы войдёте как этот сотрудник.</Alert>
             {error && <Alert severity="error">{error}</Alert>}
-            <TextField id="invitation-name" name="fullName" label="Ваше имя" autoComplete="name" required value={fullName} onChange={(event) => setFullName(event.target.value)} />
-            <TextField id="invitation-password" name="newPassword" label="Пароль" type="password" autoComplete="new-password" required helperText="От 8 до 72 символов, буквы и цифры; максимум 72 байта UTF-8"
+            <TextField {...feedback.field('fullName', undefined, () => setFullName((value) => value.trim()))} id="invitation-name" label="Ваше имя" autoComplete="name" required value={fullName} onChange={(event) => setFullName(event.target.value)} />
+            <TextField {...feedback.field('newPassword', passwordHint)} id="invitation-password" label="Пароль" type="password" autoComplete="new-password" required
               value={password} onChange={(event) => setPassword(event.target.value)} />
             <FormControlLabel control={<Checkbox checked={consent} onChange={(_, checked) => setConsent(checked)} />} label="Согласен на обработку персональных данных" />
             <Button type="submit" variant="contained" disabled={busy || !consent}>Принять приглашение</Button>

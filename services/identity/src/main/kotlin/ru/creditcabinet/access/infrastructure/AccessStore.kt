@@ -224,7 +224,7 @@ class AccessStore(private val jdbc: NamedParameterJdbcTemplate, private val revo
             role = UserRole.valueOf(rs.getString("role")), status = UserStatus.valueOf(rs.getString("status")),
             companyId = rs.getObject("company_id", UUID::class.java), canSign = rs.getBoolean("can_sign"),
             credentialsVersion = rs.getInt("credentials_version"), createdAt = rs.getTimestamp("created_at").toInstant(),
-            lastSignInAt = rs.getTimestamp("last_sign_in_at")?.toInstant(),
+            lastSignInAt = rs.getTimestamp("last_sign_in_at")?.toInstant(), avatar = rs.getString("avatar"),
         ),
         rs.getString("password_hash"),
     )

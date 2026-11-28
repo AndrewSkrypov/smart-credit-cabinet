@@ -34,6 +34,7 @@ import {
   RulesSnapshot,
   SignUpInput,
   UnderwritingAdvice,
+  User,
   UserSession
 } from '../types';
 import { ChatAudit, ChatFile, ChatMessage, ChatPage, ChatRead } from '../types';
@@ -136,6 +137,7 @@ export const authApi = {
   logoutAll: () => post<{ message: string }>('/auth/logout-all'),
   updateProfile: (fullName: string, email: string, currentPassword?: string) =>
     put<UserSession>('/users/me', { fullName, email, currentPassword: currentPassword || undefined }),
+  changeAvatar: (avatar: string | null) => put<User>('/users/me/avatar', { avatar }),
   inspectInvitation: (token: string) => post<InvitationPreview>('/auth/invitations/inspect', { token }),
   acceptInvitation: (token: string, fullName: string, password: string, personalDataConsent: boolean) =>
     post<UserSession>('/auth/invitations/accept', { token, fullName, password, personalDataConsent })

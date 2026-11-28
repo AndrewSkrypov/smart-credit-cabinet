@@ -43,7 +43,7 @@ if (process.env.MAIL_TESTS !== '1') {
       const publicProduct = await (await request.get('/api/v1/products/WORKING_CAPITAL')).json();
       expect(publicProduct.baseRate).toBe(changedRate);
       expect((await request.post(`/api/v1/applications/${draft.id}/submit`, { headers: headers(client) })).status()).toBe(409);
-      await page.getByRole('button', { name: 'Выйти', exact: true }).click();
+      await page.getByRole('button', { name: 'Меню профиля' }).click().then(() => page.getByRole('menuitem', { name: 'Выйти', exact: true }).click());
       await login(page, 'client');
       await page.goto(`/client/applications/${draft.id}`);
       await expect(page.getByText('Условия продукта изменились', { exact: true })).toBeVisible();

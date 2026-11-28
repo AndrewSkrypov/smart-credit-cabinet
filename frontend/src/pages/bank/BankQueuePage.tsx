@@ -1,5 +1,6 @@
 import { Box, ButtonBase, Chip, Paper, Stack, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { tokens } from '../../theme/theme';
 import { ApplicationListRegion, ApplicationPageFilters, ApplicationPageNavigation } from '../../components/ApplicationPageControls';
 import { useApplicationPage } from '../../hooks/useApplicationPage';
 import { EmptyState } from '../../components/EmptyState';
@@ -41,7 +42,22 @@ export function BankQueuePage() {
         <Tabs value={tab} onChange={(_, value: string) => state.update({ group: value, page: 0 })} variant="scrollable" allowScrollButtonsMobile sx={{ px: { xs: 1, md: 2 }, borderBottom: 1, borderColor: 'divider' }}>
           {groups.map((item) => {
             const count = state.counts?.[item.key] ?? '…';
-            return <Tab key={item.key} value={item.key} label={`${item.title} · ${count}`} sx={{ minHeight: 56 }} />;
+            const active = item.key === tab;
+            const urgent = item.key === 'review' && typeof count === 'number' && count > 0;
+            return (
+              <Tab key={item.key} value={item.key} aria-label={`${item.title} · ${count}`} sx={{ minHeight: 56 }}
+                label={(
+                  <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                    {item.title}
+                    <Box component="span" aria-hidden sx={{
+                      minWidth: 24, height: 22, px: 0.875, borderRadius: '99px', fontSize: 13, fontWeight: 600, lineHeight: '22px', textAlign: 'center',
+                      fontFeatureSettings: '"tnum"',
+                      bgcolor: urgent ? tokens.red : active ? tokens.dark : tokens.secondaryFill,
+                      color: urgent || active ? '#fff' : tokens.ink,
+                    }}>{count}</Box>
+                  </Box>
+                )} />
+            );
           })}
         </Tabs>
         <Box sx={{ px: { xs: 2, md: 3 }, pt: 2 }}><ApplicationPageFilters state={state} bank /></Box>

@@ -87,7 +87,7 @@ export const roleTours: Record<Role, RoleTourConfig> = {
         selector: '[data-tour="profile-btn"]',
         badge: 'Профиль',
         title: 'Настройки учётной записи',
-        description: 'В профиле можно сменить пароль, настроить уведомления и завершить сессии на всех устройствах.'
+        description: 'Меню профиля: смена пароля, уведомления, завершение сессий на всех устройствах и выход.'
       }
     ]
   },
@@ -213,7 +213,7 @@ export const roleTours: Record<Role, RoleTourConfig> = {
         selector: '[data-tour="profile-btn"]',
         badge: 'Безопасность',
         title: 'Профиль и сессии',
-        description: 'Смена пароля и отзыв всех активных сессий выполняются из профиля.'
+        description: 'Меню профиля: смена пароля, отзыв всех активных сессий и выход.'
       }
     ]
   }

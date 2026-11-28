@@ -642,5 +642,5 @@ async function expectFinancingPackage(page: Page) {
 }
 
 async function logout(page: Page) {
-  await page.getByRole('button', { name: 'Выйти', exact: true }).click();
+  await page.getByRole('button', { name: 'Меню профиля' }).click().then(() => page.getByRole('menuitem', { name: 'Выйти', exact: true }).click());
 }

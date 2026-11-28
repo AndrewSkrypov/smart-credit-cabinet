@@ -93,6 +93,13 @@ components:
       - demoAccounts
       - mailAvailable
       type: object
+    AvatarRequest:
+      properties:
+        avatar:
+          maxLength: 90000
+          minLength: 0
+          type: string
+      type: object
     ChangePasswordRequest:
       properties:
         currentPassword:
@@ -354,6 +361,8 @@ components:
       type: object
     UserResponse:
       properties:
+        avatar:
+          type: string
         canSign:
           type: boolean
         companyId:
@@ -2111,6 +2120,98 @@ paths:
       summary: Изменить имя и email; новый email требует текущий пароль, ответ — новая сессия
       tags:
       - Пароли и сотрудники компании
+  /api/v1/users/me/avatar:
+    put:
+      operationId: changeAvatar
+      parameters:
+      - in: header
+        name: Authorization
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvatarRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+          description: OK
+        '400':
+          content:
+            application/json:
+              example:
+                error: Bad Request
+                message: Проверьте поля запроса
+                path: /api/v1/users/me/avatar
+                requestId: example-request-id
+                status: 400
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Некорректные данные запроса
+        '401':
+          content:
+            application/json:
+              example:
+                error: Unauthorized
+                message: Требуется вход в систему
+                path: /api/v1/users/me/avatar
+                requestId: example-request-id
+                status: 401
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Нет корректного токена
+        '403':
+          content:
+            application/json:
+              example:
+                error: Forbidden
+                message: Недостаточно прав для этого действия
+                path: /api/v1/users/me/avatar
+                requestId: example-request-id
+                status: 403
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Недостаточно прав или действие выключено в окружении
+        '409':
+          content:
+            application/json:
+              example:
+                error: Conflict
+                message: Данные только что изменились — обновите страницу и повторите действие
+                path: /api/v1/users/me/avatar
+                requestId: example-request-id
+                status: 409
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Конфликт состояния, версии или повторной операции
+        '503':
+          content:
+            application/json:
+              example:
+                error: Service Unavailable
+                message: Сервис временно недоступен — попробуйте позже
+                path: /api/v1/users/me/avatar
+                requestId: example-request-id
+                status: 503
+                timestamp: '2026-01-01T00:00:00Z'
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Проверка сессии или почтовый канал временно недоступны
+      security:
+      - bearerAuth: []
+      summary: 'Сменить свой аватар: готовая картинка, своё фото до 64 КБ или инициалы'
+      tags:
+      - Текущий пользователь
 servers:
 - description: Адрес сервиса или шлюза; /ext/ доступен только во внутренней сети
   url: /

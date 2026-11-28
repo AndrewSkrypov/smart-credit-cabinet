@@ -142,7 +142,7 @@ test('Андеррайтер меняет условия, менеджер не 
     const counter = await waitStatus(request, session, app.id, ['OFFER_ISSUED']);
     expect(counter.process.offer).toMatchObject({ kind: 'COUNTER', amount: 2000000 });
     await noHorizontalOverflow(page);
-    await page.getByRole('button', { name: 'Выйти', exact: true }).click();
+    await page.getByRole('button', { name: 'Меню профиля' }).click().then(() => page.getByRole('menuitem', { name: 'Выйти', exact: true }).click());
     await login(page, 'logistic');
     await page.goto(`/client/applications/${app.id}`);
     await expect(page.getByRole('heading', { name: 'Банк предлагает другие условия', exact: true })).toBeVisible();

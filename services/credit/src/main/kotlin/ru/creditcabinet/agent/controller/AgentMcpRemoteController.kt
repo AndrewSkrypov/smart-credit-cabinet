@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.agent.application.AgentClientStatusUnavailable
 import ru.creditcabinet.agent.application.AgentMcpReads
+import ru.creditcabinet.agent.application.McpActorAssertionPort
 import ru.creditcabinet.agent.domain.AgentAccessUnavailable
-import ru.creditcabinet.agent.infrastructure.McpActorAssertionRedeemer
 import ru.creditcabinet.application.application.CreditFailure
 import ru.creditcabinet.financing.scenario.application.SavedPreviewNotApplicable
 import ru.creditcabinet.financing.scenario.application.SavedPreviewNotReady
@@ -34,7 +34,7 @@ import java.util.UUID
 @RequestMapping("/internal/mcp/credit")
 internal class AgentMcpRemoteController(
     private val reads: AgentMcpReads,
-    private val actors: McpActorAssertionRedeemer,
+    private val actors: McpActorAssertionPort,
     mapper: ObjectMapper,
     @Value("\${cabinet.mcp.credit-port:8443}") private val port: Int,
     @Value("\${cabinet.mcp.credit-tls.peer-sha256}") peerSha256: String,
@@ -50,7 +50,9 @@ internal class AgentMcpRemoteController(
     @GetMapping("/priorities")
     fun priorities(request: HttpServletRequest): Any = reply {
         val parameters = request.parameterMap
-        val limit = if (parameters.isEmpty()) 10 else {
+        val limit = if (parameters.isEmpty()) {
+            10
+        } else {
             val raw = parameters["limit"]?.singleOrNull()
             if (parameters.size != 1 || raw == null || !raw.matches(Regex("[0-9]{1,2}"))) throw InvalidRequest()
             raw.toInt().takeIf { it in 1..20 } ?: throw InvalidRequest()
@@ -68,7 +70,8 @@ internal class AgentMcpRemoteController(
     fun preview(@PathVariable id: String, @RequestBody raw: String, request: HttpServletRequest): Any = reply {
         if (raw.length > 1024 || request.parameterMap.isNotEmpty()) throw InvalidRequest()
         val body: JsonNode = json.readTree(raw)
-        if (!body.isObject || body.fieldNames().asSequence().toSet() != setOf("mode", "delayDays", "alternativeTermMonths") ||
+        if (!body.isObject ||
+            body.fieldNames().asSequence().toSet() != setOf("mode", "delayDays", "alternativeTermMonths") ||
             body["mode"].textValue() != "SAVED_SCENARIO"
         ) {
             throw InvalidRequest()

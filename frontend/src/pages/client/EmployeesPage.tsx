@@ -4,6 +4,7 @@ import { employeesApi } from '../../api/client';
 import { useAuth } from '../../auth/AuthProvider';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingBlock } from '../../components/LoadingBlock';
+import { UserAvatar } from '../../components/UserAvatar';
 import { PageHeader } from '../../components/PageHeader';
 import { useApi } from '../../hooks/useApi';
 import { emailError, useFieldFeedback } from '../../shared/authValidation';
@@ -113,7 +114,10 @@ export function EmployeesPage() {
                 {data.members.map((member) => (
                   <Paper key={member.id} sx={{ p: 3 }}>
                     <Stack spacing={1.5}>
-                      <Typography fontWeight={600}>{member.fullName}{member.id === session?.user.id ? ' (вы)' : ''}</Typography>
+                      <Stack direction="row" spacing={1.5} alignItems="center">
+                        <UserAvatar fullName={member.fullName} avatar={member.avatar} size={40} />
+                        <Typography fontWeight={600}>{member.fullName}{member.id === session?.user.id ? ' (вы)' : ''}</Typography>
+                      </Stack>
                       <Typography sx={{ overflowWrap: 'anywhere' }}>{member.email}</Typography>
                       <Stack direction="row" flexWrap="wrap" gap={1}>
                         <Chip size="small" label={member.status === 'ACTIVE' ? 'Доступ открыт' : 'Доступ отозван'} />

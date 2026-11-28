@@ -6,6 +6,7 @@ import sys
 from alpha_dev import bootstrap, prepare
 from catalog import check_tls
 from common import Deployment, ROOT, deploy_lock
+import mcp_dev
 import runtime_attempts
 from runtime_backup import resume_alpha_stores, verify_alpha_catchup
 from runtime_delivery_support import read_record, write_record
@@ -36,10 +37,13 @@ with deploy_lock(args.env_file, args.project):
         check_tls(deployment.catalog_state / "tls")
     elif (deployment.catalog_state / "authority.json").exists():
         parser.error("Catalog уже введён. Для возврата используйте проверенный локальный режим.")
-    subprocess.run([sys.executable, str(ROOT / "deploy/render-gateway.py"), "--caddy-ip", deployment.values.get("CADDY_EDGE_IP", "172.30.40.2"),
-                    "--output", str(deployment.gateway_config)], check=True)
     config = deployment.config()
     active = deployment.active_services(config)
+    mcp = "cabinet-mcp" in active
+    subprocess.run([sys.executable, str(ROOT / "deploy/render-gateway.py"),
+                    "--caddy-ip", deployment.values.get("CADDY_EDGE_IP", "172.30.40.2"),
+                    "--output", str(deployment.gateway_config),
+                    *(["--mcp"] if mcp else [])], check=True)
     assert not active["gateway"].get("ports"), "Gateway не должен иметь опубликованных портов"
     assert all(
         not service.get("ports") or (name == "grafana" and all(port.get("host_ip") == "127.0.0.1" for port in service["ports"]))
@@ -89,6 +93,8 @@ with deploy_lock(args.env_file, args.project):
         deployment.compose(*arguments, *[name for name in active if name not in excluded])
         if deployment.runtime_modes:
             verify_private(deployment, receipt)
+        if mcp:
+            mcp_dev.verify_private(deployment)
         if previous_alpha:
             proof = verify_alpha_catchup(deployment, previous_alpha)
             ready = deployment.path.parent / "runtime-attempts" / (attempt["attempt"] + "-alpha-ready.json")

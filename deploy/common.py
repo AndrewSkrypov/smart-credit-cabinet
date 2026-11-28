@@ -18,6 +18,7 @@ from servicing_dev import ServicingDev, OVERLAY as SERVICING_OVERLAY
 from catalog import requested_mode, state_path, validate_secrets
 from dev_diagnostics import error_category
 import dev_payment_reserve
+import mcp_dev
 from registry_release import RegistryRelease
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -150,6 +151,7 @@ class Deployment:
             validate_secrets(self.values)
         elif open_hooks and project == "cabinet-dev" and (self.catalog_state / "authority.json").exists():
             raise RuntimeError("После ввода Catalog нужен manifest с режимом local или remote")
+        self.mcp = mcp_dev.enabled(project, local, self.values, self.release, historical_backup)
         self.alpha_dev = AlphaDev.from_config(project, local, self.values, self.release)
         self.environment = {**os.environ, **self.values, "COMPOSE_PROFILES": ""}
         # Both values are controller-owned. The reviewed Dev overlay alone sets
@@ -214,6 +216,9 @@ class Deployment:
             self.command.extend(["-f", str(ROOT / "deploy/compose.dev-demo-edge.yaml")])
         if self.ollama_ssh:
             self.command.extend(["-f", str(ROOT / "deploy/compose.ollama-ssh.yaml")])
+        if self.mcp:
+            self.environment.update(mcp_dev.environment(self.path, self.values))
+            self.command.extend(["-f", str(ROOT / mcp_dev.OVERLAY)])
         for profile in sorted(self.profiles):
             self.command.extend(["--profile", profile])
 

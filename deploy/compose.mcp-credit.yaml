@@ -1,21 +1,100 @@
-# Explicit opt-in. Do not pass this overlay to a demo project.
+# Loaded only by Deployment for the normal HTTPS cabinet-dev project.
 services:
+  identity:
+    environment:
+      CABINET_MCP_OAUTH_ENABLED: "true"
+      CABINET_MCP_OAUTH_ISSUER: https://dev.credit-cabinet.ru
+      CABINET_MCP_OAUTH_CLIENT_ID: ${CABINET_MCP_OAUTH_CLIENT_ID:?Registered MCP client required}
+      CABINET_MCP_OAUTH_CLIENT_NAME: ${CABINET_MCP_OAUTH_CLIENT_NAME:?Registered MCP client name required}
+      CABINET_MCP_OAUTH_REDIRECT_URI: ${CABINET_MCP_OAUTH_REDIRECT_URI:?Registered MCP redirect URI required}
+      CABINET_MCP_IDENTITY_SERVICE_TOKEN: ${CABINET_MCP_IDENTITY_SERVICE_TOKEN:?Scoped MCP Identity credential required}
+      CABINET_MCP_CREDIT_SERVICE_TOKEN: ${CABINET_MCP_CREDIT_SERVICE_TOKEN:?Scoped MCP redemption credential required}
+    networks:
+      - mcp-identity-upstream
+
   credit:
     environment:
       SPRING_PROFILES_ACTIVE: prod,agent-mcp-remote
       SERVER_FORWARD_HEADERS_STRATEGY: none
-      CABINET_MCP_IDENTITY_ORIGIN: ${CABINET_MCP_IDENTITY_ORIGIN:?Private HTTPS Identity origin required}
-      CABINET_MCP_IDENTITY_CA: /run/mcp-credit-tls/identity-ca.crt
-      CABINET_MCP_CREDIT_TLS_CERT: /run/mcp-credit-tls/tls.crt
-      CABINET_MCP_CREDIT_TLS_KEY: /run/mcp-credit-tls/tls.key
-      CABINET_MCP_CREDIT_TLS_PEER_CA: /run/mcp-credit-tls/peer-ca.crt
-      CABINET_MCP_CREDIT_TLS_PEER_SHA256: ${CABINET_MCP_CREDIT_TLS_PEER_SHA256:?Verified workload certificate pins required}
-      MCP_CREDIT_SERVICE_TOKEN: ${MCP_CREDIT_SERVICE_TOKEN:?Scoped Identity redemption credential required}
+      CABINET_MCP_IDENTITY_ORIGIN: https://identity-mcp:8443
+      CABINET_MCP_IDENTITY_CA: /run/mcp/identity-ca.crt
+      CABINET_MCP_CREDIT_TLS_CERT: /run/mcp/tls.crt
+      CABINET_MCP_CREDIT_TLS_KEY: /run/mcp/tls.key
+      CABINET_MCP_CREDIT_TLS_PEER_CA: /run/mcp/peer-ca.crt
+      CABINET_MCP_CREDIT_TLS_PEER_SHA256: ${CABINET_MCP_CREDIT_TLS_PEER_SHA256:?Validated client fingerprint required}
+      MCP_CREDIT_SERVICE_TOKEN: ${CABINET_MCP_CREDIT_SERVICE_TOKEN:?Scoped MCP redemption credential required}
     volumes:
-      - ${CABINET_MCP_CREDIT_TLS_DIR:?Protected TLS directory required}:/run/mcp-credit-tls:ro
+      - ${CABINET_MCP_TLS_DIR:?Protected MCP TLS directory required}/credit/tls.crt:/run/mcp/tls.crt:ro
+      - ${CABINET_MCP_TLS_DIR}/credit/tls.key:/run/mcp/tls.key:ro
+      - ${CABINET_MCP_TLS_DIR}/client/ca.crt:/run/mcp/peer-ca.crt:ro
+      - ${CABINET_MCP_TLS_DIR}/identity/ca.crt:/run/mcp/identity-ca.crt:ro
     networks:
-      mcp-credit: {}
+      - mcp-backplane
+
+  identity-mcp:
+    image: nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
+    mem_limit: 32m
+    user: "101:101"
+    entrypoint: [nginx, -c, /etc/nginx/mcp-identity.conf]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    tmpfs: [/tmp:size=4m,mode=1777]
+    healthcheck:
+      test: [CMD, nginx, -t, -c, /etc/nginx/mcp-identity.conf]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - ./deploy/mcp-identity.nginx.conf:/etc/nginx/mcp-identity.conf:ro
+      - ${CABINET_MCP_TLS_DIR}/identity/tls.crt:/run/mcp/tls.crt:ro
+      - ${CABINET_MCP_TLS_DIR}/identity/tls.key:/run/mcp/tls.key:ro
+    networks:
+      - mcp-identity-upstream
+      - mcp-backplane
+
+  cabinet-mcp:
+    image: ${CABINET_IMAGE_MCP:?MCP release image digest required}
+    pull_policy: never
+    mem_limit: 128m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, node, --eval, "fetch('http://127.0.0.1:8080/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    environment:
+      NODE_OPTIONS: --max-old-space-size=64
+      MCP_ISSUER: https://dev.credit-cabinet.ru
+      MCP_RESOURCE: https://dev.credit-cabinet.ru/api/mcp
+      MCP_IDENTITY_ORIGIN: https://identity-mcp:8443
+      CABINET_MCP_IDENTITY_SERVICE_TOKEN: ${CABINET_MCP_IDENTITY_SERVICE_TOKEN:?Scoped MCP Identity credential required}
+      MCP_IDENTITY_CA_FILE: /run/mcp/identity-ca.crt
+      MCP_CREDIT_ORIGIN: https://credit:8443
+      MCP_CREDIT_CA_FILE: /run/mcp/credit-ca.crt
+      MCP_CREDIT_CERT_FILE: /run/mcp/client.crt
+      MCP_CREDIT_KEY_FILE: /run/mcp/client.key
+    volumes:
+      - ${CABINET_MCP_TLS_DIR}/identity/ca.crt:/run/mcp/identity-ca.crt:ro
+      - ${CABINET_MCP_TLS_DIR}/credit/ca.crt:/run/mcp/credit-ca.crt:ro
+      - ${CABINET_MCP_TLS_DIR}/client/tls.crt:/run/mcp/client.crt:ro
+      - ${CABINET_MCP_TLS_DIR}/client/tls.key:/run/mcp/client.key:ro
+    networks:
+      - mcp-edge
+      - mcp-backplane
+
+  gateway:
+    networks:
+      mcp-edge: {}
 
 networks:
-  mcp-credit:
+  mcp-edge:
+    internal: true
+  mcp-backplane:
+    internal: true
+  mcp-identity-upstream:
     internal: true

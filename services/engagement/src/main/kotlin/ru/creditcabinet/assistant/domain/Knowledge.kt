@@ -197,13 +197,20 @@ object Knowledge {
         ),
     )
 
+    private val BUREAU_TOPIC = Regex(
+        """^\s*(?:(?:подскажите|скажите|объясните)[,:]?\s+)?(?:(?:что такое|что хранит)\s+)?""" +
+            """(?:бки|бюро кредитных историй)(?!\p{L})""",
+    )
+
     /** The articles that share the most words with the question, best first. */
     fun relevant(question: String, limit: Int = 3): List<Article> {
         val text = question.lowercase()
+        val bureauIsTopic = BUREAU_TOPIC.containsMatchIn(text)
         return articles
             .map { article -> article to article.keywords.count { keyword -> text.contains(keyword) } }
             .filter { it.second > 0 }
-            .sortedByDescending { it.second }
+            .sortedWith(compareByDescending<Pair<Article, Int>> { bureauIsTopic && it.first.id == "bureau" }
+                .thenByDescending { it.second })
             .take(limit)
             .map { it.first }
     }

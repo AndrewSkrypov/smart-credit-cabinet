@@ -28,7 +28,12 @@ object Grounding {
     const val MAX_ANSWER = 900
 
     /** Why [answer] cannot be shown; empty when it can. [context] is everything the model was given. */
-    fun problems(answer: String, context: String, reference: Article? = null): List<String> = buildList {
+    fun problems(
+        answer: String,
+        context: String,
+        reference: Article? = null,
+        articles: List<Article> = emptyList(),
+    ): List<String> = buildList {
         unknownNumbers(answer, context, allowSmall = reference == null).takeIf { it.isNotEmpty() }?.let { add("numbers $it are not in the data") }
         val percentages = PERCENTAGE.findAll(answer).map { normalise(it.groupValues[1]) }.toSet()
         val knownPercentages = PERCENTAGE.findAll(context).map { normalise(it.groupValues[1]) }.toSet()
@@ -49,8 +54,19 @@ object Grounding {
                 if (OVERDRAFT_SIZE_OR_TERM.containsMatchIn(text)) add("overdraft amount or term restriction absent from the reference")
             }
             if (it.id == "load" && LOAD_THRESHOLD_BY_PRODUCT.containsMatchIn(text)) add("product-specific load threshold absent from the reference")
-            val hasDocuments = it.id == "investment" || DOCUMENT_WORDS.containsMatchIn(source)
-            if ((!hasDocuments && DOCUMENT_WORDS.containsMatchIn(text)) ||
+            if (it.id == "bureau" && BUREAU_ACCESS_WITHOUT_CONSENT.containsMatchIn(text)) {
+                add("bureau access without consent contradicts the reference")
+            }
+            val comparingLoans = it.id in setOf("investment", "working-capital") &&
+                articles.any { article -> article.id == "working-capital" } &&
+                articles.any { article -> article.id == "investment" && "счёт или спецификацию на покупку" in article.text }
+            val unsupportedDocumentsOrTerm = if (comparingLoans) {
+                hasMisattributedLoanCondition(text, it.id)
+            } else {
+                val hasDocuments = it.id == "investment" || DOCUMENT_WORDS.containsMatchIn(source)
+                !hasDocuments && DOCUMENT_WORDS.containsMatchIn(text)
+            }
+            if (unsupportedDocumentsOrTerm ||
                 SPECIFIC_DOCUMENTS.any { word -> word in text && word !in source } ||
                 ("согласи" in text && "соглас" !in source)
             ) {
@@ -70,6 +86,25 @@ object Grounding {
     private val PERCENTAGE = Regex("(\\d+(?:[.,]\\d+)?)\\s*(?:%|процент[а-я]*)", RegexOption.IGNORE_CASE)
     private val DOCUMENT_WORDS = Regex("документ|справк|спецификац|декларац|выписк|отчетност")
     private val SPECIFIC_DOCUMENTS = listOf("паспорт", "трудов", "декларац", "выписк", "отчетност")
+    private val INVESTMENT_LOAN = Regex("""(?<!\p{L})инвестиционн\p{L}*\s+кредит\p{L}*(?!\p{L})""")
+    private val WORKING_CAPITAL_LOAN = Regex(
+        """(?<!\p{L})(?:оборотн\p{L}*\s+кредит\p{L}*|кредит\p{L}*\s+на\s+(?:пополнени\p{L}*\s+)?оборот\p{L}*)(?!\p{L})""",
+    )
+    private val OTHER_LOAN = Regex(
+        """(?U)\b(?:овердрафт|госпрограмм|контрпредложени)\p{L}*|""" +
+            """\b(?:друг\p{L}*|обо[еи]х|обе|оба|люб\p{L}*)\s+(?:вид\p{L}*\s+)?(?:кредит|продукт|программ)\p{L}*""",
+    )
+    private val PURCHASE_DOCUMENTS = Regex(
+        """(?:^|[,—]\s*)(?:банк попросит|нужен|понадобится|потребуется)\s+счет или спецификаци[яю](?: на покупку)?$""",
+    )
+    private val PURCHASE_INVOICE = Regex("""(?U)\bсчет\s+на\s+(?:покупк|сырь|товар|оборудован)\p{L}*""")
+    private val INVESTMENT_TERM = Regex("""(?U)\b(?:5|пяти)\s+лет\b""")
+    private val INVESTMENT_TERM_CONTINUATION = Regex("""(?:срок )?до (?:5|пяти) лет(?: снижает ежемесячный платеж)?""")
+    private val BUREAU_ACCESS_WITHOUT_CONSENT = Regex(
+        """(?U)\bбанк\s+(?:(?:может|вправе)\s+(?:запросить|получить)|запрашивает|получает)[^,.!?\n]{0,55}\bбез\s+согласи|""" +
+            """\bне\s+(?:нужно|требуется|обязательно)\s+согласи|""" +
+            """\bсогласи[ея](?:\s+(?:клиента|компании))?\s+не\s+(?:нужно|требуется|обязательно)""",
+    )
     private val LOAD_THRESHOLD_BY_PRODUCT = Regex("""порог[^.!?\n]{0,35}завис\p{L}*\s+от[^.!?\n]{0,25}продукт""")
     private val OVERDRAFT_SIZE_OR_TERM = Regex("""небольш\p{L}*\s+сумм|коротк\p{L}*\s+(?:период|срок)""")
     private val TERM_LOAN_CONDITION = Regex(
@@ -79,6 +114,37 @@ object Grounding {
         "(?<!\\p{L})кредит\\s+на\\s+пополнение\\s+оборот(?:а|ных\\s+средств)\\s+" +
             "(?:выдается|выдают|гасится|погашается)(?!\\p{L})",
     )
+
+    private fun isDocumentClaim(text: String): Boolean =
+        DOCUMENT_WORDS.containsMatchIn(text) || PURCHASE_INVOICE.containsMatchIn(text)
+
+    private fun hasMisattributedLoanCondition(text: String, primary: String): Boolean {
+        var product: String? = primary
+        for (part in text.splitToSequence('.', '!', '?', '\n')) {
+            val sentence = part.trim().trimStart('—', ' ')
+            val subject = sentence.removePrefix("для ").removePrefix("по ")
+            val namesInvestment = INVESTMENT_LOAN.find(subject)?.range?.first == 0
+            product = when {
+                WORKING_CAPITAL_LOAN.containsMatchIn(sentence) -> "working-capital"
+                OTHER_LOAN.containsMatchIn(sentence) -> null
+                namesInvestment -> "investment"
+                INVESTMENT_LOAN.containsMatchIn(sentence) || sentence.startsWith("а ") || subject != sentence -> null
+                else -> product
+            }
+            if (INVESTMENT_TERM.containsMatchIn(sentence) &&
+                (product != "investment" || (!namesInvestment && !INVESTMENT_TERM_CONTINUATION.matches(sentence)))
+            ) return true
+            if (!isDocumentClaim(sentence)) continue
+            if (product != "investment") return true
+            // Retain the primary article's existing checks. A secondary article licenses only its stated purchase proof.
+            if (primary == "investment") continue
+            val purchase = PURCHASE_DOCUMENTS.find(sentence) ?: return true
+            if (purchase.range.first != 0 && (!namesInvestment || isDocumentClaim(sentence.substring(0, purchase.range.first)))) {
+                return true
+            }
+        }
+        return false
+    }
 
     private fun hasUnattributedTermLoanCondition(text: String): Boolean = text.splitToSequence('.', '!', '?', '\n').any { sentence ->
         val condition = TERM_LOAN_CONDITION.find(sentence) ?: return@any false

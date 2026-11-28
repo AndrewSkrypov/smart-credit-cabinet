@@ -121,7 +121,7 @@ class AssistantService(
             null
         }
         if (key != null && model.available()) {
-            cache.read(key)?.takeIf { Grounding.problems(it, trusted, primaryReference).isEmpty() }?.let {
+            cache.read(key)?.takeIf { Grounding.problems(it, trusted, primaryReference, articles).isEmpty() }?.let {
                 metrics.modelEvent("CACHE_HIT")
                 return Answer(it, AnswerMode.MODEL, referenceSources)
             }
@@ -134,7 +134,7 @@ class AssistantService(
             // A small model can still invent a figure, contradict the reference, slip into another
             // script or ramble; such an answer is not shown, the rules answer is.
             // User questions and earlier turns are not authoritative financial facts.
-            val problems = Grounding.problems(text, trusted, primaryReference)
+            val problems = Grounding.problems(text, trusted, primaryReference, articles)
             if (problems.isEmpty()) {
                 metrics.modelEvent("ACCEPTED")
                 if (key != null) cache.save(key, text)

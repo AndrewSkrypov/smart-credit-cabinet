@@ -341,6 +341,84 @@ class AssistantApiTest {
     }
 
     @Test
+    fun `an investment purchase specification stays attributed in a comparison with working capital`() {
+        val investment = "Инвестиционный кредит — на покупку оборудования, транспорта, ремонт помещения. " +
+            "Срок до 5 лет снижает ежемесячный платёж. Банк попросит счёт или спецификацию на покупку."
+        val turnover = "Кредит на пополнение оборота — деньги на закупку товара, сырья, подготовку к сезону. " +
+            "Выдаётся одной суммой и гасится равными платежами; проценты начисляются на остаток долга."
+        whenever(model.available()).thenReturn(true)
+        for ((question, reply) in listOf(
+            "Цех берёт оборудование и сырьё. В чём разница между инвестиционным кредитом и кредитом на оборот?" to
+                "$investment $turnover",
+            "Для сезона нужен товар, для склада — транспорт. Какие задачи относятся к обороту и к инвестиционному кредиту?" to
+                "$turnover $investment",
+        )) {
+            whenever(model.chat(any())).thenReturn(reply)
+            val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+            assertEquals("MODEL", answer["mode"].asText(), question)
+            assertEquals(reply, answer["text"].asText())
+        }
+    }
+
+    @Test
+    fun `the investment purchase specification and five year term cannot move to working capital`() {
+        val question = "Цех берёт оборудование и сырьё. В чём разница между инвестиционным кредитом и кредитом на оборот?"
+        val comparison = "Инвестиционный кредит на оборудование до 5 лет, нужен счёт или спецификация. " +
+            "Оборотный кредит на сырьё выдаётся одной суммой, гасится равными платежами, проценты на остаток."
+        whenever(model.available()).thenReturn(true)
+        for (suffix in listOf(
+            "Для оборотного кредита обязательна спецификация на сырьё.",
+            "Оборотный кредит выдаётся на срок до 5 лет.",
+            "Для оборотного кредита банк попросит счёт на сырьё.",
+        )) {
+            whenever(model.chat(any())).thenReturn("$comparison $suffix")
+            val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+            assertEquals("RULES", answer["mode"].asText(), suffix)
+            assertTrue(suffix !in answer["text"].asText())
+        }
+        for (condition in listOf(
+            "Обе программы — банк попросит счёт или спецификацию на покупку.",
+            "Оба вида кредита доступны до 5 лет.",
+        )) {
+            val reply = "Инвестиционный кредит на оборудование до 5 лет. Банк попросит счёт или спецификацию на покупку. " +
+                "$condition Оборотный кредит на сырьё выдаётся одной суммой, гасится равными платежами, проценты на остаток долга."
+            whenever(model.chat(any())).thenReturn(reply)
+            val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+            assertEquals("RULES", answer["mode"].asText(), condition)
+        }
+    }
+
+    @Test
+    fun `an explicit bureau topic wins over the generic word condition`() {
+        whenever(model.available()).thenReturn(true)
+        val bureau = Knowledge.articles.single { it.id == "bureau" }
+        whenever(model.chat(any())).thenReturn(bureau.text)
+        val question = "Бюро кредитных историй: что о компании там хранится и при каком условии банк может это запросить?"
+        val answer = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+        assertEquals("MODEL", answer["mode"].asText())
+        assertEquals(bureau.title, answer["sources"].first().asText())
+        assertEquals(bureau.text, answer["text"].asText())
+        for (contradiction in listOf(
+            "Банк может запросить эти сведения без согласия клиента.",
+            "Чтобы их запросить, банку не нужно согласие компании.",
+        )) {
+            whenever(model.chat(any())).thenReturn("Бюро кредитных историй хранит суммы, платежи и просрочки. $contradiction")
+            val rejected = mapper.readTree(ask(question, application = null).getContentAsString(Charsets.UTF_8))
+            assertEquals("RULES", rejected["mode"].asText(), contradiction)
+            assertTrue(contradiction !in rejected["text"].asText())
+        }
+        assertEquals("bureau", Knowledge.relevant("БКИ: при каком условии банк запросит данные?").first().id)
+        assertEquals(
+            "bureau",
+            Knowledge.relevant("Подскажите, что хранит Бюро кредитных историй и при каком условии банк может запросить данные?").first().id,
+        )
+        assertEquals(
+            "counter-offer",
+            Knowledge.relevant("Что такое контрпредложение и влияет ли отказ на кредитную историю?").first().id,
+        )
+    }
+
+    @Test
     fun `debt burden is explained from the reference without generation`() {
         whenever(model.available()).thenReturn(true)
         val reference = Knowledge.articles.single { it.id == "load" }

@@ -10,11 +10,12 @@ const assessment = { status: 'MANUAL_REVIEW', registry: null, tax: null, bureau:
   latestDecision: null, automaticDecision: null, actions: ['REQUEST_INFO'] } as unknown as AssessmentView;
 
 describe('bank summary and source receipt dates', () => {
-  it('shows only permitted actions and unknown sources, without inventing a decision', () => {
+  it('shows unknown sources and role context without duplicating interactive action buttons', () => {
     render(<BankSummary application={application} assessment={assessment} stale={false} />);
     expect(screen.getByText(/Последнее решение:/).parentElement).toHaveTextContent('ещё нет');
     expect(screen.getByText(/Не получены ответы:/)).toHaveTextContent('БКИ');
-    expect(screen.getByText(/Доступно вам/).parentElement).toHaveTextContent('Запросить данные');
+    expect(screen.queryByText(/Доступно вам/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Запросить данные')).not.toBeInTheDocument();
     expect(screen.queryByText(/Одобрить/)).not.toBeInTheDocument();
     expect(screen.getByText(/Кредитное решение принимает андеррайтер/)).toBeInTheDocument();
   });

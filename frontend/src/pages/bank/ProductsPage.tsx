@@ -334,8 +334,8 @@ function ProductCard({
                 Появилась новая версия. Просмотрите её в истории; загрузка текущих условий заменит ваш черновик.
               </Alert>
             )}
-            <TextField label="Название продукта" value={value.name} disabled={!canEdit || busy} inputProps={{ maxLength: 255 }} onChange={(event) => change({ name: event.target.value })} />
-            <TextField label="Описание продукта" multiline minRows={3} value={value.description} disabled={!canEdit || busy} inputProps={{ maxLength: 5000 }} onChange={(event) => change({ description: event.target.value })} />
+            <TextField label="Название продукта" value={value.name} disabled={!canEdit || busy} inputProps={{ maxLength: 255 }} onChange={(event) => change({ name: event.target.value })} onBlur={() => change({ name: value.name.trim() })} error={canEdit && !value.name.trim()} helperText={canEdit && !value.name.trim() ? 'Укажите название продукта' : undefined} />
+            <TextField label="Описание продукта" multiline minRows={3} value={value.description} disabled={!canEdit || busy} inputProps={{ maxLength: 5000 }} onChange={(event) => change({ description: event.target.value })} onBlur={() => change({ description: value.description.trim() })} error={canEdit && !value.description.trim()} helperText={canEdit && !value.description.trim() ? 'Укажите описание продукта' : undefined} />
             <Box>
               <Grid container spacing={2}>
                 {numberField('baseRate', 'Базовая ставка, %')}
@@ -435,6 +435,8 @@ function ProductCard({
                   inputProps={{ maxLength: 1000 }}
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
+                  onBlur={() => setReason((current) => current.trim())}
+                  helperText={changed && !reason.trim() ? 'Укажите причину изменений для сохранения новой версии' : undefined}
                   disabled={busy}
                 />
                 <Button variant="contained" disabled={busy || !reason.trim() || !changed} onClick={() => setConfirm(true)}>
@@ -472,6 +474,7 @@ function ProductCard({
                 minRows={2}
                 value={lifecycleReason}
                 onChange={(event) => setLifecycleReason(event.target.value)}
+                onBlur={() => setLifecycleReason((current) => current.trim())}
                 inputProps={{ maxLength: 1000 }}
                 disabled={busy}
               />
@@ -586,13 +589,13 @@ function CreateProductDialog({
           {error && <Alert severity="error">{error}</Alert>}
           <Grid container spacing={2}>
             <Grid item xs={12} sm={4}>
-              <TextField label="Код продукта" required fullWidth value={code} onChange={(e) => setCode(e.target.value)} placeholder="EXPRESS_2026" disabled={busy} />
+              <TextField label="Код продукта" required fullWidth value={code} onChange={(e) => setCode(e.target.value)} onBlur={() => setCode((v) => v.trim().toUpperCase())} placeholder="EXPRESS_2026" disabled={busy} />
             </Grid>
             <Grid item xs={12} sm={8}>
-              <TextField label="Название продукта" required fullWidth value={name} onChange={(e) => setName(e.target.value)} disabled={busy} />
+              <TextField label="Название продукта" required fullWidth value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setName((v) => v.trim())} disabled={busy} />
             </Grid>
             <Grid item xs={12}>
-              <TextField label="Описание" required fullWidth multiline minRows={2} value={description} onChange={(e) => setDescription(e.target.value)} disabled={busy} />
+              <TextField label="Описание" required fullWidth multiline minRows={2} value={description} onChange={(e) => setDescription(e.target.value)} onBlur={() => setDescription((v) => v.trim())} disabled={busy} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField label="Базовая ставка, %" type="number" fullWidth value={baseRate} onChange={(e) => setBaseRate(Number(e.target.value))} inputProps={{ min: 0, step: '0.01' }} disabled={busy} />
@@ -652,6 +655,7 @@ function CreateProductDialog({
             minRows={2}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
+            onBlur={() => setReason((v) => v.trim())}
             disabled={busy}
           />
         </Stack>

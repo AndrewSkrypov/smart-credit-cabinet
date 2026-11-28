@@ -78,7 +78,7 @@ export function OfferBlock({ application, onChanged, historical = false }: { app
         <DialogTitle>Отказаться от предложения?</DialogTitle>
         <DialogContent>
           <Typography gutterBottom>Заявка закроется. Позже можно подать новую.</Typography>
-          <TextField label="Почему не подошло (необязательно)" fullWidth multiline minRows={2} value={comment} onChange={(event) => setComment(event.target.value)} inputProps={{ maxLength: 2000 }} />
+          <TextField label="Почему не подошло (необязательно)" fullWidth multiline minRows={2} value={comment} onChange={(event) => setComment(event.target.value)} onBlur={() => setComment((value) => value.trim())} inputProps={{ maxLength: 2000 }} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeclining(false)}>Вернуться</Button>

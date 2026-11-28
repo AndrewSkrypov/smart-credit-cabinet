@@ -28,13 +28,17 @@ export function passwordError(value: string) {
 }
 
 /** An untouched field is neutral; after blur its error follows every correction. */
-export function useFieldFeedback(errors: Record<string, string>) {
+export function useFieldFeedback(errors: Record<string, string>, prefix = 'auth') {
   const [visited, setVisited] = useState<Record<string, boolean>>({});
   return {
     visitAll: () => setVisited(Object.fromEntries(Object.keys(errors).map(key => [key, true]))),
-    field: (key: string, hint?: string) => ({
-      id: `auth-${key}`, name: key,
-      onBlur: () => setVisited(previous => ({ ...previous, [key]: true })),
+    resetVisited: () => setVisited({}),
+    field: (key: string, hint?: string, onTrim?: () => void) => ({
+      id: `${prefix}-${key}`, name: key,
+      onBlur: () => {
+        onTrim?.();
+        setVisited(previous => ({ ...previous, [key]: true }));
+      },
       error: !!visited[key] && !!errors[key],
       helperText: visited[key] && errors[key] ? errors[key] : hint
     })

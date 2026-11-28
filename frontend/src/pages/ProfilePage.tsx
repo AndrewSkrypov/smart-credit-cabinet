@@ -7,6 +7,7 @@ import { ErrorState } from '../components/ErrorState';
 import { LoadingBlock } from '../components/LoadingBlock';
 import { PageHeader } from '../components/PageHeader';
 import { useApi } from '../hooks/useApi';
+import { emailError, nameError, passwordError, requiredError, useFieldFeedback } from '../shared/authValidation';
 import { roleLabels } from '../shared/labels';
 import { NotificationSettings } from '../types';
 
@@ -29,6 +30,21 @@ export function ProfilePage() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
   const settings = saved ?? loaded.data;
+
+  const emailChanged = session ? email.trim().toLowerCase() !== session.user.email : false;
+  const profileChanged = session ? emailChanged || fullName.trim().replace(/\s+/g, ' ') !== session.user.fullName : false;
+  const profileErrors = {
+    fullName: nameError(fullName),
+    email: emailError(email),
+    profilePassword: emailChanged && !profilePassword ? requiredError : ''
+  };
+  const profileFeedback = useFieldFeedback(profileErrors, 'profile');
+  const securityErrors = {
+    currentPassword: currentPassword ? '' : requiredError,
+    newPassword: passwordError(password)
+  };
+  const securityFeedback = useFieldFeedback(securityErrors, 'security');
+
   if (!session) return null;
 
   const change = async (enabled: boolean) => {
@@ -46,21 +62,20 @@ export function ProfilePage() {
     }
   };
 
-  const emailChanged = email.trim().toLowerCase() !== session.user.email;
-  const profileChanged = emailChanged || fullName.trim().replace(/\s+/g, ' ') !== session.user.fullName;
-
   const saveProfile = async (event: FormEvent) => {
     event.preventDefault();
     if (profileBusy || !profileChanged) return;
+    if (Object.values(profileErrors).some(Boolean)) { profileFeedback.visitAll(); return; }
     setProfileBusy(true);
     setProfileError(null);
     setProfileSaved(false);
     try {
-      const next = await authApi.updateProfile(fullName, email, emailChanged ? profilePassword : undefined);
+      const next = await authApi.updateProfile(fullName.trim(), email.trim(), emailChanged ? profilePassword : undefined);
       updateSession(next);
       setFullName(next.user.fullName);
       setEmail(next.user.email);
       setProfilePassword('');
+      profileFeedback.resetVisited();
       setProfileSaved(true);
     } catch (next) {
       setProfileError(next instanceof Error ? next.message : 'Не удалось сохранить данные');
@@ -70,6 +85,7 @@ export function ProfilePage() {
   const secure = async (logout: boolean, event?: FormEvent) => {
     event?.preventDefault();
     if (securityBusy) return;
+    if (!logout && Object.values(securityErrors).some(Boolean)) { securityFeedback.visitAll(); return; }
     setSecurityBusy(true);
     setSecurityError(null);
     try {
@@ -96,16 +112,15 @@ export function ProfilePage() {
             <Typography variant="body2">Подписание договоров: {session.user.canSign ? 'доступно' : 'недоступно'}</Typography>
             <Typography variant="body2" color="text.secondary">{session.user.canSign ? 'Вы можете подписывать договоры от имени компании.' : 'Договор должен подписать представитель компании с правом подписи.'}</Typography>
           </Box>}
-          <Stack component="form" spacing={2} onSubmit={(event) => void saveProfile(event)}>
+          <Stack component="form" spacing={2} onSubmit={(event) => void saveProfile(event)} noValidate>
             {profileError && <Alert severity="error">{profileError}</Alert>}
             {profileSaved && <Alert severity="success">Данные сохранены</Alert>}
-            <TextField label="Имя и фамилия" autoComplete="name" required value={fullName} inputProps={{ maxLength: 255 }}
+            <TextField {...profileFeedback.field('fullName', undefined, () => setFullName((value) => value.trim()))} label="Имя и фамилия" autoComplete="name" required value={fullName} inputProps={{ maxLength: 255 }}
               onChange={(event) => { setFullName(event.target.value); setProfileSaved(false); }} />
-            <TextField label="Email" type="email" autoComplete="email" required value={email} inputProps={{ maxLength: 255 }}
-              helperText="Email — логин для входа и адрес для писем"
+            <TextField {...profileFeedback.field('email', 'Email — логин для входа и адрес для писем', () => setEmail((value) => value.trim()))} label="Email" type="email" autoComplete="email" required value={email} inputProps={{ maxLength: 255 }}
               onChange={(event) => { setEmail(event.target.value); setProfileSaved(false); }} />
             {emailChanged && (
-              <TextField label="Текущий пароль для смены email" type="password" autoComplete="current-password" required value={profilePassword}
+              <TextField {...profileFeedback.field('profilePassword')} label="Текущий пароль для смены email" type="password" autoComplete="current-password" required value={profilePassword}
                 onChange={(event) => setProfilePassword(event.target.value)} />
             )}
             <Box>
@@ -132,11 +147,11 @@ export function ProfilePage() {
         </Paper>
         <Paper sx={{ p: { xs: 3, md: 4 } }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Безопасность</Typography>
-          <Stack component="form" spacing={2} onSubmit={(event) => void secure(false, event)}>
+          <Stack component="form" spacing={2} onSubmit={(event) => void secure(false, event)} noValidate>
             <Typography color="text.secondary">После смены пароля потребуется снова войти на всех устройствах.</Typography>
             {securityError && <Alert severity="error">{securityError}</Alert>}
-            <TextField label="Текущий пароль" type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
-            <TextField label="Новый пароль" type="password" autoComplete="new-password" required value={password} helperText="От 8 до 72 символов, буквы и цифры" onChange={(event) => setPassword(event.target.value)} />
+            <TextField {...securityFeedback.field('currentPassword')} label="Текущий пароль" type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+            <TextField {...securityFeedback.field('newPassword', 'От 8 до 72 символов, буквы и цифры')} label="Новый пароль" type="password" autoComplete="new-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
             <Button type="submit" variant="contained" disabled={securityBusy}>Сменить пароль</Button>
             <Button variant="outlined" disabled={securityBusy} onClick={() => setConfirmLogout(true)}>Выйти на всех устройствах</Button>
           </Stack>

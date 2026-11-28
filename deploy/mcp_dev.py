@@ -159,8 +159,9 @@ def verify_public(opener, origin):
 
 def verify_private(deployment):
     """Prove peer certificate, SAN and protected endpoints before opening Dev ingress."""
+    probe = Path(__file__).with_name("mcp-private-probe.mjs").read_text(encoding="utf-8")
     result = subprocess.run(
-        ["docker", "exec", deployment.container("cabinet-mcp"), "node", "--input-type=module", "--eval", (Path(__file__).with_name("mcp-private-probe.mjs")).read_text()],
+        ["docker", "exec", deployment.container("cabinet-mcp"), "node", "--input-type=module", "--eval", probe],
         capture_output=True, check=False, timeout=15,
     )
     if result.returncode:

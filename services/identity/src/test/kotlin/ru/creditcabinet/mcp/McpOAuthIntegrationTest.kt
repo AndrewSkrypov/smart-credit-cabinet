@@ -19,6 +19,8 @@ import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.OPTIONS_PATH
 import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.REVOCATION_PATH
 import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.SCOPE
 import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.TOKEN_PATH
+import ru.creditcabinet.mcp.config.digest
+import ru.creditcabinet.mcp.config.pkceChallenge
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets.UTF_8
 import java.util.UUID

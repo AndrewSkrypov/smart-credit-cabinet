@@ -345,7 +345,7 @@ class FinancingScenarioIntegrationTest {
         assertTrue(priority["number"].isNull || priority["number"].isTextual)
         assertEquals(application.version.toString(), summary["applicationVersion"].asText())
 
-        val before = stateOf(id)
+        val before = creditMcpSnapshot(jdbc, id)
         val results = listOf(5, 6, 5).map { delay ->
             val preview = snapshot(post(previewPath, agent, request(delay)))
             assertTrue(preview["preview"].asBoolean())
@@ -360,7 +360,7 @@ class FinancingScenarioIntegrationTest {
                 assertEquals(0, expected.compareTo(trial["balanceOnPaymentDateRub"].asText().toBigDecimal()))
                 assertTrue(trial["balanceOnPaymentDateRub"].isTextual)
             }
-            assertEquals(before, stateOf(id))
+            assertEquals(before, creditMcpSnapshot(jdbc, id))
             preview["options"]
         }
         assertEquals(results.first(), results.last())
@@ -381,31 +381,7 @@ class FinancingScenarioIntegrationTest {
         val unavailable = get(summaryPath, agent)
         assertEquals(503, unavailable.status)
         assertEquals("DEPENDENCY_UNAVAILABLE", mapper.readTree(unavailable.contentAsString)["code"].asText())
-        assertEquals(before, stateOf(id))
-    }
-
-    private fun stateOf(id: UUID): List<List<String>> {
-        val scopedTables = listOf(
-            "financing_scenario_revisions",
-            "financing_scenario_publications",
-            "documents",
-            "application_events",
-            "assessment_exchange_outbox",
-            "servicing_open_outbox",
-        )
-        val application = jdbc.queryForList("select version::text from applications where id = ?", String::class.java, id)
-        val scoped = scopedTables.map { table ->
-            jdbc.queryForList("select to_jsonb(r)::text from $table r where application_id = ? order by 1", String::class.java, id)
-        }
-        val outbox = listOf("application_status_outbox", "delivery_outbox").map { table ->
-            jdbc.queryForList(
-                "select to_jsonb(r)::text from $table r where event_key like ? or payload::text like ? order by 1",
-                String::class.java,
-                "%$id%",
-                "%$id%",
-            )
-        }
-        return listOf(application) + scoped + outbox
+        assertEquals(before, creditMcpSnapshot(jdbc, id))
     }
 
     private fun draft(): LoanApplication {

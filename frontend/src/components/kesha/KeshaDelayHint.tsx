@@ -40,6 +40,7 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
   const [placement, setPlacement] = useState<KeshaPlacement | null>(null);
   const [offer, setOffer] = useState<Offer | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [inChat, setInChat] = useState(false);
   const [flying, setFlying] = useState(false);
   const bird = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
@@ -54,6 +55,8 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
   const setAttached = kesha?.setAttached;
   const enabled = !!kesha?.enabled;
   const overlay = kesha?.overlay;
+  const chatSlot = kesha?.chatHintSlot;
+  const chatOpen = !!kesha?.chatOpen;
 
   useEffect(() => {
     if (!enabled || !target.current || typeof IntersectionObserver === 'undefined') return;
@@ -78,6 +81,7 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
   const attached = sceneOpen && anchorInView && !!placement;
   const blocked = !!kesha?.blocked;
   const panelReady = attached && !flying && !blocked;
+  const drawerVisible = sceneOpen && inChat && chatOpen;
 
   useLayoutEffect(() => {
     const anchor = target.current;
@@ -155,11 +159,11 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
   }, [patched]);
 
   useLayoutEffect(() => {
-    if (expanded && focusExpanded.current) {
+    if ((expanded || (drawerVisible && chatSlot)) && focusExpanded.current) {
       focusExpanded.current = false;
       (patched ? undoButton : applyButton).current?.focus({ preventScroll: true });
     }
-  }, [expanded, patched]);
+  }, [chatSlot, drawerVisible, expanded, patched]);
 
   useEffect(() => {
     if (!attached || patched || blocked) return;
@@ -197,30 +201,71 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
   }, [delayInput, panelReady]);
 
   function close() {
-    if (panel.current?.contains(document.activeElement)) delayInput.current?.focus({ preventScroll: true });
+    if (drawerVisible) kesha?.setChatOpen(false);
+    else if (panel.current?.contains(document.activeElement)) delayInput.current?.focus({ preventScroll: true });
     setOffer(null);
   }
 
   function expand(trigger: HTMLButtonElement) {
     focusExpanded.current = trigger === document.activeElement;
-    setExpanded(true);
+    if (placement?.full && !inChat) {
+      setExpanded(true);
+    } else if (kesha) {
+      setInChat(true);
+      kesha.returnFromChat.current = delayInput.current;
+      kesha.setChatOpen(true);
+    }
   }
 
   if (!overlay) return null;
   const question = shortViewport ? 'Оплата покупателя на 2 дня позже?' : 'А если деньги от покупателя поступят на два дня позже?';
   const message = patched ? 'Подставил 2 дня. Расчёт ещё не обновлён.' : question;
   const announcement = patched ? 'Задержка поступления изменена на 2 дня. Расчёт пока прежний.' : 'Кеша предлагает примерить задержку поступления на 2 дня.';
-  const compact = !!placement?.collapsed && !expanded;
-  const speechVisible = panelReady && !compact;
+  const compact = !!placement && (inChat || (placement.collapsed && (!expanded || !placement.full)));
+  const speechVisible = panelReady && !compact && !!placement?.full;
   const birdPosition = placement?.bird;
   const cloudPosition = placement?.full;
   const compactPosition = placement?.compact;
   const birdOpensHint = compact && !compactPosition;
-  const birdLabel = birdOpensHint ? (patched ? 'Правка Кеши' : 'Есть подсказка') : 'Открыть помощника';
+  const hintLabel = inChat || !cloudPosition
+    ? (patched ? 'Открыть правку Кеши в чате' : 'Открыть подсказку Кеши в чате')
+    : (patched ? 'Правка Кеши' : 'Есть подсказка');
+  const birdLabel = birdOpensHint ? hintLabel : 'Открыть помощника';
   const leftOfBird = cloudPosition && birdPosition && cloudPosition.left < birdPosition.left;
   const tailTop = birdPosition && cloudPosition ? birdPosition.top + 17 - cloudPosition.top : -1;
 
-  return createPortal(
+  function renderSpeech(inDrawer: boolean) {
+    const interactive = inDrawer ? drawerVisible : speechVisible;
+    return <>
+      <Typography variant="body2" fontWeight={650} sx={{ lineHeight: 1.3, fontSize: shortViewport && !inDrawer ? '0.75rem' : undefined }}>
+        {inDrawer && !patched ? 'А если деньги от покупателя поступят на два дня позже?' : message}
+      </Typography>
+      {!patched && offer && offer.previousDays !== 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          Заменю задержку с {offer.previousDays} на 2 дня.
+        </Typography>
+      )}
+      <Stack direction="row" flexWrap="wrap" useFlexGap gap={0.5} sx={{ mt: 0.5 }}>
+        {patched ? (
+          <Button ref={interactive ? undoButton : undefined} variant="outlined" size="small" tabIndex={interactive ? 0 : -1} onClick={() => {
+            if (interactive && kesha?.isCurrentAccount() && undoDelay()) close();
+          }}>Отменить</Button>
+        ) : (
+          <>
+            <Button ref={interactive ? applyButton : undefined} variant="contained" color="secondary" size="small" tabIndex={interactive ? 0 : -1} onClick={(event) => {
+              if (!interactive || !offer || !kesha?.isCurrentAccount()) return;
+              focusUndo.current = event.currentTarget === document.activeElement;
+              if (!applyDelay(offer.previousDays, offer.delayRevision)) close();
+            }}>Подставить 2 дня</Button>
+            <Button size="small" tabIndex={interactive ? 0 : -1} onClick={() => { if (interactive) close(); }}>Не сейчас</Button>
+          </>
+        )}
+        {inDrawer && patched && <Button size="small" onClick={() => kesha?.setChatOpen(false)}>Вернуться к полю</Button>}
+      </Stack>
+    </>;
+  }
+
+  const overlayHint = createPortal(
     <>
       <Box role="status" sx={visuallyHidden}>{panelReady ? (compact ? 'Есть подсказка Кеши о задержке поступления.' : announcement) : ''}</Box>
       {sceneOpen && offer && (
@@ -236,19 +281,18 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
             }} sx={{
               p: 0, width: 44, height: 44,
               pointerEvents: panelReady ? 'auto' : 'none', zIndex: 1,
-              '& svg': { width: '100%', height: '100%', display: 'block' }
             }}>
-            <KeshaBird pose={flying ? 'fly' : compact ? 'idle' : 'point'} />
+            <KeshaBird />
           </IconButton>
           {compact && compactPosition && birdPosition && <Button variant="contained" color="secondary" size="small" tabIndex={panelReady ? 0 : -1}
-            aria-label={patched ? 'Правка Кеши' : 'Есть подсказка'}
+            aria-label={hintLabel}
             style={{ left: compactPosition.left - birdPosition.left, top: compactPosition.top - birdPosition.top, width: compactPosition.width }}
             sx={{ position: 'absolute', px: 0.75, minHeight: 44, pointerEvents: panelReady ? 'auto' : 'none', visibility: flying ? 'hidden' : 'inherit' }}
             onClick={(event) => { if (panelReady) expand(event.currentTarget); }}>{patched ? 'Правка Кеши' : 'Что если?'}</Button>}
           <Box data-testid="kesha-cloud" style={cloudPosition && birdPosition ? {
             left: cloudPosition.left - birdPosition.left, top: cloudPosition.top - birdPosition.top
           } : undefined} sx={{
-            position: 'absolute', visibility: flying || compact ? 'hidden' : 'inherit',
+            position: 'absolute', visibility: flying || !cloudPosition || compact ? 'hidden' : 'inherit',
             borderRadius: '14px', bgcolor: 'background.paper', boxShadow: '0 8px 24px rgba(3, 3, 6, 0.16)',
             '&::before': {
               content: tailTop >= 4 && tailTop <= 36 ? '""' : 'none', position: 'absolute',
@@ -257,30 +301,11 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
             }
           }}>
             <Box ref={cloud} aria-hidden={!speechVisible || undefined} sx={{
-              boxSizing: 'border-box', maxHeight: placement?.full.maxHeight, overflowY: 'auto', overscrollBehavior: 'contain',
+              boxSizing: 'border-box', maxHeight: placement?.full?.maxHeight, overflowY: 'auto', overscrollBehavior: 'contain',
               px: 1, py: shortViewport ? 0.5 : 0.75,
               '& button': { pointerEvents: speechVisible ? 'auto' : 'none', px: 0.75, fontSize: '0.8125rem' }
             }}>
-              <Typography variant="body2" fontWeight={650} sx={{ lineHeight: 1.3, fontSize: shortViewport ? '0.75rem' : undefined }}>{message}</Typography>
-              {!patched && offer.previousDays !== 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  Заменю задержку с {offer.previousDays} на 2 дня.
-                </Typography>
-              )}
-              {patched ? (
-                <Button ref={undoButton} variant="outlined" size="small" tabIndex={speechVisible ? 0 : -1} sx={{ mt: 0.5 }} onClick={() => {
-                  if (speechVisible && kesha?.isCurrentAccount() && undoDelay()) close();
-                }}>Отменить</Button>
-              ) : (
-                <Stack direction="row" flexWrap="wrap" useFlexGap gap={0.5} sx={{ mt: 0.5 }}>
-                  <Button ref={applyButton} variant="contained" color="secondary" size="small" tabIndex={speechVisible ? 0 : -1} onClick={(event) => {
-                    if (!speechVisible || !kesha?.isCurrentAccount()) return;
-                    focusUndo.current = event.currentTarget === document.activeElement;
-                    if (!applyDelay(offer.previousDays, offer.delayRevision)) close();
-                  }}>Подставить 2 дня</Button>
-                  <Button size="small" tabIndex={speechVisible ? 0 : -1} onClick={close}>Не сейчас</Button>
-                </Stack>
-              )}
+              {renderSpeech(false)}
             </Box>
           </Box>
         </Box>
@@ -288,4 +313,14 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
     </>,
     overlay
   );
+  return <>
+    {overlayHint}
+    {drawerVisible && chatSlot && createPortal(
+      <Box component="aside" aria-label="Подсказка Кеши" data-testid="kesha-chat-hint"
+        sx={{ mb: 2, p: 1.5, borderRadius: '12px', bgcolor: 'background.default' }}>
+        {renderSpeech(true)}
+      </Box>,
+      chatSlot
+    )}
+  </>;
 }

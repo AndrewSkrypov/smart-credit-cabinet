@@ -366,6 +366,49 @@ describe('Kesha on the agent application route', () => {
     expect(within(repositionedOffer).getByRole('button', { name: 'Открыть помощника' })).toBe(launcher());
   }, 10_000);
 
+  it('uses the existing chat for a crowded offer and returns focus to the delay field', async () => {
+    vi.stubGlobal('innerWidth', 360);
+    vi.stubGlobal('innerHeight', 520);
+    const { mutations } = renderCabinet({ initialDelay: 5 });
+    await ready();
+    const field = delay();
+    // Leave a strip for the invitation, but too little room to place the full card.
+    const bounds = new Map<Element, DOMRect>([
+      [screen.getByTestId('kesha-delay-target'), new DOMRect(12, 285, 336, 60)],
+      [screen.getByLabelText('Дата платежа'), new DOMRect(12, 8, 336, 227)],
+      [screen.getByRole('button', { name: 'Рассчитать и сохранить варианты' }), new DOMRect(12, 345, 336, 167)]
+    ]);
+    vi.mocked(Element.prototype.getBoundingClientRect).mockImplementation(function (this: Element) {
+      return bounds.get(this) ?? rect;
+    });
+    await setTargetVisible(true);
+
+    const invitation = await screen.findByRole('button', { name: 'Открыть подсказку Кеши в чате' });
+    expect(screen.getByTestId('kesha-cloud')).not.toBeVisible();
+    expect(screen.queryByTestId('kesha-chat-hint')).not.toBeInTheDocument();
+    expect(field).toHaveValue(5);
+
+    const user = userEvent.setup();
+    await user.click(invitation);
+    const inChat = await screen.findByTestId('kesha-chat-hint');
+    expect(await screen.findByRole('textbox', { name: 'Ваш вопрос' })).toBeVisible();
+    expect(inChat).toHaveTextContent(/с 5 на 2 дня/);
+    expect(within(inChat).getByRole('button', { name: 'Не сейчас' })).toBeVisible();
+    expect(screen.getByTestId('kesha-cloud')).not.toBeVisible();
+    await user.click(within(inChat).getByRole('button', { name: applyLabel }));
+    expect(field).toHaveValue(2);
+    await user.click(within(inChat).getByRole('button', { name: 'Вернуться к полю' }));
+    await waitFor(() => expect(field).toHaveFocus());
+
+    await user.click(await screen.findByRole('button', { name: 'Открыть правку Кеши в чате' }));
+    const correction = await screen.findByTestId('kesha-chat-hint');
+    await user.click(within(correction).getByRole('button', { name: 'Отменить' }));
+    await waitFor(() => expect(field).toHaveFocus());
+    expect(field).toHaveValue(5);
+    expect(send()).toBeEnabled();
+    expect(mutations()).toEqual([]);
+  }, 15_000);
+
   it('returns to the standard launcher when a config refresh turns off an open offer', async () => {
     const { disableFlag, mutations } = renderCabinet();
     await ready();

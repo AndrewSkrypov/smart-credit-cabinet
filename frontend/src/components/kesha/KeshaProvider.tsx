@@ -13,6 +13,9 @@ interface KeshaContextValue {
   blocked: boolean;
   editing: boolean;
   chatOpen: boolean;
+  chatHintSlot: HTMLDivElement | null;
+  setChatHintSlot: (slot: HTMLDivElement | null) => void;
+  returnFromChat: React.MutableRefObject<HTMLElement | null>;
   overlay: HTMLDivElement | null;
   attached: string | null;
   setAttached: React.Dispatch<React.SetStateAction<string | null>>;
@@ -37,6 +40,8 @@ export function KeshaProvider({ children }: { children: ReactNode }) {
   const tourRunning = useOnboardingRunning();
   const [sameTabAccount, setSameTabAccount] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatHintSlot, setChatHintSlot] = useState<HTMLDivElement | null>(null);
+  const returnFromChat = useRef<HTMLElement | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [attached, setAttached] = useState<string | null>(null);
@@ -82,7 +87,8 @@ export function KeshaProvider({ children }: { children: ReactNode }) {
   }, [enabled]);
 
   return <KeshaContext.Provider value={{
-    enabled, proactive, setProactive, blocked: chatOpen || tourRunning || modalOpen, editing, chatOpen, overlay, attached, setAttached, setChatOpen,
+    enabled, proactive, setProactive, blocked: chatOpen || tourRunning || modalOpen, editing, chatOpen, chatHintSlot, setChatHintSlot,
+    returnFromChat, overlay, attached, setAttached, setChatOpen,
     dockBird, offered: offered.current, isCurrentAccount
   }}>
     {children}

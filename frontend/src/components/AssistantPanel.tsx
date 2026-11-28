@@ -278,7 +278,7 @@ export function AssistantPanel() {
       <Badge color="error" badgeContent={hints.length} sx={{ mr: 1.5 }}>
         {showKesha ? (
           <Box component="span" data-testid="kesha-dock" ref={kesha.dockBird} aria-hidden="true"
-            sx={{ display: 'block', width: 34, height: 34, '& svg': { width: '100%', height: '100%', display: 'block' } }}>
+            sx={{ display: 'block', width: 34, height: 34 }}>
             <KeshaBird />
           </Box>
         ) : <ChatBubbleOutlineRoundedIcon />}
@@ -290,7 +290,14 @@ export function AssistantPanel() {
     <>
       {kesha?.overlay ? createPortal(launcher, kesha.overlay) : launcher}
       {/* No scroll lock: removing the page's scrollbar would shift the whole page sideways. */}
-      <Drawer anchor="right" open={open} onClose={() => setOpen(false)} disableScrollLock PaperProps={{ sx: { width: { xs: '100%', sm: 420 }, display: 'flex', flexDirection: 'column' } }}>
+      <Drawer anchor="right" open={open} onClose={() => setOpen(false)} disableScrollLock
+        SlideProps={{ onExited: () => {
+          const returnFocus = kesha?.returnFromChat;
+          if (!returnFocus) return;
+          if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true });
+          returnFocus.current = null;
+        } }}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 420 }, display: 'flex', flexDirection: 'column' } }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
           <Box>
             <Typography variant="subtitle1" component="h2" fontWeight={700}>Помощник</Typography>
@@ -309,6 +316,7 @@ export function AssistantPanel() {
         )}
 
         <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }} aria-live="polite">
+          {kesha?.enabled && <div ref={kesha.setChatHintSlot} />}
           {hints.length > 0 && <Stack spacing={1} sx={{ mb: 2 }}>
             {hints.map((hint, index) => <Box key={`${hint.type}:${hint.applicationId ?? index}`} sx={{ p: 1.5, bgcolor: tokens.secondaryFill, borderRadius: 2 }}>
               <Typography fontWeight={700}>{hint.title}</Typography>

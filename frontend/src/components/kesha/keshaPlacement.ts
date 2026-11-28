@@ -1,7 +1,7 @@
 type Bounds = Pick<DOMRectReadOnly, 'left' | 'top' | 'right' | 'bottom'>;
 type Obstruction = { bounds: Bounds; weight: number };
 export type KeshaPosition = { left: number; top: number; width: number; maxHeight: number };
-export type KeshaPlacement = { bird: KeshaPosition; full: KeshaPosition; compact: KeshaPosition | null; collapsed: boolean };
+export type KeshaPlacement = { bird: KeshaPosition; full: KeshaPosition | null; compact: KeshaPosition | null; collapsed: boolean };
 
 const EDGE = 12;
 const GAP = 10;
@@ -131,15 +131,5 @@ export function measureKeshaPlacement(anchor: DOMRect, cloud: HTMLElement): Kesh
   const compactWidth = Math.min(CHIP_WIDTH, width);
   const chip = findPosition(anchor, birdBounds, viewport, controls, compactWidth, 44);
   const compact = chip && !chip.covered && distance(boundsOf(chip.position), birdBounds) <= 60 ? chip.position : null;
-  const roomBelow = bottom - anchor.bottom - GAP;
-  const roomAbove = anchor.top - top - GAP;
-  const room = Math.max(roomBelow, roomAbove);
-  const fallback = room >= 44 ? {
-    left: clamp(anchor.left, left, right - width),
-    top: roomBelow >= roomAbove ? anchor.bottom + GAP : top,
-    width,
-    maxHeight: room
-  } : null;
-  const expanded = full?.position ?? fallback;
-  return expanded ? { bird, full: expanded, compact, collapsed: true } : null;
+  return { bird, full: full && !full.covered ? full.position : null, compact, collapsed: true };
 }

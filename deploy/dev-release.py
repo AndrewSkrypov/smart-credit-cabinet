@@ -18,6 +18,7 @@ from alpha_dev import PROJECT, SECRET_KEYS, stop_alpha
 from catalog import SECRET_KEYS as CATALOG_SECRET_KEYS, append_secrets, ensure_tls, requested_mode
 from catalog_rollout import store as write_state, validated_journal
 from runtime_delivery_support import ensure_private, fsync_dir, read_record
+import mcp_bootstrap
 import mcp_dev
 from common import Deployment, ROOT, deploy_lock, lock_environment, replace_env
 from dev_diagnostics import diagnose, read_request
@@ -165,6 +166,10 @@ def deploy(args, state_dir, release):
         if status.get("catalog") or pending.get("catalog"):
             raise ValueError("В cabinet.env отсутствуют пароли уже настроенного Catalog")
         env_contents = append_secrets(env_contents)
+    env_contents = mcp_bootstrap.prepare_env(
+        PROJECT, env_file, release, env_contents, verify_only=args.verify_only,
+        allow_new=not pending and (enrollment is None or replacement) and status.get("revision") != release.revision,
+    )
     deployment = Deployment(PROJECT, env_file, release_manifest=release.path, env_contents=env_contents, open_hooks=False)
     desired, history_file, history = rollout_metadata(deployment, state_dir, release, status, pending)
     need_attempt = bool(deployment.runtime_modes or deployment.alpha_dev) and release.has_all_runtimes

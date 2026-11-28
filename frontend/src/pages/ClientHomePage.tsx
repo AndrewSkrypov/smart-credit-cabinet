@@ -150,7 +150,7 @@ export function ClientHomePage() {
             )}
 
             <Box data-tour="client-applications">
-              <ApplicationPageFilters state={applications} status={false} />
+              <ApplicationPageFilters state={applications} status={false} onPage />
               <ApplicationPageStatus states={[applications, finished]} />
               <Stack spacing={3}>
                 {([['В работе', applications, 'client-active', 'active'], ['Завершённые', finished, 'client-done', 'done']] as const).map(([title, state, id, countKey]) =>

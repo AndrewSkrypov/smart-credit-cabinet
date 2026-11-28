@@ -154,7 +154,8 @@ export const cabinetTheme = createTheme({
           '&.MuiChip-colorDefault': { backgroundColor: tokens.secondaryFill, color: tokens.ink }
         },
         sizeSmall: { [touch]: { minHeight: 24 } },
-        label: { [touch]: { whiteSpace: 'normal', overflowWrap: 'anywhere', paddingBlock: '1px' } }
+        // Long statuses wrap between words, never inside one.
+        label: { [touch]: { whiteSpace: 'normal', overflowWrap: 'normal', wordBreak: 'normal', paddingBlock: '1px' } }
       }
     },
     MuiAlert: { styleOverrides: { root: { borderRadius: 16 } } },

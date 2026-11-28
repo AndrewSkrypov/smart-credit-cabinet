@@ -37,9 +37,9 @@ const onPageFields = {
   '& .MuiFilledInput-root': { bgcolor: '#fff', '&:hover': { bgcolor: '#fff' }, '&:hover:not(.Mui-focused):not(.Mui-error)': { boxShadow: `inset 0 0 0 1px ${tokens.line}` }, '&.Mui-focused': { bgcolor: '#fff' } },
 };
 
-export function ApplicationPageFilters({ state, bank, status = true }: { state: PageState; bank?: boolean; status?: boolean }) {
+export function ApplicationPageFilters({ state, bank, status = true, onPage = false }: { state: PageState; bank?: boolean; status?: boolean; onPage?: boolean }) {
   return <Stack>
-    <Box sx={{ display: 'grid', gap: { xs: 1, sm: 2 }, ...onPageFields, gridTemplateColumns: {
+    <Box sx={{ display: 'grid', gap: { xs: 1, sm: 2 }, ...(onPage ? onPageFields : {}), gridTemplateColumns: {
       xs: bank ? 'minmax(0, 1fr) minmax(0, 110px)' : '1fr',
       sm: bank ? 'minmax(0, 1fr) 190px 110px' : 'minmax(0, 1fr) 190px',
     } }}>

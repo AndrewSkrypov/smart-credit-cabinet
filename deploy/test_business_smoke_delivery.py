@@ -6,7 +6,7 @@ import fcntl
 import hashlib
 import http.client
 import importlib.util
-from io import StringIO
+from io import BytesIO, StringIO
 import json
 import os
 from pathlib import Path
@@ -20,6 +20,7 @@ import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 import business_smoke as smoke
@@ -546,6 +547,7 @@ class HookCompatibility(unittest.TestCase):
             "state_dir": self.state, "release": self.release, "deployment": self.deployment,
             "status": {}, "desired": {}, "pending_file": self.pending,
             "ROOT": ROOT, "env_args": [], "release_args": [], "json": json, "subprocess": subprocess, "COMPANY": smoke.JURY_COMPANY,
+            "canonical_origin": smoke.canonical_origin,
             "read_credentials": Mock(return_value={}), "provision": Mock(), "verify": Mock(return_value=[]),
             "run": Mock(return_value=json.dumps({"passed": True})), "run_business_smoke": business,
             "runtime_attempts": SimpleNamespace(load=Mock(return_value=self.attempt)),
@@ -569,11 +571,11 @@ class HookCompatibility(unittest.TestCase):
         ast.parse(controller_source())
         self.assertEqual(controller.read_bytes(), before)
 
-    def test_actual_same_current_retry_without_pending_does_not_run_business_or_create_fixtures(self):
+    def no_pending_controller(self, origin=smoke.ORIGIN):
         spec = importlib.util.spec_from_file_location("business_noop_actual_controller", ROOT / "deploy/dev-release.py")
         controller = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(controller)
-        self.pending.unlink()
+        self.pending.unlink(missing_ok=True)
         alpha_state = {"generation": self.generation, "read_enabled": False}
         desired = {"revision": self.release.revision, "manifest_sha256": self.release.checksum,
                    **{name: {"mode": "remote"} for name in smoke.RUNTIMES}, "alpha_dev": alpha_state}
@@ -582,10 +584,15 @@ class HookCompatibility(unittest.TestCase):
         env.write_text("CABINET_ALPHA_DEV_ENABLED=true\nCATALOG_DB_PASSWORD=synthetic\n")
         env.chmod(0o600)
         self.deployment.values["CABINET_ALPHA_DEV_ENABLED"] = "true"
+        self.deployment.values["PUBLIC_CABINET_URL"] = origin
         self.deployment.catalog_enabled = True
         self.deployment.catalog_mode = "remote"
         self.deployment.catalog_state = self.state / "catalog"
         self.deployment.alpha_dev = SimpleNamespace(state=lambda: alpha_state, generation=self.generation, read_enabled=False)
+        return controller
+
+    def test_actual_same_current_retry_without_pending_does_not_run_business_or_create_fixtures(self):
+        controller = self.no_pending_controller()
         before = {path.name: path.read_bytes() for path in self.state.iterdir() if path.is_file()}
         with (patch.object(controller, "Deployment", return_value=self.deployment),
               patch.object(controller, "read_credentials", return_value={}),
@@ -604,6 +611,84 @@ class HookCompatibility(unittest.TestCase):
         self.assertFalse((self.state / "business-smoke").exists())
         self.assertEqual({path.name: path.read_bytes() for path in self.state.iterdir() if path.is_file()}, before)
         self.deployment.compose.assert_not_called()
+
+    def role_probe(self, configured_origin, expected_origin, *, feature_enabled=True):
+        import jury
+        controller = self.no_pending_controller(configured_origin)
+        self.deployment.dev_payment_reserve_simulation = feature_enabled
+        self.assertIs(controller.verify, jury.verify)  # Exercise the real role checker.
+        credentials = {role: {"email": details[0], "password": "synthetic-role-password-" + role}
+                       for role, details in jury.USERS.items()}
+        paths = []
+        def open_request(request, timeout):
+            parsed = urlsplit(request.full_url)
+            self.assertEqual(parsed.scheme + "://" + parsed.netloc, expected_origin)
+            self.assertFalse(parsed.path.startswith("//"))
+            route = parsed.path + ("?" + parsed.query if parsed.query else "")
+            paths.append(route)
+            token = request.get_header("Authorization")
+            role = next((role for role in jury.USERS if token == "Bearer synthetic-" + role + "-token"), None)
+            if route == "/":
+                self.assertEqual(request.get_method(), "GET")
+                status, body = 200, b"synthetic cabinet page"
+            elif route == "/api/v1/auth/sign-in":
+                self.assertEqual(request.get_method(), "POST")
+                payload = json.loads(request.data)
+                role = next((r for r, values in credentials.items() if payload == values), None)
+                self.assertIn(role, jury.USERS)
+                user = {"id": jury.USERS[role][1], "fullName": "Synthetic " + role, "email": credentials[role]["email"], "role": role, "status": "ACTIVE",
+                        "companyId": jury.COMPANY if role == "CLIENT" else None, "canSign": role == "CLIENT"}
+                status, body = 200, encoded({"token": "synthetic-" + role + "-token", "user": user})
+            elif route == "/api/v1/companies/me":
+                self.assertEqual(role, "CLIENT")
+                status, body = 200, encoded({"id": jury.COMPANY, "inn": "0000000000", "name": "Synthetic role company"})
+            elif route == "/api/v1/agent/clients":
+                if role == "AGENT":
+                    status, body = 200, encoded([{"companyId": jury.COMPANY, "inn": "0000000000", "name": "Synthetic role company",
+                                                "legalForm": "LEGAL_ENTITY", "assignedAt": "2026-11-28T00:00:00Z"}])
+                else:
+                    status, body = (403 if role in {"CLIENT", "UNDERWRITER"} else 401), b"{}"
+            elif route == "/api/v1/applications/page?size=1&group=review":
+                self.assertIn(role, {"AGENT", "UNDERWRITER"})
+                status, body = (200 if role == "UNDERWRITER" else 403), encoded({"items": [], "page": 0, "size": 1,
+                    "totalElements": 0, "totalPages": 0, "hasNext": False, "countsByGroup": {},
+                    "actionRequiredCount": 0, "actionRequiredPreview": []})
+            elif route == "/sim/control":
+                status, body = 404, b"{}"
+            else:
+                raise AssertionError("unexpected synthetic role route")
+            response = BytesIO(body)
+            response.status = status
+            return response
+        before = {path.name: path.read_bytes() for path in self.state.iterdir() if path.is_file()}
+        with (patch.object(controller, "Deployment", return_value=self.deployment),
+              patch.object(controller, "read_credentials", return_value=credentials),
+              patch.object(controller, "provision"),
+              patch.object(controller, "run", return_value="{}"),
+              patch.object(controller, "run_business_smoke", side_effect=AssertionError("role probe created business fixtures")) as business,
+              patch.object(jury, "build_opener", return_value=SimpleNamespace(open=open_request)) as opener,
+              patch("socket.create_connection", side_effect=AssertionError("role probe opened network")),
+              patch("socket.getaddrinfo", side_effect=AssertionError("role probe resolved DNS")),
+              redirect_stdout(StringIO()) as output):
+            controller.deploy(SimpleNamespace(verify_only=False, deployment_fd=123), self.state, self.release)
+        report = json.loads(output.getvalue())
+        self.assertEqual(len(report["role_checks"]), 11)
+        self.assertEqual([row["status"] for row in report["role_checks"]], [200] * 6 + [403] * 3 + [401, 404])
+        self.assertEqual(len(paths), 12)
+        self.assertEqual(paths[0], "/")
+        self.assertEqual(paths.count("/api/v1/auth/sign-in"), 3)
+        self.assertTrue(all(not path.startswith("//") for path in paths))
+        opener.assert_called_once(); business.assert_not_called()
+        self.assertEqual({path.name: path.read_bytes() for path in self.state.iterdir() if path.is_file()}, before)
+        self.deployment.compose.assert_not_called()
+
+    def test_actual_controller_real_jury_role_probe_canonicalizes_both_dev_forms(self):
+        for configured in (smoke.ORIGIN, smoke.ORIGIN + "/"):
+            with self.subTest(configured=configured):
+                self.role_probe(configured, smoke.ORIGIN)
+
+    def test_actual_controller_real_role_probe_preserves_other_disabled_origin(self):
+        self.role_probe("https://legacy.example.invalid", "https://legacy.example.invalid", feature_enabled=False)
 
     def test_actual_helper_fresh_shape_gets_exact_current_checksum_after_business(self):
         report = self.execute()

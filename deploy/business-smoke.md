@@ -16,8 +16,13 @@ held deploy.lock, реальные private current/pending, immutable attempt pr
 четыре REMOTE и успешный привязанный runtime report. Raw CLI/ENV-утверждения не
 включают harness. Новый config-owner включает отдельный
 DEV_PAYMENT_RESERVE_SIMULATION_ENABLED только своим scoped Dev overlay.
-Селектор и host-проверка используют один canonical origin: завершающий `/`
+Селектор, host-проверка и role probe контроллера используют один canonical origin: завершающий `/`
 в `PUBLIC_CABINET_URL` допускается, а путь, query, fragment и userinfo запрещены.
+Перед штатным `jury.verify` обе Dev-формы приводятся к базе без завершающего `/`:
+проверки запрашивают `/` и `/api/v1/auth/sign-in`, не двойные пути `//`.
+Поведение иных доменов при выключенном Dev-флаге сохраняется. Offline-регрессия
+вызывает фактический `deploy()` и настоящий `jury.verify` через fake opener:
+все11 ролевых проверок и12 запросов исполняются без сети и бизнес-фикстур.
 
 Private jury.json0600 читается только на хосте: NOFOLLOW, regular file, owner,
 размер128KiB, точная схема трёх ролей. AGENT/UNDERWRITER входят обычным HTTPS.

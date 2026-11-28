@@ -20,6 +20,7 @@ from catalog_rollout import store as write_state, validated_journal
 from runtime_delivery_support import ensure_private, fsync_dir, read_record
 from common import Deployment, ROOT, deploy_lock, lock_environment, replace_env
 from dev_diagnostics import diagnose, read_request
+from dev_payment_reserve import canonical_origin
 from business_smoke import run as run_business_smoke
 from jury import COMPANY, provision, read_credentials, verify
 from registry_release import RegistryRelease, REVISION
@@ -235,7 +236,8 @@ def deploy(args, state_dir, release):
         credentials = read_credentials(state_dir / "jury.json", create=not args.verify_only)
         if not args.verify_only:
             provision(deployment, credentials)
-        origin = deployment.values["PUBLIC_CABINET_URL"]
+        configured_origin = deployment.values["PUBLIC_CABINET_URL"]
+        origin = canonical_origin(configured_origin) or configured_origin
         report = {"manifest_sha256": release.checksum, "role_checks": verify(origin, credentials, expected_company=COMPANY)}
         report["release"] = json.loads(run(ROOT, "verify-release.py", *env_args, *release_args,
                                            "--expected-revision", release.revision, capture=True))

@@ -18,3 +18,24 @@ Lockfile SHA-256 — `7171e2a2d20f07ab1fa25f2ac6fd096af454a04339311e7bd7532578b4
 Контракт адаптера проверен через SDK-клиента с подставным HTTP-транспортом. Набор `npm test` включает 13 проверок, в том числе неизменный офлайн-режим, точный allowlist операций, закрытые ответы, ошибку без прежних данных и ротацию файла с синтетической сессией.
 
 Для отдельной проверки настоящего loopback HTTP с тестовым сервером выполните `npm run test:credit-http` в среде, разрешающей привязку к `127.0.0.1`. Для проверки с самого MCP до запущенного Credit выполните `npm run --silent verify:credit` с окружением из [README](../README.md). Результаты stub и Credit следует фиксировать отдельно.
+
+## Remote OAuth to Credit
+
+Use a throwaway HTTPS stack with the remote MCP release enabled, an
+existing active synthetic agent, a saved scenario with the day-5/day-6
+receipt fixture, and a different synthetic case outside that agent's
+mandate. The acceptance client must be registered for the exact numeric
+loopback HTTP callback used by this test. Collect the synthetic Credit
+database snapshot separately before and after, including application
+versions, scenario revisions, documents, business events and outbox.
+
+Run the build and `node test/oauth-credit-live.ts` on Node 24.13.0 with
+`CABINET_MCP_SYNTHETIC_ACCEPTANCE=1`, the matching HTTPS origin in
+`CABINET_MCP_ACCEPTANCE_ORIGIN`, and
+`CABINET_MCP_ACCEPTANCE_FIXTURE` pointing at an owner-only absolute JSON
+path. Its keys are `email`, `password`, `clientId`, `redirectUri`,
+`applicationId` and `foreignApplicationId`. For a private trust chain
+set `NODE_EXTRA_CA_CERTS` to the approved CA PEM. Use ordinary certificate
+and hostname validation. The script never follows the OAuth redirect, and
+reports only a fixed stage label, with no credential or fixture values.
+It revokes the access token whether the checks succeed or fail.

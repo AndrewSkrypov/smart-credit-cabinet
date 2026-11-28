@@ -1,11 +1,14 @@
-package ru.creditcabinet.mcp
+package ru.creditcabinet.mcp.persistence
 
+import java.util.UUID
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import ru.creditcabinet.mcp.config.McpOAuthSettings
+import ru.creditcabinet.mcp.config.digest
+import ru.creditcabinet.mcp.config.pkceChallenge
 import ru.creditcabinet.user.domain.User
-import java.util.UUID
 
 @Component
 @ConditionalOnProperty("cabinet.mcp-oauth.enabled", havingValue = "true")

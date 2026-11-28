@@ -1,7 +1,12 @@
-package ru.creditcabinet.mcp
+package ru.creditcabinet.mcp.http
 
 import io.swagger.v3.oas.annotations.Hidden
 import jakarta.servlet.http.HttpServletRequest
+import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets.UTF_8
+import java.time.Duration
+import java.util.Collections
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -17,17 +22,17 @@ import ru.creditcabinet.auth.application.AuthService
 import ru.creditcabinet.common.limits.LimitWindow
 import ru.creditcabinet.common.limits.SharedLimits
 import ru.creditcabinet.identity.domain.IdentityFailure
-import ru.creditcabinet.mcp.McpOAuthSettings.Companion.AUTHORIZE_PATH
-import ru.creditcabinet.mcp.McpOAuthSettings.Companion.OPTIONS_PATH
-import ru.creditcabinet.mcp.McpOAuthSettings.Companion.REVOCATION_PATH
-import ru.creditcabinet.mcp.McpOAuthSettings.Companion.SCOPE
-import ru.creditcabinet.mcp.McpOAuthSettings.Companion.TOKEN_PATH
+import ru.creditcabinet.mcp.config.McpOAuthSettings
+import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.AUTHORIZE_PATH
+import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.OPTIONS_PATH
+import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.REVOCATION_PATH
+import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.SCOPE
+import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.TOKEN_PATH
+import ru.creditcabinet.mcp.config.newMcpSecret
+import ru.creditcabinet.mcp.config.opaqueSecret
+import ru.creditcabinet.mcp.config.pkceVerifier
+import ru.creditcabinet.mcp.persistence.McpOAuthStore
 import ru.creditcabinet.user.domain.UserRole
-import java.net.URI
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets.UTF_8
-import java.time.Duration
-import java.util.Collections
 
 @Hidden
 @RestController

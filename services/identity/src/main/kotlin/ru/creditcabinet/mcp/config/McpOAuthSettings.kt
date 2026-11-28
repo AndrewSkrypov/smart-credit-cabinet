@@ -1,4 +1,4 @@
-package ru.creditcabinet.mcp
+package ru.creditcabinet.mcp.config
 
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty

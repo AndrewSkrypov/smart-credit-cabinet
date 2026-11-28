@@ -14,11 +14,11 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.web.util.UriComponentsBuilder
-import ru.creditcabinet.mcp.McpOAuthSettings.Companion.AUTHORIZE_PATH
-import ru.creditcabinet.mcp.McpOAuthSettings.Companion.OPTIONS_PATH
-import ru.creditcabinet.mcp.McpOAuthSettings.Companion.REVOCATION_PATH
-import ru.creditcabinet.mcp.McpOAuthSettings.Companion.SCOPE
-import ru.creditcabinet.mcp.McpOAuthSettings.Companion.TOKEN_PATH
+import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.AUTHORIZE_PATH
+import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.OPTIONS_PATH
+import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.REVOCATION_PATH
+import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.SCOPE
+import ru.creditcabinet.mcp.config.McpOAuthSettings.Companion.TOKEN_PATH
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets.UTF_8
 import java.util.UUID

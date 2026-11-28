@@ -1,15 +1,14 @@
 package ru.creditcabinet.access.infrastructure
 
-import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import ru.creditcabinet.access.domain.AccessGrant
 import ru.creditcabinet.access.domain.RecoveryLimits
-import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.limits.LimitWindow
 import ru.creditcabinet.common.limits.SharedLimits
+import ru.creditcabinet.identity.domain.IdentityFailure.RateLimited
 import java.sql.Timestamp
 import java.time.Duration
 import java.time.Instant
@@ -38,7 +37,7 @@ class RecoveryThrottle(private val jdbc: NamedParameterJdbcTemplate, private val
                 mapOf("key" to AccessGrant.hash("$scope:$value"), "now" to Timestamp.from(now), "since" to Timestamp.from(now.minusSeconds(900))),
                 Int::class.java,
             )!!
-            if (count > limit) throw ApiException(HttpStatus.TOO_MANY_REQUESTS, "Слишком много запросов восстановления. Попробуйте через 15 минут.")
+            if (count > limit) throw RateLimited("Слишком много запросов восстановления. Попробуйте через 15 минут.")
         }
         jdbc.update("delete from identity_rate_buckets where window_start < :before", mapOf("before" to Timestamp.from(now.minusSeconds(86400))))
     }

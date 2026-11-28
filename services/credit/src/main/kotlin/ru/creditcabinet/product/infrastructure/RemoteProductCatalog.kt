@@ -2,15 +2,15 @@ package ru.creditcabinet.product.infrastructure
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.http.HttpHeaders
-import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.context.request.RequestContextHolder
 import org.springframework.web.context.request.ServletRequestAttributes
+import ru.creditcabinet.application.application.CreditFailure.DependencyUnavailable
+import ru.creditcabinet.application.application.CreditFailure.Unauthenticated
+import ru.creditcabinet.application.infrastructure.creditPortCall
 import ru.creditcabinet.cataloggrpc.CatalogGrpcClient
 import ru.creditcabinet.catalogjdbc.JdbcProductCatalog
-import ru.creditcabinet.common.exception.ApiException
-import ru.creditcabinet.common.exception.UnauthorizedException
 import ru.creditcabinet.product.domain.Product
 import ru.creditcabinet.product.domain.ProductCatalog
 import ru.creditcabinet.product.domain.ProductRevision
@@ -25,23 +25,23 @@ internal class RemoteProductCatalog(
     private val local: JdbcProductCatalog,
     private val cache: CatalogRevisionCache,
 ) : ProductCatalog, ProductVersions, SubmissionProductCatalog {
-    override fun all(): List<Product> = client.current(effectiveOnly = true).map(ProductRevision::product)
-    override fun find(code: String): Product? = client.current(code, effectiveOnly = true).singleOrNull()?.product
-    override fun latest(code: String): Product? = client.current(code).singleOrNull()?.product
+    override fun all(): List<Product> = creditPortCall { client.current(effectiveOnly = true).map(ProductRevision::product) }
+    override fun find(code: String): Product? = creditPortCall { client.current(code, effectiveOnly = true) }.singleOrNull()?.product
+    override fun latest(code: String): Product? = creditPortCall { client.current(code) }.singleOrNull()?.product
     override fun version(code: String, version: Long): Product? = local.version(code, version)
-    override fun list(): List<Product> = client.current().map(ProductRevision::product)
-    override fun history(code: String): List<ProductRevision> = client.history(code)
+    override fun list(): List<Product> = creditPortCall { client.current().map(ProductRevision::product) }
+    override fun history(code: String): List<ProductRevision> = creditPortCall { client.history(code) }
 
     override fun forDraft(code: String): Product? {
-        val revision = client.current(code, effectiveOnly = true).singleOrNull() ?: return null
+        val revision = creditPortCall { client.current(code, effectiveOnly = true) }.singleOrNull() ?: return null
         cache.store(listOf(revision))
         return revision.product
     }
 
     override fun snapshotForSubmission(selectedProductCode: String): SubmissionProductSnapshot? {
-        val snapshot = client.snapshotForSubmission(selectedProductCode) ?: return null
+        val snapshot = creditPortCall { client.snapshotForSubmission(selectedProductCode) } ?: return null
         if (snapshot.revisions.isEmpty()) {
-            throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Каталог не передал аудит редакций")
+            throw DependencyUnavailable("Каталог не передал аудит редакций")
         }
         cache.store(snapshot.revisions)
         return snapshot
@@ -54,7 +54,7 @@ internal class RemoteProductCatalog(
         now: Instant,
         authorName: String?,
         authorRole: String?,
-    ): ProductRevision = client.create(product, reason, authorization())
+    ): ProductRevision = creditPortCall { client.create(product, reason, authorization()) }
 
     override fun replace(
         product: Product,
@@ -64,11 +64,11 @@ internal class RemoteProductCatalog(
         now: Instant,
         authorName: String?,
         authorRole: String?,
-    ): ProductRevision = client.replace(product, expectedVersion, reason, authorization())
+    ): ProductRevision = creditPortCall { client.replace(product, expectedVersion, reason, authorization()) }
 
     private fun authorization(): String = (RequestContextHolder.getRequestAttributes() as? ServletRequestAttributes)
         ?.request?.getHeader(HttpHeaders.AUTHORIZATION)?.takeIf { it.startsWith("Bearer ") }
-        ?: throw UnauthorizedException()
+        ?: throw Unauthenticated("Требуется вход в систему")
 }
 
 internal class CatalogRevisionCache(private val jdbc: JdbcTemplate, private val mapper: ObjectMapper) {

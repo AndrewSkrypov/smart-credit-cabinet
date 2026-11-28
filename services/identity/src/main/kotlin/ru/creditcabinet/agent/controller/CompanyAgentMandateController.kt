@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.agent.application.CompanyAgentMandates
 import ru.creditcabinet.agent.domain.AgentMandateStatus
 import ru.creditcabinet.agent.domain.CompanyAgentMandate
+import ru.creditcabinet.auth.controller.actor
 import ru.creditcabinet.common.security.CurrentCaller
 import java.time.Instant
 import java.util.UUID
@@ -36,18 +37,18 @@ data class AgentMandateResponse(
 class CompanyAgentMandateController(private val mandates: CompanyAgentMandates) {
     @Operation(summary = "История агентских мандатов текущей компании")
     @GetMapping
-    fun list(): List<AgentMandateResponse> = mandates.list(CurrentCaller.claims()).map(CompanyAgentMandate::toResponse)
+    fun list(): List<AgentMandateResponse> = mandates.list(CurrentCaller.claims().actor()).map(CompanyAgentMandate::toResponse)
 
     @Operation(summary = "Выдать агенту мандат от имени текущей компании")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun issue(@RequestBody request: IssueAgentMandateRequest): AgentMandateResponse =
-        mandates.issue(CurrentCaller.claims(), request.agentUserId, request.expiresAt).toResponse()
+        mandates.issue(CurrentCaller.claims().actor(), request.agentUserId, request.expiresAt).toResponse()
 
     @Operation(summary = "Отозвать агентский мандат текущей компании")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun revoke(@PathVariable id: UUID) = mandates.revoke(CurrentCaller.claims(), id)
+    fun revoke(@PathVariable id: UUID) = mandates.revoke(CurrentCaller.claims().actor(), id)
 }
 
 private fun CompanyAgentMandate.toResponse() = AgentMandateResponse(

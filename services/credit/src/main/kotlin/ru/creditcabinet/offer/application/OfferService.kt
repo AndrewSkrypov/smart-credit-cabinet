@@ -3,6 +3,10 @@ package ru.creditcabinet.offer.application
 import org.springframework.stereotype.Service
 import ru.creditcabinet.application.application.ApplicationAccess
 import ru.creditcabinet.application.application.CommitTransition
+import ru.creditcabinet.application.application.CreditFailure.Conflict
+import ru.creditcabinet.application.application.CreditFailure.Forbidden
+import ru.creditcabinet.application.application.CreditFailure.InvalidInput
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.application.CreditTransactions
 import ru.creditcabinet.application.domain.ApplicationEvent
 import ru.creditcabinet.application.domain.ApplicationStatus
@@ -10,10 +14,6 @@ import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.application.domain.PipelineJobs
 import ru.creditcabinet.application.domain.PipelineStep
 import ru.creditcabinet.application.service.toActor
-import ru.creditcabinet.common.exception.ApiException
-import ru.creditcabinet.common.exception.BadRequestException
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.integration.domain.SigningGateway
 import ru.creditcabinet.integration.domain.SigningResult
@@ -26,6 +26,8 @@ import ru.creditcabinet.offer.domain.SigningSessions
 import ru.creditcabinet.product.domain.ProductCatalog
 import java.time.Clock
 import java.util.UUID
+
+class SigningUnavailable(cause: Throwable) : RuntimeException("Сервис подписания недоступен — попробуйте через минуту", cause)
 
 /**
  * What the client does with an offer: accept or decline it, then sign the contract with a
@@ -51,7 +53,7 @@ class OfferService(
         if (application.status == ApplicationStatus.SIGNING) return application
         val offer = issuedOffer(application)
         val now = clock.instant()
-        if (offer.validUntil.isBefore(now)) throw ConflictException("Срок предложения истёк")
+        if (offer.validUntil.isBefore(now)) throw Conflict("Срок предложения истёк")
         val saved = transactions.execute {
             contracts.freeze(application, offer, products.version(offer.productCode, offer.productVersion)!!)
             offers.updateStatus(offer.id, OfferStatus.ACCEPTED, now)
@@ -77,12 +79,12 @@ class OfferService(
     override fun requestCode(id: UUID): SigningSessionRecord {
         val (claims, application) = applications.own(id)
         requireSigner(claims)
-        if (application.status != ApplicationStatus.SIGNING) throw ConflictException("Подписывать сейчас нечего")
+        if (application.status != ApplicationStatus.SIGNING) throw Conflict("Подписывать сейчас нечего")
         val offer = offers.current(application.id)!!
         return try {
             startSigning(application, offer, claims)
         } catch (exception: SourceUnavailableException) {
-            throw ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Сервис подписания недоступен — попробуйте через минуту")
+            throw SigningUnavailable(exception)
         }
     }
 
@@ -91,24 +93,24 @@ class OfferService(
         val (claims, application) = applications.own(id)
         requireSigner(claims)
         if (application.status == ApplicationStatus.DISBURSING || application.status == ApplicationStatus.DISBURSED) return application
-        if (application.status != ApplicationStatus.SIGNING) throw ConflictException("Подписывать сейчас нечего")
-        val session = sessions.latest(application.id)?.takeIf { it.signatureId == null } ?: throw ConflictException("Сначала получите код подписи")
-        val currentOffer = offers.current(id) ?: throw ConflictException("Предложение не найдено")
-        if (currentOffer.id != session.offerId || currentOffer.status != OfferStatus.ACCEPTED) throw ConflictException("Код относится к другому предложению")
+        if (application.status != ApplicationStatus.SIGNING) throw Conflict("Подписывать сейчас нечего")
+        val session = sessions.latest(application.id)?.takeIf { it.signatureId == null } ?: throw Conflict("Сначала получите код подписи")
+        val currentOffer = offers.current(id) ?: throw Conflict("Предложение не найдено")
+        if (currentOffer.id != session.offerId || currentOffer.status != OfferStatus.ACCEPTED) throw Conflict("Код относится к другому предложению")
         val snapshot = contracts.find(session.offerId)
         if (snapshot == null ||
             session.contractSnapshotId != snapshot.id
         ) {
-            throw ConflictException("Текст для прежнего кода не сохранён — получите новый код подписи")
+            throw Conflict("Текст для прежнего кода не сохранён — получите новый код подписи")
         }
-        if (session.expiresAt.isBefore(clock.instant())) throw ConflictException("Срок действия кода истёк — запросите новый")
+        if (session.expiresAt.isBefore(clock.instant())) throw Conflict("Срок действия кода истёк — запросите новый")
         val result = try {
             gateway.confirm(session.externalSessionId, code.trim())
         } catch (exception: SourceUnavailableException) {
-            throw ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Сервис подписания недоступен — попробуйте через минуту")
+            throw SigningUnavailable(exception)
         }
         return when (result) {
-            is SigningResult.Refused -> throw BadRequestException(result.message)
+            is SigningResult.Refused -> throw InvalidInput(result.message)
             is SigningResult.Signed -> transactions.execute {
                 val current = applications.own(id, forUpdate = true).second
                 if (current.status == ApplicationStatus.DISBURSING || current.status == ApplicationStatus.DISBURSED) return@execute current
@@ -117,7 +119,7 @@ class OfferService(
                     offers.current(id)?.id != session.offerId ||
                     sessions.latest(id)?.id != session.id
                 ) {
-                    throw ConflictException("Цикл подписания изменился — обновите договор")
+                    throw Conflict("Цикл подписания изменился — обновите договор")
                 }
                 val now = clock.instant()
                 sessions.markSigned(session.id, result.signatureId, result.signedAt, claims.userId)
@@ -134,7 +136,7 @@ class OfferService(
 
     override fun contract(id: UUID): ContractTextView {
         val application = applications.get(id)
-        val offer = offers.current(id) ?: throw ru.creditcabinet.common.exception.NotFoundException("Текста пока нет: банк ещё не сделал предложение")
+        val offer = offers.current(id) ?: throw NotFound("Текста пока нет: банк ещё не сделал предложение")
         val snapshot = contracts.find(offer.id)
         val session = sessions.signedFor(id, offer.id) ?: sessions.latest(id)?.takeIf { it.offerId == offer.id }
         val legacy = snapshot == null && application.status != ApplicationStatus.OFFER_ISSUED
@@ -149,12 +151,12 @@ class OfferService(
     }
 
     private fun issuedOffer(application: LoanApplication): Offer {
-        if (application.status != ApplicationStatus.OFFER_ISSUED) throw ConflictException("Предложения банка сейчас нет")
-        return offers.current(application.id)?.takeIf { it.status == OfferStatus.ISSUED } ?: throw ConflictException("Предложения банка сейчас нет")
+        if (application.status != ApplicationStatus.OFFER_ISSUED) throw Conflict("Предложения банка сейчас нет")
+        return offers.current(application.id)?.takeIf { it.status == OfferStatus.ISSUED } ?: throw Conflict("Предложения банка сейчас нет")
     }
 
     private fun requireSigner(claims: TokenClaims) {
-        if (!claims.canSign) throw ForbiddenException("Подписать договор может только представитель компании с правом подписи")
+        if (!claims.canSign) throw Forbidden("Подписать договор может только представитель компании с правом подписи")
     }
 
     private fun startSigning(application: LoanApplication, offer: Offer, claims: TokenClaims): SigningSessionRecord {
@@ -182,7 +184,7 @@ class OfferService(
                 offers.current(application.id)?.let { it.id == offer.id && it.status == OfferStatus.ACCEPTED } != true ||
                 sessions.signedFor(application.id, offer.id) != null
             ) {
-                throw ConflictException("Цикл подписания уже завершён или изменился")
+                throw Conflict("Цикл подписания уже завершён или изменился")
             }
             sessions.save(record)
             record

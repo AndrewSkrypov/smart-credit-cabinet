@@ -338,6 +338,8 @@ services:
         SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
     environment:
       <<: *service-env
+      DEV_PAYMENT_RESERVE_SIMULATION_ENABLED: "false"
+      CABINET_DEPLOYMENT_PROJECT: ""
       # Leave room outside the heap for PDF rendering, the JVM and native buffers.
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=55 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
       DB_NAME: credit

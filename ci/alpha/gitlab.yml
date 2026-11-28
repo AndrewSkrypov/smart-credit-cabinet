@@ -12,7 +12,8 @@
         $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-private-valkey" ||
         $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-services-integration" ||
         $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-dev-backup-recovery" ||
-        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-remote-dev-release") &&
+        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-remote-dev-release" ||
+        $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "feature/alpha-dev-business-acceptance") &&
         $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "feat/final-platform-release"
 
 alpha-pilot-infrastructure:

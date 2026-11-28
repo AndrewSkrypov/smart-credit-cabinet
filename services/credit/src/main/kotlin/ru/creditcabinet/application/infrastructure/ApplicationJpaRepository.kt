@@ -1,11 +1,13 @@
 package ru.creditcabinet.application.infrastructure
 
 import jakarta.persistence.LockModeType
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Component
+import ru.creditcabinet.application.domain.ApplicationCreationConflict
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.LoanApplication
@@ -31,6 +33,12 @@ class ApplicationJpaAdapter(private val repository: ApplicationJpaRepository) : 
     // Flushed at once, so a stale version or a second active application fails inside the
     // caller's transaction, and the sequence number comes back to the caller.
     override fun save(application: LoanApplication): LoanApplication = repository.saveAndFlush(ApplicationEntity.from(application)).toDomain()
+
+    override fun create(application: LoanApplication): LoanApplication = try {
+        save(application)
+    } catch (failure: DataIntegrityViolationException) {
+        throw ApplicationCreationConflict(failure)
+    }
 
     override fun listByCompany(companyId: UUID): List<LoanApplication> = repository.findByCompanyIdOrderByCreatedAtDesc(companyId).map { it.toDomain() }
 

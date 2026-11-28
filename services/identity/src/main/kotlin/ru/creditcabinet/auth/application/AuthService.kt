@@ -1,50 +1,46 @@
 package ru.creditcabinet.auth.application
 
-import org.springframework.dao.DataIntegrityViolationException
-import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
-import ru.creditcabinet.auth.dto.SignInRequest
-import ru.creditcabinet.auth.dto.SignUpRequest
-import ru.creditcabinet.auth.dto.UserSessionResponse
-import ru.creditcabinet.common.exception.BadRequestException
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.ForbiddenException
-import ru.creditcabinet.common.exception.UnauthorizedException
+import ru.creditcabinet.auth.domain.PasswordPolicy
 import ru.creditcabinet.common.model.Inn
 import ru.creditcabinet.company.domain.Company
 import ru.creditcabinet.company.domain.CompanyDataPort
 import ru.creditcabinet.company.domain.CompanyRegistry
 import ru.creditcabinet.company.domain.RegistryAnswer
+import ru.creditcabinet.identity.application.IdentityTransactions
+import ru.creditcabinet.identity.domain.IdentityFailure.Conflict
+import ru.creditcabinet.identity.domain.IdentityFailure.Forbidden
+import ru.creditcabinet.identity.domain.IdentityFailure.InvalidInput
+import ru.creditcabinet.identity.domain.IdentityFailure.Unauthorized
 import ru.creditcabinet.user.domain.User
 import ru.creditcabinet.user.domain.UserDataPort
+import ru.creditcabinet.user.domain.UserRegistrationConflict
 import ru.creditcabinet.user.domain.UserRole
 import ru.creditcabinet.user.domain.UserStatus
-import ru.creditcabinet.user.dto.UserResponse
 import java.time.Instant
 
-@Service
 class AuthService(
     private val users: UserDataPort,
     private val companies: CompanyDataPort,
     private val registry: CompanyRegistry,
-    private val jwtService: JwtService,
-    private val signInThrottle: SignInThrottle,
-    private val consentLog: ConsentLog,
+    private val tokens: SessionTokens,
+    private val signInLimits: SignInLimits,
+    private val consents: PersonalDataConsents,
+    private val transactions: IdentityTransactions,
 ) {
-    fun signIn(request: SignInRequest, address: String): UserSessionResponse {
-        val email = request.email.trim().lowercase()
-        signInThrottle.check(email, address)
+    fun signIn(rawEmail: String, password: String, address: String): IdentitySession {
+        val email = rawEmail.trim().lowercase()
+        signInLimits.check(email, address)
         // An unknown e-mail costs the same password check as a known one, so the answer time
         // does not tell which addresses have accounts.
-        val user = users.authenticate(email, request.password)
+        val user = users.authenticate(email, password)
         if (user == null) {
-            signInThrottle.recordFailure(email)
-            throw UnauthorizedException("Неверный email или пароль")
+            signInLimits.recordFailure(email)
+            throw Unauthorized("Неверный email или пароль")
         }
-        signInThrottle.reset(email)
-        if (user.status != UserStatus.ACTIVE) throw ForbiddenException(BLOCKED)
+        signInLimits.reset(email)
+        if (user.status != UserStatus.ACTIVE) throw Forbidden(BLOCKED)
         val at = Instant.now()
-        if (!users.recordSignIn(user.id, user.credentialsVersion, at)) throw UnauthorizedException(REVOKED)
+        if (!users.recordSignIn(user.id, user.credentialsVersion, at)) throw Unauthorized(REVOKED)
         return session(user.copy(lastSignInAt = at))
     }
 
@@ -55,46 +51,45 @@ class AuthService(
      * by knowing its ИНН. The name comes from ЕГРЮЛ/ЕГРИП, so the client does not type it; a ИНН
      * the registry does not know is refused, a registry outage does not stop the sign-up.
      */
-    @Transactional
-    fun signUp(request: SignUpRequest): UserSessionResponse {
-        PasswordPolicy.check(request.password)
-        val inn = Inn.parse(request.inn).value
+    fun signUp(fullName: String, rawEmail: String, password: String, rawInn: String, personalDataConsent: Boolean): IdentitySession = transactions.write {
+        if (!personalDataConsent) throw InvalidInput("Без согласия на обработку персональных данных зарегистрироваться нельзя")
+        PasswordPolicy.check(password)
+        val inn = Inn.parse(rawInn).value
         // Addresses are stored lowercase: sign-in looks them up that way.
-        val email = request.email.trim().lowercase()
-        if (users.findByEmail(email) != null) throw ConflictException("Пользователь с таким email уже зарегистрирован")
-        if (companies.findByInn(inn) != null) throw ConflictException(COMPANY_TAKEN)
+        val email = rawEmail.trim().lowercase()
+        if (users.findByEmail(email) != null) throw Conflict("Пользователь с таким email уже зарегистрирован")
+        if (companies.findByInn(inn) != null) throw Conflict(COMPANY_TAKEN)
         val name = when (val answer = registry.lookup(inn)) {
             is RegistryAnswer.Found -> answer.shortName
-            RegistryAnswer.NotFound -> throw BadRequestException("Компания с таким ИНН не найдена в ЕГРЮЛ и ЕГРИП — проверьте номер")
+            RegistryAnswer.NotFound -> throw InvalidInput("Компания с таким ИНН не найдена в ЕГРЮЛ и ЕГРИП — проверьте номер")
             RegistryAnswer.Unavailable -> null
         }
         val company = companies.save(Company(inn = inn, name = name))
         val user = try {
             users.save(
-                User(fullName = request.fullName.trim(), email = email, role = UserRole.CLIENT, companyId = company.id, canSign = true),
-                request.password,
+                User(fullName = fullName.trim(), email = email, role = UserRole.CLIENT, companyId = company.id, canSign = true),
+                password,
             )
-        } catch (exception: DataIntegrityViolationException) {
+        } catch (exception: UserRegistrationConflict) {
             // The same e-mail or ИНН registered at the same moment by another request.
-            throw ConflictException("Такой пользователь или компания уже зарегистрированы")
+            throw Conflict("Такой пользователь или компания уже зарегистрированы")
         }
-        consentLog.record(user.id, ConsentLog.PERSONAL_DATA, ConsentLog.PERSONAL_DATA_VERSION)
-        return session(user)
+        consents.record(user.id)
+        session(user)
     }
 
-    fun session(authorization: String?): UserSessionResponse = session(currentUser(authorization))
+    fun session(token: String): IdentitySession = session(currentUser(token))
 
     /** The user behind a token, checked against the database: blocked or revoked tokens stop here. */
-    fun currentUser(authorization: String?): User {
-        val rawToken = authorization?.removePrefix("Bearer ")?.takeIf { it.isNotBlank() } ?: throw UnauthorizedException()
-        val claims = jwtService.parseClaims(rawToken)
-        val user = users.findById(claims.userId) ?: throw UnauthorizedException()
-        if (claims.credentialsVersion != user.credentialsVersion) throw UnauthorizedException(REVOKED)
-        if (user.status != UserStatus.ACTIVE) throw ForbiddenException(BLOCKED)
+    fun currentUser(token: String): User {
+        val actor = tokens.read(token)
+        val user = users.findById(actor.userId) ?: throw Unauthorized()
+        if (actor.credentialsVersion != user.credentialsVersion) throw Unauthorized(REVOKED)
+        if (user.status != UserStatus.ACTIVE) throw Forbidden(BLOCKED)
         return user
     }
 
-    private fun session(user: User) = UserSessionResponse(token = jwtService.issue(user), user = UserResponse.of(user))
+    private fun session(user: User) = IdentitySession(tokens.issue(user), user)
 
     companion object {
         const val BLOCKED = "Учётная запись заблокирована. Обратитесь в банк."

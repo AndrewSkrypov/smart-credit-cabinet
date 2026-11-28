@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.common.security.CurrentCaller
-import ru.creditcabinet.company.application.CompanyService
+import ru.creditcabinet.company.application.CompanyQueries
 import ru.creditcabinet.company.domain.Company
 import ru.creditcabinet.company.domain.LegalForm
 import java.util.UUID
@@ -26,13 +26,13 @@ data class CompanyResponse(
 @Tag(name = "Компания клиента")
 @RestController
 @RequestMapping("/api/v1/companies")
-class CompanyController(private val companyService: CompanyService) {
+class CompanyController(private val companies: CompanyQueries) {
     /** The company the signed-in client acts for, with the people who represent it. */
     @Operation(summary = "Компания и представители текущего клиента; компания определяется подписанным токеном")
     @GetMapping("/me")
     fun mine(): CompanyResponse {
         val (_, companyId) = CurrentCaller.requireClient()
-        val (company, members) = companyService.getWithMembers(companyId)
+        val (company, members) = companies.getWithMembers(companyId)
         return company.toResponse(members.map { CompanyMemberResponse(it.id, it.fullName, it.canSign) })
     }
 }
@@ -41,10 +41,10 @@ class CompanyController(private val companyService: CompanyService) {
 @Hidden
 @RestController
 @RequestMapping("/internal/v1/companies")
-class InternalCompanyController(private val companyService: CompanyService) {
+class InternalCompanyController(private val companies: CompanyQueries) {
     @GetMapping("/{id}")
     fun get(@PathVariable id: UUID): CompanyResponse =
-        companyService.get(id).toResponse(emptyList())
+        companies.get(id).toResponse(emptyList())
 }
 
 private fun Company.toResponse(members: List<CompanyMemberResponse>) = CompanyResponse(id, inn, name, legalForm, members)

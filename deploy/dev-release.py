@@ -20,6 +20,8 @@ from catalog_rollout import store as write_state, validated_journal
 from runtime_delivery_support import ensure_private, fsync_dir, read_record
 from common import Deployment, ROOT, deploy_lock, lock_environment, replace_env
 from dev_diagnostics import diagnose, read_request
+from dev_payment_reserve import canonical_origin
+from business_smoke import run as run_business_smoke
 from jury import COMPANY, provision, read_credentials, verify
 from registry_release import RegistryRelease, REVISION
 import runtime_attempts
@@ -131,6 +133,10 @@ def deploy(args, state_dir, release):
     status = json.loads(current_file.read_text()) if current_file.exists() else {}
     pending = json.loads(pending_file.read_text()) if pending_file.exists() else {}
     enrollment = runtime_attempts.enrollment(state_dir)
+    if enrollment and not args.verify_only:
+        env_contents = runtime_attempts.prebackup_replacement_env(
+            state_dir, enrollment, status, release.revision, release.checksum, original_env,
+        )
     if enrollment and enrollment["target"] == status and not args.verify_only:
         if pending and pending != status:
             raise RuntimeError("Запись завершённого выпуска не совпадает с pending")
@@ -144,13 +150,8 @@ def deploy(args, state_dir, release):
         enrollment["target"].get("revision") != release.revision
         or enrollment["target"].get("manifest_sha256") != release.checksum
     )
-    if enrollment:
-        if replacement and not args.verify_only:
-            env_contents = runtime_attempts.prebackup_replacement_env(
-                state_dir, enrollment, status, release.revision, release.checksum, original_env,
-            )
-        else:
-            env_contents = runtime_attempts.enrolled_env(state_dir, enrollment, original_env)
+    if enrollment and args.verify_only:
+        env_contents = runtime_attempts.enrolled_env(state_dir, enrollment, original_env)
     names = {line.split(b"=", 1)[0].decode("utf-8") for line in env_contents.splitlines() if b"=" in line}
     if not args.verify_only and release.alpha_dev is not None and not any(name.startswith("CABINET_ALPHA_DEV_") for name in names):
         if status.get("alpha_dev") or pending.get("alpha_dev"):
@@ -235,10 +236,18 @@ def deploy(args, state_dir, release):
         credentials = read_credentials(state_dir / "jury.json", create=not args.verify_only)
         if not args.verify_only:
             provision(deployment, credentials)
-        origin = deployment.values["PUBLIC_CABINET_URL"]
+        configured_origin = deployment.values["PUBLIC_CABINET_URL"]
+        origin = canonical_origin(configured_origin) or configured_origin
         report = {"manifest_sha256": release.checksum, "role_checks": verify(origin, credentials, expected_company=COMPANY)}
         report["release"] = json.loads(run(ROOT, "verify-release.py", *env_args, *release_args,
                                            "--expected-revision", release.revision, capture=True))
+        if (not args.verify_only and pending_file.exists() and release.has_all_runtimes
+                and all(deployment.runtime_modes.get(name) == "remote"
+                        for name in ("catalog", "assessment", "servicing", "documents"))
+                and deployment.dev_payment_reserve_simulation):
+            report["release"]["business_smoke"] = run_business_smoke(
+                deployment, state_dir, status, desired, report, lock_fd=args.deployment_fd,
+            )
         if (not args.verify_only and pending_file.exists() and release.has_all_runtimes
                 and (deployment.runtime_modes or deployment.alpha_dev)):
             attempt = runtime_attempts.load(state_dir, release)
@@ -247,8 +256,16 @@ def deploy(args, state_dir, release):
                 if (not alpha or alpha.get("manifest_sha256") != release.checksum
                         or alpha.get("caught_up") is not True):
                     raise RuntimeError("Не подтверждена сохранность и сходимость текущей Alpha")
-                report["alpha_continuity"] = alpha
-    except (OSError, ValueError, RuntimeError):
+                # Business API writes and cleanup happened after the original ready journal.
+                # Recheck stores/outbox/consumer/projection without overwriting that journal.
+                if "business_smoke" in report["release"]:
+                    from runtime_backup import verify_alpha_catchup
+                    fresh_alpha = verify_alpha_catchup(deployment, attempt["alpha"]["frozen"])
+                    report["alpha_continuity"] = {**fresh_alpha, "manifest_sha256": release.checksum}
+                    report["release"]["business_smoke"]["alpha_catchup_verified"] = True
+                else:
+                    report["alpha_continuity"] = alpha
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         if not args.verify_only and pending_file.exists() and release.has_all_runtimes:
             deployment.compose("stop", "caddy")
         raise
@@ -284,7 +301,7 @@ def main():
         with deploy_lock(state_dir / "cabinet.env", PROJECT) as descriptor:
             args.deployment_fd = descriptor
             deploy(args, state_dir, release)
-    except (KeyError, OSError, RuntimeError, ValueError) as error:
+    except (KeyError, OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
         # JSON parsing errors can include private input. Only print controlled errors.
         if type(error) in (RuntimeError, ValueError):
             parser.exit(1, f"Выпуск не подтверждён. {error}\n")

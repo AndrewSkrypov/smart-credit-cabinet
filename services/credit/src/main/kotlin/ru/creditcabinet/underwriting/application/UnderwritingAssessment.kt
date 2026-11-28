@@ -1,6 +1,7 @@
 package ru.creditcabinet.underwriting.application
 
 import org.springframework.stereotype.Service
+import ru.creditcabinet.application.application.CreditCaller
 import ru.creditcabinet.application.domain.ApplicationRepository
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.service.notFound
@@ -13,7 +14,6 @@ import ru.creditcabinet.assessment.domain.RegistryInfo
 import ru.creditcabinet.assessment.domain.Scorecard
 import ru.creditcabinet.assessment.domain.SourceKind
 import ru.creditcabinet.assessment.domain.TaxInfo
-import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.underwriting.domain.Discrepancy
 import ru.creditcabinet.underwriting.domain.UnderwritingDiscrepancies
@@ -44,9 +44,10 @@ class ReadUnderwritingAssessment(
     private val applications: ApplicationRepository,
     private val enrichment: EnrichmentStore,
     private val decisions: DecisionRepository,
+    private val callerContext: CreditCaller,
 ) : UnderwritingAssessment {
     override fun read(id: UUID): AssessmentCard {
-        val claims = CurrentCaller.requireBankStaff()
+        val claims = callerContext.requireBankStaff()
         val application = applications.find(id)?.takeIf { it.visibleToBank } ?: throw notFound()
         val sources = enrichment.load(application.id)
         val bank = sources[SourceKind.BANK] as BankInfo?

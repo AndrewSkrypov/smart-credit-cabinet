@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.access.application.CompanyAccessService
+import ru.creditcabinet.access.application.EmployeeAccess
+import ru.creditcabinet.access.application.InvitationDetails
 import ru.creditcabinet.access.application.PasswordAccessService
 import ru.creditcabinet.access.application.ProfileAccessService
 import ru.creditcabinet.access.dto.AcceptInvitationRequest
@@ -27,8 +29,11 @@ import ru.creditcabinet.access.dto.InviteEmployeeRequest
 import ru.creditcabinet.access.dto.RecoveryRequest
 import ru.creditcabinet.access.dto.ResetPasswordRequest
 import ru.creditcabinet.access.dto.UpdateProfileRequest
+import ru.creditcabinet.auth.controller.actor
+import ru.creditcabinet.auth.controller.toResponse
 import ru.creditcabinet.auth.dto.UserSessionResponse
 import ru.creditcabinet.common.security.JwtVerifier
+import ru.creditcabinet.user.dto.UserResponse
 import java.util.UUID
 
 @Tag(name = "Пароли и сотрудники компании")
@@ -43,35 +48,35 @@ class AccessController(
     @Operation(summary = "Запросить одноразовую ссылку восстановления; ответ не раскрывает наличие адреса")
     @PostMapping("/auth/password-recovery")
     fun recover(@Valid @RequestBody body: RecoveryRequest, request: HttpServletRequest): AccessMessage =
-        passwords.requestRecovery(body.email, request.getHeader("X-Real-IP")?.take(128) ?: request.remoteAddr)
+        AccessMessage(passwords.requestRecovery(body.email, request.getHeader("X-Real-IP")?.take(128) ?: request.remoteAddr))
 
     @Operation(summary = "Установить пароль по одноразовой ссылке за 30 минут и отозвать все сессии")
     @PostMapping("/auth/password-reset")
-    fun reset(@Valid @RequestBody body: ResetPasswordRequest): AccessMessage = passwords.resetPassword(body)
+    fun reset(@Valid @RequestBody body: ResetPasswordRequest): AccessMessage = AccessMessage(passwords.resetPassword(body.token, body.password))
 
     @Operation(summary = "Сменить пароль с проверкой текущего и отозвать все сессии")
     @PostMapping("/auth/password")
     fun change(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @Valid @RequestBody body: ChangePasswordRequest,
-    ): AccessMessage = passwords.changePassword(verifier.requireClaims(authorization), body)
+    ): AccessMessage = AccessMessage(passwords.changePassword(verifier.requireClaims(authorization).actor(), body.currentPassword, body.password))
 
     @Operation(summary = "Изменить имя и email; новый email требует текущий пароль, ответ — новая сессия")
     @PutMapping("/users/me")
     fun updateProfile(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @Valid @RequestBody body: UpdateProfileRequest,
-    ): UserSessionResponse = profiles.update(verifier.requireClaims(authorization), body)
+    ): UserSessionResponse = profiles.update(verifier.requireClaims(authorization).actor(), body.fullName, body.email, body.currentPassword).toResponse()
 
     @Operation(summary = "Выйти на всех устройствах и отменить ожидающие ссылки восстановления")
     @PostMapping("/auth/logout-all")
     fun logoutAll(@RequestHeader("Authorization", required = false) authorization: String?): AccessMessage =
-        passwords.logoutAll(verifier.requireClaims(authorization))
+        AccessMessage(passwords.logoutAll(verifier.requireClaims(authorization).actor()))
 
     @Operation(summary = "Получить сотрудников и приглашения своей компании")
     @GetMapping("/companies/me/employees")
     fun employees(@RequestHeader("Authorization", required = false) authorization: String?): EmployeeListResponse =
-        employees.list(verifier.requireClaims(authorization))
+        employees.list(verifier.requireClaims(authorization).actor()).toResponse()
 
     @Operation(summary = "Пригласить сотрудника на 72 часа; нужно право подписи; без почты ссылка возвращается один раз")
     @PostMapping("/companies/me/invitations")
@@ -79,7 +84,7 @@ class AccessController(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @RequestHeader("Idempotency-Key") key: UUID,
         @Valid @RequestBody body: InviteEmployeeRequest,
-    ): InvitationResponse = employees.invite(verifier.requireClaims(authorization), key, body)
+    ): InvitationResponse = employees.invite(verifier.requireClaims(authorization).actor(), key, body.email, body.canSign).toResponse()
 
     @Operation(summary = "Заменить приглашение новым и отменить прежнюю ссылку; нужно право подписи")
     @PostMapping("/companies/me/invitations/{id}/resend")
@@ -87,7 +92,7 @@ class AccessController(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @PathVariable id: UUID,
         @RequestHeader("Idempotency-Key") key: UUID,
-    ): InvitationResponse = employees.resend(verifier.requireClaims(authorization), id, key)
+    ): InvitationResponse = employees.resend(verifier.requireClaims(authorization).actor(), id, key).toResponse()
 
     @Operation(summary = "Отменить ещё не принятое приглашение; нужно право подписи")
     @DeleteMapping("/companies/me/invitations/{id}")
@@ -95,7 +100,7 @@ class AccessController(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @PathVariable id: UUID,
         @RequestHeader("Idempotency-Key") key: UUID,
-    ): AccessMessage = employees.cancelInvitation(verifier.requireClaims(authorization), id, key)
+    ): AccessMessage = AccessMessage(employees.cancelInvitation(verifier.requireClaims(authorization).actor(), id, key))
 
     @Operation(summary = "Отозвать доступ сотрудника и все его сессии; последнего подписанта отозвать нельзя")
     @DeleteMapping("/companies/me/employees/{id}/access")
@@ -103,13 +108,26 @@ class AccessController(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @PathVariable id: UUID,
         @RequestHeader("Idempotency-Key") key: UUID,
-    ): AccessMessage = employees.revoke(verifier.requireClaims(authorization), id, key)
+    ): AccessMessage = AccessMessage(employees.revoke(verifier.requireClaims(authorization).actor(), id, key))
 
     @Operation(summary = "Проверить одноразовую ссылку приглашения без входа")
     @PostMapping("/auth/invitations/inspect")
-    fun inspect(@Valid @RequestBody body: InspectInvitationRequest): InvitationPreview = employees.preview(body.token)
+    fun inspect(@Valid @RequestBody body: InspectInvitationRequest): InvitationPreview = employees.preview(body.token).let {
+        InvitationPreview(it.companyName, it.email, it.canSign, it.expiresAt)
+    }
 
     @Operation(summary = "Принять одноразовое приглашение с паролем и согласием на обработку данных")
     @PostMapping("/auth/invitations/accept")
-    fun accept(@Valid @RequestBody body: AcceptInvitationRequest): UserSessionResponse = employees.accept(body)
+    fun accept(
+        @Valid @RequestBody body: AcceptInvitationRequest,
+    ): UserSessionResponse = employees.accept(body.token, body.fullName, body.password, body.personalDataConsent).toResponse()
 }
+
+private fun EmployeeAccess.toResponse() = EmployeeListResponse(
+    members.map(UserResponse::of),
+    invitations.map(InvitationDetails::toResponse),
+    canManage,
+    mailAvailable,
+)
+
+private fun InvitationDetails.toResponse() = InvitationResponse(id, email, canSign, expiresAt, status, link)

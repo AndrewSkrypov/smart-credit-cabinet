@@ -45,6 +45,7 @@ import ru.creditcabinet.common.exception.BadRequestException
 import ru.creditcabinet.common.exception.ForbiddenException
 import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.common.security.Roles
+import ru.creditcabinet.document.controller.toDocumentUpload
 import ru.creditcabinet.document.domain.DocumentType
 import ru.creditcabinet.preapproved.controller.PreApprovedOfferView
 import ru.creditcabinet.product.domain.ProductCatalog
@@ -189,7 +190,7 @@ class AgentController(
         @RequestHeader("Idempotency-Key", required = false) operationKey: String?,
     ): DocumentView {
         if (privateToBank) throw ForbiddenException("Приватную выписку банку может загрузить клиент")
-        return DocumentView.of(service.uploadDocument(id, type, file, operationKey))
+        return DocumentView.of(service.uploadDocument(id, type, file.toDocumentUpload(operationKey)))
     }
 
     @Operation(summary = "Скачать документ агентской заявки")

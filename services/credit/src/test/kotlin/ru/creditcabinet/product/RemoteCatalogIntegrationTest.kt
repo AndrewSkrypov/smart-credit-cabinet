@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.mock.web.MockHttpServletResponse
@@ -23,10 +22,10 @@ import org.springframework.test.web.servlet.put
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import ru.creditcabinet.agent.domain.AgentAccessDecision
 import ru.creditcabinet.agent.domain.AgentAccessPort
+import ru.creditcabinet.application.application.CreditFailure.DependencyUnavailable
 import ru.creditcabinet.application.domain.CompanyDirectory
 import ru.creditcabinet.application.domain.CompanySnapshot
 import ru.creditcabinet.application.domain.LegalForm
-import ru.creditcabinet.common.exception.ApiException
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.common.security.TokenClaims
@@ -135,7 +134,7 @@ class RemoteCatalogIntegrationTest {
         doAnswer {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive())
             previewFailures++
-            throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Сбой чтения после записи")
+            throw DependencyUnavailable("Сбой чтения после записи")
         }.whenever(remote).latest(selected)
         val directId = post(applications, directClient, request).json(201)["id"].asText()
         assertEquals("DRAFT", put("$applications/$directId", directClient, request).json()["status"].asText())
@@ -182,7 +181,7 @@ class RemoteCatalogIntegrationTest {
             .json(201)["id"].asText()
         post("$agentApplications/$retryAgent/request-confirmation", agent).json()
         val local = CreditCatalogConfiguration().creditProductCatalog(jdbc, Clock.systemUTC(), "local")
-        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, assertFailsWith<ApiException> { local.snapshotForSubmission(selected) }.httpStatus)
+        assertEquals("Локальный каталог закрыт для новых операций", assertFailsWith<DependencyUnavailable> { local.snapshotForSubmission(selected) }.message)
         assertEquals(3L, local.version(selected, 3)?.version)
 
         val uncached = "R1_HTTP_${suffix}_C"

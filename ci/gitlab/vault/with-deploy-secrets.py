@@ -73,18 +73,19 @@ def load_trust():
     return endpoint, build_opener(ProxyHandler({}), RejectRedirects(), HTTPSHandler(context=tls))
 
 
-def validate_claims(jwt, endpoint, profile, runner_id, job_id, sha, action):
+def validate_claims(jwt, endpoint, profile, runner_id, job_id, sha, action, *, main_pipeline=None):
     try:
         _, encoded, _ = jwt.split(".")
         claims = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
     except ValueError:
         raise HandoffError("Invalid GitLab ID token format") from None
+    branch = "main" if main_pipeline is not None else RELEASE_BRANCH
     expected = {
         "iss": ISSUER,
         "job_project_id": "1",
         "job_project_path": PROJECT_PATH,
-        "ref": RELEASE_BRANCH,
-        "ref_path": f"refs/heads/{RELEASE_BRANCH}",
+        "ref": branch,
+        "ref_path": f"refs/heads/{branch}",
         "ref_type": "branch",
         "ref_protected": "true",
         "environment": profile,
@@ -93,9 +94,13 @@ def validate_claims(jwt, endpoint, profile, runner_id, job_id, sha, action):
         "job_id": job_id,
         "sha": sha,
     }
+    sources = ("push", "api", "web")
+    if main_pipeline is not None:
+        expected["pipeline_id"] = main_pipeline
+        sources = ("push",)
     if not isinstance(claims, dict) or any(claims.get(key) != value for key, value in expected.items()):
         raise HandoffError("GitLab token claims do not match this protected deployment")
-    if claims.get("pipeline_source") not in ("push", "api", "web") or claims.get("aud") not in (endpoint, [endpoint]):
+    if claims.get("pipeline_source") not in sources or claims.get("aud") not in (endpoint, [endpoint]):
         raise HandoffError("GitLab token audience or pipeline source does not match this deployment")
 
 
@@ -122,7 +127,7 @@ def vault_request(opener, endpoint, path, *, body=None, token=None):
     return json.loads(content) if content else {}
 
 
-def read_values(profile, *, canary=False):
+def read_values(profile, *, canary=False, main_release=False):
     if os.environ.get("CI_DEBUG_TRACE", "").lower() == "true":
         raise HandoffError("Vault handoff requires CI debug tracing to be disabled")
     jwt = os.environ.pop(JWT_VAR, "")
@@ -133,10 +138,16 @@ def read_values(profile, *, canary=False):
         raise HandoffError("Missing GitLab job identity")
     role, path, runner, keys = PROFILES[profile]
     action = "verify" if canary else "start"
-    if canary:
+    main_pipeline = None
+    if main_release:
+        main_pipeline = os.environ.get("CI_PIPELINE_ID", "")
+        if canary or not main_pipeline.isascii() or not main_pipeline.isdecimal():
+            raise HandoffError("Missing protected main deployment pipeline identity")
+        role += "-main"
+    elif canary:
         role += "-canary"
     endpoint, opener = load_trust()
-    validate_claims(jwt, endpoint, profile, runner, job_id, sha, action)
+    validate_claims(jwt, endpoint, profile, runner, job_id, sha, action, main_pipeline=main_pipeline)
     auth = vault_request(opener, endpoint, "auth/pump-gitlab/login", body={"role": role, "jwt": jwt})["auth"]
     token = auth["client_token"]
     if not isinstance(token, str) or not token:
@@ -166,8 +177,8 @@ def check_parity(profile):
     return 0
 
 
-def deploy(profile, command):
-    values = read_values(profile)
+def deploy(profile, command, *, main_release=False):
+    values = read_values(profile, main_release=main_release)
     environment = os.environ.copy()
     environment.pop("VAULT_TOKEN", None)
     with tempfile.TemporaryDirectory(prefix="pump-vault-deploy-", dir="/tmp") as temp:
@@ -198,12 +209,12 @@ def release(profile, command):
 
 def main():
     parser = argparse.ArgumentParser(description="Run a protected PUMP deployment with file secrets from Vault.")
-    modes = tuple(f"{profile}-{mode}" for profile in PROFILES for mode in ("canary", "release"))
+    modes = tuple(f"{profile}-{mode}" for profile in PROFILES for mode in ("canary", "release", "main-release"))
     parser.add_argument("profile", choices=modes)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
-    profile, mode = args.profile.rsplit("-", 1)
+    profile, mode = args.profile.split("-", 1)
     if mode == "canary" and command:
         parser.error("the read-only canary does not accept a command")
     if mode != "canary" and not command:
@@ -211,6 +222,8 @@ def main():
     try:
         if mode == "canary":
             return check_parity(profile)
+        if mode == "main-release":
+            return deploy(profile, command, main_release=True)
         return release(profile, command)
     except HandoffError as error:
         print(str(error), file=sys.stderr)

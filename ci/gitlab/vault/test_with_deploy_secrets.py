@@ -69,6 +69,35 @@ class HandoffTests(unittest.TestCase):
             with self.subTest(override=override), self.assertRaises(handoff.HandoffError):
                 handoff.validate_claims(token(**override), handoff.VAULT_ORIGIN, "dev", 2, JOB, SHA, "start")
 
+    def test_main_role_requires_the_exact_protected_push_and_pipeline(self):
+        main_claims = {"ref": "main", "ref_path": "refs/heads/main", "pipeline_id": "178"}
+        env = self.env | {"CI_PIPELINE_ID": "178", handoff.JWT_VAR: token(**main_claims)}
+        with (patch.dict(os.environ, env, clear=True), self.trust(),
+              patch.object(handoff, "vault_request", side_effect=self.fake_vault) as request):
+            self.assertEqual(handoff.read_values("dev", main_release=True), {
+                key: value.encode() for key, value in self.values.items()
+            })
+            self.assertEqual(request.call_args_list[0].kwargs["body"]["role"], "pump-ci-dev-main")
+        for override in (
+            {"pipeline_id": "179"}, {"pipeline_source": "web"}, {"pipeline_source": "api"},
+            {"ref": handoff.RELEASE_BRANCH}, {"ref_protected": "false"}, {"sha": "b" * 40},
+            {"environment": "production"}, {"environment_action": "verify"}, {"runner_id": 4},
+        ):
+            with self.subTest(override=override), self.assertRaises(handoff.HandoffError):
+                handoff.validate_claims(token(**(main_claims | override)), handoff.VAULT_ORIGIN,
+                                        "dev", 2, JOB, SHA, "start", main_pipeline="178")
+
+    def test_main_vault_failure_never_uses_the_legacy_release_path(self):
+        cli = ["with-deploy-secrets.py", "production-main-release", "--", "fixture-command"]
+        with (patch.object(handoff.sys, "argv", cli),
+              patch.object(handoff, "read_values", side_effect=handoff.HandoffError("Vault unavailable")) as read,
+              patch.object(handoff, "release") as legacy, patch.object(handoff.subprocess, "run") as run,
+              contextlib.redirect_stderr(io.StringIO())):
+            self.assertEqual(handoff.main(), 1)
+            read.assert_called_once_with("production", main_release=True)
+            legacy.assert_not_called()
+            run.assert_not_called()
+
     def test_canary_checks_bytes_and_revokes_then_never_invokes_a_child(self):
         with tempfile.TemporaryDirectory() as temp:
             files = {key: str(Path(temp) / key) for key in self.values}

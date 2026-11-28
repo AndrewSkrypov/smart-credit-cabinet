@@ -1,19 +1,20 @@
 package ru.creditcabinet.assistant.infrastructure
 
 import org.springframework.stereotype.Component
+import ru.creditcabinet.assistant.application.ReviewSummaryCache
 import ru.creditcabinet.common.limits.ValkeyState
 import java.util.UUID
 
 /** Only rules-based text is stored here. The employee still reads the current advice from Credit. */
 @Component
-class ManualReviewSummaryCache(private val state: ValkeyState) {
-    val enabled: Boolean get() = state.enabled
+class ManualReviewSummaryCache(private val state: ValkeyState) : ReviewSummaryCache {
+    override val enabled: Boolean get() = state.enabled
 
-    fun eventFor(applicationId: UUID): UUID? = state.read(eventKey(applicationId))?.let(UUID::fromString)
+    override fun eventFor(applicationId: UUID): UUID? = state.read(eventKey(applicationId))?.let(UUID::fromString)
 
-    fun text(applicationId: UUID, revision: String): String? = state.read(summaryKey(applicationId, revision))
+    override fun text(applicationId: UUID, revision: String): String? = state.read(summaryKey(applicationId, revision))
 
-    fun publish(applicationId: UUID, priorEvent: UUID?, eventId: UUID, revision: String, text: String): Boolean =
+    override fun publish(applicationId: UUID, priorEvent: UUID?, eventId: UUID, revision: String, text: String): Boolean =
         state.eval(
             PUBLISH,
             listOf(eventKey(applicationId), summaryKey(applicationId, revision)),

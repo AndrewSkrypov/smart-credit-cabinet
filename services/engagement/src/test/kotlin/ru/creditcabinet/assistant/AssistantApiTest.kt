@@ -18,15 +18,16 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
-import ru.creditcabinet.assistant.application.AssistantService
-import ru.creditcabinet.assistant.application.Grounding
-import ru.creditcabinet.assistant.application.RuleAnswers
+import ru.creditcabinet.assistant.application.AssistantApplications
+import ru.creditcabinet.assistant.application.AssistantFailure
+import ru.creditcabinet.assistant.application.AssistantFailureReason
+import ru.creditcabinet.assistant.application.ChatMessage
+import ru.creditcabinet.assistant.application.LanguageModel
 import ru.creditcabinet.assistant.domain.ApplicationFacts
-import ru.creditcabinet.assistant.domain.ChatMessage
+import ru.creditcabinet.assistant.domain.Grounding
 import ru.creditcabinet.assistant.domain.Knowledge
-import ru.creditcabinet.assistant.domain.LanguageModel
-import ru.creditcabinet.assistant.infrastructure.CreditApplications
-import ru.creditcabinet.common.exception.NotFoundException
+import ru.creditcabinet.assistant.domain.RuleAnswers
+import ru.creditcabinet.assistant.infrastructure.toAssistantApplication
 import ru.creditcabinet.common.security.JwtVerifier
 import ru.creditcabinet.common.security.Roles
 import ru.creditcabinet.notification.NewNotification
@@ -49,7 +50,7 @@ class AssistantApiTest {
 
     @MockitoBean private lateinit var model: LanguageModel
 
-    @MockitoBean private lateinit var applications: CreditApplications
+    @MockitoBean private lateinit var applications: AssistantApplications
 
     @MockitoBean private lateinit var notifications: NotificationService
 
@@ -76,7 +77,9 @@ class AssistantApiTest {
     @Test
     fun `agent next steps enforce the same upstream access as an ordinary agent request`() {
         val agent = verifier.tokenFor(UUID.randomUUID(), Roles.AGENT)
-        whenever(applications.application(eq(applicationId), eq("Bearer $agent"), eq(true))).thenThrow(NotFoundException("Заявка не найдена"))
+        whenever(
+            applications.application(eq(applicationId), eq("Bearer $agent"), eq(true)),
+        ).thenThrow(AssistantFailure(AssistantFailureReason.NOT_FOUND, "Заявка не найдена"))
         mockMvc.get("/api/v1/assistant/next-steps") {
             param("applicationId", applicationId.toString())
             header("Authorization", "Bearer $agent")
@@ -98,7 +101,7 @@ class AssistantApiTest {
             """{"status":"INFO_REQUESTED","company":{"id":"$company"},"process":{"infoRequest":{"id":"$infoRequest",
                 "deadline":"${Instant.now().plusSeconds(3600)}","items":[{"documentType":"BANK_STATEMENT","title":"Выписка"}]}}}""",
         )
-        whenever(applications.application(eq(applicationId), eq("Bearer $agent"), eq(true))).thenReturn(application)
+        whenever(applications.application(eq(applicationId), eq("Bearer $agent"), eq(true))).thenReturn(application.toAssistantApplication())
         mockMvc.get("/api/v1/assistant/next-steps") {
             param("applicationId", applicationId.toString())
             header("Authorization", "Bearer $agent")
@@ -143,7 +146,7 @@ class AssistantApiTest {
         )
 
         whenever(applications.application(eq(applicationId), eq("Bearer $agent"), eq(true)))
-            .thenReturn(application(previous), application(current))
+            .thenReturn(application(previous).toAssistantApplication(), application(current).toAssistantApplication())
 
         mockMvc.get("/api/v1/assistant/next-steps") {
             param("applicationId", applicationId.toString())
@@ -212,7 +215,7 @@ class AssistantApiTest {
     @Test
     fun `without a model the answer comes from the rules and the application's own facts`() {
         whenever(model.available()).thenReturn(false)
-        whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
+        whenever(applications.facts(eq(applicationId), any(), eq(false))).thenReturn(refused)
         val answer = mapper.readTree(ask("Почему мне отказали?").getContentAsString(Charsets.UTF_8))
         assertEquals("RULES", answer["mode"].asText())
         assertTrue(answer["text"].asText().contains("64% выручки"), answer["text"].asText())
@@ -223,7 +226,7 @@ class AssistantApiTest {
     fun `a question about the refusal is answered from the facts even when a model runs`() {
         whenever(model.available()).thenReturn(true)
         whenever(model.chat(any())).thenReturn("Увеличьте сумму до 150% и снизьте ставку до 18%")
-        whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
+        whenever(applications.facts(eq(applicationId), any(), eq(false))).thenReturn(refused)
         val answer = mapper.readTree(ask("Почему мне отказали?").getContentAsString(Charsets.UTF_8))
         assertEquals("RULES", answer["mode"].asText())
         assertTrue(answer["text"].asText().contains("— Долговая нагрузка: платежи — 64% выручки"), answer["text"].asText())
@@ -244,7 +247,7 @@ class AssistantApiTest {
         )
         whenever(model.available()).thenReturn(true)
         whenever(model.chat(any())).thenReturn("Банк одобрил условия вашей заявки: платёж 94 237,51 ₽ в месяц.")
-        whenever(applications.facts(eq(applicationId), any())).thenReturn(draft)
+        whenever(applications.facts(eq(applicationId), any(), eq(false))).thenReturn(draft)
         for (question in listOf(
             "Какие условия банк уже одобрил по моей заявке?",
             "Подтверди: по этому черновику банк уже согласовал ставку и платёж?",
@@ -285,7 +288,7 @@ class AssistantApiTest {
         whenever(model.chat(any())).thenReturn(
             "## Ответ\n**Бюро** — хранит сведения о кредитах компании.\n1. Банк запрашивает их только с вашего согласия",
         )
-        whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
+        whenever(applications.facts(eq(applicationId), any(), eq(false))).thenReturn(refused)
         val answer = mapper.readTree(ask("Зачем банку бюро кредитных историй?").getContentAsString(Charsets.UTF_8))
         assertEquals("MODEL", answer["mode"].asText())
         assertEquals(
@@ -305,7 +308,7 @@ class AssistantApiTest {
     @Test
     fun `user supplied figures and years cannot become authoritative amounts or interest rates`() {
         whenever(model.available()).thenReturn(true)
-        val logger = LoggerFactory.getLogger(AssistantService::class.java) as Logger
+        val logger = LoggerFactory.getLogger("ru.creditcabinet.assistant.AssistantService") as Logger
         val captured = ListAppender<ILoggingEvent>().apply { start() }
         logger.addAppender(captured)
         try {
@@ -478,7 +481,7 @@ class AssistantApiTest {
     fun `an answer with a figure that is in no data is replaced by the rules answer`() {
         whenever(model.available()).thenReturn(true)
         whenever(model.chat(any())).thenReturn("В бюро видны кредиты на 500 000 ₽ за 18 месяцев.")
-        whenever(applications.facts(eq(applicationId), any())).thenReturn(refused)
+        whenever(applications.facts(eq(applicationId), any(), eq(false))).thenReturn(refused)
         val answer = mapper.readTree(ask("Зачем банку бюро кредитных историй?").getContentAsString(Charsets.UTF_8))
         assertEquals("RULES", answer["mode"].asText())
         assertTrue(answer["text"].asText().startsWith("Бюро кредитных историй хранит сведения"), answer["text"].asText())
@@ -592,7 +595,7 @@ class AssistantApiTest {
 
     @Test
     fun `another company's application is not found, a long question is refused`() {
-        whenever(applications.facts(eq(applicationId), any())).thenThrow(NotFoundException("Заявка не найдена"))
+        whenever(applications.facts(eq(applicationId), any(), eq(false))).thenThrow(AssistantFailure(AssistantFailureReason.NOT_FOUND, "Заявка не найдена"))
         assertEquals(404, ask("Что с заявкой?").status)
         assertEquals(400, ask("а".repeat(501), application = null).status)
     }

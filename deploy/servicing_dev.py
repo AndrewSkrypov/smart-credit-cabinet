@@ -106,7 +106,7 @@ def _require_drained(transfer):
         raise RuntimeError("До переноса Servicing согласуйте незавершённые вызовы АБС в Credit")
 
 
-def _require_authority(transfer, mode, fences):
+def _require_authority(transfer, mode, fences, *, legacy_backup=False):
     credit, servicing = (fences[key] for key in ("credit", "servicing"))
     if mode == "local":
         valid = credit["writer"] == "LOCAL" and servicing["writer"] == "FENCED"
@@ -116,8 +116,8 @@ def _require_authority(transfer, mode, fences):
                  and credit["manifest_sha256"] == servicing["manifest_sha256"])
     if not valid:
         raise RuntimeError("Credit и Servicing не подтверждают записанного владельца финансовых данных")
-    transfer.require_grants("credit", mode == "local")
-    transfer.require_grants("servicing", mode == "remote")
+    transfer.require_grants("credit", mode == "local", legacy_backup=legacy_backup)
+    transfer.require_grants("servicing", mode == "remote", legacy_backup=legacy_backup)
 
 
 def _retire(transfer, database, prior):
@@ -187,10 +187,10 @@ def _finish_attempt(transfer, mode, initial, directory):
     return _save_once(completed_path, {**checks, "mode": mode, "fences": fences})
 
 
-def _aggregates(transfer):
+def _aggregates(transfer, *, legacy_backup=False):
     result = {}
     for database in ("credit", "servicing"):
-        data = transfer.snapshot(database)
+        data = transfer.snapshot(database, legacy_backup=legacy_backup)
         result[database] = {
             "sha256": transfer.checksum(data),
             "counts": {name: len(rows) for name, rows in data.items()},
@@ -342,7 +342,7 @@ class ServicingDev:
         ensure_private(path.parent)
         return ensure_private(path)
 
-    def _authority(self, transfer):
+    def _authority(self, transfer, *, legacy_backup=False):
         authority = _read(self.state / "authority.json")
         fences = _fences(transfer)
         if authority is None:
@@ -364,7 +364,7 @@ class ServicingDev:
                 raise RuntimeError("Квитанция последнего принятого переноса Servicing отсутствует или изменилась")
         elif fences != {"credit": _stamp("LOCAL", 1), "servicing": _stamp("FENCED", 1)}:
             raise RuntimeError("Смену владельца Servicing должна подтверждать квитанция переноса")
-        _require_authority(transfer, authority["mode"], fences)
+        _require_authority(transfer, authority["mode"], fences, legacy_backup=legacy_backup)
         return authority
 
     def _check_pending(self):
@@ -467,10 +467,10 @@ class ServicingDev:
         try:
             transfer.validate_databases("credit", "servicing")
             with transfer.control_lock("credit"):
-                authority = self._authority(transfer)
+                authority = self._authority(transfer, legacy_backup=True)
                 if authority["mode"] != self.descriptor.mode:
                     raise RuntimeError("Копия Servicing требует manifest фактического владельца")
-                aggregates = _aggregates(transfer)
+                aggregates = _aggregates(transfer, legacy_backup=True)
                 path = directory / "servicing.dump"
                 fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
                 with os.fdopen(fd, "wb") as stream:

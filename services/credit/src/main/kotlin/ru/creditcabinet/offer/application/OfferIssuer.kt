@@ -12,7 +12,7 @@ import ru.creditcabinet.assessment.domain.OfferTerms
 import ru.creditcabinet.offer.domain.Offer
 import ru.creditcabinet.offer.domain.OfferKind
 import ru.creditcabinet.offer.domain.OfferRepository
-import ru.creditcabinet.pipeline.PipelineSettings
+import ru.creditcabinet.pipeline.application.PipelineSettings
 import java.time.Instant
 
 interface OfferIssuance {

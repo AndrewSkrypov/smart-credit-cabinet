@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
+import ru.creditcabinet.application.application.CreditFailure
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.offer.Loan
 import ru.creditcabinet.offer.application.ContractTextStore
@@ -160,7 +161,9 @@ class LoanOpeningOutbox(
             val retryable = e is ru.creditcabinet.servicing.domain.ServicingUnavailable || e is org.springframework.dao.DataAccessException
             val errorCode = when (e) {
                 is ServicingConflict -> "OPENING_CONFLICT"
-                is ru.creditcabinet.common.exception.ForbiddenException, is ru.creditcabinet.common.exception.UnauthorizedException -> "PEER_AUTHORIZATION"
+                is CreditFailure.Forbidden, is CreditFailure.Unauthenticated,
+                is ru.creditcabinet.common.exception.ForbiddenException, is ru.creditcabinet.common.exception.UnauthorizedException,
+                -> "PEER_AUTHORIZATION"
                 is IllegalArgumentException -> "INVALID_RESPONSE"
                 else -> if (retryable) "OWNER_UNAVAILABLE" else "DELIVERY_ERROR"
             }

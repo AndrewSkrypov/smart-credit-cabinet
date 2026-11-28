@@ -171,6 +171,7 @@ class NotificationMailTest {
         assertFailsWith<IllegalArgumentException> {
             service.deliver(listOf(valid, notification().copy(link = "https://evil.example", dedupKey = "bad-${UUID.randomUUID()}")))
         }
+        assertEquals(0, jdbc.queryForObject("select count(*) from notification_receipts where event_key=?", Int::class.java, valid.dedupKey))
         assertEquals(0, jdbc.queryForObject("select count(*) from notifications where recipient_id=?", Int::class.java, second))
         assertEquals(
             0,
@@ -180,6 +181,7 @@ class NotificationMailTest {
                 NotificationEmailDelivery.eventKey(valid.dedupKey, second),
             ),
         )
+        assertEquals(1, service.deliver(listOf(valid)))
     }
 
     @Test

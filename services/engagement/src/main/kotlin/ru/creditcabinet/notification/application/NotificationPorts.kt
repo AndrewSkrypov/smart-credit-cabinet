@@ -1,6 +1,7 @@
 package ru.creditcabinet.notification.application
 
 import ru.creditcabinet.common.notifications.NotificationEmail
+import ru.creditcabinet.common.security.TokenClaims
 import ru.creditcabinet.notification.domain.Notification
 import java.time.Instant
 import java.util.UUID
@@ -37,10 +38,22 @@ fun interface AgentNotificationAccessPort {
     fun check(applicationId: UUID, authorization: String): AgentNotificationAccess
 }
 
-interface NotificationUseCases {
+fun interface NotificationDelivery {
     fun deliver(items: List<NewNotification>): Int
-    fun page(page: Int, size: Int, authorization: String?): NotificationPage
-    fun unread(authorization: String?): Int
-    fun markRead(id: UUID, authorization: String?)
-    fun markAllRead(authorization: String?): Int
+}
+
+/** Commits notification rows, receipts and email jobs together. */
+fun interface NotificationDeliveryTransaction {
+    fun execute(delivery: () -> Int): Int
+}
+
+interface NotificationUseCases : NotificationDelivery {
+    fun page(caller: TokenClaims, page: Int, size: Int, authorization: String?): NotificationPage
+    fun unread(caller: TokenClaims, authorization: String?): Int
+    fun markRead(caller: TokenClaims, id: UUID, authorization: String?)
+    fun markAllRead(caller: TokenClaims, authorization: String?): Int
+}
+
+class NotificationNotFound : RuntimeException() {
+    override val message = "Уведомление не найдено"
 }

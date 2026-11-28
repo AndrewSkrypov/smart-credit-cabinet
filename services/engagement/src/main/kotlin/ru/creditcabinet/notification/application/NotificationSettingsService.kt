@@ -1,8 +1,5 @@
 package ru.creditcabinet.notification.application
 
-import org.springframework.stereotype.Service
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.mail.MailCapabilities
 import java.util.UUID
 
 data class NotificationPreference(val emailEnabled: Boolean = false, val version: Long = 0)
@@ -19,8 +16,16 @@ interface NotificationSettingsOperations {
     fun save(userId: UUID, preference: NotificationPreference): NotificationSettings
 }
 
-@Service
-class NotificationSettingsService(private val preferences: NotificationPreferences, private val mail: MailCapabilities) : NotificationSettingsOperations {
+fun interface NotificationMailAvailability {
+    fun enabled(): Boolean
+}
+
+class NotificationSettingsConflict(override val message: String) : RuntimeException(message)
+
+class NotificationSettingsService(
+    private val preferences: NotificationPreferences,
+    private val mail: NotificationMailAvailability,
+) : NotificationSettingsOperations {
     override fun get(userId: UUID): NotificationSettings {
         val value = preferences.get(userId)
         return NotificationSettings(mail.enabled(), value.emailEnabled, value.version)
@@ -28,7 +33,7 @@ class NotificationSettingsService(private val preferences: NotificationPreferenc
 
     override fun save(userId: UUID, preference: NotificationPreference): NotificationSettings {
         val available = mail.enabled()
-        if (preference.emailEnabled && !available) throw ConflictException("Почтовый канал на этом стенде выключен")
+        if (preference.emailEnabled && !available) throw NotificationSettingsConflict("Почтовый канал на этом стенде выключен")
         val value = preferences.save(userId, preference)
         return NotificationSettings(available, value.emailEnabled, value.version)
     }

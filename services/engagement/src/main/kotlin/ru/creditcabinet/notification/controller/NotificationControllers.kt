@@ -17,13 +17,37 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.notifications.NotificationEmail
+import ru.creditcabinet.common.security.CurrentCaller
 import ru.creditcabinet.notification.application.Audience
 import ru.creditcabinet.notification.application.NewNotification
-import ru.creditcabinet.notification.application.NotificationPage
+import ru.creditcabinet.notification.application.NotificationNotFound
 import ru.creditcabinet.notification.application.NotificationUseCases
 import ru.creditcabinet.notification.domain.NotificationType
+import java.time.Instant
 import java.util.UUID
+import ru.creditcabinet.notification.application.NotificationPage as Page
+
+data class NotificationPage(val items: List<NotificationView>, val page: Int, val size: Int, val total: Int, val unread: Int)
+
+data class NotificationView(
+    val id: UUID,
+    val type: NotificationType,
+    val title: String,
+    val body: String,
+    val link: String?,
+    val read: Boolean,
+    val createdAt: Instant,
+)
+
+private fun Page.toResponse() = NotificationPage(
+    items.map { NotificationView(it.id, it.type, it.title, it.body, it.link, it.read, it.createdAt) },
+    page,
+    size,
+    total,
+    unread,
+)
 
 @Tag(name = "Уведомления в кабинете")
 @RestController
@@ -35,20 +59,28 @@ class NotificationController(private val service: NotificationUseCases) {
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
         request: HttpServletRequest,
-    ): NotificationPage = service.page(page, size, request.getHeader(HttpHeaders.AUTHORIZATION))
+    ): NotificationPage = service.page(CurrentCaller.claims(), page, size, request.getHeader(HttpHeaders.AUTHORIZATION)).toResponse()
 
     @Operation(summary = "Число непрочитанных уведомлений текущего пользователя")
     @GetMapping("/unread-count")
-    fun unread(request: HttpServletRequest): Map<String, Int> = mapOf("unread" to service.unread(request.getHeader(HttpHeaders.AUTHORIZATION)))
+    fun unread(request: HttpServletRequest): Map<String, Int> = mapOf(
+        "unread" to service.unread(CurrentCaller.claims(), request.getHeader(HttpHeaders.AUTHORIZATION)),
+    )
 
     @Operation(summary = "Отметить своё уведомление прочитанным; чужое возвращает 404")
     @PostMapping("/{id}/read")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun read(@PathVariable id: UUID, request: HttpServletRequest) = service.markRead(id, request.getHeader(HttpHeaders.AUTHORIZATION))
+    fun read(@PathVariable id: UUID, request: HttpServletRequest) = try {
+        service.markRead(CurrentCaller.claims(), id, request.getHeader(HttpHeaders.AUTHORIZATION))
+    } catch (missing: NotificationNotFound) {
+        throw NotFoundException(missing.message)
+    }
 
     @Operation(summary = "Отметить все свои уведомления прочитанными")
     @PostMapping("/read-all")
-    fun readAll(request: HttpServletRequest): Map<String, Int> = mapOf("updated" to service.markAllRead(request.getHeader(HttpHeaders.AUTHORIZATION)))
+    fun readAll(request: HttpServletRequest): Map<String, Int> = mapOf(
+        "updated" to service.markAllRead(CurrentCaller.claims(), request.getHeader(HttpHeaders.AUTHORIZATION)),
+    )
 }
 
 data class InternalNotificationRequest(@field:Valid @field:Size(min = 1, max = 100) val items: List<Item>) {

@@ -11,16 +11,7 @@ import ru.creditcabinet.product.domain.ProductMatcher.rubles
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.Clock
-import java.time.Instant
 import java.util.UUID
-
-data class ContractTextView(
-    val snapshot: ContractTextSnapshot?,
-    val text: String,
-    val legacySummary: Boolean,
-    val signable: Boolean,
-    val signedAt: Instant?,
-)
 
 @Component
 class ContractTexts(private val snapshots: ContractTextStore, private val clock: Clock) {

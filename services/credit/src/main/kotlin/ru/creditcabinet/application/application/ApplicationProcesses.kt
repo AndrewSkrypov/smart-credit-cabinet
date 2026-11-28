@@ -1,6 +1,7 @@
 package ru.creditcabinet.application.application
 
 import org.springframework.stereotype.Service
+import ru.creditcabinet.application.application.CreditFailure.NotFound
 import ru.creditcabinet.application.domain.ActorType
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.InfoRequest
@@ -8,7 +9,6 @@ import ru.creditcabinet.application.domain.InfoRequests
 import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.assessment.domain.Decision
 import ru.creditcabinet.assessment.domain.DecisionRepository
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.offer.Loan
 import ru.creditcabinet.offer.Loans
 import ru.creditcabinet.offer.Offer
@@ -48,7 +48,7 @@ class ReadApplicationProcess(
 ) : ApplicationProcesses {
     override fun schedule(authorizedApplication: LoanApplication): Calculation {
         val loan = loans.find(authorizedApplication.id)
-        val offer = offers.current(authorizedApplication.id) ?: throw NotFoundException("Графика пока нет: банк ещё не сделал предложение")
+        val offer = offers.current(authorizedApplication.id) ?: throw NotFound("Графика пока нет: банк ещё не сделал предложение")
         val product = products.forApplication(authorizedApplication, offer.productCode)
         return LoanMath.calculate(loan?.amount ?: offer.amount, loan?.rate ?: offer.rate, loan?.termMonths ?: offer.termMonths, product.revolving)
     }

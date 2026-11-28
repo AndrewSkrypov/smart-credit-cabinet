@@ -1,5 +1,6 @@
 package ru.creditcabinet.advice.controller
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
 import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import ru.creditcabinet.advice.application.AdviceService
 import ru.creditcabinet.advice.application.AdviceView
+import java.security.MessageDigest
 import java.util.UUID
 
 @Tag(name = "Решения сотрудников банка")
@@ -26,8 +28,14 @@ class AdviceController(private val service: AdviceService) {
 @Hidden
 @RestController
 @RequestMapping("/internal/v1/underwriting/applications")
-class InternalAdviceController(private val service: AdviceService) {
+class InternalAdviceController(private val service: AdviceService, private val mapper: ObjectMapper) {
     @GetMapping("/{id}/advice")
-    fun manualReviewAdvice(@PathVariable id: UUID, @RequestParam eventId: UUID): ObjectNode =
-        service.manualReviewAdvice(id, eventId)
+    fun manualReviewAdvice(@PathVariable id: UUID, @RequestParam eventId: UUID): ObjectNode {
+        val advice = service.manualReviewAdvice(id, eventId)
+        val node = mapper.valueToTree<ObjectNode>(advice)
+        val revision = MessageDigest.getInstance("SHA-256")
+            .digest("$eventId:${mapper.writeValueAsString(advice)}".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        return node.put("adviceRevision", revision)
+    }
 }

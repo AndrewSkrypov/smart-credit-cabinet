@@ -13,6 +13,8 @@ import ru.creditcabinet.document.domain.FileStore
 import ru.creditcabinet.document.generated.ArtifactInput
 import ru.creditcabinet.document.generated.ArtifactPhase
 import ru.creditcabinet.document.generated.ArtifactRenderer
+import ru.creditcabinet.documents.infrastructure.DocumentsConfiguration
+import ru.creditcabinet.documents.infrastructure.JdbcDocumentMetadata
 import ru.creditcabinet.product.domain.LoanMath
 import java.math.BigDecimal
 import java.time.Instant
@@ -43,12 +45,25 @@ class DocumentsWorkerFenceTest {
                 UUID.randomUUID(), scope, input.offerId, "CONTRACT_PDF", "FINAL", 2, sha256(frozen.toByteArray()), frozen,
                 "Условия", "contract.pdf", "application/pdf", "generated-${UUID.randomUUID()}.pdf", "LOCAL", Instant.EPOCH,
             )
-            Mockito.`when`(jdbc.queryForList(anyString())).thenReturn(listOf(mapOf("id" to record.id, "metadata" to mapper.writeValueAsString(record))))
+            Mockito.`when`(jdbc.queryForList(anyString(), any<Any>(), any<Any>())).thenReturn(
+                listOf(
+                    mapOf("id" to record.id, "metadata" to mapper.writeValueAsString(record), "template_version" to 2, "status" to "PENDING", "attempts" to 0),
+                ),
+            )
             Mockito.doAnswer {
                 gate = mapOf("owner" to next.first, "epoch" to next.second)
                 throw java.io.IOException("Synthetic renderer failure")
             }.`when`(renderer).render(any(), any())
-            val store = DocumentsStore(jdbc, mapper, tx, Mockito.mock(FileStore::class.java), DocumentScanner {}, renderer, JdbcDocumentMetadata(jdbc, mapper))
+            val store = DocumentsConfiguration().documentsStore(
+                jdbc,
+                mapper,
+                tx,
+                Mockito.mock(FileStore::class.java),
+                DocumentScanner {
+                },
+                renderer,
+                JdbcDocumentMetadata(jdbc, mapper),
+            )
             store.generateOne()
             val errorWrites = Mockito.mockingDetails(jdbc).invocations.filter {
                 it.method.name == "update" &&

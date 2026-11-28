@@ -8,10 +8,10 @@ import ru.creditcabinet.access.domain.AccountAccessPort
 import ru.creditcabinet.access.domain.StoredAccount
 import ru.creditcabinet.access.domain.StoredInvitation
 import ru.creditcabinet.access.domain.StoredReset
-import ru.creditcabinet.common.exception.ConflictException
-import ru.creditcabinet.common.exception.NotFoundException
 import ru.creditcabinet.common.observability.RequestIds
 import ru.creditcabinet.common.security.RevocationWatermarks
+import ru.creditcabinet.identity.domain.IdentityFailure.Conflict
+import ru.creditcabinet.identity.domain.IdentityFailure.NotFound
 import ru.creditcabinet.user.domain.User
 import ru.creditcabinet.user.domain.UserRole
 import ru.creditcabinet.user.domain.UserStatus
@@ -33,7 +33,7 @@ class AccessStore(private val jdbc: NamedParameterJdbcTemplate, private val revo
     ) { rs, _ -> account(rs) }.firstOrNull()
 
     override fun lockCompany(id: UUID) {
-        if (jdbc.queryForList("select id from companies where id=:id for update", mapOf("id" to id)).isEmpty()) throw NotFoundException("Компания не найдена")
+        if (jdbc.queryForList("select id from companies where id=:id for update", mapOf("id" to id)).isEmpty()) throw NotFound("Компания не найдена")
     }
 
     override fun companyName(id: UUID): String? = jdbc.query(
@@ -94,7 +94,7 @@ class AccessStore(private val jdbc: NamedParameterJdbcTemplate, private val revo
         try {
             jdbc.update("update users set full_name=:name,email=:email where id=:id", mapOf("id" to userId, "name" to fullName, "email" to email))
         } catch (_: DataIntegrityViolationException) {
-            throw ConflictException("Этот адрес уже используется другим пользователем")
+            throw Conflict("Этот адрес уже используется другим пользователем")
         }
     }
 
@@ -176,7 +176,7 @@ class AccessStore(private val jdbc: NamedParameterJdbcTemplate, private val revo
                 ),
             )
         } catch (_: DataIntegrityViolationException) {
-            throw ConflictException("Этот адрес уже используется. Попросите приглашающего указать другой.")
+            throw Conflict("Этот адрес уже используется. Попросите приглашающего указать другой.")
         }
         publishVersion(user.id)
     }
@@ -206,7 +206,7 @@ class AccessStore(private val jdbc: NamedParameterJdbcTemplate, private val revo
         mapOf("actor" to actor, "key" to key),
     ) { rs, _ ->
         if (rs.getString("operation") != operation || rs.getString("payload_hash") != AccessGrant.hash(payload)) {
-            throw ConflictException("Этот ключ повтора уже использован для другого действия")
+            throw Conflict("Этот ключ повтора уже использован для другого действия")
         }
         rs.getObject("result_id", UUID::class.java)
     }.firstOrNull()

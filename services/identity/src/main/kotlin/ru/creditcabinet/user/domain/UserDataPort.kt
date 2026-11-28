@@ -3,6 +3,8 @@ package ru.creditcabinet.user.domain
 import java.time.Instant
 import java.util.UUID
 
+class UserRegistrationConflict(cause: Throwable) : RuntimeException(cause)
+
 interface UserDataPort {
     fun findById(id: UUID): User?
     fun findByEmail(email: String): User?

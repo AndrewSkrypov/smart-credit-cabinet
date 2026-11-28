@@ -6,7 +6,7 @@ import ru.creditcabinet.chat.domain.ChatAttachments
 import ru.creditcabinet.chat.domain.ChatFile
 import ru.creditcabinet.chat.domain.ChatUpload
 import ru.creditcabinet.common.security.TokenClaims
-import ru.creditcabinet.document.DocumentService
+import ru.creditcabinet.document.application.DocumentService
 import java.util.UUID
 
 @Component

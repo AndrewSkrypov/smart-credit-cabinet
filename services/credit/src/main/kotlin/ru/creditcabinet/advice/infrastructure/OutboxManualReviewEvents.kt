@@ -8,7 +8,6 @@ import org.springframework.http.MediaType
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
-import ru.creditcabinet.advice.application.ManualReviewEventPayload
 import ru.creditcabinet.advice.application.ManualReviewEvents
 import ru.creditcabinet.application.domain.ApplicationStatus
 import ru.creditcabinet.application.domain.JournalEntry
@@ -16,6 +15,13 @@ import ru.creditcabinet.application.domain.LoanApplication
 import ru.creditcabinet.common.outbox.DeliveryHandler
 import ru.creditcabinet.common.outbox.DurableOutbox
 import java.time.Duration
+import java.util.UUID
+
+private data class ManualReviewEventPayload(
+    val schemaVersion: Int,
+    val eventId: UUID,
+    val applicationId: UUID,
+)
 
 @Component
 class OutboxManualReviewEvents(

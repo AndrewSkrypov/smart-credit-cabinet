@@ -3,9 +3,9 @@ package ru.creditcabinet.notification.infrastructure
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import ru.creditcabinet.common.exception.ConflictException
 import ru.creditcabinet.notification.application.NotificationPreference
 import ru.creditcabinet.notification.application.NotificationPreferences
+import ru.creditcabinet.notification.application.NotificationSettingsConflict
 import java.util.UUID
 
 @Component
@@ -32,7 +32,7 @@ class JdbcNotificationPreferences(private val jdbc: NamedParameterJdbcTemplate) 
             where user_id=:id and version=:version returning version
             """.trimIndent(),
             mapOf("id" to userId, "enabled" to preference.emailEnabled, "version" to preference.version),
-        ) { rs, _ -> rs.getLong("version") }.firstOrNull() ?: throw ConflictException("Настройки уже изменились — обновите страницу")
+        ) { rs, _ -> rs.getLong("version") }.firstOrNull() ?: throw NotificationSettingsConflict("Настройки уже изменились — обновите страницу")
         return NotificationPreference(preference.emailEnabled, updated)
     }
 }

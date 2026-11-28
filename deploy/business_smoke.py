@@ -260,8 +260,9 @@ class API:
 
 
 class Ledger:
-    def __init__(self, context):
-        directory = context.state / "business-smoke"
+    def __init__(self, context, namespace="business-smoke"):
+        need(namespace in ("business-smoke", "mcp-smoke"), "invalid_ledger_namespace")
+        directory = context.state / namespace
         directory.mkdir(mode=0o700, exist_ok=True)
         private_dir(directory)
         need(next(directory.glob(context.revision + "-*.json"), None) is None, "existing_run_requires_operator_reconciliation")

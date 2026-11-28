@@ -97,7 +97,8 @@ internal class AgentMcpController(
         requireLoopback(request)
         if (request.parameterMap.isNotEmpty() || body.length > 1024) throw InvalidRequest()
         val input: JsonNode = json.readTree(body)
-        if (!input.isObject || input.fieldNames().asSequence().toSet() != previewFields ||
+        if (!input.isObject ||
+            input.fieldNames().asSequence().toSet() != previewFields ||
             input["mode"].textValue() != "SAVED_SCENARIO"
         ) {
             throw InvalidRequest()

@@ -162,10 +162,16 @@ function ApplicationCard({ id }: { id: string }) {
                   <Grid item xs={6} sm={4}><Fact label="Сумма" value={rub(application.amount)} /></Grid>
                   <Grid item xs={6} sm={4}><Fact label="Срок" value={months(application.termMonths)} /></Grid>
                   <Grid item xs={12} sm={6}><Fact label="Цель" value={application.purposeTitle} /></Grid>
-                  {application.declaredRevenue12m != null && (
-                    <Grid item xs={6} sm={3}><Fact label="Выручка за 12 мес." value={rub(application.declaredRevenue12m)} /></Grid>
+                  {application.purposeComment && (
+                    <Grid item xs={12} sm={6}><Fact label="Комментарий к цели" value={application.purposeComment} /></Grid>
                   )}
-                  <Grid item xs={6} sm={3}><Fact label="Документов приложено" value={String(application.documents.length)} /></Grid>
+                  {application.declaredRevenue12m != null && (
+                    <Grid item xs={6} sm={4}><Fact label="Выручка за 12 мес." value={rub(application.declaredRevenue12m)} /></Grid>
+                  )}
+                  {application.declaredMonthlyDebtPayments != null && (
+                    <Grid item xs={6} sm={4}><Fact label="Платежи по кредитам, в мес." value={rub(application.declaredMonthlyDebtPayments)} /></Grid>
+                  )}
+                  <Grid item xs={6} sm={4}><Fact label="Документов приложено" value={String(application.documents.length)} /></Grid>
                 </Grid>
 
                 {application.documents.length > 0 && (
@@ -303,6 +309,7 @@ function ApplicationCard({ id }: { id: string }) {
             minRows={2}
             value={returnComment}
             onChange={(event) => setReturnComment(event.target.value)}
+            onBlur={() => setReturnComment((value) => value.trim())}
             inputProps={{ maxLength: 2000 }}
           />
         </DialogContent>
@@ -342,7 +349,7 @@ function ApplicationCard({ id }: { id: string }) {
               ? 'Банк прекратит рассмотрение. Позже можно подать новую заявку.'
               : 'Заявка ещё не отправлена в банк. После отзыва её нельзя будет отправить. Позже можно создать новую заявку.'}
           </Typography>
-          <TextField label="Причина (необязательно)" fullWidth multiline minRows={2} value={withdrawComment} onChange={(event) => setWithdrawComment(event.target.value)} inputProps={{ maxLength: 2000 }} />
+          <TextField label="Причина (необязательно)" fullWidth multiline minRows={2} value={withdrawComment} onChange={(event) => setWithdrawComment(event.target.value)} onBlur={() => setWithdrawComment((value) => value.trim())} inputProps={{ maxLength: 2000 }} />
         </DialogContent>
         <DialogActions>
           <Button variant="outlined" onClick={() => setWithdrawing(false)} sx={transparentOutlineButtonSx}>Не отзывать</Button>

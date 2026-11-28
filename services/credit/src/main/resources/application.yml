@@ -102,7 +102,7 @@ cabinet:
     host: ${ANTIVIRUS_HOST:localhost}
     port: ${ANTIVIRUS_PORT:3310}
     timeout: ${ANTIVIRUS_TIMEOUT:PT10S}
-    max-signature-age: ${ANTIVIRUS_MAX_SIGNATURE_AGE:P7D}
+    max-signature-age: ${ANTIVIRUS_MAX_SIGNATURE_AGE:PT160H}
   # External systems (the external-sim service locally): registries, tax service, bureau, bank
   # data, signing, core banking.
   external:

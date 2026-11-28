@@ -6,6 +6,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { LoadingBlock } from '../../components/LoadingBlock';
 import { PageHeader } from '../../components/PageHeader';
 import { useApi } from '../../hooks/useApi';
+import { emailError, useFieldFeedback } from '../../shared/authValidation';
 import { CompanyInvitation } from '../../types';
 
 const invitationLabels = { PENDING: 'Ожидает принятия', ACCEPTED: 'Принято', REVOKED: 'Отменено', EXPIRED: 'Срок истёк' };
@@ -24,6 +25,8 @@ export function EmployeesPage() {
   const [link, setLink] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Action | null>(null);
   const [copied, setCopied] = useState(false);
+  const inviteErrors = { email: emailError(email) };
+  const inviteFeedback = useFieldFeedback(inviteErrors, 'invite');
   const data = loaded.data;
   const keyFor = (operation: string) => {
     const existing = keys.current.get(operation) ?? crypto.randomUUID();
@@ -38,10 +41,12 @@ export function EmployeesPage() {
   const invite = async (event: FormEvent) => {
     event.preventDefault();
     if (busy) return;
+    if (inviteErrors.email) { inviteFeedback.visitAll(); return; }
     setBusy(true); setError(null); setNotice(null); setLink(null);
     try {
-      showInvitation(await employeesApi.invite(email, canSign, inviteKey));
+      showInvitation(await employeesApi.invite(email.trim(), canSign, inviteKey));
       setEmail(''); setCanSign(false); setInviteKey(crypto.randomUUID());
+      inviteFeedback.resetVisited();
       await loaded.reload();
     } catch (next) { setError(next instanceof Error ? next.message : 'Не удалось создать приглашение'); }
     finally { setBusy(false); }
@@ -94,8 +99,8 @@ export function EmployeesPage() {
             {data.canManage ? (
               <Paper sx={{ p: { xs: 3, md: 4 } }}>
                 <Typography variant="h6" sx={{ mb: 2 }}>Пригласить сотрудника</Typography>
-                <Stack component="form" spacing={2} onSubmit={invite}>
-                  <TextField label="Email сотрудника" type="email" required value={email} onChange={(event) => { setEmail(event.target.value); setInviteKey(crypto.randomUUID()); }} />
+                <Stack component="form" spacing={2} onSubmit={invite} noValidate>
+                  <TextField {...inviteFeedback.field('email', undefined, () => setEmail((value) => value.trim()))} label="Email сотрудника" type="email" required value={email} onChange={(event) => { setEmail(event.target.value); setInviteKey(crypto.randomUUID()); }} />
                   <FormControlLabel control={<Checkbox checked={canSign} onChange={(_, checked) => { setCanSign(checked); setInviteKey(crypto.randomUUID()); }} />} label="Разрешить подписание от компании" />
                   <Typography variant="body2" color="text.secondary">{data.mailAvailable ? 'Приглашение придёт сотруднику по почте.' : 'Почта выключена. После создания вы один раз увидите ссылку для передачи сотруднику.'}</Typography>
                   <Button type="submit" variant="contained" disabled={busy}>Отправить приглашение</Button>

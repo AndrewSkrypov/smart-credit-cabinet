@@ -20,7 +20,6 @@ import {
   useMediaQuery,
   useTheme
 } from '@mui/material';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -248,9 +247,9 @@ export function AgentPortfolioPage() {
                         <Button
                           component={RouterLink}
                           to={`/agent/clients/${client.companyId}`}
-                          variant="outlined"
+                          variant="contained"
+                          color="secondary"
                           size="small"
-                          startIcon={<AddRoundedIcon />}
                         >
                           Оформить заявку
                         </Button>

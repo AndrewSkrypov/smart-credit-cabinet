@@ -44,7 +44,7 @@ export function ApplicationPageFilters({ state, bank, status = true }: { state: 
       sm: bank ? 'minmax(0, 1fr) 190px 110px' : 'minmax(0, 1fr) 190px',
     } }}>
       <TextField hiddenLabel type="search" placeholder={bank ? 'Номер, компания или ИНН' : 'Номер заявки или продукт'} value={state.search}
-        onChange={(event) => state.setSearch(event.target.value)} fullWidth size="small"
+        onChange={(event) => state.setSearch(event.target.value)} onBlur={() => state.setSearch(state.search.trim())} fullWidth size="small"
         inputProps={{ maxLength: 100, 'aria-label': bank ? 'Поиск по номеру, компании или ИНН' : 'Поиск по номеру или продукту' }}
         InputProps={{
           startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ color: 'text.secondary' }} /></InputAdornment>,

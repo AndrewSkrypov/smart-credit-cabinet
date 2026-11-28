@@ -100,7 +100,7 @@ services:
     restart: unless-stopped
     environment:
       TZ: UTC
-      ANTIVIRUS_MAX_SIGNATURE_AGE: ${ANTIVIRUS_MAX_SIGNATURE_AGE:-P7D}
+      ANTIVIRUS_MAX_SIGNATURE_AGE: ${ANTIVIRUS_MAX_SIGNATURE_AGE:-PT160H}
     # The image initializes its main config; keep our read-only source at a separate path.
     entrypoint: [/bin/sh, -c, "cp /cabinet/clamd.conf /etc/clamav/clamd.conf && exec /init"]
     volumes:
@@ -354,7 +354,7 @@ services:
       ANTIVIRUS_ENABLED: "true"
       ANTIVIRUS_HOST: clamav
       ANTIVIRUS_TIMEOUT: ${ANTIVIRUS_TIMEOUT:-PT10S}
-      ANTIVIRUS_MAX_SIGNATURE_AGE: ${ANTIVIRUS_MAX_SIGNATURE_AGE:-P7D}
+      ANTIVIRUS_MAX_SIGNATURE_AGE: ${ANTIVIRUS_MAX_SIGNATURE_AGE:-PT160H}
       IDENTITY_URL: http://identity:8080
       ENGAGEMENT_URL: http://engagement:8080
       EXTERNAL_SIM_URL: http://external-sim:8080

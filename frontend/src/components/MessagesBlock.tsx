@@ -167,7 +167,8 @@ export function MessagesBlock({ applicationId, status }: { applicationId: string
         {writable && <Stack component="form" spacing={2} onSubmit={(event) => void send(event)}>
           <SensitiveDataNotice />
           <TextField label="Сообщение" multiline minRows={3} value={text} disabled={sending} inputProps={{ maxLength: 2000 }} helperText={`${text.length} из 2000 символов. Только простой текст.`}
-            onChange={(event) => { setText(event.target.value); messageKey.current = crypto.randomUUID(); }} />
+            onChange={(event) => { setText(event.target.value); messageKey.current = crypto.randomUUID(); }}
+            onBlur={() => setText((value) => value.trim())} />
           {files.map((file) => <Chip key={file.id} label={file.fileName} sx={{ maxWidth: '100%', alignSelf: 'flex-start' }} disabled={sending || uploading} onDelete={() => { setFiles((current) => current.filter((entry) => entry.id !== file.id)); messageKey.current = crypto.randomUUID(); }} />)}
           {failedUpload && <Stack spacing={1}>
             <Typography color="text.secondary">Вложение не загружено. Повторите загрузку или отмените её перед отправкой.</Typography>

@@ -53,4 +53,16 @@ describe('NeedsWizardPage', () => {
     expect(create).toHaveBeenCalledWith({ productCode: 'INVESTMENT', purpose: 'EQUIPMENT', amount: 3_000_000, termMonths: 12, bureauConsent: false });
     expect(await screen.findByText('Черновик открыт')).toBeInTheDocument();
   });
+
+  it('auto-calculates product matches when the client enters with a preselected amount and purpose', async () => {
+    render(
+      <MemoryRouter initialEntries={['/client/new?purpose=EQUIPMENT&amount=3000000&termMonths=24']}>
+        <Routes>
+          <Route path="/client/new" element={<NeedsWizardPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Инвестиционный кредит')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Сумма/i })).toHaveValue('3\u00a0000\u00a0000');
+  });
 });

@@ -349,6 +349,7 @@ export function AssistantPanel() {
         {error && <Alert severity="error" sx={{ mx: 2 }} action={<Button disabled={busy} onClick={() => void ask(messages.at(-1)?.text ?? '')}>Повторить вопрос</Button>}>{error}</Alert>}
         <Box component="form" onSubmit={submit} sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
           <TextField hiddenLabel placeholder="Задайте вопрос помощнику" value={question} onChange={(event) => setQuestion(event.target.value)}
+            onBlur={() => setQuestion((value) => value.trim())}
             fullWidth multiline maxRows={4}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {

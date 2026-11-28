@@ -17,6 +17,7 @@ import { tokens } from '../../theme/theme';
 import { FinancingPurpose, ProductMatch } from '../../types';
 
 const TERMS = [3, 6, 12, 18, 24, 36, 48, 60];
+const QUICK_AMOUNTS = [500_000, 1_000_000, 3_000_000, 5_000_000, 10_000_000];
 
 /** A typical request for each goal: a cash gap is short and small, equipment is long and large. */
 const PURPOSE_DEFAULTS: Record<FinancingPurpose, { amount: number; termMonths: number }> = {
@@ -40,6 +41,9 @@ export function NeedsWizardPage() {
   const purposes = useApi(productsApi.purposes);
   const [purpose, setPurpose] = useState<FinancingPurpose | null>(selection.purpose ?? null);
   const [amount, setAmount] = useState<number | null>(selection.amount ?? 1_000_000);
+  const [amountVisited, setAmountVisited] = useState(false);
+  // If the client entered with their own amount/purpose or already ran a search, recalculate live.
+  const [autoMatch, setAutoMatch] = useState(() => Boolean(selection.amount || selection.purpose || selection.product));
   // A term from a link (the assistant's «Оформить») snaps to the nearest one the form offers.
   const [termMonths, setTermMonths] = useState(() => {
     const wanted = selection.termMonths ?? 12;
@@ -51,21 +55,39 @@ export function NeedsWizardPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // A known purpose and amount from the link: show the products straight away.
+  // When autoMatch is active (linked parameters or after the first search), update product matches automatically.
   const knownPurpose = purpose !== null && (purposes.data ?? []).some((item) => item.code === purpose);
   useEffect(() => {
-    if (!knownPurpose || !selection.amount || !amount || matches) return;
-    productsApi.match(purpose!, amount, termMonths).then(setMatches).catch(() => undefined);
-    // Only once, when the purposes arrive and confirm the linked one.
+    if (!autoMatch || !knownPurpose || !amount || amount <= 0) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      productsApi
+        .match(purpose!, amount, termMonths)
+        .then((next) => {
+          if (active) {
+            setMatches(next);
+            setError(null);
+          }
+        })
+        .catch(() => undefined);
+    }, matches === null ? 0 : 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [knownPurpose]);
+  }, [autoMatch, knownPurpose, purpose, amount, termMonths]);
 
   if (purposes.loading) return <LoadingBlock />;
   if (purposes.error || !purposes.data) return <ErrorState message={purposes.error ?? 'Нет данных'} onRetry={purposes.reload} />;
 
+  const amountInvalid = !amount || amount <= 0;
+
   const search = async (event: FormEvent) => {
     event.preventDefault();
-    if (!purpose || !amount) return;
+    setAmountVisited(true);
+    if (!purpose || amountInvalid) return;
+    setAutoMatch(true);
     setBusy(true);
     setError(null);
     try {
@@ -94,7 +116,13 @@ export function NeedsWizardPage() {
     <>
       <PageHeader title="Подбор финансирования" subtitle="Расскажите, зачем нужны деньги, — подскажем подходящий продукт и платёж" />
       <Stack spacing={3}>
-        {(selection.purpose || selection.product) && <Alert severity="info">Ваш выбор перенесён с сайта. Проверьте параметры и нажмите «Подобрать» — условия будут рассчитаны заново.</Alert>}
+        {(selection.purpose || selection.product || selection.amount) && (
+          <Alert severity="info">
+            {knownPurpose
+              ? 'Ваш выбор перенесён. Подходящие продукты, лимиты и ежемесячный платёж рассчитаны ниже — при изменении суммы или срока расчёт обновится автоматически.'
+              : 'Сумма перенесена. Выберите цель финансирования — сразу покажем подходящие продукты, лимиты и платёж.'}
+          </Alert>
+        )}
         <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
           <Typography variant="h6" component="h2" gutterBottom>1. На что нужны деньги?</Typography>
           <Grid container spacing={1.5}>
@@ -104,7 +132,7 @@ export function NeedsWizardPage() {
                   <CardActionArea sx={{ height: '100%', p: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 1.5 }} aria-pressed={purpose === item.code}
                     onClick={() => {
                       setPurpose(item.code);
-                      setMatches(null);
+                      if (!autoMatch) setMatches(null);
                       const typical = PURPOSE_DEFAULTS[item.code];
                       if (!ownTerms && typical) { setAmount(typical.amount); setTermMonths(typical.termMonths); }
                     }}>
@@ -120,13 +148,33 @@ export function NeedsWizardPage() {
         <Paper variant="outlined" component="form" onSubmit={search} sx={{ p: { xs: 2, md: 3 } }}>
           <Typography variant="h6" component="h2" gutterBottom>2. Сколько и на какой срок?</Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'flex-start' }}>
-            <MoneyField label="Сумма" value={amount} onChange={(value) => { setAmount(value); setOwnTerms(true); setMatches(null); }} sx={{ minWidth: 240 }} required />
-            <TextField select label="Срок" value={termMonths} onChange={(event) => { setTermMonths(Number(event.target.value)); setOwnTerms(true); setMatches(null); }} sx={{ minWidth: 200 }}>
+            <MoneyField
+              label="Сумма"
+              value={amount}
+              onChange={(value) => { setAmount(value); setOwnTerms(true); if (!autoMatch) setMatches(null); }}
+              onBlur={() => setAmountVisited(true)}
+              error={amountVisited && amountInvalid}
+              helperText={amountVisited && amountInvalid ? 'Укажите сумму больше нуля' : 'Введите свою сумму или выберите быстрый вариант ниже'}
+              sx={{ minWidth: 240 }}
+              required
+            />
+            <TextField select label="Срок" value={termMonths} onChange={(event) => { setTermMonths(Number(event.target.value)); setOwnTerms(true); if (!autoMatch) setMatches(null); }} sx={{ minWidth: 200 }}>
               {[...new Set([...TERMS, termMonths])].sort((a, b) => a - b).map((term) => <MenuItem key={term} value={term}>{months(term)}</MenuItem>)}
             </TextField>
-            <Button type="submit" variant="contained" size="large" disabled={!purpose || !amount || busy} sx={{ minHeight: 56 }}>Подобрать</Button>
+            <Button type="submit" variant="contained" size="large" disabled={!purpose || amountInvalid || busy} sx={{ minHeight: 56 }}>Подобрать</Button>
           </Stack>
-          {!purpose && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Сначала выберите цель.</Typography>}
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
+            {QUICK_AMOUNTS.map((preset) => (
+              <Chip
+                key={preset}
+                label={rub(preset)}
+                variant={amount === preset ? 'filled' : 'outlined'}
+                color={amount === preset ? 'primary' : 'default'}
+                onClick={() => { setAmount(preset); setAmountVisited(true); setOwnTerms(true); }}
+              />
+            ))}
+          </Stack>
+          {!purpose && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Сначала выберите цель финансирования выше.</Typography>}
         </Paper>
 
         {error && <Alert severity="error">{error}</Alert>}
@@ -138,6 +186,9 @@ export function NeedsWizardPage() {
             <Stack spacing={2}>
               {[...matches].sort((a, b) => Number(b.product.code === selection.product) - Number(a.product.code === selection.product)).map((match) => {
                 const amountFits = !!amount && amount >= match.product.minAmount && amount <= match.product.maxAmount;
+                const clampedAmount = amount
+                  ? Math.min(Math.max(amount, match.product.minAmount), match.product.maxAmount)
+                  : match.product.minAmount;
                 return (
                   <Paper key={match.product.code} variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between">
@@ -171,14 +222,29 @@ export function NeedsWizardPage() {
                         <Typography variant="body2" color="text.secondary">
                           ставка от {match.product.baseRate}% · {months(match.termMonths)} · {rub(match.product.minAmount)} – {rub(match.product.maxAmount)}
                         </Typography>
-                        <Button variant="contained" disabled={!amountFits || busy} onClick={() => start(match)}>
-                          {match.termMonths === termMonths ? 'Оформить заявку' : `Оформить на ${months(match.termMonths)}`}
-                        </Button>
                         {!amountFits && !!amount && (
                           <Typography variant="body2" color="warning.dark" role="status" sx={{ textAlign: { md: 'right' } }}>
-                            {amount > match.product.maxAmount ? `Больше лимита продукта — уменьшите сумму до ${rub(match.product.maxAmount)}` : `Меньше минимума продукта — от ${rub(match.product.minAmount)}`}
+                            {amount > match.product.maxAmount ? 'Сумма больше лимита продукта' : 'Сумма меньше минимума продукта'}
                           </Typography>
                         )}
+                        {!amountFits && !!amount && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            disabled={busy}
+                            onClick={() => {
+                              setAmount(clampedAmount);
+                              setOwnTerms(true);
+                              setAutoMatch(true);
+                            }}
+                          >
+                            Установить {rub(clampedAmount)}
+                          </Button>
+                        )}
+                        <Button variant="contained" color="secondary" disabled={!amountFits || busy} onClick={() => start(match)}>
+                          {match.termMonths === termMonths ? 'Оформить заявку' : `Оформить на ${months(match.termMonths)}`}
+                        </Button>
                       </Stack>
                     </Stack>
                   </Paper>

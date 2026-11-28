@@ -113,7 +113,12 @@ dev-deploy:
     url: $CABINET_DEV_URL
   dependencies: [release-images]
   script:
-    - python3 ci/gitlab/vault/with-deploy-secrets.py dev-release -- bash ci/gitlab/deploy-dev.sh
+    - |
+      if [ "$CI_COMMIT_BRANCH" = dev ]; then
+        python3 ci/gitlab/vault/with-deploy-secrets.py dev-branch-release -- bash ci/gitlab/deploy-dev.sh
+      else
+        python3 ci/gitlab/vault/with-deploy-secrets.py dev-release -- bash ci/gitlab/deploy-dev.sh
+      fi
     - sha256sum release.json > dev-release.sha256
   artifacts:
     expire_in: 30 days
@@ -139,6 +144,10 @@ dev-vault-canary:
 prod-deploy:
   extends: [.release, .pump-vault-job-identity]
   stage: prod
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: never
+    - !reference [.release, rules]
   tags: [cabinet-deploy-prod]
   resource_group: cabinet-prod
   environment:

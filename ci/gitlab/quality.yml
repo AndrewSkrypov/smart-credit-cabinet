@@ -5,6 +5,8 @@
     - cabinet-ci
   variables:
     SOURCE_REVISION: $CI_COMMIT_SHA
+    # Disposable synthetic CI uses the explicit Dev age policy; ordinary/Prod defaults stay PT72H.
+    ANTIVIRUS_MAX_SIGNATURE_AGE: P7D
     COMPOSE_ANSI: never
     COMPOSE_PROGRESS: plain
   before_script:
@@ -132,6 +134,7 @@ documentation:
       npm ci --prefix e2e
       npm ci --prefix contracts/postman
       npm ci --prefix scripts/license-tools
+    - bash ci/gitlab/quality/mcp-documentation.sh
     - node scripts/generate-notices.mjs --check
     - python3 security/audit-dependencies.py
   artifacts:
@@ -199,6 +202,8 @@ mcp-image-security:
   dependencies: []
   script:
     - python3 -B -m unittest discover -s ci/gitlab -p test_mcp_release.py
+    - python3 -B -m unittest discover -s deploy -p test_mcp_business_smoke.py
+    - bash ci/gitlab/quality/mcp-tests.sh
     - bash ci/gitlab/quality/image-scan.sh mcp
   after_script:
     - bash ci/gitlab/quality/cleanup.sh
@@ -206,8 +211,11 @@ mcp-image-security:
     when: always
     expire_in: 14 days
     paths:
+      - ci-artifacts/mcp-tests/
       - security/reports/image-mcp/trivy-image-*.json
       - security/reports/image-mcp/summary.json
+    reports:
+      junit: ci-artifacts/mcp-tests/*/junit.xml
 image-security:
   stage: verify
   extends: .verified

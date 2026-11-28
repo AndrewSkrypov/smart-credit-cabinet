@@ -23,8 +23,10 @@ internal class McpCreditConnectorBoundary {
             override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain) {
                 val dedicatedConnector = request.localPort == port
                 val uri = request.requestURI
-                if (dedicatedConnector && !(request.isSecure && remotePath.matches(uri)) ||
-                    !dedicatedConnector && uri.startsWith("/internal/mcp/credit/")
+                if (dedicatedConnector &&
+                    !(request.isSecure && remotePath.matches(uri)) ||
+                    !dedicatedConnector &&
+                    uri.startsWith("/internal/mcp/credit/")
                 ) {
                     response.status = HttpServletResponse.SC_NOT_FOUND
                     return

@@ -1,8 +1,8 @@
 import { Alert, Button, FormControlLabel, Grid, Paper, Radio, RadioGroup, Stack, TextField, Typography } from '@mui/material';
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { agentApi } from '../../api/client';
-import { extractInvoice, financingApi, FinancingInputs, FinancingScenario, InvoiceExtraction } from '../../api/financing';
-import { FinancingComparison } from '../../components/FinancingScenarioView';
+import { extractInvoice, financingApi, FinancingInputs, FinancingPreview, FinancingPreviewRequest, FinancingScenario, InvoiceExtraction } from '../../api/financing';
+import { FinancingComparison, FinancingPreviewComparison } from '../../components/FinancingScenarioView';
 import { MoneyField } from '../../components/MoneyField';
 import { formatDate, months, rub } from '../../shared/format';
 import { Application } from '../../types';
@@ -42,6 +42,7 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
   latestId.current = id;
   const fileInput = useRef<HTMLInputElement>(null);
   const [scenario, setScenario] = useState<FinancingScenario | null>(null);
+  const [preview, setPreview] = useState<{ key: string; scope: string; result: FinancingPreview } | null>(null);
   const [form, setForm] = useState<ScenarioForm>(() => defaultInputs(baseTerm));
   const invoiceUpload = useRef<BusinessUploadOperation | null>(null);
   const [invoiceDocumentId, setInvoiceDocumentId] = useState<string | null>(null);
@@ -50,13 +51,15 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
   const [useSourceAmount, setUseSourceAmount] = useState(false);
   const [invoiceNotice, setInvoiceNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<'load' | 'calculate' | 'extract' | null>('load');
+  const [busy, setBusy] = useState<'load' | 'preview' | 'save' | 'extract' | null>('load');
   const [dirty, setDirty] = useState(false);
   const [sourceManuallyEdited, setSourceManuallyEdited] = useState(false);
   const savedTerms = useRef({ amount, baseTerm });
   const onUncommittedChangeRef = useRef(onUncommittedChange);
   onUncommittedChangeRef.current = onUncommittedChange;
   const conflictingTerms = !!scenario && (savedTerms.current.amount !== amount || savedTerms.current.baseTerm !== baseTerm);
+  const previewRequest = useRef<symbol | null>(null);
+  const latestPreviewKey = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -72,11 +75,15 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
     }).finally(() => {
       if (active) setBusy(null);
     });
-    return () => { active = false; onUncommittedChangeRef.current(false); };
+    return () => {
+      active = false;
+      previewRequest.current = null;
+      onUncommittedChangeRef.current(false);
+    };
   }, [id]);
 
   useEffect(() => {
-    onUncommittedChangeRef.current(dirty || conflictingTerms || busy === 'calculate');
+    onUncommittedChangeRef.current(dirty || conflictingTerms || busy === 'save');
   }, [dirty, conflictingTerms, busy]);
 
   function change<K extends keyof ScenarioForm>(name: K, value: ScenarioForm[K]) {
@@ -152,18 +159,66 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
     return { page: invoiceAmount.page, amountQuote: invoiceAmount.quote, dateQuote: invoiceDate.quote };
   }
 
-  const enabled = !!baseTerm && !!form.alternativeTermMonths && form.alternativeTermMonths !== baseTerm &&
-    form.openingBalance != null && form.expectedReceiptAmount != null &&
-    !!form.expectedReceiptDate && !!form.paymentDate && !busy && !savingDraft;
+  const assumptions =
+    amount > 0 && baseTerm > 0 && form.alternativeTermMonths > 0 && form.alternativeTermMonths !== baseTerm &&
+    form.openingBalance != null && form.expectedReceiptAmount != null && form.expectedReceiptDate && form.paymentDate
+      ? {
+        openingBalance: form.openingBalance,
+        expectedReceiptAmount: form.expectedReceiptAmount,
+        expectedReceiptDate: form.expectedReceiptDate,
+        paymentDate: form.paymentDate,
+        delayDays: form.delayDays,
+        alternativeTermMonths: form.alternativeTermMonths
+      }
+      : null;
+  const previewInput: FinancingPreviewRequest | null = assumptions && {
+    ...assumptions,
+    mode: 'WEB_FORM',
+    draftTermsOverride: { amount, baseTermMonths: baseTerm }
+  };
+  const fieldDisabled = busy !== null || savingDraft;
+  const enabled = !!assumptions && !fieldDisabled;
+  const previewKey = previewInput ? JSON.stringify({
+    input: previewInput,
+    applicationVersion: application.version,
+    productVersion: application.product?.version,
+    currentProductVersion: application.currentProduct?.version ?? null
+  }) : null;
+  latestPreviewKey.current = previewKey;
+  const previewScope = businessUploadScope('financing-preview', id);
+  const currentPreview = preview?.key === previewKey && preview.scope === previewScope ? preview.result : null;
+  const selectedTerm = form.selectedTermMonths === form.alternativeTermMonths ? form.alternativeTermMonths : baseTerm;
 
-  async function calculate() {
-    if (!enabled || form.openingBalance == null || form.expectedReceiptAmount == null) return;
+  async function calculatePreview() {
+    if (!enabled || !previewInput || !previewKey || previewRequest.current) return;
+    const request = Symbol();
+    previewRequest.current = request;
+    const isCurrent = () => previewRequest.current === request && latestPreviewKey.current === previewKey &&
+      businessUploadScope('financing-preview', latestId.current) === previewScope;
+    setBusy('preview');
+    setPreview(null);
+    setError(null);
+    try {
+      const result = await financingApi.preview(id, previewInput);
+      if (isCurrent()) setPreview({ key: previewKey, scope: previewScope, result });
+    } catch (next) {
+      if (isCurrent()) setError(next instanceof Error ? next.message : 'Не удалось рассчитать примерку');
+    } finally {
+      if (previewRequest.current === request) {
+        previewRequest.current = null;
+        setBusy(null);
+      }
+    }
+  }
+
+  async function saveScenario() {
+    if (!enabled || !assumptions) return;
     const scope = businessUploadScope('invoice', id);
     if (invoiceUpload.current && invoiceUpload.current.scope !== scope) {
       discardInvoiceUpload();
       return;
     }
-    setBusy('calculate');
+    setBusy('save');
     setError(null);
     try {
       const saved = await saveDraft();
@@ -183,14 +238,13 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
         source = { ...verified, documentId };
       }
       const next = await financingApi.save(id, {
-        ...form,
-        openingBalance: form.openingBalance,
-        expectedReceiptAmount: form.expectedReceiptAmount,
+        ...assumptions,
         selectedTermMonths,
         source
       });
       if (!isCurrentInvoiceScope(scope)) return;
       setScenario(next);
+      setPreview(null);
       setForm(next.inputs);
       savedTerms.current = { amount: saved.amount, baseTerm: saved.termMonths };
       setDirty(false);
@@ -201,8 +255,6 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
       setBusy(null);
     }
   }
-
-  const fieldDisabled = busy !== null || savingDraft;
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, scrollMarginTop: 110 }}>
@@ -248,17 +300,31 @@ export function FinancingScenarioEditor({ application, amount, baseTerm, savingD
           <Grid item xs={12} sm={6}><TextField fullWidth label="Задержка поступления, дней" type="number" inputProps={{ min: 0, max: 365 }} value={form.delayDays} disabled={fieldDisabled} onChange={(event) => change('delayDays', Number(event.target.value))} /></Grid>
           <Grid item xs={12} sm={6}><TextField fullWidth label="Второй срок, месяцев" type="number" inputProps={{ min: 1, max: 120 }} value={form.alternativeTermMonths || ''} disabled={fieldDisabled} onChange={(event) => change('alternativeTermMonths', Number(event.target.value))} /></Grid>
         </Grid>
-        {scenario && <FinancingComparison scenario={scenario} onDownloadSource={(documentId) => agentApi.downloadDocument(id, documentId, 'Счёт.pdf')} />}
-        <RadioGroup row aria-label="Выбрать срок для передачи" value={form.selectedTermMonths === form.alternativeTermMonths ? form.alternativeTermMonths : baseTerm}
+        {currentPreview
+          ? <FinancingPreviewComparison preview={currentPreview} selectedTermMonths={selectedTerm} />
+          : scenario && (
+            <Stack spacing={1}>
+              <Typography variant="subtitle1" fontWeight={600}>Сохранённый расчёт · версия {scenario.revision}</Typography>
+              <FinancingComparison scenario={scenario} onDownloadSource={(documentId) => agentApi.downloadDocument(id, documentId, 'Счёт.pdf')} />
+            </Stack>
+          )}
+        <RadioGroup row aria-label="Выбрать срок для передачи" value={selectedTerm}
           onChange={(_, value) => change('selectedTermMonths', Number(value))}>
           <FormControlLabel value={baseTerm} control={<Radio />} disabled={fieldDisabled || !baseTerm} label={months(baseTerm)} />
           {!!form.alternativeTermMonths && form.alternativeTermMonths !== baseTerm &&
             <FormControlLabel value={form.alternativeTermMonths} control={<Radio />} disabled={fieldDisabled} label={months(form.alternativeTermMonths)} />}
         </RadioGroup>
-        {(dirty || conflictingTerms) && <Typography variant="body2" color="text.secondary">Сохраните новый расчёт перед передачей клиенту.</Typography>}
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-          <Button variant="outlined" disabled={!enabled} onClick={() => void calculate()}>
-            {busy === 'calculate' ? 'Считаем…' : 'Рассчитать и сохранить варианты'}
+        {(dirty || conflictingTerms) && (
+          <Typography variant="body2" color="text.secondary">
+            {currentPreview ? 'Чтобы передать расчёт клиенту, сохраните выбранный вариант.' : 'Чтобы увидеть расчёт для текущих параметров, рассчитайте примерку.'}
+          </Typography>
+        )}
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} useFlexGap flexWrap="wrap">
+          <Button variant="outlined" disabled={!enabled} onClick={() => void calculatePreview()}>
+            {busy === 'preview' ? 'Считаем…' : 'Рассчитать примерку'}
+          </Button>
+          <Button variant="outlined" disabled={!enabled} onClick={() => void saveScenario()}>
+            {busy === 'save' ? 'Сохраняем…' : 'Сохранить выбранный вариант'}
           </Button>
           {dirty && <Button disabled={fieldDisabled} onClick={() => {
             setForm(scenario?.inputs ?? defaultInputs(baseTerm));

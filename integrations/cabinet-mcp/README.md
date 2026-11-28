@@ -4,7 +4,11 @@
 
 ## Установка и запуск
 
-Версии закреплены в `.nvmrc`, `package.json` и `package-lock.json`. Проверяемая версия Node.js — 24.13.0, официальный SDK — `@modelcontextprotocol/sdk@1.32.2`. Stdio-клиент и сервер согласовали редакцию `2025-11-25`.
+В текущем MCP закреплён `zod@4.6.7`, устраняющий High advisory [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) для версий ниже 4.6.6. SDK остаётся `1.32.2`; остальные зависимости не обновлялись. Историческая квитанция в `acceptance/README.md` описывает прежнюю проверку с Zod 4.3.6.
+
+Версии закреплены в `.nvmrc`, `package.json` и `package-lock.json`. Текущая закреплённая версия Node.js — 24.22.3, официальный SDK — `@modelcontextprotocol/sdk@1.32.2`. Stdio-клиент и сервер согласовали редакцию `2025-11-25`.
+
+Node.js 24.22.3 — [security release от 11 ноября 2026 года](https://nodejs.org/en/blog/release/v24.22.3) с исправлениями TLS/mTLS и HTTP/2. Dockerfile закрепляет multi-platform OCI index `sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530`; linux/amd64 manifest — `sha256:e0e989b967dacc279681ed81774b2ce9eeebbb0efb8e0c427573235bebf1eda1`. [Метаданные upstream](acceptance/node-24.22.3-provenance.json). Версии SDK и зависимостей сохранены. Исторический отчёт в `acceptance/README.md` относится к прежнему Node 24.13.0 и не переатрибутируется новому runtime; текущие проверки выполняются на 24.22.3.
 
 Из корня рабочего дерева:
 
@@ -38,7 +42,7 @@ npm run --silent verify
 Локальный провайдер следует DTO из Credit `bf797cd542c0e3def842e05aac6dcf0e98b759ec`. Подключайте его только к отдельному синтетическому экземпляру после проверки готовности HTTP. Backend должен слушать `127.0.0.1` с профилем `agent-mcp-local` и `server.forward-headers-strategy=none`. Выделенный короткоживущий JWT выпустите штатным тестовым механизмом на стороне стенда.
 
 1. Задайте `CABINET_MCP_CREDIT_ORIGIN` как `http://127.0.0.1:<port>` либо HTTPS на том же адресе с проверяемым сертификатом. Задайте `CABINET_MCP_CREDIT_TOKEN_FILE` как абсолютный путь к приватному обычному файлу пользователя процесса с правами `0600`. Передавайте только путь. Файл читается на каждый вызов, для ротации заменяйте его атомарно приватным файлом того же владельца.
-2. Запускайте `node dist/main.js --local-credit` с этим окружением. Успешные HTTP-ответы проходят закрытые схемы и дают `source: credit`. Провайдер обращается только к `GET /api/v1/agent/mcp/priorities`, `GET /api/v1/agent/mcp/applications/{id}/summary` и `POST /api/v1/agent/applications/{id}/financing-scenario/preview` в режиме `SAVED_SCENARIO`. Запросы идут напрямую, без переадресаций, с общим сроком 3 секунды до конца чтения, максимум 128 КиБ JSON. На отказ провайдер возвращает устойчивый код без прежних данных.
+2. Запускайте `node dist/main.js --local-credit` с этим окружением. Успешные HTTP-ответы проходят закрытые схемы и дают `source: credit`. Провайдер обращается только к `GET /api/v1/agent/mcp/priorities`, `GET /api/v1/agent/mcp/applications/{id}/summary` и `POST /api/v1/agent/mcp/applications/{id}/financing-scenario/preview` в режиме `SAVED_SCENARIO`. Запросы идут напрямую, без переадресаций, с общим сроком 3 секунды до конца чтения, максимум 128 КиБ JSON. На отказ провайдер возвращает устойчивый код без прежних данных.
 3. После `npm run build` передайте абсолютный путь к `test/credit-live.ts` в `CABINET_MCP_TEST_SCRIPT` совместного Spring harness. Harness передаёт Node параметры `CABINET_CREDIT_ORIGIN`, `CABINET_CREDIT_TOKEN_FILE`, `CABINET_CREDIT_APPLICATION_ID` (UUID выделенного черновика с эталоном 2 млн ₽, 20%, 12/24 мес., приход 140 000 ₽) и `CABINET_CREDIT_SOURCE_SHA` (точный SHA запущенного Credit). Для ручного прогона передайте те же параметры в `npm run --silent verify:credit`. Проверка вызывает три инструмента через stdio, сверяет сводку, список, превью для дней 5 и 6 и стабильные ошибки. В отчёте только статус, версии и длительности.
 4. Вместе с владельцем Credit сверяйте веб и MCP на одинаковых вводных и версиях. До и после серии превью сверяются версия заявки, число редакций, документы, бизнес-события и outbox. Сохранение и проверка синтетических полномочий на стороне Credit идут отдельно.
 
@@ -58,3 +62,11 @@ npm run --silent verify
 - Внутренние маршруты Credit — `GET /internal/mcp/credit/priorities`, `GET /internal/mcp/credit/applications/{id}/summary`, `POST /internal/mcp/credit/applications/{id}/financing-scenario/preview`. Заголовок — `X-Cabinet-Mcp-Actor-Assertion`. До подтверждения точных схем и авторизации на внутренних сервисах эту раскладку нельзя считать приёмкой.
 
 Собирайте Dockerfile с контекстом `integrations/cabinet-mcp`. CI может передать `NODE_IMAGE` с закреплённым registry digest. Развёртывание требует TLS на шлюзе, ограничений ingress/egress и проверки цепочки Identity → MCP → Credit. Публикуйте только `/api/mcp` и пути discovery/OAuth, согласованные с владельцами Identity и Edge, после отрицательных тестов Dev. Привилегированные служебные маршруты остаются внутри сети.
+
+### Сквозная проверка OAuth и веб-примерки
+
+После сборки запустите `node test/oauth-credit-live.ts` с `CABINET_MCP_SYNTHETIC_ACCEPTANCE=1`, каноническим HTTPS origin в `CABINET_MCP_ACCEPTANCE_ORIGIN` и абсолютным путём `CABINET_MCP_ACCEPTANCE_FIXTURE` к закрытому файлу `0600` текущего пользователя. Файл содержит `email`, `password`, зарегистрированные `clientId` и `redirectUri`, UUID собственного синтетического черновика `applicationId` с сохранённой примеркой и чужой заявки `foreignApplicationId`. Учётные данные остаются в памяти проверочного процесса и не выводятся в отчёт.
+
+Прогон получает отдельный MCP OAuth grant с PKCE и согласием, вызывает три инструмента, затем входит той же синтетической учёткой через обычный WEB API. Веб-сессионный JWT отправляется только на WEB-маршруты, а OAuth-токен — только на `/api/mcp`. Для задержек 5 и 6 дней сравниваются точные денежные строки, обе опции, использованные вводные и версии WEB и MCP. Пробный WEB-расчёт должен поддерживать `WEB_FORM` на `/api/v1/agent/applications/{id}/financing-scenario/preview`; сохранённая WEB-примерка и стабильные поля сводки до и после должны совпасть. Время получения `asOf` проверяется отдельно и вправе меняться. В конце собственный OAuth grant отзывается, повторный MCP-запрос должен вернуть `401`.
+
+Этот HTTPS-прогон подтверждает паритет и неизменность доступного через API состояния сценария. Состояние всех таблиц документов, журнала и outbox проверяет отдельная изолированная приёмка Credit с полным снимком БД; публичный прогон не объявляет её выполненной.

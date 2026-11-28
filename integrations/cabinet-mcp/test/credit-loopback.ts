@@ -50,7 +50,7 @@ test("real loopback HTTP over stdio preserves the allowlist, rejects redirects, 
   assert.deepEqual(observed.map(request => request.path), [
     "/api/v1/agent/mcp/priorities?limit=1",
     "/api/v1/agent/mcp/applications/" + previewArgs.applicationId + "/summary",
-    "/api/v1/agent/applications/" + previewArgs.applicationId + "/financing-scenario/preview",
+    "/api/v1/agent/mcp/applications/" + previewArgs.applicationId + "/financing-scenario/preview",
     "/api/v1/agent/mcp/priorities?limit=1",
   ]);
   assert.deepEqual(observed.map(request => request.method), ["GET", "GET", "POST", "GET"]);

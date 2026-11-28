@@ -64,7 +64,7 @@ test("only three exact operations leave the adapter with the local credential", 
     { method: "GET", path: "/api/v1/agent/mcp/priorities?limit=1", body: undefined },
     { method: "GET", path: "/api/v1/agent/mcp/applications/" + fixtureIds.vector + "/summary", body: undefined },
     {
-      method: "POST", path: "/api/v1/agent/applications/" + fixtureIds.vector + "/financing-scenario/preview",
+      method: "POST", path: "/api/v1/agent/mcp/applications/" + fixtureIds.vector + "/financing-scenario/preview",
       body: '{"mode":"SAVED_SCENARIO","delayDays":6,"alternativeTermMonths":24}',
     },
   ]);

@@ -83,6 +83,7 @@ services:
       CABINET_ANTIVIRUS_PORT: "3310"
       CABINET_ANTIVIRUS_ENABLED: "true"
       CABINET_ANTIVIRUS_TIMEOUT: ${ANTIVIRUS_TIMEOUT:-PT10S}
+      CABINET_ANTIVIRUS_MAX_SIGNATURE_AGE: ${ANTIVIRUS_MAX_SIGNATURE_AGE:-PT72H}
     volumes:
       - documents-local-data:/app/uploads
       - ${CABINET_DOCUMENTS_TLS_DIR:?Нужны защищённые сертификаты}/server:/run/documents-tls:ro

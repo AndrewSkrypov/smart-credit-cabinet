@@ -217,6 +217,75 @@ class ActualControllerResume(unittest.TestCase):
             self.controller.deploy(SimpleNamespace(verify_only=False, deployment_fd=123, host_memory_gib=8), self.state, self.release)
         return json.loads(output.getvalue())
 
+    def enable_mcp(self):
+        self.deployment.mcp = True
+        self.deployment.values["CABINET_DEV_MCP_ENABLED"] = "true"
+        self.desired["mcp"] = {"enabled": True}
+        (self.state / "pending.json").write_text(json.dumps(self.desired))
+
+    def test_mcp_runs_after_business_and_before_fresh_alpha_and_current_commit(self):
+        import runtime_backup
+        self.enable_mcp()
+        events = []
+
+        def business(*_args, **_kwargs):
+            events.append("business")
+            return {"api_business_proof": "PASS"}
+
+        def mcp(*args, **_kwargs):
+            events.append("mcp")
+            self.assertEqual(args[4]["release"]["business_smoke"]["api_business_proof"], "PASS")
+            self.assertEqual(json.loads((self.state / "current.json").read_text()), self.previous)
+            return {"api_mcp_business_proof": "PASS"}
+
+        def alpha(*_args):
+            events.append("alpha")
+            self.assertEqual(json.loads((self.state / "current.json").read_text()), self.previous)
+            return {"caught_up": True}
+
+        with (patch.object(self.controller, "run_business_smoke", side_effect=business),
+              patch.object(self.controller, "run_mcp_business_smoke", side_effect=mcp),
+              patch.object(runtime_backup, "verify_alpha_catchup", side_effect=alpha)):
+            result = self.deploy()
+        self.assertEqual(events, ["business", "mcp", "alpha"])
+        self.assertTrue(result["release"]["mcp_business_smoke"]["alpha_catchup_verified"])
+        self.assertEqual(json.loads((self.state / "current.json").read_text()), self.desired)
+        self.assertFalse((self.state / "pending.json").exists())
+
+    def test_mcp_failure_keeps_previous_current_pending_and_closes_ingress(self):
+        import runtime_backup
+        self.enable_mcp()
+        with (patch.object(self.controller, "run_business_smoke", return_value={"api_business_proof": "PASS"}),
+              patch.object(self.controller, "run_mcp_business_smoke", side_effect=smoke.SmokeError("mcp_probe_failed")),
+              patch.object(runtime_backup, "verify_alpha_catchup") as catchup):
+            with self.assertRaisesRegex(smoke.SmokeError, "mcp_probe_failed"):
+                self.deploy()
+        self.assertEqual(json.loads((self.state / "current.json").read_text()), self.previous)
+        self.assertEqual(json.loads((self.state / "pending.json").read_text()), self.desired)
+        self.deployment.compose.assert_called_once_with("stop", "caddy")
+        self.closed.assert_not_called()
+        catchup.assert_not_called()
+
+    def test_completed_mcp_still_needs_fresh_alpha_on_controller_retry(self):
+        import runtime_backup
+        self.enable_mcp()
+        failure = subprocess.CalledProcessError(1, ["synthetic-alpha-check"])
+        with (patch.object(self.controller, "run_business_smoke", return_value={"api_business_proof": "PASS"}),
+              patch.object(self.controller, "run_mcp_business_smoke", side_effect=[
+                  {"api_mcp_business_proof": "PASS", "reused_completed": False},
+                  {"api_mcp_business_proof": "PASS", "reused_completed": True},
+              ]),
+              patch.object(runtime_backup, "verify_alpha_catchup", side_effect=[failure, {"caught_up": True}]) as catchup):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.deploy()
+            self.assertEqual(json.loads((self.state / "current.json").read_text()), self.previous)
+            self.assertTrue((self.state / "pending.json").exists())
+            result = self.deploy()
+        self.assertEqual(catchup.call_count, 2)
+        self.assertTrue(result["release"]["mcp_business_smoke"]["reused_completed"])
+        self.assertTrue(result["release"]["mcp_business_smoke"]["alpha_catchup_verified"])
+        self.assertEqual(json.loads((self.state / "current.json").read_text()), self.desired)
+
     def test_first_business_pass_then_alpha_subprocess_failure_then_read_only_resume_and_commit(self):
         flow = Mock(); credentials = {"AGENT": {}, "UNDERWRITER": {}}
         products = [{"code": "WORKING_CAPITAL"}, {"code": "OVERDRAFT", "revolving": True,

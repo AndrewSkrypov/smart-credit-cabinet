@@ -201,7 +201,7 @@ export function creditOperations(operation: CreditOperation): Provider {
       const { applicationId, delayDays, alternativeTermMonths } = parse(previewInput, args, "INVALID_INPUT");
       if (alternativeTermMonths > 2147483647) throw new ToolError("INVALID_INPUT");
       const id = applicationId.toLowerCase();
-      const result = await operation("/api/v1/agent/applications/" + id + "/financing-scenario/preview",
+      const result = await operation("/api/v1/agent/mcp/applications/" + id + "/financing-scenario/preview",
         previewOutput, { mode: "SAVED_SCENARIO", delayDays, alternativeTermMonths });
       if (result.cabinetPath.toLowerCase() !== "/agent/applications/" + id + "#draft-financing"
         || result.basis.savedScenarioRevision === null

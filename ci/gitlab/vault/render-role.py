@@ -17,6 +17,7 @@ ROLES = {
     "pump-ci-prod-canary": ("production", 4, "verify"),
     "pump-ci-prod": ("production", 4, "start"),
     "pump-ci-dev-main": ("dev", 2, "start"),
+    "pump-ci-dev-branch": ("dev", 2, "start"),
     "pump-ci-prod-main": ("production", 4, "start"),
 }
 
@@ -24,14 +25,15 @@ ROLES = {
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("role", choices=ROLES)
-    parser.add_argument("sha", nargs="?", help="full SHA for a legacy protected release or canary")
+    parser.add_argument("sha", nargs="?", help="full SHA for a protected release or canary")
     args = parser.parse_args()
     environment, runner_id, action = ROLES[args.role]
     main_role = args.role.endswith("-main")
-    if main_role and args.sha:
-        parser.error("main roles use protected main; the deploy job verifies the exact SHA and pipeline")
-    if not main_role and not args.sha:
-        parser.error("legacy roles require an exact SHA")
+    dev_branch_role = args.role == "pump-ci-dev-branch"
+    if (main_role or dev_branch_role) and args.sha:
+        parser.error("branch roles rely on the deployment job to verify the exact SHA and pipeline")
+    if not (main_role or dev_branch_role) and not args.sha:
+        parser.error("this role requires an exact SHA")
     try:
         role = gitlab_role(ORIGIN, environment, runner_id, action=action, sha=args.sha)
     except ValueError as error:
@@ -41,6 +43,13 @@ def main():
             "ref": "main",
             "ref_path": "refs/heads/main",
             "pipeline_source": "push",
+        })
+        role.update(clock_skew_leeway=15, expiration_leeway=15, not_before_leeway=15)
+    if dev_branch_role:
+        role["bound_claims"].update({
+            "ref": "dev",
+            "ref_path": "refs/heads/dev",
+            "pipeline_source": ["api", "web"],
         })
         role.update(clock_skew_leeway=15, expiration_leeway=15, not_before_leeway=15)
     print(json.dumps(role, indent=2, sort_keys=True))

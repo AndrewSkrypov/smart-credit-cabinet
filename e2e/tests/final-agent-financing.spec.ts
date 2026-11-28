@@ -24,6 +24,10 @@ type Scenario = {
   inputs: typeof scenarioInput & { source?: { page: number; amountQuote: string; dateQuote: string; documentId: string } };
   options: Array<{ termMonths: number; monthlyPayment: number; totalInterest: number; balanceOnPaymentDate: number }>;
 };
+type Preview = {
+  basis: { applicationVersion: string; productCode: string; productVersion: string; savedScenarioRevision: string | null };
+  options: Array<{ termMonths: number; monthlyPaymentRub: string; totalInterestRub: string; balanceOnPaymentDateRub: string }>;
+};
 type Extraction = {
   mode: 'MODEL' | 'MANUAL';
   amount?: { value: number; page: number; quote: string } | null;
@@ -249,10 +253,15 @@ test.describe('Финальное агентское финансировани�
     const underwriter = await signIn(request, 'underwriter');
     const draft = await createDraft(request, agent, companies.vector);
     try {
+      await login(page, 'agent');
+      await page.goto(`/agent/applications/${draft.id}`);
+      await test.step('Граница задержки в предпросмотре без сохранения черновика', async () => {
+        await expectReadOnlyFinancingPreview(page, request, agent, draft.id);
+      });
+
       const selected = await transferRevisedPackage(request, agent, client, underwriter, draft, info, async () => {
         await uploadRequiredDocuments(request, agent, draft);
-        await login(page, 'agent');
-        await page.goto(`/agent/applications/${draft.id}`);
+        await page.reload();
         await expectFinancingPackage(page);
         const resend = page.waitForResponse((response) =>
           response.url().endsWith(`${agentApplication(draft.id)}/request-confirmation`)
@@ -639,6 +648,79 @@ async function expectFinancingPackage(page: Page) {
   const selectedTerm = comparison.getByRole('rowheader', { name: /24\s*мес/i });
   await expect(selectedTerm.getByText('Выбран', { exact: true })).toBeVisible();
   await noHorizontalOverflow(page);
+}
+
+async function expectReadOnlyFinancingPreview(page: Page, request: APIRequestContext, agent: Session, id: string) {
+  const draftPath = agentApplication(id);
+  const scenarioPath = `${draftPath}/financing-scenario`;
+  const previewPath = `${scenarioPath}/preview`;
+  const agentHeaders = headers(agent);
+  const readDraft = async () => json<Draft & { version: number; amount: number; termMonths: number; documents: unknown[] }>(
+    await request.get(draftPath, { headers: agentHeaders }), 200,
+  );
+  const before = await readDraft();
+  expect(before).toMatchObject({ status: 'DRAFT', amount: fixture.offer.amount, termMonths: fixture.offer.terms[0] });
+  await status(await request.get(scenarioPath, { headers: agentHeaders }), 204);
+
+  await expect(page.getByRole('button', { name: 'Прочитать счёт PDF', exact: true })).toBeEnabled();
+  const amount = before.amount - 50_000;
+  await page.getByLabel('Сумма', { exact: true }).fill(String(amount));
+  await page.getByLabel('Остаток до поступления', { exact: true }).fill(String(scenarioInput.openingBalance));
+  await page.getByLabel('Сумма ожидаемого поступления', { exact: true }).fill(String(scenarioInput.expectedReceiptAmount));
+  await page.getByLabel('Дата ожидаемого поступления', { exact: true }).fill(scenarioInput.expectedReceiptDate);
+  await page.getByLabel('Дата платежа', { exact: true }).fill(scenarioInput.paymentDate);
+  const delay = page.getByLabel('Задержка поступления, дней', { exact: true });
+  const view = page.getByRole('region', { name: 'Предварительный расчёт' });
+  const calculate = async (days: 5 | 6): Promise<Preview> => {
+    await delay.fill(String(days));
+    await expect(view).toHaveCount(0);
+    const completed = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === previewPath && response.request().method() === 'POST');
+    await page.getByRole('button', { name: 'Рассчитать примерку', exact: true }).click();
+    const response = await completed;
+    expect(response.status(), await response.text()).toBe(200);
+    expect(response.request().postDataJSON()).toEqual({
+      mode: 'WEB_FORM', openingBalance: scenarioInput.openingBalance, expectedReceiptAmount: scenarioInput.expectedReceiptAmount,
+      expectedReceiptDate: scenarioInput.expectedReceiptDate, paymentDate: scenarioInput.paymentDate,
+      delayDays: days, alternativeTermMonths: scenarioInput.alternativeTermMonths,
+      draftTermsOverride: { amount, baseTermMonths: before.termMonths },
+    });
+    const result = await response.json();
+    expect(result).toMatchObject({
+      source: 'credit', preview: true,
+      basis: { applicationVersion: String(before.version), productCode: 'WORKING_CAPITAL', savedScenarioRevision: null },
+      inputsUsed: {
+        loanAmountRub: String(amount), baseTermMonths: before.termMonths, delayDays: days,
+        receiptIncludedByPayment: days === 5, lastIncludedDelayDays: 5,
+      },
+    });
+    await expect(view).toBeVisible();
+    await status(await request.get(scenarioPath, { headers: agentHeaders }), 204);
+    return result;
+  };
+
+  const included = await calculate(5);
+  await expect(view.getByText(/Поступление учтено в остатке/)).toBeVisible();
+  const delayed = await calculate(6);
+  await expect(view.getByText(/Поступление ожидается после даты платежа/)).toBeVisible();
+  await expect(view.getByText(/При сроке 12 месяцев на дату платежа не хватает/)).toBeVisible();
+  expect(included.options.map(({ termMonths }) => termMonths)).toEqual([12, 24]);
+  expect(delayed.basis).toEqual(included.basis);
+  expect(delayed.options).toHaveLength(included.options.length);
+  for (const [index, option] of delayed.options.entries()) {
+    const matching = included.options[index];
+    expect(option).toMatchObject({
+      termMonths: matching.termMonths, monthlyPaymentRub: matching.monthlyPaymentRub,
+      totalInterestRub: matching.totalInterestRub,
+    });
+    expect(Number(matching.balanceOnPaymentDateRub) - Number(option.balanceOnPaymentDateRub)).toBeCloseTo(fixture.offer.expectedReceipt, 2);
+  }
+  expect(Number(delayed.options[0].balanceOnPaymentDateRub)).toBeLessThan(0);
+  expect(Number(delayed.options[1].balanceOnPaymentDateRub)).toBeGreaterThan(0);
+  expect(await readDraft()).toMatchObject({
+    version: before.version, status: before.status, amount: before.amount,
+    termMonths: before.termMonths, documents: before.documents,
+  });
 }
 
 async function logout(page: Page) {

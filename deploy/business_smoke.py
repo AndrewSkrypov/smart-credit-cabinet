@@ -196,6 +196,8 @@ def allowed_route(method, path):
     fixed = {"/api/v1/auth/sign-in", "/api/v1/auth/sign-up", "/api/v1/auth/options", "/api/v1/products",
              "/api/v1/companies/me", "/api/v1/companies/me/agent-mandates", "/api/v1/agent/applications"}
     uuid = r"[a-f0-9-]{36}"
+    if re.fullmatch(r"/api/v1/agent/applications/" + uuid + r"/financing-scenario/preview", p.path):
+        return method == "POST" and not p.query
     return (p.path in fixed or re.fullmatch(r"/api/v1/companies/me/agent-mandates/" + uuid, p.path) is not None
             or re.fullmatch(r"/api/v1/(?:agent/|underwriting/)?applications/" + uuid
                             + r"(?:/(?:financing-scenario|request-confirmation|return-to-agent|confirm|cancel|withdraw|submit|events|messages|info-provided|request-info|approve|signing/code|sign|offer/accept|loan|invoice-extraction|payment-reserve|documents(?:/" + uuid + r")?))?", p.path) is not None
@@ -260,8 +262,9 @@ class API:
 
 
 class Ledger:
-    def __init__(self, context):
-        directory = context.state / "business-smoke"
+    def __init__(self, context, namespace="business-smoke"):
+        need(namespace in ("business-smoke", "mcp-smoke"), "invalid_ledger_namespace")
+        directory = context.state / namespace
         directory.mkdir(mode=0o700, exist_ok=True)
         private_dir(directory)
         need(next(directory.glob(context.revision + "-*.json"), None) is None, "existing_run_requires_operator_reconciliation")

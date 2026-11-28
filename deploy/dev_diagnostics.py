@@ -47,7 +47,7 @@ SERVICES = frozenset({
     "analytics", "analytics-db", "analytics-kafka", "analytics-migrate",
     "prometheus", "grafana", "tempo", "loki", "alloy", "alertmanager",
     "blackbox", "node-exporter", "postgres-exporter", "cadvisor", "gotenberg",
-    "goalert",
+    "goalert", "cabinet-mcp", "identity-mcp",
     "catalog-grpc", "assessment", "assessment-db", "assessment-kafka", "assessment-migrate",
     "servicing", "servicing-db", "servicing-migrate", "documents", "documents-db",
     "documents-cutover", "documents-probe", "documents-s3",
@@ -57,10 +57,10 @@ NETWORKS = frozenset({"cabinet", "edge", "default", "alpha-stream", "alpha-store
                       "alpha-cache", "catalog-rpc", "catalog-db", "assessment-db", "assessment-stream",
                       "assessment-cache", "assessment-sources", "servicing-rpc", "servicing-store",
                       "servicing-identity", "servicing-cache", "documents-rpc", "documents-store",
-                      "documents-source", "documents-scan"})
+                      "documents-source", "documents-scan", "mcp-edge", "mcp-backplane", "mcp-identity-upstream"})
 IMAGE_COMPONENTS = frozenset({"identity", "credit", "engagement", "external-sim", "frontend",
                               "postgres", "swagger", "analytics", "kafka", "ssh-bridge", "clamav",
-                              "catalog-grpc", "assessment", "servicing", "documents"})
+                              "catalog-grpc", "assessment", "servicing", "documents", "mcp"})
 STOCK_REFS = frozenset({
     "caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9",
     "nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3",
@@ -169,6 +169,11 @@ def state_summary(path):
                 or type(alpha.get("read_enabled")) is not bool):
             raise ValueError("Повреждено состояние поколения Alpha")
         value["alpha_dev"] = {"generation": alpha["generation"], "read_enabled": alpha["read_enabled"]}
+    if "mcp" in record:
+        mcp = record["mcp"]
+        if not isinstance(mcp, dict) or type(mcp.get("enabled")) is not bool:
+            raise ValueError("Повреждено состояние MCP")
+        value["mcp"] = {"enabled": mcp["enabled"]}
     return value
 
 

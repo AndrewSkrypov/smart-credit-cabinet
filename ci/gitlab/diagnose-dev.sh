@@ -44,6 +44,10 @@ git --no-replace-objects diff --quiet "$CI_COMMIT_SHA" -- deploy/dev_diagnostics
     refuse_source "The checked-out diagnostics module differs from the protected merge"
 printf 'Diagnostic source %s approved by protected merge %s\n' "$source_sha" "$CI_COMMIT_SHA"
 
+if [[ "${CI_COMMIT_BRANCH:-}" == dev ]]; then
+    bash ci/gitlab/assert-dev-tip.sh
+fi
+
 ssh_args=(-o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$CABINET_DEV_KNOWN_HOSTS"
           -o IdentitiesOnly=yes -i "$CABINET_DEV_SSH_KEY" -o ConnectTimeout=15)
 remote="cabinet-deploy@$CABINET_DEV_SSH_HOST"

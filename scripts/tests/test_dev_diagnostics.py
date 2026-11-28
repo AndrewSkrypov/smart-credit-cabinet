@@ -346,7 +346,11 @@ class HostCapacityTest(unittest.TestCase):
 
 class DiagnosticJobTest(unittest.TestCase):
     def test_job_verifies_the_dev_environment_without_release_inputs(self):
-        pipeline = yaml.safe_load((ROOT / "ci/gitlab/release.yml").read_text())
+        class GitLabLoader(yaml.SafeLoader):
+            pass
+
+        GitLabLoader.add_constructor("!reference", lambda loader, node: loader.construct_sequence(node))
+        pipeline = yaml.load((ROOT / "ci/gitlab/release.yml").read_text(), Loader=GitLabLoader)
         job = pipeline["dev-diagnostics"]
         self.assertEqual(job["environment"], {"name": "dev", "action": "verify"})
         self.assertEqual(job["resource_group"], pipeline["dev-deploy"]["resource_group"])
@@ -355,7 +359,10 @@ class DiagnosticJobTest(unittest.TestCase):
         self.assertEqual(job["variables"]["GIT_DEPTH"], "2")
         self.assertNotIn("dependencies", job)
         self.assertNotIn("image", job)
-        rule, = job["rules"]
+        main_push, rule = job["rules"]
+        self.assertEqual(main_push["when"], "never")
+        self.assertIn('CI_COMMIT_BRANCH == "main"', main_push["if"])
+        self.assertIn('CI_PIPELINE_SOURCE == "push"', main_push["if"])
         for fragment in ('CABINET_DEV_DIAGNOSTICS == "1"', 'CI_COMMIT_REF_PROTECTED == "true"',
                          'CI_PIPELINE_SOURCE != "merge_request_event"', 'CI_PIPELINE_SOURCE != "schedule"'):
             self.assertIn(fragment, rule["if"])
@@ -560,10 +567,29 @@ class RuntimeTopologyTest(unittest.TestCase):
             overlay = yaml.safe_load((ROOT / "deploy" / f"compose.{name}.yaml").read_text())
             services.update(overlay.get("services", {}))
             networks.update(overlay.get("networks", {}))
+        mcp = yaml.safe_load((ROOT / "deploy/compose.mcp-credit.yaml").read_text())
+        services.update(mcp["services"])
+        networks.update(mcp["networks"])
         self.assertLessEqual(services, diagnostics.SERVICES)
         self.assertLessEqual(networks, diagnostics.NETWORKS)
         self.assertGreaterEqual(diagnostics.MAX_NETWORKS, len(diagnostics.NETWORKS))
-        self.assertLessEqual({"catalog-grpc", "assessment", "servicing", "documents"}, diagnostics.IMAGE_COMPONENTS)
+        self.assertLessEqual({"catalog-grpc", "assessment", "servicing", "documents", "mcp"}, diagnostics.IMAGE_COMPONENTS)
+
+    def test_mcp_state_preserves_only_the_boolean_activation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "current.json"
+            record = {"revision": "a" * 40, "manifest_sha256": "b" * 64}
+            for enabled in (True, False):
+                record["mcp"] = {"enabled": enabled, "token": SECRET}
+                path.write_text(json.dumps(record))
+                summary = diagnostics.state_summary(path)
+                self.assertEqual(summary["mcp"], {"enabled": enabled})
+                self.assertNotIn(SECRET, json.dumps(summary))
+            for invalid in (None, [], "true", {}, {"enabled": "true"}, {"enabled": 1}):
+                record["mcp"] = invalid
+                path.write_text(json.dumps(record))
+                with self.assertRaisesRegex(ValueError, "^Повреждено состояние MCP$"):
+                    diagnostics.state_summary(path)
 
     def test_state_reports_only_allowlisted_runtime_modes(self):
         with tempfile.TemporaryDirectory() as temporary:

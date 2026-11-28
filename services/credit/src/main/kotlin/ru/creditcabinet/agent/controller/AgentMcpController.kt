@@ -87,7 +87,7 @@ internal class AgentMcpController(
             content = [Content(mediaType = "application/json", schema = Schema(implementation = AgentMcpPreviewRequest::class))],
         ),
     )
-    @PostMapping("/applications/{id}/financing-scenario/preview", consumes = ["application/json"])
+    @PostMapping("/mcp/applications/{id}/financing-scenario/preview", consumes = ["application/json"])
     fun preview(
         @Parameter(schema = Schema(type = "string", format = "uuid"))
         @PathVariable id: String,
@@ -97,7 +97,8 @@ internal class AgentMcpController(
         requireLoopback(request)
         if (request.parameterMap.isNotEmpty() || body.length > 1024) throw InvalidRequest()
         val input: JsonNode = json.readTree(body)
-        if (!input.isObject || input.fieldNames().asSequence().toSet() != previewFields ||
+        if (!input.isObject ||
+            input.fieldNames().asSequence().toSet() != previewFields ||
             input["mode"].textValue() != "SAVED_SCENARIO"
         ) {
             throw InvalidRequest()

@@ -20,7 +20,7 @@ if args.report:
 else:
     command = ["cmd.exe", "/d", "/c", "npm"] if os.name == "nt" else ["npm"]
     attempts = []
-    for scope in ["frontend", "e2e", "contracts/postman", "scripts/license-tools"]:
+    for scope in ["frontend", "e2e", "contracts/postman", "scripts/license-tools", "integrations/cabinet-mcp"]:
         for attempt in range(1, 4):
             data, returncode = {}, None
             try:

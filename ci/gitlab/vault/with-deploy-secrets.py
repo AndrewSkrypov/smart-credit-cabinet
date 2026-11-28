@@ -4,6 +4,7 @@ import base64
 import hmac
 import json
 import os
+import re
 import signal
 import ssl
 import stat
@@ -73,13 +74,18 @@ def load_trust():
     return endpoint, build_opener(ProxyHandler({}), RejectRedirects(), HTTPSHandler(context=tls))
 
 
-def validate_claims(jwt, endpoint, profile, runner_id, job_id, sha, action, *, main_pipeline=None):
+def validate_claims(jwt, endpoint, profile, runner_id, job_id, sha, action, *,
+                    main_pipeline=None, dev_pipeline=None):
     try:
         _, encoded, _ = jwt.split(".")
         claims = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
     except ValueError:
         raise HandoffError("Invalid GitLab ID token format") from None
-    branch = "main" if main_pipeline is not None else RELEASE_BRANCH
+    branch = RELEASE_BRANCH
+    if main_pipeline is not None:
+        branch = "main"
+    elif dev_pipeline is not None:
+        branch = "dev"
     expected = {
         "iss": ISSUER,
         "job_project_id": "1",
@@ -98,6 +104,9 @@ def validate_claims(jwt, endpoint, profile, runner_id, job_id, sha, action, *, m
     if main_pipeline is not None:
         expected["pipeline_id"] = main_pipeline
         sources = ("push",)
+    elif dev_pipeline is not None:
+        expected["pipeline_id"] = dev_pipeline
+        sources = ("api", "web")
     if not isinstance(claims, dict) or any(claims.get(key) != value for key, value in expected.items()):
         raise HandoffError("GitLab token claims do not match this protected deployment")
     if claims.get("pipeline_source") not in sources or claims.get("aud") not in (endpoint, [endpoint]):
@@ -127,7 +136,7 @@ def vault_request(opener, endpoint, path, *, body=None, token=None):
     return json.loads(content) if content else {}
 
 
-def read_values(profile, *, canary=False, main_release=False):
+def read_values(profile, *, canary=False, main_release=False, dev_pipeline=None):
     if os.environ.get("CI_DEBUG_TRACE", "").lower() == "true":
         raise HandoffError("Vault handoff requires CI debug tracing to be disabled")
     jwt = os.environ.pop(JWT_VAR, "")
@@ -144,10 +153,15 @@ def read_values(profile, *, canary=False, main_release=False):
         if canary or not main_pipeline.isascii() or not main_pipeline.isdecimal():
             raise HandoffError("Missing protected main deployment pipeline identity")
         role += "-main"
+    elif dev_pipeline is not None:
+        if profile != "dev" or canary:
+            raise HandoffError("The protected dev branch role is limited to Dev deployment")
+        role += "-branch"
     elif canary:
         role += "-canary"
     endpoint, opener = load_trust()
-    validate_claims(jwt, endpoint, profile, runner, job_id, sha, action, main_pipeline=main_pipeline)
+    validate_claims(jwt, endpoint, profile, runner, job_id, sha, action,
+                    main_pipeline=main_pipeline, dev_pipeline=dev_pipeline)
     auth = vault_request(opener, endpoint, "auth/pump-gitlab/login", body={"role": role, "jwt": jwt})["auth"]
     token = auth["client_token"]
     if not isinstance(token, str) or not token:
@@ -177,8 +191,8 @@ def check_parity(profile):
     return 0
 
 
-def deploy(profile, command, *, main_release=False):
-    values = read_values(profile, main_release=main_release)
+def deploy(profile, command, *, main_release=False, dev_pipeline=None):
+    values = read_values(profile, main_release=main_release, dev_pipeline=dev_pipeline)
     environment = os.environ.copy()
     environment.pop("VAULT_TOKEN", None)
     with tempfile.TemporaryDirectory(prefix="pump-vault-deploy-", dir="/tmp") as temp:
@@ -191,7 +205,7 @@ def deploy(profile, command, *, main_release=False):
         return subprocess.run(command, env=environment, check=False).returncode
 
 
-def release(profile, command):
+def release(profile, command, *, dev_pipeline=None):
     marker = CONFIG_DIR / ACTIVATION_MARKERS[profile]
     try:
         verify_trust_path(CONFIG_DIR, stat.S_ISDIR)
@@ -204,13 +218,33 @@ def release(profile, command):
         activated_sha = active.read(42).rstrip("\n")
     if len(activated_sha) != 40 or activated_sha != os.environ.get("CI_COMMIT_SHA"):
         raise HandoffError("The runner Vault activation does not match this release")
-    return deploy(profile, command)
+    return deploy(profile, command, dev_pipeline=dev_pipeline)
+
+
+def dev_branch_release(command):
+    env = os.environ
+    revision = env.get("CI_COMMIT_SHA", "")
+    pipeline = env.get("CI_PIPELINE_ID", "")
+    job = env.get("CI_JOB_ID", "")
+    if (env.get("CI_DEBUG_TRACE", "").lower() in {"true", "1"}
+            or env.get("CI_PROJECT_ID") != "1" or env.get("CI_PROJECT_PATH") != PROJECT_PATH
+            or env.get("CI_COMMIT_BRANCH") != "dev" or env.get("CI_COMMIT_REF_NAME") != "dev"
+            or env.get("CI_COMMIT_REF_PROTECTED") != "true"
+            or env.get("CI_PIPELINE_SOURCE") not in ("api", "web")
+            or env.get("CI_JOB_NAME") != "dev-deploy"
+            or env.get("CI_ENVIRONMENT_NAME") != "dev" or env.get("CI_ENVIRONMENT_ACTION") != "start"
+            or env.get("CI_RUNNER_ID") != "2"
+            or not re.fullmatch(r"[0-9a-f]{40}", revision)
+            or not re.fullmatch(r"[1-9][0-9]*", pipeline)
+            or not re.fullmatch(r"[1-9][0-9]*", job)):
+        raise HandoffError("Dev deployment requires a scoped protected dev API or web job")
+    return release("dev", command, dev_pipeline=pipeline)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run a protected PUMP deployment with file secrets from Vault.")
     modes = tuple(f"{profile}-{mode}" for profile in PROFILES for mode in ("canary", "release", "main-release"))
-    parser.add_argument("profile", choices=modes)
+    parser.add_argument("profile", choices=(*modes, "dev-branch-release"))
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
@@ -224,6 +258,8 @@ def main():
             return check_parity(profile)
         if mode == "main-release":
             return deploy(profile, command, main_release=True)
+        if mode == "branch-release":
+            return dev_branch_release(command)
         return release(profile, command)
     except HandoffError as error:
         print(str(error), file=sys.stderr)

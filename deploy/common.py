@@ -18,6 +18,7 @@ from servicing_dev import ServicingDev, OVERLAY as SERVICING_OVERLAY
 from catalog import requested_mode, state_path, validate_secrets
 from dev_diagnostics import error_category
 import dev_payment_reserve
+import dev_antivirus
 import mcp_dev
 from registry_release import RegistryRelease
 
@@ -154,6 +155,10 @@ class Deployment:
         self.mcp = mcp_dev.enabled(project, local, self.values, self.release, historical_backup)
         self.alpha_dev = AlphaDev.from_config(project, local, self.values, self.release)
         self.environment = {**os.environ, **self.values, "COMPOSE_PROFILES": ""}
+        self.antivirus_max_signature_age = dev_antivirus.signature_age(
+            project, local, self.values, self.release, historical_backup,
+        )
+        self.environment[dev_antivirus.VARIABLE] = self.antivirus_max_signature_age
         # Both values are controller-owned. The reviewed Dev overlay alone sets
         # the effective container flag; ambient CI/shell values cannot select it.
         self.environment[dev_payment_reserve.FLAG] = "false"

@@ -1,35 +1,121 @@
 workflow:
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_REF_PROTECTED == "true"'
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
-      when: never
-    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_BRANCH == "ops/pump-standby-canary" && $CI_COMMIT_REF_PROTECTED == "true"'
+    - when: never
 
-stages: [quality, verify, extended, release, dev, prod]
+stages: [test]
 
-include:
-  - local: ci/gitlab/runner-canary.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-  - local: ci/gitlab/quality.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-        when: never
-      - when: always
-  - local: ci/gitlab/release.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-        when: never
-      - when: always
-  - local: ci/gitlab/vault/job-identity.yml
-  - local: ci/alpha/gitlab.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-        when: never
-      - when: always
-  - local: ci/alpha/release.yml
-    rules:
-      - if: '$CABINET_RUNNER_CANARY == "1" && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "feat/final-runner-canary"'
-        when: never
-      - if: '$CABINET_ALPHA_PILOT == "1" && $CI_COMMIT_REF_PROTECTED == "true"'
+variables:
+  GIT_STRATEGY: clone
+  GIT_DEPTH: "2"
+  GIT_SUBMODULE_STRATEGY: none
+  GIT_LFS_SKIP_SMUDGE: "1"
+
+default:
+  timeout: 3 minutes
+
+.checkout-canary:
+  stage: test
+  script:
+    - |
+      set -eu
+      test "$CI_RUNNER_ID" = "$EXPECTED_RUNNER" || exit 31
+      test "$(id -un)" = "$EXPECTED_USER" || exit 32
+      test "$(git rev-parse HEAD)" = "$CI_COMMIT_SHA" || exit 33
+      git config --get remote.origin.url | grep -Eq '^https://([^/@]+@)?gitlab\.credit-cabinet\.ru/' || exit 34
+      test "$(git config --get http.sslVerify || true)" != false || exit 35
+      test -z "${CI_ENVIRONMENT_NAME:-}" || exit 36
+      cg=$(awk -F: '$1 == "0" {print $3}' /proc/self/cgroup)
+      test "${cg##*/}" = "$EXPECTED_UNIT" || exit 37
+      test "$(cat "/sys/fs/cgroup$cg/memory.max")" = "$EXPECTED_MEMORY" || exit 38
+      test "$(cat "/sys/fs/cgroup$cg/cpu.max")" = "$EXPECTED_CPU" || exit 39
+      test ! -r "/etc/${EXPECTED_UNIT%.service}/config.toml" || exit 40
+      for variable in CABINET_DEV_SSH_KEY CABINET_DEV_KNOWN_HOSTS CABINET_DEV_SSH_HOST CABINET_PROD_CONTEXT CABINET_PROD_VALUES CABINET_PROD_JURY_CREDENTIALS KUBECONFIG VAULT_ID_TOKEN CABINET_VAULT_ID_TOKEN GIT_SSL_NO_VERIFY; do
+        if printenv "$variable" >/dev/null; then printf 'Unexpected variable %s\n' "$variable"; exit 41; fi
+      done
+      python3 - <<'PY_CANARY'
+      import socket
+      for address in ('/run/docker.sock','/run/dbus/system_bus_socket','/run/systemd/private'):
+          with socket.socket(socket.AF_UNIX) as s:
+              try:
+                  s.connect(address)
+              except (FileNotFoundError, PermissionError, ConnectionRefusedError):
+                  continue
+              raise SystemExit(f'Unexpected access to {address}')
+      PY_CANARY
+      for address in 85.92.111.168 203.81.218.94; do
+        for port in 22 443; do
+          if timeout 1 bash -c 'exec 3<>/dev/tcp/"$1"/"$2"' _ "$address" "$port" 2>/dev/null; then exit 42; fi
+        done
+      done
+      printf 'Verified protected checkout, PUMP job identity and resource and network isolation on runner %s\n' "$CI_RUNNER_ID"
+
+check-ci-prod02:
+  extends: .checkout-canary
+  tags: [cabinet-ci-standby-prod02]
+  variables:
+    EXPECTED_RUNNER: "11"
+    EXPECTED_USER: "pump-standby-ci"
+    EXPECTED_UNIT: "gitlab-runner-pump-contact.service"
+    EXPECTED_MEMORY: "268435456"
+    EXPECTED_CPU: "10000 100000"
+
+check-ci-dev04:
+  extends: .checkout-canary
+  tags: [cabinet-ci-light-dev04]
+  variables:
+    EXPECTED_RUNNER: "12"
+    EXPECTED_USER: "pump-standby-ci"
+    EXPECTED_UNIT: "gitlab-runner-pump-contact.service"
+    EXPECTED_MEMORY: "268435456"
+    EXPECTED_CPU: "10000 100000"
+
+check-ci-dev05:
+  extends: .checkout-canary
+  tags: [cabinet-ci-light-dev05]
+  variables:
+    EXPECTED_RUNNER: "13"
+    EXPECTED_USER: "pump-standby-ci"
+    EXPECTED_UNIT: "gitlab-runner-pump-contact.service"
+    EXPECTED_MEMORY: "268435456"
+    EXPECTED_CPU: "10000 100000"
+
+check-dcs-dev01:
+  extends: .checkout-canary
+  tags: [cabinet-dcs-standby-dev01]
+  variables:
+    EXPECTED_RUNNER: "14"
+    EXPECTED_USER: "pump-standby-ci"
+    EXPECTED_UNIT: "gitlab-runner-pump-contact.service"
+    EXPECTED_MEMORY: "268435456"
+    EXPECTED_CPU: "10000 100000"
+
+check-cd-dev01:
+  extends: .checkout-canary
+  tags: [cabinet-deploy-standby-dev01]
+  variables:
+    EXPECTED_RUNNER: "15"
+    EXPECTED_USER: "pump-cd"
+    EXPECTED_UNIT: "gitlab-runner-pump-standby.service"
+    EXPECTED_MEMORY: "805306368"
+    EXPECTED_CPU: "25000 100000"
+
+check-cd-dev02:
+  extends: .checkout-canary
+  tags: [cabinet-deploy-standby-dev02]
+  variables:
+    EXPECTED_RUNNER: "16"
+    EXPECTED_USER: "pump-cd"
+    EXPECTED_UNIT: "gitlab-runner-pump-standby.service"
+    EXPECTED_MEMORY: "805306368"
+    EXPECTED_CPU: "25000 100000"
+
+check-cd-dev03:
+  extends: .checkout-canary
+  tags: [cabinet-deploy-standby-dev03]
+  variables:
+    EXPECTED_RUNNER: "17"
+    EXPECTED_USER: "pump-cd-standby"
+    EXPECTED_UNIT: "gitlab-runner-pump-standby.service"
+    EXPECTED_MEMORY: "805306368"
+    EXPECTED_CPU: "25000 100000"

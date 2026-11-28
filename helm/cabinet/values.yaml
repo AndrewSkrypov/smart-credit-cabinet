@@ -116,4 +116,4 @@ ollamaBridge:
   resources: {requests: {cpu: 10m, memory: 16Mi}, limits: {cpu: 100m, memory: 64Mi}}
 
 antivirus:
-  maxSignatureAge: PT160H
+  maxSignatureAge: P7D

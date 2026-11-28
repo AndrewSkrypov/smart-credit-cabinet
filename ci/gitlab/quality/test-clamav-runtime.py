@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).with_name("clamav-runtime.sh")
 
 
 class ClamavSeedTest(unittest.TestCase):
-    def test_160_hour_age_and_integrity_gates(self):
+    def test_seven_day_age_and_integrity_gates(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             serial = "28194"
@@ -72,13 +72,13 @@ esac
                 marker.unlink(missing_ok=True)
                 return subprocess.run(["bash", command], env=config | overrides, capture_output=True, text=True, check=False)
 
-            for age in ("345600", "576000"):
+            for age in ("345600", "604800"):
                 with self.subTest(age=age):
                     result = run(SEED_TEST_AGE=age)
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertTrue(marker.exists())
             for overrides in (
-                {"SEED_TEST_AGE": "576001"},
+                {"SEED_TEST_AGE": "604801"},
                 {"SEED_TEST_AGE": "-301"},
                 {"SEED_TEST_SIGNATURE": "invalid"},
                 {"SEED_TEST_SERIAL": "28193"},

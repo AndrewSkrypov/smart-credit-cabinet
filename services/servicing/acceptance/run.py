@@ -19,6 +19,7 @@ import uuid
 import xml.etree.ElementTree as ET
 
 from postgres_backend import CiPostgres, tool_environment
+from legacy_schema import run as legacy_schema_checks
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -129,9 +130,12 @@ class Acceptance:
         self.receipt["checks"][label] = counts
         self.write_receipt()
 
-    def sql(self, database, role, query, failure=False):
+    def sql(self, database, role, query, failure=False, *, sql_rejection=False):
         result = subprocess.run([self.pg_bin / "psql", "-XAtq", "-v", "ON_ERROR_STOP=1", "-h", "127.0.0.1", "-p", str(self.pg_port), "-U", role, database],
                                 input=query, text=True, capture_output=True, env={**self.env, "PGPASSWORD": self.passwords[role]}, close_fds=True)
+        if sql_rejection and result.returncode:
+            # A transport/auth error is not evidence of a rejected grant/schema.
+            raise subprocess.CalledProcessError(result.returncode, ["owned-servicing-pg-query"])
         if (result.returncode == 0) == failure:
             raise RuntimeError("Unexpected PostgreSQL result in " + self.stage)
         return result.stdout.strip()
@@ -324,6 +328,10 @@ class Acceptance:
         self.gradle("build", [":libs:servicing-core:test", ":services:servicing:bootJar", ":services:credit:bootJar", ":services:credit:compileTestKotlin", ":services:servicing:compileTestKotlin"])
         self.tests(":libs:servicing-core", "core", 7)
         self.start_pg()
+        self.receipt["checks"]["legacy-schema-backup-grants"] = legacy_schema_checks(
+            lambda database, statement: self.sql(database, database + "_owner", statement, sql_rejection=True),
+        )
+        self.write_receipt()
         self.tls()
         self.migrate("credit")
         self.migrate("servicing")

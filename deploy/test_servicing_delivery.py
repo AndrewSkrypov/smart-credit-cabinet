@@ -98,7 +98,7 @@ class TransferFixture:
 class ServicingDeliveryTest(unittest.TestCase):
     def test_previous_v26_v1_release_can_be_snapshotted_before_operation_migrations(self):
         data = {table: [] for table in TRANSFER.TABLES}
-        with patch.object(TRANSFER, "sql", side_effect=["f", json.dumps(data)]) as sql:
+        with patch.object(TRANSFER, "sql", side_effect=["f", "credit", "t", "t", json.dumps(data)]) as sql:
             self.assertEqual(TRANSFER.snapshot("credit"), data)
         statement = sql.call_args.args[1]
         self.assertIn("'loan_operations','[]'::jsonb", statement)

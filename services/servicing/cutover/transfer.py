@@ -53,11 +53,33 @@ def query_snapshot(operations_exist=True):
     return "select jsonb_build_object(" + ",".join(fields) + ");"
 
 
+def operations_available(service):
+    present = sql(service, "select to_regclass('public.loan_operations') is not null;")
+    if present == "t":
+        return True
+    if present != "f":
+        raise SystemExit("Cannot establish operation receipt table identity")
+    database = sql(service, "select current_database();")
+    threshold = {"credit": 27, "servicing": 2}.get(database)
+    if threshold is None or sql(service, "select to_regclass('public.flyway_schema_history') is not null;") != "t":
+        raise SystemExit("Missing operation receipts require a confirmed legacy schema")
+    # Flyway versions are numeric components, not lexically ordered strings.
+    # Failed/unknown histories must not disguise a dropped modern receipt table.
+    legacy = sql(service, "select count(*) filter (where version is not null)>0 "
+                 "and coalesce(bool_and(success is true),false) "
+                 "and coalesce(bool_and(case when version ~ '^[0-9]+([._][0-9]+)*$' then "
+                 f"split_part(replace(version,'_','.'),'.',1)::numeric between 1 and {threshold - 1} "
+                 "else false end),false) from public.flyway_schema_history;")
+    if legacy != "t":
+        raise SystemExit("Missing operation receipts require a confirmed legacy schema")
+    return False
+
+
 def snapshot(service):
     # A previous V26/V1 release must still be backed up before B migrations run.
     # No operation could exist before its table was introduced. Import/activation
     # still require all current tables and their fences/grants to exist.
-    operations_exist = sql(service, "select to_regclass('public.loan_operations') is not null;") == "t"
+    operations_exist = operations_available(service)
     return json.loads(sql(service, "begin isolation level repeatable read read only; set local timezone='UTC';\n" + query_snapshot(operations_exist) + "\ncommit;"))
 
 
@@ -173,7 +195,9 @@ def fence_info(service):
 def require_grants(service, active):
     database = sql(service, "select current_database();")
     role = database + "_app"
-    privileges = [f"has_table_privilege('{role}','public.{table}','{privilege}')" for table in TABLES for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE")]
+    operations_exist = operations_available(service)
+    privileges = [f"has_table_privilege('{role}','public.{table}','{privilege}')" for table in TABLES
+                  if table != "loan_operations" or operations_exist for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE")]
     condition = " and ".join(privileges) if active else "not (" + " or ".join(privileges) + ")"
     condition += f" and has_table_privilege('{role}','public.servicing_writer_fence','SELECT') and not has_table_privilege('{role}','public.servicing_writer_fence','UPDATE')"
     if sql(service, "select " + condition + ";") != "t":

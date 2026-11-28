@@ -23,6 +23,15 @@ function samePosition(a: KeshaPosition | null | undefined, b: KeshaPosition | nu
   return a?.left === b?.left && a?.top === b?.top && a?.width === b?.width && a?.maxHeight === b?.maxHeight;
 }
 
+function nextFormControl(field: HTMLElement) {
+  const main = field.closest('main');
+  if (!main) return undefined;
+  const controls = Array.from(main.querySelectorAll<HTMLElement>('button, input, textarea, select, a[href], [tabindex]'));
+  return controls.slice(controls.indexOf(field) + 1).find((control) =>
+    control.tabIndex >= 0 && !control.matches(':disabled') && control.getClientRects().length > 0
+  );
+}
+
 export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, delayRevision, available, patched, applyDelay, undoDelay }: Props) {
   const kesha = useKesha();
   const id = useId();
@@ -41,6 +50,7 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
   const focusExpanded = useRef(false);
   const hasFlown = useRef(false);
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const shortViewport = useMediaQuery('(max-height: 540px)');
   const setAttached = kesha?.setAttached;
   const enabled = !!kesha?.enabled;
   const overlay = kesha?.overlay;
@@ -67,6 +77,7 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
   const sceneOpen = enabled && !!kesha?.proactive && !!overlay && available && validOffer;
   const attached = sceneOpen && anchorInView && !!placement;
   const blocked = !!kesha?.blocked;
+  const panelReady = attached && !flying && !blocked;
 
   useLayoutEffect(() => {
     const anchor = target.current;
@@ -162,6 +173,29 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
     return () => document.removeEventListener('keydown', dismiss);
   }, [attached, blocked, delayInput, patched]);
 
+  useEffect(() => {
+    const field = delayInput.current;
+    if (!panelReady || !field) return;
+    // The portal follows the delay field in keyboard order without moving focus on reveal.
+    const followTabOrder = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      const controls = panel.current?.querySelectorAll<HTMLButtonElement>('button[tabindex="0"]');
+      if (!controls?.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      const next = nextFormControl(field);
+      const current = document.activeElement;
+      const destination = event.shiftKey
+        ? (current === first ? field : current === next ? last : undefined)
+        : (current === field ? first : current === last ? next : undefined);
+      if (!destination) return;
+      event.preventDefault();
+      destination.focus({ preventScroll: destination !== next });
+    };
+    document.addEventListener('keydown', followTabOrder);
+    return () => document.removeEventListener('keydown', followTabOrder);
+  }, [delayInput, panelReady]);
+
   function close() {
     if (panel.current?.contains(document.activeElement)) delayInput.current?.focus({ preventScroll: true });
     setOffer(null);
@@ -173,9 +207,9 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
   }
 
   if (!overlay) return null;
-  const message = patched ? 'Подставил 2 дня. Расчёт ещё не обновлён.' : 'А если деньги от покупателя поступят на два дня позже?';
+  const question = shortViewport ? 'Оплата покупателя на 2 дня позже?' : 'А если деньги от покупателя поступят на два дня позже?';
+  const message = patched ? 'Подставил 2 дня. Расчёт ещё не обновлён.' : question;
   const announcement = patched ? 'Задержка поступления изменена на 2 дня. Расчёт пока прежний.' : 'Кеша предлагает примерить задержку поступления на 2 дня.';
-  const panelReady = attached && !flying && !blocked;
   const compact = !!placement?.collapsed && !expanded;
   const speechVisible = panelReady && !compact;
   const birdPosition = placement?.bird;
@@ -224,21 +258,21 @@ export function KeshaDelayHint({ applicationId, target, delayInput, delayDays, d
           }}>
             <Box ref={cloud} aria-hidden={!speechVisible || undefined} sx={{
               boxSizing: 'border-box', maxHeight: placement?.full.maxHeight, overflowY: 'auto', overscrollBehavior: 'contain',
-              p: 1,
+              px: 1, py: shortViewport ? 0.5 : 0.75,
               '& button': { pointerEvents: speechVisible ? 'auto' : 'none', px: 0.75, fontSize: '0.8125rem' }
             }}>
-              <Typography variant="body2" fontWeight={650}>{message}</Typography>
+              <Typography variant="body2" fontWeight={650} sx={{ lineHeight: 1.3, fontSize: shortViewport ? '0.75rem' : undefined }}>{message}</Typography>
               {!patched && offer.previousDays !== 0 && (
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                   Заменю задержку с {offer.previousDays} на 2 дня.
                 </Typography>
               )}
               {patched ? (
-                <Button ref={undoButton} variant="outlined" size="small" tabIndex={speechVisible ? 0 : -1} sx={{ mt: 1 }} onClick={() => {
+                <Button ref={undoButton} variant="outlined" size="small" tabIndex={speechVisible ? 0 : -1} sx={{ mt: 0.5 }} onClick={() => {
                   if (speechVisible && kesha?.isCurrentAccount() && undoDelay()) close();
                 }}>Отменить</Button>
               ) : (
-                <Stack direction="row" flexWrap="wrap" useFlexGap gap={0.5} sx={{ mt: 1 }}>
+                <Stack direction="row" flexWrap="wrap" useFlexGap gap={0.5} sx={{ mt: 0.5 }}>
                   <Button ref={applyButton} variant="contained" color="secondary" size="small" tabIndex={speechVisible ? 0 : -1} onClick={(event) => {
                     if (!speechVisible || !kesha?.isCurrentAccount()) return;
                     focusUndo.current = event.currentTarget === document.activeElement;

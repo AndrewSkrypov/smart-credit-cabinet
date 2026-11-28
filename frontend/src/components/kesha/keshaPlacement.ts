@@ -79,26 +79,38 @@ function findPosition(anchor: Bounds, bird: Bounds, viewport: Bounds, controls: 
 
 function visibleObstructions(viewport: Bounds) {
   const controls = Array.from(document.querySelectorAll(`header, main :is(${CONTROLS})`), (element) => ({
-    bounds: element.getBoundingClientRect(), weight: 6
+    bounds: element.getBoundingClientRect(), weight: 30
   })).filter(({ bounds }) => overlap(bounds, viewport));
   const range = document.createRange();
   for (const element of document.querySelectorAll(`main :is(${TEXT})`)) {
     const bounds = element.getBoundingClientRect();
     if (!overlap(bounds, viewport)) continue;
-    const weight = /\d/.test(element.textContent ?? '') ? 6 : 1;
     range.selectNodeContents(element);
     const lines = typeof range.getClientRects === 'function' ? Array.from(range.getClientRects()) : [bounds];
-    for (const line of lines) if (overlap(line, viewport)) controls.push({ bounds: line, weight });
+    for (const line of lines) if (overlap(line, viewport)) controls.push({ bounds: line, weight: 1 });
+    if (typeof range.getClientRects !== 'function') continue;
+    const textNodes = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = textNodes.nextNode(); node; node = textNodes.nextNode()) {
+      for (const value of (node.textContent ?? '').matchAll(/\d+(?:[\s.,]\d+)*\s*[%₽]?/g)) {
+        range.setStart(node, value.index);
+        range.setEnd(node, value.index + value[0].length);
+        for (const line of range.getClientRects()) {
+          if (overlap(line, viewport)) controls.push({ bounds: line, weight: 40 });
+        }
+      }
+    }
   }
   return controls;
 }
 
 export function measureKeshaPlacement(anchor: DOMRect, cloud: HTMLElement): KeshaPlacement | null {
   const visualViewport = window.visualViewport;
-  const left = (visualViewport?.offsetLeft ?? 0) + EDGE;
-  const top = (visualViewport?.offsetTop ?? 0) + EDGE;
-  const right = left + (visualViewport?.width ?? (document.documentElement.clientWidth || window.innerWidth)) - EDGE * 2;
-  const bottom = top + (visualViewport?.height ?? window.innerHeight) - EDGE * 2;
+  const visibleHeight = visualViewport?.height ?? window.innerHeight;
+  const edge = visibleHeight <= 540 ? 8 : EDGE;
+  const left = (visualViewport?.offsetLeft ?? 0) + edge;
+  const top = (visualViewport?.offsetTop ?? 0) + edge;
+  const right = left + (visualViewport?.width ?? (document.documentElement.clientWidth || window.innerWidth)) - edge * 2;
+  const bottom = top + visibleHeight - edge * 2;
   const viewport = { left, top, right, bottom };
   const width = Math.min(WIDTH, right - left);
   if (width <= 0 || bottom <= top || !overlap(anchor, viewport)) return null;
@@ -107,7 +119,7 @@ export function measureKeshaPlacement(anchor: DOMRect, cloud: HTMLElement): Kesh
   if (cloud.style.width !== cloudWidth) cloud.style.width = cloudWidth;
   const height = Math.min(bottom - top, Math.max(52, cloud.scrollHeight));
   const controls = visibleObstructions(viewport);
-  const bird = placeBird(anchor, { left: left - EDGE, top: top - EDGE, right: right + EDGE, bottom: bottom + EDGE }, controls);
+  const bird = placeBird(anchor, { left: left - edge, top: top - edge, right: right + edge, bottom: bottom + edge }, controls);
   if (!bird) return null;
   const birdBounds = boundsOf(bird);
   const full = findPosition(anchor, birdBounds, viewport, controls, width, height);

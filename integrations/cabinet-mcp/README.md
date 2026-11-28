@@ -58,3 +58,11 @@ npm run --silent verify
 - Внутренние маршруты Credit — `GET /internal/mcp/credit/priorities`, `GET /internal/mcp/credit/applications/{id}/summary`, `POST /internal/mcp/credit/applications/{id}/financing-scenario/preview`. Заголовок — `X-Cabinet-Mcp-Actor-Assertion`. До подтверждения точных схем и авторизации на внутренних сервисах эту раскладку нельзя считать приёмкой.
 
 Собирайте Dockerfile с контекстом `integrations/cabinet-mcp`. CI может передать `NODE_IMAGE` с закреплённым registry digest. Развёртывание требует TLS на шлюзе, ограничений ingress/egress и проверки цепочки Identity → MCP → Credit. Публикуйте только `/api/mcp` и пути discovery/OAuth, согласованные с владельцами Identity и Edge, после отрицательных тестов Dev. Привилегированные служебные маршруты остаются внутри сети.
+
+### Сквозная проверка OAuth и веб-примерки
+
+После сборки запустите `node test/oauth-credit-live.ts` с `CABINET_MCP_SYNTHETIC_ACCEPTANCE=1`, каноническим HTTPS origin в `CABINET_MCP_ACCEPTANCE_ORIGIN` и абсолютным путём `CABINET_MCP_ACCEPTANCE_FIXTURE` к закрытому файлу `0600` текущего пользователя. Файл содержит `email`, `password`, зарегистрированные `clientId` и `redirectUri`, UUID собственного синтетического черновика `applicationId` с сохранённой примеркой и чужой заявки `foreignApplicationId`. Учётные данные остаются в памяти проверочного процесса и не выводятся в отчёт.
+
+Прогон получает отдельный MCP OAuth grant с PKCE и согласием, вызывает три инструмента, затем входит той же синтетической учёткой через обычный WEB API. Веб-сессионный JWT отправляется только на WEB-маршруты, а OAuth-токен — только на `/api/mcp`. Для задержек 5 и 6 дней сравниваются точные денежные строки, обе опции, использованные вводные и версии WEB и MCP. Пробный WEB-расчёт должен поддерживать `WEB_FORM` на `/api/v1/agent/applications/{id}/financing-scenario/preview`; сохранённая WEB-примерка и стабильные поля сводки до и после должны совпасть. Время получения `asOf` проверяется отдельно и вправе меняться. В конце собственный OAuth grant отзывается, повторный MCP-запрос должен вернуть `401`.
+
+Этот HTTPS-прогон подтверждает паритет и неизменность доступного через API состояния сценария. Состояние всех таблиц документов, журнала и outbox проверяет отдельная изолированная приёмка Credit с полным снимком БД; публичный прогон не объявляет её выполненной.

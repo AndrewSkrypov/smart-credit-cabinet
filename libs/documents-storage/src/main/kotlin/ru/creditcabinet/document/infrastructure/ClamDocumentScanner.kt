@@ -26,7 +26,7 @@ class ClamDocumentScanner(
     @Value("\${cabinet.antivirus.port:3310}") private val port: Int,
     @Value("\${cabinet.antivirus.timeout:PT10S}") private val timeout: Duration,
     private val meters: MeterRegistry,
-    @Value("\${cabinet.antivirus.max-signature-age:PT160H}") private val maxSignatureAge: Duration = Duration.ofHours(160),
+    @Value("\${cabinet.antivirus.max-signature-age:P7D}") private val maxSignatureAge: Duration = Duration.ofDays(7),
     private val clock: Clock = Clock.systemUTC(),
     errors: DocumentStorageErrors? = null,
 ) : DocumentScanner {

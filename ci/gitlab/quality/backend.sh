@@ -53,6 +53,7 @@ for db in identity credit engagement assessment common_test; do
     psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$DB_PORT" -U cabinet -d cabinet -c "create database $db"
 done
 
+python3 ci/gitlab/quality/test-clamav-runtime.py
 clamav_image=$(bash ci/gitlab/quality/clamav-runtime.sh)
 docker run -d --name "$clamav" --memory 2g -p 127.0.0.1::3310 \
     --mount type=bind,source="$PWD/docker/clamav/clamd.conf",target=/cabinet/clamd.conf,readonly \

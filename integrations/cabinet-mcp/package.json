@@ -1,0 +1,23 @@
+{
+  "name": "@pump/cabinet-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "24.13.0" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "test": "npm run build && node --test --test-timeout=20000 test/*.test.ts",
+    "verify": "node test/demo.ts",
+    "test:credit-http": "npm run build && node --test --test-timeout=20000 test/credit-loopback.ts",
+    "verify:credit": "node test/credit-live.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "5.9.3"
+  }
+}

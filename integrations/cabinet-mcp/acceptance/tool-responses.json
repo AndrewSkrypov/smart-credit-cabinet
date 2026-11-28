@@ -1,0 +1,86 @@
+{
+  "list_agent_next_actions": {
+    "source": "synthetic-fixture",
+    "asOf": "2026-11-28T09:00:00Z",
+    "items": [
+      {
+        "applicationId": "40188819-ffc2-4caa-a57f-a8f9414391c1",
+        "number": "SYN-001",
+        "companyName": "Вектор Логистик",
+        "status": "DRAFT",
+        "actionOwner": "AGENT",
+        "actionLabel": "Проверить сохранённую примерку",
+        "actionDeadline": "2026-12-15T09:00:00Z",
+        "cabinetPath": "/agent/applications/40188819-ffc2-4caa-a57f-a8f9414391c1"
+      },
+      {
+        "applicationId": "6b7a0f51-2958-4228-bb7b-68f23d57b161",
+        "number": "SYN-002",
+        "companyName": "Северная мебель",
+        "status": "NEEDS_INFO",
+        "actionOwner": "CLIENT",
+        "actionLabel": "Предоставить запрошенную выписку",
+        "actionDeadline": null,
+        "cabinetPath": "/agent/applications/6b7a0f51-2958-4228-bb7b-68f23d57b161#application-info-request"
+      }
+    ]
+  },
+  "get_agent_application_summary": {
+    "source": "synthetic-fixture",
+    "asOf": "2026-11-28T09:00:00Z",
+    "application": {
+      "applicationId": "6b7a0f51-2958-4228-bb7b-68f23d57b161",
+      "number": "SYN-002",
+      "companyName": "Северная мебель",
+      "status": "NEEDS_INFO",
+      "actionOwner": "CLIENT",
+      "actionLabel": "Предоставить запрошенную выписку",
+      "actionDeadline": null,
+      "cabinetPath": "/agent/applications/6b7a0f51-2958-4228-bb7b-68f23d57b161#application-info-request"
+    },
+    "applicationVersion": "5",
+    "savedScenarioRevision": null,
+    "statementRequirement": "OPEN"
+  },
+  "preview_agent_financing_scenario": {
+    "source": "synthetic-fixture",
+    "asOf": "2026-11-28T09:00:00Z",
+    "preview": true,
+    "basis": {
+      "applicationVersion": "4",
+      "productCode": "working-capital",
+      "productVersion": "2",
+      "savedScenarioRevision": "3"
+    },
+    "inputsUsed": {
+      "currency": "RUB",
+      "paymentModel": "ANNUITY",
+      "loanAmountRub": "2000000",
+      "annualRatePercent": "20",
+      "baseTermMonths": 12,
+      "alternativeTermMonths": 24,
+      "openingBalanceRub": "150000",
+      "expectedReceiptAmountRub": "140000",
+      "expectedReceiptDate": "2026-12-10",
+      "paymentDate": "2026-12-15",
+      "delayDays": 6,
+      "receiptIncludedByPayment": false,
+      "lastIncludedDelayDays": 5
+    },
+    "options": [
+      {
+        "termMonths": 12,
+        "monthlyPaymentRub": "185269.01",
+        "totalInterestRub": "223228.15",
+        "balanceOnPaymentDateRub": "-35269.01"
+      },
+      {
+        "termMonths": 24,
+        "monthlyPaymentRub": "101791.61",
+        "totalInterestRub": "442998.50",
+        "balanceOnPaymentDateRub": "48208.39"
+      }
+    ],
+    "cabinetPath": "/agent/applications/40188819-ffc2-4caa-a57f-a8f9414391c1#draft-financing"
+  }
+}

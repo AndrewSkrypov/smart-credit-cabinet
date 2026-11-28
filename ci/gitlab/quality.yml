@@ -192,6 +192,22 @@ ollama-image-security:
       - security/reports/infra-ollama/oci.json
       - security/reports/infra-ollama/trivy-image-*.json
       - security/reports/infra-ollama/summary.json
+mcp-image-security:
+  stage: verify
+  extends: .quality
+  timeout: 30 minutes
+  dependencies: []
+  script:
+    - python3 -B -m unittest discover -s ci/gitlab -p test_mcp_release.py
+    - bash ci/gitlab/quality/image-scan.sh mcp
+  after_script:
+    - bash ci/gitlab/quality/cleanup.sh
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - security/reports/image-mcp/trivy-image-*.json
+      - security/reports/image-mcp/summary.json
 image-security:
   stage: verify
   extends: .verified

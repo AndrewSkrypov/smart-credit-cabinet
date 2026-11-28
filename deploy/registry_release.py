@@ -9,17 +9,19 @@ APP_SERVICES = ("identity", "credit", "engagement", "external-sim", "frontend")
 IMAGE_COMPONENTS = (*APP_SERVICES, "postgres", "swagger")
 RUNTIME_COMPONENTS = {"catalog-grpc": "catalog", "assessment": "assessment",
                       "servicing": "servicing", "documents": "documents"}
-OPTIONAL_IMAGES = {"ssh-bridge", "clamav", *RUNTIME_COMPONENTS}
+OPTIONAL_IMAGES = {"ssh-bridge", "clamav", "mcp", *RUNTIME_COMPONENTS}
 RUNTIME_MODES = {"disabled", "local", "remote"}
 CONFIG_DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 REVISION = re.compile(r"[0-9a-f]{40}")
 SHA256 = re.compile(r"[0-9a-f]{64}")
 KAFKA_UPSTREAM_IMAGE = re.compile(r"apache/kafka:[0-9.]+@sha256:[0-9a-f]{64}")
+MCP_BASE_IMAGE = re.compile(r"node:[0-9]+\.[0-9]+\.[0-9]+-bookworm-slim@sha256:[0-9a-f]{64}")
 KAFKA_IMAGE_FILE = Path(__file__).resolve().parents[1] / "ci/alpha/kafka-image.txt"
 IMAGE = re.compile(r"[a-z0-9.-]+(?::[0-9]{1,5})?(?:/[a-z0-9][a-z0-9._-]*)+@sha256:[0-9a-f]{64}")
 SERVICE_COMPONENTS = {
     **{name: name for name in (*APP_SERVICES, "postgres")},
     "swagger-ui": "swagger",
+    "cabinet-mcp": "mcp",
     "clamav": "clamav",
     "ollama-ssh-bridge": "ssh-bridge",
     "db-init": "postgres",
@@ -57,7 +59,7 @@ class RegistryRelease:
         self.path = Path(path).resolve()
         raw = self.path.read_bytes()
         release = json.loads(raw, object_pairs_hook=unique_fields)
-        if not isinstance(release, dict) or set(release) - {"revision", "images", "alpha_dev", "runtime_oci", *RUNTIME_COMPONENTS.values()}:
+        if not isinstance(release, dict) or set(release) - {"revision", "images", "alpha_dev", "runtime_oci", "mcp", *RUNTIME_COMPONENTS.values()}:
             raise ValueError("Ожидается JSON manifest выпуска")
         self.revision = release.get("revision")
         self.images = release.get("images")
@@ -74,6 +76,14 @@ class RegistryRelease:
         if len(repositories) != 1:
             raise ValueError("Образы выпуска должны находиться в одном проекте Registry")
         repository, = repositories
+        self.mcp = None
+        if "mcp" in self.images or "mcp" in release:
+            mcp = release.get("mcp")
+            if ("mcp" not in self.images or not isinstance(mcp, dict) or set(mcp) != {"config_digest", "base_image"}
+                    or not isinstance(mcp["config_digest"], str) or not CONFIG_DIGEST.fullmatch(mcp["config_digest"])
+                    or not isinstance(mcp["base_image"], str) or not MCP_BASE_IMAGE.fullmatch(mcp["base_image"])):
+                raise ValueError("Для MCP нужны OCI config digest и закреплённый базовый образ Node.js")
+            self.mcp = mcp
         self.runtime_oci = release.get("runtime_oci", {})
         if "runtime_oci" in release and (
             not isinstance(self.runtime_oci, dict)
@@ -189,11 +199,16 @@ class RegistryRelease:
         elif name == "kafka":
             labels += ' {{index .Config.Labels "org.opencontainers.image.base.name"}}'
             expected.append(self.kafka_upstream)
+        elif name == "mcp" and self.mcp:
+            labels += ' {{index .Config.Labels "org.opencontainers.image.base.name"}}'
+            expected.append(self.mcp["base_image"])
         result = subprocess.run(
             ["docker", "image", "inspect", "--format", labels, image], capture_output=True, text=True,
         )
         fields = result.stdout.split()
         digest = self.runtime_oci.get(name) or self.runtime.get(name, {}).get("config_digest")
+        if name == "mcp" and self.mcp:
+            digest = self.mcp["config_digest"]
         if digest and (not fields or fields[0] != digest):
             raise RuntimeError(f"Digest OCI-конфигурации {name} не совпадает с manifest")
         if (result.returncode or not fields or not re.fullmatch(r"sha256:[0-9a-f]{64}", fields[0])

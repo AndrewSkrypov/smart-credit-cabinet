@@ -31,7 +31,11 @@ passed=0
 verify() {
     expected=$1
     age=$2
-    export ANTIVIRUS_MAX_SIGNATURE_AGE=$3
+    if [ "$#" -eq 3 ]; then
+        export ANTIVIRUS_MAX_SIGNATURE_AGE=$3
+    else
+        unset ANTIVIRUS_MAX_SIGNATURE_AGE
+    fi
     stamp=$(date -u -d "@$((now - age))" '+%a %b %d %H:%M:%S %Y')
     export TEST_SCANNER_VERSION="ClamAV 1.5.4/$serial/$stamp"
     actual=1
@@ -42,6 +46,10 @@ verify() {
 
 verify 0 3600 PT72H
 verify 1 345600 PT72H
+verify 0 345600
+verify 1 604801
+verify 0 345600 P7D
+verify 0 345600 PT168H
 verify 1 -600 PT72H
 verify 0 -120 PT72H
 verify 1 7200 PT1H

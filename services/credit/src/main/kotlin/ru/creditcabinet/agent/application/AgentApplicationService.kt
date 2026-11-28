@@ -101,10 +101,12 @@ class AgentApplicationService(
 
     fun listApplications(statuses: Set<ApplicationStatus>? = null): List<LoanApplication> {
         val caller = callerIdentity.requireRole(Roles.AGENT)
-        val companyIds = agentAccess.listCompanyIds(caller.userId).toSet()
-        return eligibleApplications(caller.userId, companyIds)
+        return listForAgent(caller.userId)
             .filter { statuses.isNullOrEmpty() || it.status in statuses }
     }
+
+    internal fun listForAgent(agentId: UUID): List<LoanApplication> =
+        eligibleApplications(agentId, agentAccess.listCompanyIds(agentId).toSet())
 
     private fun eligibleApplications(agentId: UUID, companyIds: Set<UUID>): List<LoanApplication> {
         val owned = applications.listByAgent(agentId).filter { it.activeAgentId == agentId && it.company.id in companyIds }
@@ -266,11 +268,15 @@ class AgentApplicationService(
 
     private fun ownAgentApplication(id: UUID, forUpdate: Boolean): Pair<TokenClaims, LoanApplication> {
         val caller = callerIdentity.requireRole(Roles.AGENT)
+        return caller to authorizedCase(id, caller.userId, forUpdate)
+    }
+
+    internal fun authorizedCase(id: UUID, agentId: UUID, forUpdate: Boolean = false): LoanApplication {
         val application = (if (forUpdate) applications.findForUpdate(id) else applications.find(id)) ?: throw notFound()
-        if (application.activeAgentId != caller.userId) throw notFound()
-        if (!agentAccess.checkAccess(caller.userId, application.company.id).allowed) throw notFound()
+        if (application.activeAgentId != agentId) throw notFound()
+        if (!agentAccess.checkAccess(agentId, application.company.id).allowed) throw notFound()
         if (!eligibility.isEligible(application.company)) throw notFound()
-        return caller to application
+        return application
     }
 
     private fun activeExists(product: Product) =

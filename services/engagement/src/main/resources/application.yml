@@ -55,6 +55,10 @@ cabinet:
     answer-timeout: ${ASSISTANT_TIMEOUT:PT30S}
     keep-alive: ${ASSISTANT_KEEP_ALIVE:15m}
     warmup: ${ASSISTANT_WARMUP:false}
+    gitlab:
+      api-url: ${ASSISTANT_GITLAB_API_URL:}
+      instance-id: ${ASSISTANT_GITLAB_INSTANCE_ID:}
+      app-name: ${ASSISTANT_GITLAB_APP_NAME:}
   openapi:
     title: "Кабинет предпринимателя: уведомления и помощник"
   auth:

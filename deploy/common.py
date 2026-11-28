@@ -158,6 +158,10 @@ class Deployment:
         # the effective container flag; ambient CI/shell values cannot select it.
         self.environment[dev_payment_reserve.FLAG] = "false"
         self.environment[dev_payment_reserve.CONTEXT] = project
+        assistant_gitlab_dev = project == "cabinet-dev" and not local and not historical_backup
+        for key in ("ASSISTANT_GITLAB_API_URL", "ASSISTANT_GITLAB_INSTANCE_ID"):
+            self.environment[key] = self.values.get(key, "") if assistant_gitlab_dev else ""
+        self.environment["ASSISTANT_GITLAB_APP_NAME"] = "dev" if assistant_gitlab_dev else ""
         if "ai" in self.profiles:
             self.environment.setdefault("ASSISTANT_MODEL", "qwen2.5:1.5b")
         if "monitoring" in self.profiles:

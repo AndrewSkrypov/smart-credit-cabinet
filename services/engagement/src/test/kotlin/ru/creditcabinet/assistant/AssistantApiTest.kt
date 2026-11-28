@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.post
 import ru.creditcabinet.assistant.application.AssistantApplications
 import ru.creditcabinet.assistant.application.AssistantFailure
 import ru.creditcabinet.assistant.application.AssistantFailureReason
+import ru.creditcabinet.assistant.application.AssistantUiFlags
 import ru.creditcabinet.assistant.application.ChatMessage
 import ru.creditcabinet.assistant.application.LanguageModel
 import ru.creditcabinet.assistant.domain.ApplicationFacts
@@ -54,6 +55,8 @@ class AssistantApiTest {
 
     @MockitoBean private lateinit var notifications: NotificationService
 
+    @MockitoBean private lateinit var uiFlags: AssistantUiFlags
+
     private val applicationId = UUID.randomUUID()
     private val token by lazy { verifier.tokenFor(UUID.randomUUID(), "CLIENT", UUID.randomUUID()) }
 
@@ -73,6 +76,29 @@ class AssistantApiTest {
             contentType = MediaType.APPLICATION_JSON
             content = mapper.writeValueAsString(mapOf("question" to question, "applicationId" to application))
         }.andReturn().response
+
+    @Test
+    fun `ui config requires authentication and exposes only a noncacheable flag for cabinet roles`() {
+        mockMvc.get("/api/v1/assistant/ui-config").andExpect { status { isUnauthorized() } }
+        val pilot = UUID.randomUUID()
+        whenever(uiFlags.isKeshaEnabled(pilot)).thenReturn(true)
+        val scenarios = listOf(
+            Triple(pilot, Roles.CLIENT, true),
+            Triple(pilot, Roles.AGENT, true),
+            Triple(pilot, Roles.MANAGER, false),
+            Triple(UUID.randomUUID(), Roles.AGENT, false),
+        )
+        for ((userId, role, expected) in scenarios) {
+            val session = verifier.tokenFor(userId, role)
+            mockMvc.get("/api/v1/assistant/ui-config") {
+                header("Authorization", "Bearer $session")
+            }.andExpect {
+                status { isOk() }
+                header { string("Cache-Control", "no-store") }
+                content { string("""{"keshaEnabled":$expected}""") }
+            }
+        }
+    }
 
     @Test
     fun `agent next steps enforce the same upstream access as an ordinary agent request`() {

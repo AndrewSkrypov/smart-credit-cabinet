@@ -12312,11 +12312,11 @@
         },
         {
           "name": "zod",
-          "version": "4.3.6",
+          "version": "4.6.7",
           "licenses": [
             "MIT"
           ],
-          "source": "https://registry.npmjs.org/zod/4.3.6",
+          "source": "https://registry.npmjs.org/zod/4.6.7",
           "provenance": "package-lock.json"
         },
         {

@@ -1154,7 +1154,7 @@ npm — из lock-файлов, дополненных license-checker для п
 | vary | 1.1.2 | MIT | https://registry.npmjs.org/vary/1.1.2 |
 | which | 2.0.2 | ISC | https://registry.npmjs.org/which/2.0.2 |
 | wrappy | 1.0.2 | ISC | https://registry.npmjs.org/wrappy/1.0.2 |
-| zod | 4.3.6 | MIT | https://registry.npmjs.org/zod/4.3.6 |
+| zod | 4.6.7 | MIT | https://registry.npmjs.org/zod/4.6.7 |
 | zod-to-json-schema | 3.25.2 | ISC | https://registry.npmjs.org/zod-to-json-schema/3.25.2 |
 
 ## Docker-образы

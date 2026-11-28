@@ -32,6 +32,10 @@ default:
     - if nc -w 2 1.1.1.1 443 </dev/null 2>/dev/null; then exit 1; fi
     - printf "PUMP light runner %s passed container isolation checks\n" "$CI_RUNNER_ID"
 
+runner-check-dev01:
+  extends: .light-runner-check
+  tags: [cabinet-ci-light, cabinet-ci-light-dev01]
+
 runner-check-dev02:
   extends: .light-runner-check
   tags: [cabinet-ci-light, cabinet-ci-light-dev02]

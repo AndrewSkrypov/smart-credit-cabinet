@@ -171,7 +171,10 @@ class FinancingScenarioIntegrationTest {
     fun `saved web preview refuses changed application terms without writing`() {
         val draft = draft()
         val path = agentPath(draft.id)
-        val product = checkNotNull(products.find(draft.terms.productCode)).copy(code = "PREVIEW_" + UUID.randomUUID())
+        val product = checkNotNull(products.find(draft.terms.productCode)).copy(
+            code = "PREVIEW_" + UUID.randomUUID().toString().replace("-", "").take(12),
+            version = 1,
+        )
         transactions.executeWithoutResult {
             versions.create(product, agentId, "Synthetic preview fixture", clock.instant())
             versions.replace(product, 1, agentId, "Synthetic second revision", clock.instant())

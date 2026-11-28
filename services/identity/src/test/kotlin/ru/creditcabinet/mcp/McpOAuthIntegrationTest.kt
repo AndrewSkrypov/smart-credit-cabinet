@@ -222,6 +222,7 @@ class McpOAuthIntegrationTest {
         val response = open()
         assertEquals(200, response.status, response.contentAsString)
         assertContains(assertNotNull(response.getHeader(HttpHeaders.SET_COOKIE)), "SameSite=Lax")
+        assertContains(assertNotNull(response.getHeader("Content-Security-Policy")), "form-action 'self' http://127.0.0.1:49191;")
         assertContains(response.contentAsString, "Test &lt;Connector&gt;")
         val csrf = assertNotNull(Regex("name=\"csrf\" value=\"([A-Za-z0-9_-]+)\"").find(response.contentAsString)).groupValues[1]
         val cookie = assertNotNull(response.getCookie("__Host-cabinet-mcp-oauth"))

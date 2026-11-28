@@ -22,6 +22,7 @@ class McpOAuthSettings(
     @Value("\${cabinet.auth.jwt-secret}") browserJwtSecret: String,
 ) {
     val resource = "$issuer/api/mcp"
+    final val redirectOrigin: String
     private val identityDigest = digestBytes(identityServiceToken)
     private val creditDigest = digestBytes(creditServiceToken)
 
@@ -50,6 +51,7 @@ class McpOAuthSettings(
                 !redirect.rawPath.isNullOrBlank() &&
                 (redirect.scheme == "https" || redirect.scheme == "http" && loopback),
         ) { "MCP OAuth redirect must be an exact HTTPS URI or a numeric HTTP loopback URI with a host port" }
+        redirectOrigin = "${redirect.scheme}://${redirect.rawAuthority}"
         require(
             identityServiceToken.matches(SERVICE_TOKEN) &&
                 creditServiceToken.matches(SERVICE_TOKEN) &&

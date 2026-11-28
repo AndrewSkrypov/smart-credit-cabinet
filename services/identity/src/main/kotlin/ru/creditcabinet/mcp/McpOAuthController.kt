@@ -236,7 +236,11 @@ internal class McpOAuthController(
         .header(HttpHeaders.CACHE_CONTROL, "no-store")
         .header(HttpHeaders.PRAGMA, "no-cache")
         .header("Referrer-Policy", "same-origin")
-        .header("Content-Security-Policy", "default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+        .header(
+            "Content-Security-Policy",
+            // Chromium checks the form-action policy again after the consent form's 303 redirect.
+            "default-src 'none'; base-uri 'none'; form-action 'self' ${settings.redirectOrigin}; frame-ancestors 'none'",
+        )
 
     private fun HttpServletRequest.one(name: String): String? = getParameterValues(name)?.singleOrNull()
 
